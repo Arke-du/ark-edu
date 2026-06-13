@@ -2,8 +2,5 @@ Flask
 gunicorn
 qrcode[pil]
 pillow
-pyzbar
-numpy
-opencv-python
 werkzeug
 itsdangerous

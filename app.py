@@ -9,10 +9,10 @@ import base64
 from io import BytesIO
 from datetime import datetime
 from werkzeug.utils import secure_filename
-import cv2
-from pyzbar.pyzbar import decode
+# import cv2
+# from pyzbar.pyzbar import decode
 from PIL import Image
-import numpy as np
+# import numpy as np
 import cv2
 
 app = Flask(__name__)
