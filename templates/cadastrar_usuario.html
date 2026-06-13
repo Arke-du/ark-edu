@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastrar Usuário</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+        }
+
+        header {
+            background: #1e3a8a;
+            color: white;
+            padding: 25px;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 700px;
+            margin: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #1e3a8a;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .acoes {
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #16317a;
+        }
+
+        .voltar {
+            text-decoration: none;
+            background: #6b7280;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+        }
+
+        .voltar:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Gestão de Usuários</h1>
+</header>
+
+<div class="container">
+
+    <div class="card">
+
+        <h2>Cadastrar Usuário</h2>
+
+        <form method="POST">
+
+            <label>Nome</label>
+            <input type="text" name="nome" required>
+
+            <label>E-mail</label>
+            <input type="text" name="email" required>
+
+            <label>Senha</label>
+            <input type="password" name="senha" required>
+
+            <label>Cargo</label>
+            <select name="cargo_id" required>
+                <option value="">Selecione...</option>
+
+                {% for cargo in cargos %}
+                    <option value="{{ cargo.id }}">
+                        {{ cargo.nome }}
+                    </option>
+                {% endfor %}
+
+            </select>
+
+            <div class="acoes">
+                <button type="submit">
+                    Salvar Usuário
+                </button>
+
+                <a href="/gestao" class="voltar">
+                    Voltar
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>

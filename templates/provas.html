@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Montagem de Provas</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .topo-provas {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .topo-provas h2 {
+            margin: 0;
+            font-size: 32px;
+            color: #111827;
+        }
+
+        .topo-provas p {
+            margin: 8px 0 0 0;
+            color: #64748b;
+            font-size: 17px;
+        }
+
+        .btn-criar {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 15px 28px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+            white-space: nowrap;
+        }
+
+        .btn-criar:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .titulo-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .titulo-card h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: visible;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        a {
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .acoes {
+            width: 80px;
+            text-align: center;
+            position: relative;
+        }
+
+        .menu-acoes {
+            position: relative;
+            display: inline-block;
+        }
+
+        .btn-menu {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            color: #1e3a8a;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 30px;
+            transition: 0.2s;
+        }
+
+        .btn-menu:hover,
+        .btn-menu.ativo {
+            background: #eff6ff;
+            border-color: #2563eb;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            width: 210px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.15);
+            z-index: 9999;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .dropdown.ativo {
+            display: block;
+        }
+
+        .dropdown a {
+            display: block;
+            padding: 13px 16px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown a:hover {
+            background: #f8fafc;
+            color: #1e3a8a;
+        }
+
+        .dropdown a.excluir {
+            color: #b91c1c;
+        }
+
+        .dropdown a.excluir:hover {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .sem-registro {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 900px) {
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .topo-provas {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .btn-criar {
+                width: 100%;
+                text-align: center;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 950px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Montagem de Provas</h1>
+    <p>Crie, gerencie e acompanhe suas avaliações.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+        <div class="topo-provas">
+            <div>
+                <h2>Avaliações escolares</h2>
+                <p>Crie provas e aplique de forma digital ou impressa.</p>
+            </div>
+
+            <a href="/gerar_prova" class="btn-criar">
+                + Criar prova
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="titulo-card">
+            <h2>Avaliações Geradas</h2>
+        </div>
+
+        <div class="tabela-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Turma</th>
+                    <th>Professor</th>
+                    <th>Disciplina</th>
+                    <th>Quantidade</th>
+                    <th>Data Gerada</th>
+                    <th>Data de Aplicação</th>
+                    <th>Ações</th>
+                </tr>
+
+                {% for prova in provas %}
+                <tr>
+                    <td>{{ prova[0] }}</td>
+                    <td>{{ prova[1] }}</td>
+                    <td>{{ prova[2] }}</td>
+                    <td>{{ prova[3] }}</td>
+                    <td>{{ prova[4] }}</td>
+                    <td>{{ prova[5] }}</td>
+                    <td>{{ prova[6] }}</td>
+                    <td>{{ prova[7] }}</td>
+
+                    <td class="acoes">
+                        <div class="menu-acoes">
+                            <button class="btn-menu" type="button" onclick="toggleMenu(this)">
+                                ⋮
+                            </button>
+
+                            <div class="dropdown">
+                                <a href="/prova/{{ prova[0] }}">Visualizar prova</a>
+
+                                <a href="/prova/{{ prova[0] }}" target="_blank">Gerar PDF</a>
+
+                                <a href="/cartao_resposta/{{ prova[0] }}">Cartão-resposta</a>
+
+                                <a href="/importar_cartoes/{{ prova[0] }}">Importar cartões</a>
+
+                                <a href="/resultados/{{ prova[0] }}">Ver resultados</a>
+
+                                <a href="/editar_prova/{{ prova[0] }}">Editar prova</a>
+
+                                <a href="/excluir_prova/{{ prova[0] }}"
+                                   class="excluir"
+                                   onclick="return confirm('Tem certeza que deseja excluir esta prova?')">
+                                    Excluir prova
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+                {% else %}
+                <tr>
+                    <td colspan="9" class="sem-registro">
+                        Nenhuma avaliação gerada ainda.
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function toggleMenu(botao) {
+        const menuAtual = botao.nextElementSibling;
+
+        document.querySelectorAll(".dropdown").forEach(menu => {
+            if (menu !== menuAtual) {
+                menu.classList.remove("ativo");
+            }
+        });
+
+        document.querySelectorAll(".btn-menu").forEach(btn => {
+            if (btn !== botao) {
+                btn.classList.remove("ativo");
+            }
+        });
+
+        menuAtual.classList.toggle("ativo");
+        botao.classList.toggle("ativo");
+    }
+
+    document.addEventListener("click", function(event) {
+        if (!event.target.closest(".menu-acoes")) {
+            document.querySelectorAll(".dropdown").forEach(menu => {
+                menu.classList.remove("ativo");
+            });
+
+            document.querySelectorAll(".btn-menu").forEach(btn => {
+                btn.classList.remove("ativo");
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

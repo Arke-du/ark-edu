@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+.login-area {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px;
+}
+
+.card {
+    background: white;
+    width: 100%;
+    max-width: 450px;
+    padding: 40px;
+    border-radius: 24px;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.10);
+    border: 1px solid #e5e7eb;
+}
+
+.logo {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    border-radius: 20px;
+    margin: 0 auto 25px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+h1 {
+    color: #1e3a8a;
+    text-align: center;
+    margin: 0;
+    font-size: 38px;
+}
+
+.subtitulo {
+    text-align: center;
+    color: #64748b;
+    margin-top: 12px;
+    margin-bottom: 35px;
+    font-size: 16px;
+}
+
+label {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    color: #334155;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 22px;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    font-size: 15px;
+    transition: 0.2s;
+}
+
+input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
+
+.esqueci {
+    text-align: center;
+    margin-top: 18px;
+}
+
+.esqueci a {
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.esqueci a:hover {
+    text-decoration: underline;
+}
+
+.info {
+    margin-top: 30px;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    padding: 18px;
+    color: #1e3a8a;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.info strong {
+    color: #1e40af;
+}
+
+@media (max-width: 500px) {
+    .card {
+        padding: 30px 25px;
+    }
+
+    h1 {
+        font-size: 32px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-area">
+
+    <div class="card">
+
+        <div class="logo">
+            PA
+        </div>
+
+        <h1>Login</h1>
+
+        <p class="subtitulo">
+            Plataforma de Avaliação
+        </p>
+
+        <form method="POST" action="{{ url_for('login') }}">
+
+            <label for="email">Usuário / E-mail</label>
+
+            <input
+                type="text"
+                id="email"
+                name="email"
+                placeholder="Digite seu usuário ou e-mail"
+                required
+            >
+
+            <label for="senha">Senha</label>
+
+            <input
+                type="password"
+                id="senha"
+                name="senha"
+                placeholder="Digite sua senha"
+                required
+            >
+
+            <button type="submit">
+                Entrar
+            </button>
+
+        </form>
+
+        <div class="esqueci">
+            <a href="{{ url_for('esqueci_senha') }}">
+                Esqueceu a senha?
+            </a>
+        </div>
+
+        <div class="info">
+            <strong>Acesso inicial:</strong> admin<br>
+            <strong>Senha inicial:</strong> admin123
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Cargos e Permissões</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 30px 50px;
+    border-bottom-left-radius: 25px;
+    border-bottom-right-radius: 25px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 34px;
+}
+
+.container {
+    padding: 35px 50px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.voltar {
+    background: #1e3a8a;
+    color: white;
+    padding: 12px 18px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background: #1e3a8a;
+    color: white;
+    padding: 14px;
+    text-align: left;
+}
+
+td {
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.btn {
+    background: #7c3aed;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 9px;
+    text-decoration: none;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Cargos e Permissões</h1>
+    <p>Configure os cargos e defina os acessos da plataforma.</p>
+</header>
+
+<div class="container">
+
+    <div class="card">
+
+        <div class="topo">
+            <h2>Lista de Cargos</h2>
+            <a class="voltar" href="/gestao">← Voltar</a>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Cargo</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for cargo in cargos %}
+                <tr>
+                    <td>{{ cargo[1] }}</td>
+                    <td>
+                        <a class="btn" href="/permissoes/{{ cargo[0] }}">
+                            Gerenciar Permissões
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

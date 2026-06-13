@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro de Professores</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 28px;
+            color: #111827;
+        }
+
+        .descricao {
+            margin-top: 8px;
+            margin-bottom: 30px;
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: 0.2s;
+            background: white;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
+
+        .secao {
+            margin-top: 32px;
+        }
+
+        .secao h3 {
+            margin: 0 0 8px 0;
+            font-size: 21px;
+            color: #111827;
+        }
+
+        .secao p {
+            margin: 0 0 16px 0;
+            color: #64748b;
+            font-size: 15px;
+        }
+
+        .grupo-opcoes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .opcao {
+            background: #ffffff;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid #dbe3ef;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .opcao:hover {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1e3a8a;
+        }
+
+        .opcao input {
+            width: 18px;
+            height: 18px;
+            accent-color: #1e3a8a;
+            cursor: pointer;
+        }
+
+        .btn-principal {
+            width: 100%;
+            margin-top: 35px;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-principal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .titulo-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .titulo-card h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: visible;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        a {
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .acoes {
+            width: 80px;
+            text-align: center;
+            position: relative;
+            vertical-align: middle;
+        }
+
+        .menu-acoes {
+            position: relative;
+            display: inline-block;
+        }
+
+        .btn-menu {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            color: #1e3a8a;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 30px;
+            transition: 0.2s;
+            box-shadow: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .btn-menu:hover,
+        .btn-menu.ativo {
+            background: #eff6ff;
+            border-color: #2563eb;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            width: 200px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.15);
+            z-index: 9999;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .dropdown.ativo {
+            display: block;
+        }
+
+        .dropdown a {
+            display: block;
+            padding: 13px 16px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown a:hover {
+            background: #f8fafc;
+            color: #1e3a8a;
+        }
+
+        .dropdown a.excluir {
+            color: #b91c1c;
+        }
+
+        .dropdown a.excluir:hover {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .sem-registro {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 900px) {
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .grupo-opcoes {
+                grid-template-columns: 1fr;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 850px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Cadastro de Professores</h1>
+    <p>Cadastre docentes, disciplinas e vínculos com turmas.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+        <h2>Novo Professor</h2>
+        <p class="descricao">
+            Informe os dados do professor e selecione suas disciplinas e turmas.
+        </p>
+
+        <form action="/cadastrar_professor" method="POST">
+
+            <label>Nome do professor:</label>
+            <input type="text" name="nome" placeholder="Ex: Prof. Hiago Martins" required>
+
+            <label>E-mail:</label>
+            <input type="email" name="email" placeholder="Ex: professor@email.com">
+
+            <div class="secao">
+                <h3>Disciplinas que o professor leciona</h3>
+                <p>Marque uma ou mais disciplinas vinculadas ao professor.</p>
+
+                <div class="grupo-opcoes">
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Língua Portuguesa">
+                        Língua Portuguesa
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Matemática">
+                        Matemática
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Ciências">
+                        Ciências
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="História">
+                        História
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Geografia">
+                        Geografia
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Inglês">
+                        Inglês
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Arte">
+                        Arte
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Ensino Religioso">
+                        Ensino Religioso
+                    </label>
+                </div>
+            </div>
+
+            <div class="secao">
+                <h3>Turmas vinculadas ao professor</h3>
+                <p>Selecione as turmas em que este professor atua.</p>
+
+                <div class="grupo-opcoes">
+                    {% for turma in turmas %}
+                    <label class="opcao">
+                        <input type="checkbox" name="turmas" value="{{ turma[0] }}">
+                        {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn-principal">
+                Cadastrar Professor
+            </button>
+
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="titulo-card">
+            <h2>Professores Cadastrados</h2>
+        </div>
+
+        <div class="tabela-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Disciplinas</th>
+                    <th>Ações</th>
+                </tr>
+
+                {% for professor in professores %}
+                <tr>
+                    <td>{{ professor[0] }}</td>
+                    <td>{{ professor[1] }}</td>
+                    <td>{{ professor[2] }}</td>
+                    <td>{{ professor[3] }}</td>
+                    <td class="acoes">
+                        <div class="menu-acoes">
+                            <button class="btn-menu" type="button" onclick="toggleMenu(this)">
+                                ⋮
+                            </button>
+
+                            <div class="dropdown">
+                                <a href="/editar_professor/{{ professor[0] }}">
+                                    Editar professor
+                                </a>
+
+                                <a href="/excluir_professor/{{ professor[0] }}"
+                                   class="excluir"
+                                   onclick="return confirm('Tem certeza que deseja excluir este professor?')">
+                                    Excluir professor
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="sem-registro">
+                        Nenhum professor cadastrado ainda.
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function toggleMenu(botao) {
+        const menuAtual = botao.nextElementSibling;
+
+        document.querySelectorAll(".dropdown").forEach(menu => {
+            if (menu !== menuAtual) {
+                menu.classList.remove("ativo");
+            }
+        });
+
+        document.querySelectorAll(".btn-menu").forEach(btn => {
+            if (btn !== botao) {
+                btn.classList.remove("ativo");
+            }
+        });
+
+        menuAtual.classList.toggle("ativo");
+        botao.classList.toggle("ativo");
+    }
+
+    document.addEventListener("click", function(event) {
+        if (!event.target.closest(".menu-acoes")) {
+            document.querySelectorAll(".dropdown").forEach(menu => {
+                menu.classList.remove("ativo");
+            });
+
+            document.querySelectorAll(".btn-menu").forEach(btn => {
+                btn.classList.remove("ativo");
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

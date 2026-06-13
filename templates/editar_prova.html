@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Editar Prova</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+header p {
+    margin-top: 10px;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 32px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.card {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    max-width: 900px;
+    margin: auto;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.card h2 {
+    margin: 0;
+    font-size: 28px;
+    color: #111827;
+}
+
+.descricao {
+    margin-top: 8px;
+    margin-bottom: 30px;
+    color: #64748b;
+    font-size: 16px;
+}
+
+label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    outline: none;
+    transition: 0.2s;
+}
+
+input:focus,
+select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.acoes {
+    display: flex;
+    gap: 12px;
+    margin-top: 35px;
+}
+
+.btn {
+    flex: 1;
+    padding: 15px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: none;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.btn-salvar {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+}
+
+.btn-salvar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.btn-cancelar {
+    background: white;
+    color: #1e3a8a;
+    border: 1px solid #cbd5e1;
+}
+
+.btn-cancelar:hover {
+    background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+    header {
+        padding: 35px 25px;
+    }
+
+    header h1 {
+        font-size: 32px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .card {
+        padding: 25px;
+    }
+
+    .acoes {
+        flex-direction: column;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Editar Prova</h1>
+    <p>Atualize os dados principais da avaliação cadastrada.</p>
+</header>
+
+<div class="container">
+
+    <a href="/provas" class="voltar">← Voltar para provas</a>
+
+    <div class="card">
+
+        <h2>Dados da prova</h2>
+        <p class="descricao">
+            Altere as informações abaixo e clique em Salvar Alterações.
+        </p>
+
+        <form action="/atualizar_prova/{{ prova[0] }}" method="POST">
+
+            <label>Nome da prova:</label>
+            <input type="text" name="nome" value="{{ prova[1] }}" required>
+
+            <label>Turma:</label>
+            <select name="turma_id" required>
+                {% for turma in turmas %}
+                <option value="{{ turma[0] }}" {% if turma[0] == prova[2] %}selected{% endif %}>
+                    {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <label>Professor:</label>
+            <select name="professor_id" required>
+                {% for professor in professores %}
+                <option value="{{ professor[0] }}" {% if professor[0] == prova[3] %}selected{% endif %}>
+                    {{ professor[1] }} - {{ professor[3] }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <label>Disciplina:</label>
+            <select name="disciplina" required>
+                <option value="Língua Portuguesa" {% if prova[4] == "Língua Portuguesa" %}selected{% endif %}>Língua Portuguesa</option>
+                <option value="Matemática" {% if prova[4] == "Matemática" %}selected{% endif %}>Matemática</option>
+                <option value="Ciências" {% if prova[4] == "Ciências" %}selected{% endif %}>Ciências</option>
+                <option value="História" {% if prova[4] == "História" %}selected{% endif %}>História</option>
+                <option value="Geografia" {% if prova[4] == "Geografia" %}selected{% endif %}>Geografia</option>
+                <option value="Inglês" {% if prova[4] == "Inglês" %}selected{% endif %}>Inglês</option>
+                <option value="Arte" {% if prova[4] == "Arte" %}selected{% endif %}>Arte</option>
+                <option value="Ensino Religioso" {% if prova[4] == "Ensino Religioso" %}selected{% endif %}>Ensino Religioso</option>
+            </select>
+
+            <label>Quantidade de questões:</label>
+            <input type="number" name="quantidade" min="1" value="{{ prova[5] }}" required>
+
+            <div class="acoes">
+                <a href="/provas" class="btn btn-cancelar">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-salvar">
+                    Salvar Alterações
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Resultados</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    margin: 0;
+}
+
+header {
+    background: #1e3a8a;
+    color: white;
+    padding: 35px;
+}
+
+.container {
+    padding: 30px;
+}
+
+.voltar {
+    color: #1e3a8a;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.card {
+    background: white;
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.resumo {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 15px;
+    margin: 25px 0;
+}
+
+.bloco {
+    background: #eef2ff;
+    border-left: 6px solid #1e3a8a;
+    padding: 18px;
+    border-radius: 10px;
+}
+
+.bloco h3 {
+    margin: 0;
+    color: #1e3a8a;
+    font-size: 14px;
+}
+
+.bloco p {
+    margin: 8px 0 0;
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.aprovado {
+    border-left-color: #16a34a;
+}
+
+.reprovado {
+    border-left-color: #dc2626;
+}
+
+.taxa {
+    border-left-color: #7c3aed;
+}
+
+.nota-aprovado {
+    color: #16a34a;
+    font-weight: bold;
+}
+
+.nota-reprovado {
+    color: #dc2626;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th {
+    background: #1e3a8a;
+    color: white;
+    padding: 12px;
+}
+
+td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+
+tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.posicao {
+    font-weight: bold;
+    color: #1e3a8a;
+}
+
+.sem-resultados {
+    text-align: center;
+    color: #666;
+    padding: 25px;
+}
+
+@media (max-width: 1100px) {
+    .resumo {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .resumo {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+    header, .voltar {
+        display: none;
+    }
+
+    body {
+        background: white;
+    }
+
+    .card {
+        box-shadow: none;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Resultados da Prova</h1>
+</header>
+
+<div class="container">
+
+    <p>
+    <a class="voltar" href="/provas">
+        ← Voltar para provas
+    </a>
+</p>
+
+<p>
+    <a class="voltar" href="/relatorio_questoes/{{ request.view_args['prova_id'] }}">
+        📊 Relatório por questão
+    </a>
+</p>
+
+    <div class="card">
+        <h2>{{ prova[0] }}</h2>
+
+        <div class="resumo">
+            <div class="bloco">
+                <h3>Total de alunos</h3>
+                <p>{{ total_alunos }}</p>
+            </div>
+
+            <div class="bloco">
+                <h3>Média da turma</h3>
+                <p>{{ "%.1f"|format(media_turma) }}</p>
+            </div>
+
+            <div class="bloco">
+                <h3>Maior nota</h3>
+                <p>{{ "%.1f"|format(maior_nota) }}</p>
+            </div>
+
+            <div class="bloco">
+                <h3>Menor nota</h3>
+                <p>{{ "%.1f"|format(menor_nota) }}</p>
+            </div>
+
+            <div class="bloco aprovado">
+                <h3>Aprovados</h3>
+                <p>{{ aprovados }}</p>
+            </div>
+
+            <div class="bloco reprovado">
+                <h3>Reprovados</h3>
+                <p>{{ reprovados }}</p>
+            </div>
+
+            <div class="bloco taxa">
+                <h3>Taxa de aprovação</h3>
+                <p>{{ "%.1f"|format(taxa_aprovacao) }}%</p>
+            </div>
+        </div>
+
+        <h3>Ranking dos alunos</h3>
+
+        <table>
+            <tr>
+                <th>Posição</th>
+                <th>Aluno</th>
+                <th>Acertos</th>
+                <th>Erros</th>
+                <th>Nota</th>
+            </tr>
+
+            {% for r in resultados %}
+            <tr>
+                <td class="posicao">
+                    {% if loop.index == 1 %}
+                        🥇
+                    {% elif loop.index == 2 %}
+                        🥈
+                    {% elif loop.index == 3 %}
+                        🥉
+                    {% else %}
+                        {{ loop.index }}º
+                    {% endif %}
+                </td>
+
+                <td>{{ r[0] }}</td>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+
+                <td>
+                    {% if r[3] >= 6 %}
+                        <span class="nota-aprovado">{{ "%.1f"|format(r[3]) }}</span>
+                    {% else %}
+                        <span class="nota-reprovado">{{ "%.1f"|format(r[3]) }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="sem-resultados">
+                    Nenhum resultado registrado para esta prova.
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

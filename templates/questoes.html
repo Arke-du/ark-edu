@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Banco de Questões</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 28px;
+            color: #111827;
+        }
+
+        .descricao {
+            margin-top: 8px;
+            margin-bottom: 30px;
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: 0.2s;
+            background: white;
+        }
+
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
+        }
+
+        .upload-box {
+            border: 2px dashed #bfdbfe;
+            border-radius: 18px;
+            padding: 20px;
+            background: #f8fbff;
+        }
+
+        .btn-principal {
+            width: 100%;
+            margin-top: 35px;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-principal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .titulo-card {
+            margin-bottom: 18px;
+        }
+
+        .titulo-card h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: visible;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .enunciado {
+            max-width: 520px;
+            line-height: 1.4;
+            color: #334155;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: bold;
+            background: #eff6ff;
+            color: #1e3a8a;
+            border: 1px solid #bfdbfe;
+        }
+
+        .badge-correta {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #bbf7d0;
+        }
+
+        .sem-registro {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 900px) {
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .card {
+                padding: 25px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 950px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Banco de Questões</h1>
+    <p>Cadastre, organize e consulte questões por disciplina, habilidade e dificuldade.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+        <h2>Nova Questão</h2>
+
+        <p class="descricao">
+            Preencha os dados da questão e salve no banco para usar na montagem das avaliações.
+        </p>
+
+        <form method="POST" action="/cadastrar_questao" enctype="multipart/form-data">
+
+            <div class="form-grid">
+
+                <div>
+                    <label>Disciplina:</label>
+                    <select name="disciplina" required>
+                        <option value="">Selecione</option>
+                        <option value="Língua Portuguesa">Língua Portuguesa</option>
+                        <option value="Matemática">Matemática</option>
+                        <option value="Ciências">Ciências</option>
+                        <option value="História">História</option>
+                        <option value="Geografia">Geografia</option>
+                        <option value="Inglês">Inglês</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Dificuldade:</label>
+                    <select name="dificuldade" required>
+                        <option value="">Selecione</option>
+                        <option value="Fácil">Fácil</option>
+                        <option value="Média">Média</option>
+                        <option value="Difícil">Difícil</option>
+                    </select>
+                </div>
+
+                <div class="campo-completo">
+                    <label>Enunciado:</label>
+                    <textarea name="enunciado" placeholder="Digite o enunciado da questão" required></textarea>
+                </div>
+
+                <div class="campo-completo">
+                    <label>Imagem da questão:</label>
+
+                    <div class="upload-box">
+                        <input type="file" name="imagem" accept="image/*">
+                    </div>
+                </div>
+
+                <div>
+                    <label>Alternativa A:</label>
+                    <input type="text" name="alternativa_a" required>
+                </div>
+
+                <div>
+                    <label>Alternativa B:</label>
+                    <input type="text" name="alternativa_b" required>
+                </div>
+
+                <div>
+                    <label>Alternativa C:</label>
+                    <input type="text" name="alternativa_c" required>
+                </div>
+
+                <div>
+                    <label>Alternativa D:</label>
+                    <input type="text" name="alternativa_d" required>
+                </div>
+
+                <div>
+                    <label>Alternativa correta:</label>
+                    <select name="correta" required>
+                        <option value="">Selecione</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Habilidade ou descritor:</label>
+                    <input type="text" name="habilidade" placeholder="Ex: SAEB D13 ou BNCC EF05MA07">
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn-principal">
+                Cadastrar Questão
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="titulo-card">
+            <h2>Questões Cadastradas</h2>
+        </div>
+
+        <div class="tabela-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Disciplina</th>
+                    <th>Enunciado</th>
+                    <th>Correta</th>
+                    <th>Habilidade</th>
+                    <th>Dificuldade</th>
+                </tr>
+
+                {% for questao in questoes %}
+                <tr>
+                    <td>{{ questao[0] }}</td>
+
+                    <td>
+                        <span class="badge">
+                            {{ questao[1] }}
+                        </span>
+                    </td>
+
+                    <td class="enunciado">
+                        {{ questao[2] }}
+                    </td>
+
+                    <td>
+                        <span class="badge badge-correta">
+                            {{ questao[7] }}
+                        </span>
+                    </td>
+
+                    <td>{{ questao[8] }}</td>
+                    <td>{{ questao[9] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="sem-registro">
+                        Nenhuma questão cadastrada ainda.
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Editar Professor</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+header p {
+    margin-top: 10px;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 32px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.card {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    max-width: 1100px;
+    margin: auto;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.card h2 {
+    margin: 0;
+    font-size: 28px;
+    color: #111827;
+}
+
+.descricao {
+    margin-top: 8px;
+    margin-bottom: 30px;
+    color: #64748b;
+    font-size: 16px;
+}
+
+label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+}
+
+input[type="text"],
+input[type="email"] {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    outline: none;
+    transition: 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.secao {
+    margin-top: 32px;
+}
+
+.secao h3 {
+    margin: 0 0 8px 0;
+    font-size: 21px;
+    color: #111827;
+}
+
+.secao p {
+    margin: 0 0 16px 0;
+    color: #64748b;
+    font-size: 15px;
+}
+
+.grupo-opcoes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.opcao {
+    background: #ffffff;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid #dbe3ef;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.opcao:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+}
+
+.opcao input {
+    width: 18px;
+    height: 18px;
+    accent-color: #1e3a8a;
+    cursor: pointer;
+}
+
+.acoes {
+    display: flex;
+    gap: 12px;
+    margin-top: 35px;
+}
+
+.btn {
+    flex: 1;
+    padding: 15px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: none;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.btn-salvar {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+}
+
+.btn-salvar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.btn-cancelar {
+    background: white;
+    color: #1e3a8a;
+    border: 1px solid #cbd5e1;
+}
+
+.btn-cancelar:hover {
+    background: #f8fafc;
+}
+
+@media (max-width: 900px) {
+    header {
+        padding: 35px 25px;
+    }
+
+    header h1 {
+        font-size: 32px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .card {
+        padding: 25px;
+    }
+
+    .grupo-opcoes {
+        grid-template-columns: 1fr;
+    }
+
+    .acoes {
+        flex-direction: column;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Editar Professor</h1>
+    <p>Atualize os dados, disciplinas e turmas vinculadas ao professor.</p>
+</header>
+
+<div class="container">
+
+    <a href="/professores" class="voltar">← Voltar para professores</a>
+
+    <div class="card">
+
+        <h2>Dados do professor</h2>
+        <p class="descricao">
+            Edite as informações abaixo e clique em Salvar Alterações.
+        </p>
+
+        <form action="/atualizar_professor/{{ professor[0] }}" method="POST">
+
+            <label>Nome do professor:</label>
+            <input type="text" name="nome" value="{{ professor[1] }}" required>
+
+            <label>E-mail:</label>
+            <input type="email" name="email" value="{{ professor[2] }}">
+
+            <div class="secao">
+                <h3>Disciplinas que o professor leciona</h3>
+                <p>Marque uma ou mais disciplinas vinculadas a este professor.</p>
+
+                <div class="grupo-opcoes">
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Língua Portuguesa"
+                        {% if "Língua Portuguesa" in disciplinas %}checked{% endif %}>
+                        Língua Portuguesa
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Matemática"
+                        {% if "Matemática" in disciplinas %}checked{% endif %}>
+                        Matemática
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Ciências"
+                        {% if "Ciências" in disciplinas %}checked{% endif %}>
+                        Ciências
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="História"
+                        {% if "História" in disciplinas %}checked{% endif %}>
+                        História
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Geografia"
+                        {% if "Geografia" in disciplinas %}checked{% endif %}>
+                        Geografia
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Inglês"
+                        {% if "Inglês" in disciplinas %}checked{% endif %}>
+                        Inglês
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Arte"
+                        {% if "Arte" in disciplinas %}checked{% endif %}>
+                        Arte
+                    </label>
+
+                    <label class="opcao">
+                        <input type="checkbox" name="disciplinas" value="Ensino Religioso"
+                        {% if "Ensino Religioso" in disciplinas %}checked{% endif %}>
+                        Ensino Religioso
+                    </label>
+
+                </div>
+            </div>
+
+            <div class="secao">
+                <h3>Turmas vinculadas ao professor</h3>
+                <p>Selecione as turmas em que este professor atua.</p>
+
+                <div class="grupo-opcoes">
+                    {% for turma in turmas %}
+                    <label class="opcao">
+                        <input type="checkbox" name="turmas" value="{{ turma[0] }}"
+                        {% if turma[0] in turmas_vinculadas %}checked{% endif %}>
+                        {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="acoes">
+                <a href="/professores" class="btn btn-cancelar">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-salvar">
+                    Salvar Alterações
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>

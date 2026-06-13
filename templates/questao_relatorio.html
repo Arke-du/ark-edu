@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Questão {{ numero }}</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+header p {
+    margin-top: 10px;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 32px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 25px;
+}
+
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 26px;
+    color: #111827;
+}
+
+.enunciado {
+    font-size: 17px;
+    line-height: 1.6;
+    color: #334155;
+}
+
+.imagem-questao {
+    max-width: 100%;
+    max-height: 420px;
+    display: block;
+    margin: 22px auto 0 auto;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+.alternativa {
+    padding: 15px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 15px;
+}
+
+.alternativa strong {
+    color: #1e3a8a;
+}
+
+.gabarito {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 14px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-weight: bold;
+    border: 1px solid #bfdbfe;
+}
+
+.estatisticas {
+    display: grid;
+    gap: 14px;
+}
+
+.bloco-estatistica {
+    padding: 18px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+
+.bloco-estatistica span {
+    display: block;
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.bloco-estatistica strong {
+    font-size: 28px;
+    color: #1e3a8a;
+}
+
+@media (max-width: 900px) {
+    header {
+        padding: 35px 25px;
+    }
+
+    header h1 {
+        font-size: 32px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Questão {{ numero }}</h1>
+    <p>Visualização detalhada da questão e desempenho dos alunos.</p>
+</header>
+
+<div class="container">
+
+    <a href="javascript:history.back()" class="voltar">
+        ← Voltar
+    </a>
+
+    <div class="grid">
+
+        <div>
+
+            <div class="card">
+                <h2>Enunciado</h2>
+
+                <div class="enunciado">
+                    {{ questao[0] }}
+                </div>
+
+                {% if questao[1] %}
+                    <img src="/{{ questao[1] }}" class="imagem-questao">
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Alternativas</h2>
+
+                <div class="alternativa">
+                    <strong>A)</strong> {{ questao[2] }}
+                </div>
+
+                <div class="alternativa">
+                    <strong>B)</strong> {{ questao[3] }}
+                </div>
+
+                <div class="alternativa">
+                    <strong>C)</strong> {{ questao[4] }}
+                </div>
+
+                <div class="alternativa">
+                    <strong>D)</strong> {{ questao[5] }}
+                </div>
+
+                <div class="gabarito">
+                    Gabarito: {{ questao[6] }}
+                </div>
+            </div>
+
+        </div>
+
+        <div class="card">
+            <h2>Desempenho</h2>
+
+            <div class="estatisticas">
+
+                <div class="bloco-estatistica">
+                    <span>Respondentes</span>
+                    <strong>{{ respondentes }}</strong>
+                </div>
+
+                <div class="bloco-estatistica">
+                    <span>Acertos</span>
+                    <strong>{{ acertos }}</strong>
+                </div>
+
+                <div class="bloco-estatistica">
+                    <span>Erros</span>
+                    <strong>{{ erros }}</strong>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

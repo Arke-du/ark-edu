@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificar Código</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+}
+
+.area {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    width: 100%;
+    max-width: 430px;
+    padding: 40px;
+    border-radius: 22px;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.10);
+}
+
+h1 {
+    color: #1e3a8a;
+    text-align: center;
+    margin-top: 0;
+}
+
+p {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 30px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    font-size: 16px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.95;
+}
+
+.voltar {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #1e3a8a;
+    font-weight: bold;
+    text-decoration: none;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="area">
+
+    <div class="card">
+
+        <h1>Verificar Código</h1>
+
+        <p>
+            Digite o código de 6 dígitos enviado para o seu e-mail.
+        </p>
+
+        <form method="POST" action="/verificar_codigo">
+
+            <input
+                type="hidden"
+                name="email"
+                value="{{ email }}"
+            >
+
+            <label>Código:</label>
+
+            <input
+                type="text"
+                name="codigo"
+                maxlength="6"
+                minlength="6"
+                required
+                placeholder="000000"
+            >
+
+            <button type="submit">
+                Verificar código
+            </button>
+
+        </form>
+
+        <a href="/login" class="voltar">
+            ← Voltar para o login
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>

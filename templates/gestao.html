@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Gestão da Plataforma</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 35px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 36px;
+}
+
+header p {
+    font-size: 18px;
+    opacity: .9;
+}
+
+.container {
+    padding: 35px 55px;
+}
+
+.voltar-topo {
+    margin-bottom: 25px;
+}
+
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+}
+
+h2 {
+    color: #1e3a8a;
+    margin-top: 0;
+    font-size: 28px;
+}
+
+.descricao {
+    color: #64748b;
+    font-size: 17px;
+    margin-bottom: 20px;
+}
+
+.botoes {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.botao {
+    text-decoration: none;
+    padding: 14px 22px;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    transition: .2s;
+    display: inline-block;
+}
+
+.botao:hover {
+    transform: translateY(-2px);
+}
+
+.azul {
+    background: #1e3a8a;
+}
+
+.azul:hover {
+    background: #16317a;
+}
+
+.verde {
+    background: #16a34a;
+}
+
+.verde:hover {
+    background: #15803d;
+}
+
+.roxo {
+    background: #7c3aed;
+}
+
+.roxo:hover {
+    background: #6d28d9;
+}
+
+.cinza {
+    background: #64748b;
+}
+
+.cinza:hover {
+    background: #475569;
+}
+
+footer {
+    text-align: center;
+    margin: 35px 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    header {
+        padding: 30px 25px;
+    }
+
+    .container {
+        padding: 25px;
+    }
+
+    .botoes {
+        flex-direction: column;
+    }
+
+    .botao {
+        text-align: center;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Gestão da Plataforma</h1>
+    <p>Gerencie usuários, cargos e permissões do sistema.</p>
+</header>
+
+<div class="container">
+
+    <div class="voltar-topo">
+        <a href="/" class="botao cinza">
+            ← Voltar ao Sistema
+        </a>
+    </div>
+
+    <div class="card">
+        <h2>Módulo de Usuários</h2>
+
+        <p class="descricao">
+            Cadastre novos usuários e controle o acesso à plataforma.
+        </p>
+
+        <div class="botoes">
+            <a href="/cadastrar_usuario" class="botao verde">
+                Novo Usuário
+            </a>
+
+            <a href="/usuarios" class="botao azul">
+                Ver Usuários
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Cargos e Permissões</h2>
+
+        <p class="descricao">
+            Configure os cargos e defina quais módulos cada perfil pode acessar.
+        </p>
+
+        <div class="botoes">
+            <a href="/cargos" class="botao roxo">
+                Gerenciar Permissões
+            </a>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    Plataforma de Avaliação • Gestão Administrativa
+</footer>
+
+</body>
+</html>

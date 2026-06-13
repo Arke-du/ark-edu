@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro de Turmas</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 28px;
+            color: #111827;
+        }
+
+        .descricao {
+            margin-top: 8px;
+            margin-bottom: 30px;
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-principal {
+            width: 100%;
+            margin-top: 35px;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-principal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .titulo-card {
+            margin-bottom: 18px;
+        }
+
+        .titulo-card h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: visible;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .acoes {
+            width: 80px;
+            text-align: center;
+            position: relative;
+        }
+
+        .menu-acoes {
+            position: relative;
+            display: inline-block;
+        }
+
+        .btn-menu {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #dbe3ef;
+            background: white;
+            color: #1e3a8a;
+            font-size: 24px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-menu:hover,
+        .btn-menu.ativo {
+            background: #eff6ff;
+            border-color: #2563eb;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            width: 220px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.15);
+            z-index: 9999;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .dropdown.ativo {
+            display: block;
+        }
+
+        .dropdown a {
+            display: block;
+            padding: 13px 16px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown a:hover {
+            background: #f8fafc;
+            color: #1e3a8a;
+        }
+
+        .dropdown a.excluir {
+            color: #b91c1c;
+        }
+
+        .dropdown a.excluir:hover {
+            background: #fef2f2;
+        }
+
+        .sem-registro {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+        }
+
+        @media (max-width: 900px) {
+
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 850px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Cadastro de Turmas</h1>
+    <p>Gerencie as turmas da instituição e seus vínculos.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+
+        <h2>Nova Turma</h2>
+
+        <p class="descricao">
+            Cadastre turmas para organizar alunos, professores e avaliações.
+        </p>
+
+        <form action="/cadastrar_turma" method="POST">
+
+            <label>Nome da turma:</label>
+            <input type="text" name="nome" placeholder="Ex: 5º Ano B" required>
+
+            <label>Ano/Série:</label>
+            <input type="text" name="ano" placeholder="Ex: 5º Ano" required>
+
+            <label>Turno:</label>
+            <select name="turno" required>
+                <option value="">Selecione</option>
+                <option value="Matutino">Matutino</option>
+                <option value="Vespertino">Vespertino</option>
+                <option value="Noturno">Noturno</option>
+            </select>
+
+            <button type="submit" class="btn-principal">
+                Cadastrar Turma
+            </button>
+
+        </form>
+
+    </div>
+
+    <div class="card">
+
+        <div class="titulo-card">
+            <h2>Turmas Cadastradas</h2>
+        </div>
+
+        <div class="tabela-container">
+
+            <table>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Ano/Série</th>
+                    <th>Turno</th>
+                    <th>Ações</th>
+                </tr>
+
+                {% for turma in turmas %}
+                <tr>
+
+                    <td>{{ turma[0] }}</td>
+                    <td>{{ turma[1] }}</td>
+                    <td>{{ turma[2] }}</td>
+                    <td>{{ turma[3] }}</td>
+
+                    <td class="acoes">
+
+                        <div class="menu-acoes">
+
+                            <button class="btn-menu"
+                                    type="button"
+                                    onclick="toggleMenu(this)">
+                                ⋮
+                            </button>
+
+                            <div class="dropdown">
+
+                                <a href="/turma/{{ turma[0] }}/alunos">
+                                    Ver alunos
+                                </a>
+
+                                <a href="/turma_professores/{{ turma[0] }}">
+                                    Ver professores
+                                </a>
+
+                                <a href="/editar_turma/{{ turma[0] }}">
+                                    Editar turma
+                                </a>
+
+                                <a href="/excluir_turma/{{ turma[0] }}"
+                                   class="excluir"
+                                   onclick="return confirm('Deseja realmente excluir esta turma?')">
+
+                                    Excluir turma
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="5" class="sem-registro">
+                        Nenhuma turma cadastrada ainda.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+function toggleMenu(botao) {
+
+    const menuAtual = botao.nextElementSibling;
+
+    document.querySelectorAll(".dropdown").forEach(menu => {
+        if (menu !== menuAtual) {
+            menu.classList.remove("ativo");
+        }
+    });
+
+    document.querySelectorAll(".btn-menu").forEach(btn => {
+        if (btn !== botao) {
+            btn.classList.remove("ativo");
+        }
+    });
+
+    menuAtual.classList.toggle("ativo");
+    botao.classList.toggle("ativo");
+}
+
+document.addEventListener("click", function(event) {
+
+    if (!event.target.closest(".menu-acoes")) {
+
+        document.querySelectorAll(".dropdown").forEach(menu => {
+            menu.classList.remove("ativo");
+        });
+
+        document.querySelectorAll(".btn-menu").forEach(btn => {
+            btn.classList.remove("ativo");
+        });
+    }
+});
+</script>
+
+</body>
+</html>

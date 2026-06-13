@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro de Alunos</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 26px;
+            color: #111827;
+        }
+
+        label {
+            display: block;
+            margin-top: 14px;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #334155;
+        }
+
+        input, select {
+            padding: 13px;
+            width: 100%;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px #dbeafe;
+        }
+
+        button {
+            margin-top: 18px;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: visible;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        a {
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .acoes {
+            width: 80px;
+            text-align: center;
+            position: relative;
+        }
+
+        .menu-acoes {
+            position: relative;
+            display: inline-block;
+        }
+
+        .btn-menu {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            color: #1e3a8a;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 30px;
+            transition: 0.2s;
+            box-shadow: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .btn-menu:hover,
+        .btn-menu.ativo {
+            background: #eff6ff;
+            border-color: #2563eb;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            width: 190px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.15);
+            z-index: 9999;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .dropdown.ativo {
+            display: block;
+        }
+
+        .dropdown a {
+            display: block;
+            padding: 13px 16px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown a:hover {
+            background: #f8fafc;
+            color: #1e3a8a;
+        }
+
+        .dropdown a.excluir {
+            color: #b91c1c;
+        }
+
+        .dropdown a.excluir:hover {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .sem-registro {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 900px) {
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 750px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Cadastro de Alunos</h1>
+    <p>Cadastre estudantes e organize os vínculos com suas turmas.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+        <h2>Novo Aluno</h2>
+
+        <form action="/cadastrar_aluno" method="POST">
+            <label>Nome do aluno:</label>
+            <input type="text" name="nome" placeholder="Ex: João da Silva" required>
+
+            <label>Matrícula:</label>
+            <input type="text" name="matricula" placeholder="Ex: 2026001">
+
+            <label>Turma:</label>
+            <select name="turma_id" required>
+                <option value="">Selecione uma turma</option>
+
+                {% for turma in turmas %}
+                <option value="{{ turma[0] }}">
+                    {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Cadastrar Aluno</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Alunos Cadastrados</h2>
+
+        <div class="tabela-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Matrícula</th>
+                    <th>Turma</th>
+                    <th>Ações</th>
+                </tr>
+
+                {% for aluno in alunos %}
+                <tr>
+                    <td>{{ aluno[0] }}</td>
+                    <td>{{ aluno[1] }}</td>
+                    <td>{{ aluno[2] }}</td>
+                    <td>{{ aluno[3] }}</td>
+                    <td class="acoes">
+                        <div class="menu-acoes">
+                            <button class="btn-menu" type="button" onclick="toggleMenu(this)">
+                                ⋮
+                            </button>
+
+                            <div class="dropdown">
+                                <a href="/editar_aluno/{{ aluno[0] }}">
+                                    Editar aluno
+                                </a>
+
+                                <a href="/excluir_aluno/{{ aluno[0] }}"
+                                   class="excluir"
+                                   onclick="return confirm('Deseja realmente excluir este aluno?')">
+                                    Excluir aluno
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="sem-registro">
+                        Nenhum aluno cadastrado ainda.
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function toggleMenu(botao) {
+        const menuAtual = botao.nextElementSibling;
+
+        document.querySelectorAll(".dropdown").forEach(menu => {
+            if (menu !== menuAtual) {
+                menu.classList.remove("ativo");
+            }
+        });
+
+        document.querySelectorAll(".btn-menu").forEach(btn => {
+            if (btn !== botao) {
+                btn.classList.remove("ativo");
+            }
+        });
+
+        menuAtual.classList.toggle("ativo");
+        botao.classList.toggle("ativo");
+    }
+
+    document.addEventListener("click", function(event) {
+        if (!event.target.closest(".menu-acoes")) {
+            document.querySelectorAll(".dropdown").forEach(menu => {
+                menu.classList.remove("ativo");
+            });
+
+            document.querySelectorAll(".btn-menu").forEach(btn => {
+                btn.classList.remove("ativo");
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

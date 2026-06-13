@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Instituição</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+header p {
+    margin-top: 10px;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 32px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.card {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    max-width: 900px;
+    margin: auto;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.card h2 {
+    margin: 0;
+    font-size: 28px;
+    color: #111827;
+}
+
+.descricao {
+    margin-top: 8px;
+    margin-bottom: 30px;
+    color: #64748b;
+    font-size: 16px;
+}
+
+label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+}
+
+input[type="text"],
+input[type="file"] {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    outline: none;
+    transition: 0.2s;
+    background: white;
+}
+
+input[type="text"]:focus,
+input[type="file"]:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.campo-completo {
+    grid-column: 1 / -1;
+}
+
+.logo-box {
+    margin-top: 10px;
+    margin-bottom: 18px;
+    padding: 22px;
+    border: 2px dashed #bfdbfe;
+    border-radius: 18px;
+    background: #f8fbff;
+    text-align: center;
+}
+
+.logo-preview {
+    max-height: 130px;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto 12px auto;
+    object-fit: contain;
+}
+
+.logo-vazio {
+    color: #64748b;
+    font-size: 15px;
+    margin: 0;
+}
+
+.acoes {
+    display: flex;
+    gap: 12px;
+    margin-top: 35px;
+}
+
+.btn {
+    flex: 1;
+    padding: 15px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: none;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.btn-salvar {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+}
+
+.btn-salvar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.btn-cancelar {
+    background: white;
+    color: #1e3a8a;
+    border: 1px solid #cbd5e1;
+}
+
+.btn-cancelar:hover {
+    background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+    header {
+        padding: 35px 25px;
+    }
+
+    header h1 {
+        font-size: 32px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .card {
+        padding: 25px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .acoes {
+        flex-direction: column;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Configurações da Instituição</h1>
+    <p>Atualize os dados oficiais usados nas provas, cartões e relatórios.</p>
+</header>
+
+<div class="container">
+
+    <a href="/" class="voltar">← Voltar para o início</a>
+
+    <div class="card">
+
+        <h2>Dados institucionais</h2>
+        <p class="descricao">
+            Essas informações serão utilizadas no cabeçalho das avaliações e documentos gerados pela plataforma.
+        </p>
+
+        <form action="/salvar_instituicao" method="POST" enctype="multipart/form-data">
+
+            <div class="form-grid">
+
+                <div class="campo-completo">
+                    <label>Nome da escola:</label>
+                    <input type="text" name="nome" value="{{ instituicao[1] if instituicao else '' }}">
+                </div>
+
+                <div>
+                    <label>Cidade:</label>
+                    <input type="text" name="cidade" value="{{ instituicao[2] if instituicao else '' }}">
+                </div>
+
+                <div>
+                    <label>Estado:</label>
+                    <input type="text" name="estado" value="{{ instituicao[3] if instituicao else '' }}">
+                </div>
+
+                <div>
+                    <label>Diretor(a):</label>
+                    <input type="text" name="diretor" value="{{ instituicao[4] if instituicao else '' }}">
+                </div>
+
+                <div>
+                    <label>Coordenador(a):</label>
+                    <input type="text" name="coordenador" value="{{ instituicao[5] if instituicao else '' }}">
+                </div>
+
+                <div class="campo-completo">
+                    <label>Ano letivo:</label>
+                    <input type="text" name="ano_letivo" value="{{ instituicao[6] if instituicao else '' }}">
+                </div>
+
+                <div class="campo-completo">
+                    <label>Logo da escola:</label>
+
+                    <div class="logo-box">
+                        {% if instituicao and instituicao[7] %}
+                            <img class="logo-preview" src="/static/uploads/{{ instituicao[7] }}">
+                            <p class="logo-vazio">Logo atual cadastrada.</p>
+                        {% else %}
+                            <p class="logo-vazio">Nenhuma logo cadastrada ainda.</p>
+                        {% endif %}
+                    </div>
+
+                    <input type="file" name="logo" accept="image/*">
+                </div>
+
+            </div>
+
+            <div class="acoes">
+                <a href="/" class="btn btn-cancelar">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-salvar">
+                    Salvar Configurações
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+
+</body>
+</html>

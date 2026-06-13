@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Alunos da Turma</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 32px;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+
+        .topo-turma {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .topo-turma h2 {
+            margin: 0;
+            font-size: 32px;
+            color: #111827;
+        }
+
+        .topo-turma p {
+            margin: 8px 0 0 0;
+            color: #64748b;
+            font-size: 17px;
+        }
+
+        .info-turma {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .info-item {
+            background: #eff6ff;
+            color: #1e3a8a;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 1px solid #bfdbfe;
+        }
+
+        .titulo-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .titulo-card h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .tabela-container {
+            width: 100%;
+            overflow: hidden;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1e3a8a;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .vazio {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        @media (max-width: 900px) {
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .topo-turma {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .tabela-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 600px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Alunos da Turma</h1>
+    <p>Visualize os estudantes cadastrados nesta turma.</p>
+</header>
+
+<div class="container">
+
+    <a href="/turmas" class="voltar">← Voltar para turmas</a>
+
+    <div class="card">
+        <div class="topo-turma">
+            <div>
+                <h2>{{ turma[1] }}</h2>
+                <p>Informações gerais da turma selecionada.</p>
+            </div>
+        </div>
+
+        <div class="info-turma">
+            <div class="info-item">
+                Ano/Série: {{ turma[2] }}
+            </div>
+
+            <div class="info-item">
+                Turno: {{ turma[3] }}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="titulo-card">
+            <h2>Alunos cadastrados</h2>
+        </div>
+
+        <div class="tabela-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Matrícula</th>
+                </tr>
+
+                {% for aluno in alunos %}
+                <tr>
+                    <td>{{ aluno[0] }}</td>
+                    <td>{{ aluno[1] }}</td>
+                    <td>{{ aluno[2] }}</td>
+                </tr>
+                {% endfor %}
+
+                {% if alunos|length == 0 %}
+                <tr>
+                    <td colspan="3" class="vazio">
+                        Nenhum aluno cadastrado nesta turma.
+                    </td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

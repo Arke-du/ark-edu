@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Professores da Turma</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+header p {
+    margin-top: 10px;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.container {
+    padding: 32px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.topo-turma h2 {
+    margin: 0;
+    font-size: 32px;
+    color: #111827;
+}
+
+.topo-turma p {
+    margin: 8px 0 0 0;
+    color: #64748b;
+    font-size: 17px;
+}
+
+.titulo-card {
+    margin-bottom: 18px;
+}
+
+.titulo-card h2 {
+    margin: 0;
+    font-size: 26px;
+}
+
+.tabela-container {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+table {
+    width: 100%;
+    background: white;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 16px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+th {
+    background: #1e3a8a;
+    color: white;
+    font-weight: 600;
+}
+
+tr:hover {
+    background: #f8fafc;
+}
+
+.badge {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1e3a8a;
+    border: 1px solid #bfdbfe;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.sem-registro {
+    text-align: center;
+    color: #64748b;
+    padding: 28px;
+    font-size: 16px;
+}
+
+@media (max-width: 900px) {
+    header {
+        padding: 35px 25px;
+    }
+
+    header h1 {
+        font-size: 32px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .tabela-container {
+        overflow-x: auto;
+    }
+
+    table {
+        min-width: 700px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Professores da Turma</h1>
+    <p>Visualize os docentes vinculados à turma selecionada.</p>
+</header>
+
+<div class="container">
+
+    <a href="/turmas" class="voltar">
+        ← Voltar para Turmas
+    </a>
+
+    <div class="card">
+        <div class="topo-turma">
+            <h2>{{ turma[1] }}</h2>
+            <p>Lista de professores e disciplinas vinculadas a esta turma.</p>
+        </div>
+    </div>
+
+    <div class="card">
+
+        <div class="titulo-card">
+            <h2>Professores vinculados</h2>
+        </div>
+
+        <div class="tabela-container">
+            <table>
+
+                <tr>
+                    <th>Professor</th>
+                    <th>E-mail</th>
+                    <th>Disciplinas</th>
+                </tr>
+
+                {% for professor in professores %}
+                <tr>
+                    <td>{{ professor[0] }}</td>
+                    <td>{{ professor[1] }}</td>
+                    <td>
+                        <span class="badge">
+                            {{ professor[2] }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="sem-registro">
+                        Nenhum professor vinculado a esta turma.
+                    </td>
+                </tr>
+                {% endfor %}
+
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

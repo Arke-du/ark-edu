@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Recuperar Senha</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+}
+
+.area {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.card {
+    background: white;
+    width: 430px;
+    padding: 38px;
+    border-radius: 22px;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.10);
+}
+
+h1 {
+    color: #1e3a8a;
+    text-align: center;
+}
+
+p {
+    text-align: center;
+    color: #64748b;
+}
+
+label {
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    margin-top: 8px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+a {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #1e3a8a;
+    font-weight: bold;
+    text-decoration: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="area">
+    <div class="card">
+
+        <h1>Recuperar Senha</h1>
+
+        <p>Informe seu usuário ou e-mail cadastrado.</p>
+
+        <form action="/recuperar_senha" method="POST">
+            <label>Usuário / E-mail:</label>
+            <input type="text" name="email" required>
+
+            <button type="submit">
+                Solicitar recuperação
+            </button>
+        </form>
+
+        <a href="/login">← Voltar para o login</a>
+
+    </div>
+</div>
+
+</body>
+</html>

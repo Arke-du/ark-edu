@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Acesso Negado</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#f4f6fb;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+}
+
+.card{
+    background:white;
+    width:90%;
+    max-width:550px;
+    padding:50px;
+    border-radius:25px;
+    text-align:center;
+    box-shadow:0 15px 40px rgba(0,0,0,0.12);
+}
+
+.icone{
+    width:90px;
+    height:90px;
+    background:#fee2e2;
+    color:#dc2626;
+    border-radius:50%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:45px;
+    margin:0 auto 25px;
+}
+
+h1{
+    color:#0f172a;
+    margin-bottom:15px;
+    font-size:36px;
+}
+
+p{
+    color:#475569;
+    font-size:18px;
+    line-height:1.6;
+    margin-bottom:35px;
+}
+
+.botao{
+    display:inline-block;
+    background:linear-gradient(135deg,#1e3a8a,#2563eb);
+    color:white;
+    text-decoration:none;
+    padding:15px 35px;
+    border-radius:12px;
+    font-weight:bold;
+    transition:0.3s;
+}
+
+.botao:hover{
+    transform:translateY(-3px);
+    box-shadow:0 8px 20px rgba(37,99,235,0.3);
+}
+
+</style>
+
+</head>
+
+<body>
+
+    <div class="card">
+
+        <div class="icone">
+            ⛔
+        </div>
+
+        <h1>Acesso Negado</h1>
+
+        <p>
+            Você não possui permissão para acessar este módulo.
+            Caso acredite que isso seja um erro, entre em contato
+            com o administrador do sistema.
+        </p>
+
+        <a href="/" class="botao">
+            ← Voltar ao painel
+        </a>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Caderno de Questões</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 35px;
+    color: #111;
+}
+
+.botoes {
+    margin-bottom: 20px;
+}
+
+button, a.botao {
+    background: #1e3a8a;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+}
+
+.cabecalho-prova {
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 30px;
+}
+
+.linha-topo {
+    display: flex;
+    align-items: flex-start;
+    gap: 25px;
+}
+
+.logo-area {
+    width: 120px;
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 28px;
+    text-align: center;
+}
+
+.logo-area img {
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: contain;
+}
+
+.dados-area {
+    flex: 1;
+}
+
+.campo {
+    border-bottom: 1px solid #999;
+    padding: 3px 0;
+    font-size: 15px;
+    min-height: 20px;
+}
+
+.duplo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #999;
+    padding: 3px 0;
+    font-size: 15px;
+    min-height: 20px;
+}
+
+.instrucoes {
+    margin-top: 10px;
+    font-size: 15px;
+}
+
+.instrucoes strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.instrucoes ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.instrucoes li {
+    margin-bottom: 4px;
+}
+
+.titulo-prova {
+    text-align: center;
+    margin-top: 18px;
+    padding-top: 8px;
+    border-top: 1px solid #ddd;
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.questao {
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+}
+
+.questao h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.enunciado {
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.imagem {
+    max-width: 450px;
+    display: block;
+    margin: 15px auto;
+}
+
+.alternativa {
+    margin: 8px 0;
+    font-size: 16px;
+}
+
+.gabarito {
+    margin-top: 30px;
+    border-top: 1px solid #000;
+    padding-top: 15px;
+}
+
+@media print {
+    .botoes, .gabarito {
+        display: none;
+    }
+
+    body {
+        margin: 25px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="botoes">
+    <a href="/provas" class="botao">← Voltar</a>
+    <button onclick="window.print()">🖨 Imprimir Prova</button>
+</div>
+
+<div class="cabecalho-prova">
+
+    <div class="linha-topo">
+
+        <div class="logo-area">
+            {% if instituicao and instituicao[7] %}
+                <img src="/static/uploads/{{ instituicao[7] }}">
+            {% else %}
+                logo
+            {% endif %}
+        </div>
+
+        <div class="dados-area">
+
+            <div class="campo">
+                Nome da Escola: {{ instituicao[1] if instituicao else '' }}
+            </div>
+
+            <div class="campo">
+                Estudante:
+            </div>
+
+            <div class="campo">
+                Professor: {{ prova[5] if prova[5] else '' }}
+            </div>
+
+            <div class="campo">
+                Componente curricular: {{ prova[3] }}
+            </div>
+
+            <div class="duplo">
+                <span>Cidade: {{ instituicao[2] if instituicao else '' }}</span>
+                <span>Estado: {{ instituicao[3] if instituicao else '' }}</span>
+            </div>
+
+            <div class="duplo">
+                <span>Data: ____/____/______</span>
+                <span>Turma: {{ prova[2] }}</span>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="instrucoes">
+        <strong>INSTRUÇÕES PARA REALIZAR A AVALIAÇÃO</strong>
+        <ol>
+            <li>Verifique se sua prova está completa (questões e páginas).</li>
+            <li>Leia com calma e atenção as questões solicitadas, respondendo-as com clareza.</li>
+            <li>Todas as respostas deverão ser escritas a caneta no cartão-resposta.</li>
+            <li>Escreva com letra legível, coloque seu nome e revise sua prova antes de entregá-la.</li>
+        </ol>
+    </div>
+
+    <div class="titulo-prova">
+        {{ prova[1] }}
+    </div>
+
+</div>
+
+{% for questao in questoes %}
+<div class="questao">
+    <h3>Questão {{ "%02d"|format(loop.index) }}</h3>
+
+    <p class="enunciado">{{ questao[2] }}</p>
+
+    {% if questao[3] %}
+        <img class="imagem" src="/static/uploads/{{ questao[3] }}">
+    {% endif %}
+
+    <p class="alternativa">A) {{ questao[4] }}</p>
+    <p class="alternativa">B) {{ questao[5] }}</p>
+    <p class="alternativa">C) {{ questao[6] }}</p>
+    <p class="alternativa">D) {{ questao[7] }}</p>
+</div>
+{% endfor %}
+
+<div class="gabarito">
+    <h3>Gabarito do professor</h3>
+
+    {% for questao in questoes %}
+        <p>Questão {{ "%02d"|format(loop.index) }}: {{ questao[8] }}</p>
+    {% endfor %}
+</div>
+
+</body>
+</html>

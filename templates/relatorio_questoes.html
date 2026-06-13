@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Relatório por Questão</title>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f4f6f9;
+    margin:0;
+}
+
+header{
+    background:#1e3a8a;
+    color:white;
+    padding:25px;
+}
+
+.container{
+    padding:30px;
+}
+
+.card{
+    background:white;
+    padding:25px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    background:#1e3a8a;
+    color:white;
+    padding:12px;
+}
+
+td{
+    padding:12px;
+    text-align:center;
+    border-bottom:1px solid #ddd;
+}
+
+.forte{
+    color:#16a34a;
+    font-weight:bold;
+}
+
+.fraca{
+    color:#dc2626;
+    font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+    <h1>Relatório por Questão</h1>
+</header>
+
+<div class="container">
+
+<div class="card">
+
+<h2>{{ prova[0] }}</h2>
+
+<table>
+
+<tr>
+    <th>Questão</th>
+    <th>Respondentes</th>
+    <th>Acertos</th>
+    <th>Erros</th>
+    <th>% de Acerto</th>
+</tr>
+
+{% for q in relatorio %}
+
+<tr>
+
+<td>
+    <a href="/questao_relatorio/{{ prova_id }}/{{ q[0] }}">
+        Questão {{ q[0] }}
+    </a>
+</td>
+
+<td>{{ q[1] }}</td>
+
+<td>{{ q[2] }}</td>
+
+<td>{{ q[3] }}</td>
+
+<td>
+
+{% if q[4] >= 70 %}
+    <span class="forte">{{ q[4] }}%</span>
+
+{% elif q[4] <= 30 %}
+    <span class="fraca">{{ q[4] }}%</span>
+
+{% else %}
+    {{ q[4] }}%
+{% endif %}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</body>
+</html>
