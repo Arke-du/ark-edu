@@ -1,0 +1,317 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Instituições | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-cabecalho">
+
+    <a href="/" class="voltar">
+        ← Voltar ao painel
+    </a>
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h1>Instituições Cadastradas</h1>
+            <p>Gerencie as escolas cadastradas na plataforma.</p>
+        </div>
+
+        <a href="/gestao/instituicoes/nova" class="btn-primario">
+            + Nova Instituição
+        </a>
+    </div>
+
+</div>
+
+<div class="card-listagem">
+
+    {% if escolas %}
+
+    <div class="tabela-container">
+        <table class="tabela">
+            <thead>
+                <tr>
+                    <th>Instituição</th>
+                    <th>Código INEP</th>
+                    <th>Cidade/UF</th>
+                    <th>Diretor</th>
+                    <th>Ano Letivo</th>
+                    <th>Status</th>
+                    <th class="coluna-acoes">Ações</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for escola in escolas %}
+                <tr>
+                    <td>
+                        <strong>{{ escola["nome_instituicao"] }}</strong><br>
+                        <small>{{ escola["email"] or "" }}</small>
+                    </td>
+
+                    <td>{{ escola["codigo_inep"] or "-" }}</td>
+
+                    <td>
+                        {{ escola["cidade"] or "-" }}
+                        /
+                        {{ escola["estado"] or "-" }}
+                    </td>
+
+                    <td>{{ escola["diretor"] or "-" }}</td>
+
+                    <td>{{ escola["ano_letivo"] or "-" }}</td>
+
+                    <td>
+                        {% if escola["status"] == 1 %}
+                            <span class="status ativo">Ativa</span>
+                        {% else %}
+                            <span class="status inativo">Inativa</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="coluna-acoes">
+                        <div class="menu-acoes">
+
+                            <button
+                                type="button"
+                                class="btn-menu-acoes"
+                                aria-label="Abrir opções da instituição"
+                                onclick="alternarMenuAcoes(event, 'menu-escola-{{ escola['id'] }}')"
+                            >
+                                ⋮
+                            </button>
+
+                            <div
+                                class="dropdown-acoes"
+                                id="menu-escola-{{ escola['id'] }}"
+                            >
+                                <a href="/gestao/instituicoes/ver/{{ escola['id'] }}">
+                                    Ver
+                                </a>
+
+                                <a href="/gestao/instituicoes/editar/{{ escola['id'] }}">
+                                    Editar
+                                </a>
+
+                                {% if escola["status"] == 1 %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacao(
+                                            'inativar',
+                                            {{ escola['id'] }},
+                                            '{{ escola['nome_instituicao']|e }}'
+                                        )"
+                                    >
+                                        Inativar
+                                    </button>
+
+                                {% else %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacao(
+                                            'ativar',
+                                            {{ escola['id'] }},
+                                            '{{ escola['nome_instituicao']|e }}'
+                                        )"
+                                    >
+                                        Ativar
+                                    </button>
+
+                                {% endif %}
+
+                                <button
+                                    type="button"
+                                    class="acao-dropdown acao-excluir"
+                                    onclick="abrirConfirmacao(
+                                        'excluir',
+                                        {{ escola['id'] }},
+                                        '{{ escola['nome_instituicao']|e }}'
+                                    )"
+                                >
+                                    Excluir
+                                </button>
+                            </div>
+
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+
+    <div class="estado-vazio">
+        <h2>Nenhuma instituição cadastrada</h2>
+        <p>Clique em <strong>Nova Instituição</strong> para começar.</p>
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+<div
+    class="modal-confirmacao"
+    id="modalConfirmacao"
+    aria-hidden="true"
+>
+    <div class="modal-fundo" onclick="fecharConfirmacao()"></div>
+
+    <div
+        class="modal-caixa"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tituloConfirmacao"
+    >
+        <div class="modal-icone" id="iconeConfirmacao">
+            !
+        </div>
+
+        <h2 id="tituloConfirmacao">
+            Confirmar ação
+        </h2>
+
+        <p id="mensagemConfirmacao">
+            Deseja continuar?
+        </p>
+
+        <div class="modal-acoes">
+            <button
+                type="button"
+                class="btn-modal-cancelar"
+                onclick="fecharConfirmacao()"
+            >
+                Não
+            </button>
+
+            <a
+                href="#"
+                class="btn-modal-confirmar"
+                id="botaoConfirmar"
+            >
+                Sim
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function fecharMenusAbertos(menuIgnorado = null) {
+    document.querySelectorAll(".dropdown-acoes.aberto").forEach(function(menu) {
+        if (menu !== menuIgnorado) {
+            menu.classList.remove("aberto");
+        }
+    });
+}
+
+function alternarMenuAcoes(event, menuId) {
+    event.stopPropagation();
+
+    const menu = document.getElementById(menuId);
+    const estavaAberto = menu.classList.contains("aberto");
+
+    fecharMenusAbertos(menu);
+
+    if (estavaAberto) {
+        menu.classList.remove("aberto");
+    } else {
+        menu.classList.add("aberto");
+    }
+}
+
+function abrirConfirmacao(acao, id, nomeInstituicao) {
+    fecharMenusAbertos();
+
+    const modal = document.getElementById("modalConfirmacao");
+    const titulo = document.getElementById("tituloConfirmacao");
+    const mensagem = document.getElementById("mensagemConfirmacao");
+    const botaoConfirmar = document.getElementById("botaoConfirmar");
+    const icone = document.getElementById("iconeConfirmacao");
+
+    modal.classList.add("aberto");
+    modal.setAttribute("aria-hidden", "false");
+
+    botaoConfirmar.className = "btn-modal-confirmar";
+    icone.className = "modal-icone";
+
+    if (acao === "inativar") {
+        titulo.textContent = "Confirmar inativação";
+
+        mensagem.textContent =
+            'Deseja realmente inativar a instituição "' +
+            nomeInstituicao +
+            '"? Ela ficará sem acesso à plataforma até ser reativada.';
+
+        botaoConfirmar.textContent = "Sim, inativar";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/inativar/" + id;
+
+        botaoConfirmar.classList.add("confirmar-alerta");
+        icone.classList.add("icone-alerta");
+    }
+
+    if (acao === "ativar") {
+        titulo.textContent = "Confirmar ativação";
+
+        mensagem.textContent =
+            'Deseja realmente ativar a instituição "' +
+            nomeInstituicao +
+            '"?';
+
+        botaoConfirmar.textContent = "Sim, ativar";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/ativar/" + id;
+
+        botaoConfirmar.classList.add("confirmar-sucesso");
+        icone.classList.add("icone-sucesso");
+    }
+
+    if (acao === "excluir") {
+        titulo.textContent = "Confirmar exclusão";
+
+        mensagem.textContent =
+            'Deseja realmente excluir a instituição "' +
+            nomeInstituicao +
+            '"? Esta ação não poderá ser desfeita.';
+
+        botaoConfirmar.textContent = "Sim, excluir";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/excluir/" + id;
+
+        botaoConfirmar.classList.add("confirmar-perigo");
+        icone.classList.add("icone-perigo");
+    }
+}
+
+function fecharConfirmacao() {
+    const modal = document.getElementById("modalConfirmacao");
+
+    modal.classList.remove("aberto");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+document.addEventListener("click", function() {
+    fecharMenusAbertos();
+});
+
+document.querySelectorAll(".dropdown-acoes").forEach(function(menu) {
+    menu.addEventListener("click", function(event) {
+        event.stopPropagation();
+    });
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape") {
+        fecharMenusAbertos();
+        fecharConfirmacao();
+    }
+});
+</script>
+
+{% endblock %}

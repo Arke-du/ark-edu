@@ -1,0 +1,226 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Turmas | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-cabecalho">
+
+    <a href="/" class="voltar">
+        ← Voltar para o início
+    </a>
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h1>Cadastro de Turmas</h1>
+            <p>
+                Gerencie as turmas da instituição e seus vínculos.
+            </p>
+        </div>
+    </div>
+
+</div>
+
+<!-- CADASTRO -->
+<div class="card form-card">
+
+    <h2>Nova Turma</h2>
+
+    <p class="ajuda-formulario">
+        Cadastre turmas para organizar alunos, professores e avaliações.
+    </p>
+
+    <form action="/cadastrar_turma" method="POST">
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="nome">Nome da turma</label>
+
+                <input
+                    type="text"
+                    id="nome"
+                    name="nome"
+                    placeholder="Ex.: 5º Ano B"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="ano">Ano/Série</label>
+
+                <input
+                    type="text"
+                    id="ano"
+                    name="ano"
+                    placeholder="Ex.: 5º Ano"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="turno">Turno</label>
+
+                <select
+                    id="turno"
+                    name="turno"
+                    required
+                >
+                    <option value="">Selecione</option>
+                    <option value="Matutino">Matutino</option>
+                    <option value="Vespertino">Vespertino</option>
+                    <option value="Noturno">Noturno</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="acoes-form" style="margin-top: 24px;">
+
+            <button
+                type="submit"
+                class="btn-primario"
+            >
+                Cadastrar Turma
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+<!-- LISTAGEM -->
+<div class="card form-card">
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h2>Turmas Cadastradas</h2>
+            <p class="ajuda-formulario">
+                Consulte e gerencie as turmas já cadastradas.
+            </p>
+        </div>
+    </div>
+
+    <div class="tabela-container">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Ano/Série</th>
+                    <th>Turno</th>
+                    <th class="acoes">Ações</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for turma in turmas %}
+                <tr>
+
+                    <td>{{ turma[0] }}</td>
+                    <td>{{ turma[1] }}</td>
+                    <td>{{ turma[2] }}</td>
+                    <td>{{ turma[3] }}</td>
+
+                    <td class="acoes">
+
+                        <div class="menu-acoes">
+
+                            <button
+                                class="btn-menu"
+                                type="button"
+                                aria-label="Abrir ações da turma"
+                                onclick="toggleMenu(this)"
+                            >
+                                ⋮
+                            </button>
+
+                            <div class="dropdown">
+
+                                <a href="/turma/{{ turma[0] }}/alunos">
+                                    Ver alunos
+                                </a>
+
+                                <a href="/turma_professores/{{ turma[0] }}">
+                                    Ver professores
+                                </a>
+
+                                <a href="/editar_turma/{{ turma[0] }}">
+                                    Editar turma
+                                </a>
+
+                                <a
+                                    href="/excluir_turma/{{ turma[0] }}"
+                                    class="excluir"
+                                    onclick="return confirm('Deseja realmente excluir esta turma?')"
+                                >
+                                    Excluir turma
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="5" class="sem-registro">
+                        Nenhuma turma cadastrada ainda.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+function toggleMenu(botao) {
+
+    const menuAtual = botao.nextElementSibling;
+
+    document.querySelectorAll(".dropdown").forEach(function (menu) {
+        if (menu !== menuAtual) {
+            menu.classList.remove("ativo");
+        }
+    });
+
+    document.querySelectorAll(".btn-menu").forEach(function (btn) {
+        if (btn !== botao) {
+            btn.classList.remove("ativo");
+        }
+    });
+
+    menuAtual.classList.toggle("ativo");
+    botao.classList.toggle("ativo");
+}
+
+document.addEventListener("click", function (event) {
+
+    if (!event.target.closest(".menu-acoes")) {
+
+        document.querySelectorAll(".dropdown").forEach(function (menu) {
+            menu.classList.remove("ativo");
+        });
+
+        document.querySelectorAll(".btn-menu").forEach(function (btn) {
+            btn.classList.remove("ativo");
+        });
+    }
+});
+</script>
+
+{% endblock %}

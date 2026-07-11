@@ -1,0 +1,383 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Usuários | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-cabecalho">
+
+    <a href="/" class="voltar">
+        ← Voltar ao painel
+    </a>
+
+    <div class="pagina-titulo-linha">
+
+        <div>
+            <h1>Usuários do Sistema</h1>
+            <p>Gerencie os usuários, cargos e acessos da plataforma.</p>
+        </div>
+
+        <a href="/cadastrar_usuario" class="btn-primario">
+            + Novo Usuário
+        </a>
+
+    </div>
+
+</div>
+
+<div class="card-listagem">
+
+    {% if usuarios %}
+
+    <div class="tabela-container">
+
+        <table class="tabela">
+
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Cargo</th>
+                    <th>Instituição</th>
+                    <th>Status</th>
+                    <th class="coluna-acoes">Ações</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for usuario in usuarios %}
+
+                <tr>
+
+                    <td>
+                        <strong>{{ usuario["nome"] }}</strong>
+
+                        {% if usuario["cpf"] %}
+                            <br>
+                            <small>{{ usuario["cpf"] }}</small>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ usuario["email"] or "-" }}
+                    </td>
+
+                    <td>
+                        {{ usuario["cargo"] or "Não definido" }}
+                    </td>
+
+                    <td>
+                        {{ usuario["nome_instituicao"] or "Administração Geral" }}
+                    </td>
+
+                    <td>
+                        {% if usuario["ativo"] == 1 %}
+                            <span class="status ativo">
+                                Ativo
+                            </span>
+                        {% else %}
+                            <span class="status inativo">
+                                Inativo
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td class="coluna-acoes">
+
+                        <div class="menu-acoes">
+
+                            <button
+                                type="button"
+                                class="btn-menu-acoes"
+                                aria-label="Abrir opções do usuário"
+                                onclick="alternarMenuUsuario(
+                                    event,
+                                    'menu-usuario-{{ usuario['id'] }}'
+                                )"
+                            >
+                                ⋮
+                            </button>
+
+                            <div
+                                class="dropdown-acoes"
+                                id="menu-usuario-{{ usuario['id'] }}"
+                            >
+
+                                <a href="/editar_usuario/{{ usuario['id'] }}">
+                                    Editar
+                                </a>
+
+                                {% if usuario["ativo"] == 1 %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacaoUsuario(
+                                            'inativar',
+                                            {{ usuario['id'] }},
+                                            '{{ usuario['nome']|e }}'
+                                        )"
+                                    >
+                                        Inativar
+                                    </button>
+
+                                {% else %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacaoUsuario(
+                                            'ativar',
+                                            {{ usuario['id'] }},
+                                            '{{ usuario['nome']|e }}'
+                                        )"
+                                    >
+                                        Ativar
+                                    </button>
+
+                                {% endif %}
+
+                                <button
+                                    type="button"
+                                    class="acao-dropdown acao-excluir"
+                                    onclick="abrirConfirmacaoUsuario(
+                                        'excluir',
+                                        {{ usuario['id'] }},
+                                        '{{ usuario['nome']|e }}'
+                                    )"
+                                >
+                                    Excluir
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    {% else %}
+
+    <div class="estado-vazio">
+        <h2>Nenhum usuário cadastrado</h2>
+        <p>Clique em <strong>Novo Usuário</strong> para começar.</p>
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+
+<div
+    class="modal-confirmacao"
+    id="modalConfirmacaoUsuario"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal-fundo"
+        onclick="fecharConfirmacaoUsuario()"
+    ></div>
+
+    <div
+        class="modal-caixa"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tituloConfirmacaoUsuario"
+    >
+
+        <div
+            class="modal-icone"
+            id="iconeConfirmacaoUsuario"
+        >
+            !
+        </div>
+
+        <h2 id="tituloConfirmacaoUsuario">
+            Confirmar ação
+        </h2>
+
+        <p id="mensagemConfirmacaoUsuario">
+            Deseja continuar?
+        </p>
+
+        <div class="modal-acoes">
+
+            <button
+                type="button"
+                class="btn-modal-cancelar"
+                onclick="fecharConfirmacaoUsuario()"
+            >
+                Não
+            </button>
+
+            <a
+                href="#"
+                class="btn-modal-confirmar"
+                id="botaoConfirmarUsuario"
+            >
+                Sim
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+function fecharMenusUsuario(menuIgnorado = null) {
+    document
+        .querySelectorAll(".dropdown-acoes.aberto")
+        .forEach(function(menu) {
+            if (menu !== menuIgnorado) {
+                menu.classList.remove("aberto");
+            }
+        });
+}
+
+function alternarMenuUsuario(event, menuId) {
+    event.stopPropagation();
+
+    const menu = document.getElementById(menuId);
+    const estavaAberto = menu.classList.contains("aberto");
+
+    fecharMenusUsuario(menu);
+
+    if (estavaAberto) {
+        menu.classList.remove("aberto");
+    } else {
+        menu.classList.add("aberto");
+    }
+}
+
+function abrirConfirmacaoUsuario(acao, id, nomeUsuario) {
+    fecharMenusUsuario();
+
+    const modal = document.getElementById(
+        "modalConfirmacaoUsuario"
+    );
+
+    const titulo = document.getElementById(
+        "tituloConfirmacaoUsuario"
+    );
+
+    const mensagem = document.getElementById(
+        "mensagemConfirmacaoUsuario"
+    );
+
+    const botao = document.getElementById(
+        "botaoConfirmarUsuario"
+    );
+
+    const icone = document.getElementById(
+        "iconeConfirmacaoUsuario"
+    );
+
+    modal.classList.add("aberto");
+    modal.setAttribute("aria-hidden", "false");
+
+    botao.className = "btn-modal-confirmar";
+    icone.className = "modal-icone";
+
+    if (acao === "inativar") {
+        titulo.textContent = "Confirmar inativação";
+
+        mensagem.textContent =
+            'Deseja realmente inativar o usuário "' +
+            nomeUsuario +
+            '"? Ele não poderá acessar a plataforma até ser reativado.';
+
+        botao.textContent = "Sim, inativar";
+        botao.href =
+            "/ativar_inativar_usuario/" + id;
+
+        botao.classList.add("confirmar-alerta");
+        icone.classList.add("icone-alerta");
+    }
+
+    if (acao === "ativar") {
+        titulo.textContent = "Confirmar ativação";
+
+        mensagem.textContent =
+            'Deseja realmente ativar o usuário "' +
+            nomeUsuario +
+            '"?';
+
+        botao.textContent = "Sim, ativar";
+        botao.href =
+            "/ativar_inativar_usuario/" + id;
+
+        botao.classList.add("confirmar-sucesso");
+        icone.classList.add("icone-sucesso");
+    }
+
+    if (acao === "excluir") {
+        titulo.textContent = "Confirmar exclusão";
+
+        mensagem.textContent =
+            'Deseja realmente excluir o usuário "' +
+            nomeUsuario +
+            '"? Esta ação não poderá ser desfeita.';
+
+        botao.textContent = "Sim, excluir";
+        botao.href =
+            "/excluir_usuario/" + id;
+
+        botao.classList.add("confirmar-perigo");
+        icone.classList.add("icone-perigo");
+    }
+}
+
+function fecharConfirmacaoUsuario() {
+    const modal = document.getElementById(
+        "modalConfirmacaoUsuario"
+    );
+
+    modal.classList.remove("aberto");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+document.addEventListener("click", function() {
+    fecharMenusUsuario();
+});
+
+document
+    .querySelectorAll(".dropdown-acoes")
+    .forEach(function(menu) {
+        menu.addEventListener("click", function(event) {
+            event.stopPropagation();
+        });
+    });
+
+document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape") {
+        fecharMenusUsuario();
+        fecharConfirmacaoUsuario();
+    }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modal = document.getElementById("modalConfirmacaoUsuario");
+
+    if (modal) {
+        modal.classList.remove("aberto");
+        modal.setAttribute("aria-hidden", "true");
+    }
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,447 @@
+/* ===========================
+   TABELAS
+=========================== */
+
+.tabela-container {
+    width: 100%;
+    overflow: visible;
+}
+
+.card-listagem {
+    overflow: visible;
+}
+
+.tabela {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.tabela th,
+.tabela td {
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--borda);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.tabela th {
+    color: var(--azul);
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.tabela td {
+    color: var(--texto);
+    font-size: 15px;
+}
+
+.tabela tbody tr {
+    position: relative;
+    transition: background 0.2s;
+}
+
+.tabela tbody tr:hover {
+    background: #f8fafc;
+}
+
+.tabela small {
+    color: var(--texto-suave);
+}
+
+/* ===========================
+   STATUS
+=========================== */
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 7px 12px;
+
+    border-radius: 999px;
+
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.ativo {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.inativo {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ===========================
+   COLUNA DE AÇÕES
+=========================== */
+
+.coluna-acoes {
+    width: 80px;
+    text-align: center !important;
+    overflow: visible;
+}
+
+.menu-acoes {
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: visible;
+}
+
+/* ===========================
+   BOTÃO DOS TRÊS PONTOS
+=========================== */
+
+.btn-menu-acoes {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--azul-claro);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+
+    color: var(--azul);
+    font-size: 26px;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        border-color 0.2s,
+        color 0.2s;
+}
+
+.btn-menu-acoes:hover,
+.btn-menu-acoes:focus {
+    background: #dfe9ff;
+    border-color: rgba(22, 62, 143, 0.18);
+    color: var(--azul-escuro);
+    outline: none;
+}
+
+/* ===========================
+   MENU SUSPENSO
+=========================== */
+
+.dropdown-acoes {
+    position: absolute;
+
+    top: 50%;
+    right: calc(100% + 10px);
+
+    z-index: 9999;
+
+    display: none;
+
+    min-width: 170px;
+    padding: 7px;
+
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+
+    transform: translateY(-50%);
+}
+
+.dropdown-acoes.aberto {
+    display: block;
+}
+
+.dropdown-acoes a,
+.dropdown-acoes .acao-dropdown {
+    display: block;
+
+    width: 100%;
+    padding: 10px 12px;
+
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+
+    color: var(--texto);
+    text-align: left;
+    text-decoration: none;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+    white-space: nowrap;
+
+    transition:
+        background 0.2s,
+        color 0.2s;
+}
+
+.dropdown-acoes a:hover,
+.dropdown-acoes .acao-dropdown:hover {
+    background: var(--azul-claro);
+    color: var(--azul-escuro);
+}
+
+.dropdown-acoes .acao-excluir {
+    color: #b91c1c;
+}
+
+.dropdown-acoes .acao-excluir:hover {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+/* Pequena seta do menu */
+
+.dropdown-acoes::after {
+    content: "";
+
+    position: absolute;
+    top: 50%;
+    right: -6px;
+
+    width: 10px;
+    height: 10px;
+
+    background: var(--branco);
+    border-top: 1px solid var(--borda);
+    border-right: 1px solid var(--borda);
+
+    transform: translateY(-50%) rotate(45deg);
+}
+
+/* ===========================
+   MODAL DE CONFIRMAÇÃO
+=========================== */
+
+.modal-confirmacao {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+}
+
+.modal-confirmacao.aberto {
+    display: flex;
+}
+
+.modal-fundo {
+    position: absolute;
+    inset: 0;
+
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+}
+
+.modal-caixa {
+    position: relative;
+    z-index: 1;
+
+    width: 100%;
+    max-width: 460px;
+
+    padding: 30px;
+
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: 22px;
+
+    text-align: center;
+
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+}
+
+.modal-icone {
+    width: 58px;
+    height: 58px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin: 0 auto 18px;
+
+    border-radius: 50%;
+
+    font-size: 26px;
+    font-weight: 800;
+}
+
+.icone-alerta {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.icone-sucesso {
+    background: #ecfdf5;
+    color: #15803d;
+}
+
+.icone-perigo {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.modal-caixa h2 {
+    margin: 0;
+
+    color: var(--texto-forte);
+    font-size: 23px;
+}
+
+.modal-caixa p {
+    margin: 14px 0 0;
+
+    color: var(--texto-suave);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.modal-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+
+    margin-top: 26px;
+}
+
+.btn-modal-cancelar,
+.btn-modal-confirmar {
+    min-width: 120px;
+    padding: 12px 18px;
+
+    border-radius: 11px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+
+    transition:
+        background 0.2s,
+        color 0.2s,
+        transform 0.2s;
+}
+
+.btn-modal-cancelar {
+    background: #f1f5f9;
+    border: 1px solid var(--borda);
+    color: var(--texto);
+}
+
+.btn-modal-cancelar:hover {
+    background: #e2e8f0;
+}
+
+.btn-modal-confirmar {
+    border: 1px solid transparent;
+    color: #ffffff;
+}
+
+.confirmar-alerta {
+    background: #c2410c;
+}
+
+.confirmar-alerta:hover {
+    background: #9a3412;
+}
+
+.confirmar-sucesso {
+    background: #15803d;
+}
+
+.confirmar-sucesso:hover {
+    background: #166534;
+}
+
+.confirmar-perigo {
+    background: #b91c1c;
+}
+
+.confirmar-perigo:hover {
+    background: #991b1b;
+}
+
+.btn-modal-confirmar:hover,
+.btn-modal-cancelar:hover {
+    transform: translateY(-1px);
+}
+
+/* ===========================
+   RESPONSIVIDADE
+=========================== */
+
+@media (max-width: 900px) {
+    .tabela-container {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+
+    .tabela {
+        min-width: 900px;
+    }
+
+    .dropdown-acoes {
+        top: 46px;
+        right: 0;
+
+        transform: none;
+    }
+
+    .dropdown-acoes::after {
+        display: none;
+    }
+}
+
+@media (max-width: 500px) {
+    .modal-caixa {
+        padding: 24px;
+    }
+
+    .modal-acoes {
+        flex-direction: column-reverse;
+    }
+
+    .btn-modal-cancelar,
+    .btn-modal-confirmar {
+        width: 100%;
+    }
+}
+
+/* Modal fechado não pode bloquear os cliques da página */
+
+.modal-confirmacao {
+    display: none;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.modal-confirmacao.aberto {
+    display: flex;
+    pointer-events: auto;
+    visibility: visible;
+}

@@ -1,0 +1,799 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Editar Instituição | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-topo">
+
+    <a href="/gestao/instituicoes" class="voltar">
+        ← Voltar para instituições
+    </a>
+
+    <div class="linha-titulo">
+        <h1>Editar Instituição</h1>
+    </div>
+
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+
+    <!-- ==========================
+         INFORMAÇÕES GERAIS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Informações Gerais</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="nome_instituicao">
+                    Nome da Instituição
+                </label>
+
+                <input
+                    type="text"
+                    id="nome_instituicao"
+                    name="nome_instituicao"
+                    value="{{ escola['nome_instituicao'] or '' }}"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="codigo_inep">
+                    Código INEP
+                </label>
+
+                <input
+                    type="text"
+                    id="codigo_inep"
+                    name="codigo_inep"
+                    value="{{ escola['codigo_inep'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="cnpj">
+                    CNPJ
+                </label>
+
+                <input
+                    type="text"
+                    id="cnpj"
+                    name="cnpj"
+                    value="{{ escola['cnpj'] or '' }}"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         ENDEREÇO
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Endereço</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="cep">
+                    CEP
+                </label>
+
+                <input
+                    type="text"
+                    id="cep"
+                    name="cep"
+                    value="{{ escola['cep'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo campo-maior">
+
+                <label for="endereco">
+                    Endereço
+                </label>
+
+                <input
+                    type="text"
+                    id="endereco"
+                    name="endereco"
+                    value="{{ escola['endereco'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="cidade">
+                    Cidade
+                </label>
+
+                <input
+                    type="text"
+                    id="cidade"
+                    name="cidade"
+                    value="{{ escola['cidade'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="estado">
+                    Estado
+                </label>
+
+                <input
+                    type="text"
+                    id="estado"
+                    name="estado"
+                    value="{{ escola['estado'] or '' }}"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         CONTATOS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Contatos</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="telefone">
+                    Telefone
+                </label>
+
+                <input
+                    type="text"
+                    id="telefone"
+                    name="telefone"
+                    value="{{ escola['telefone'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="whatsapp">
+                    WhatsApp
+                </label>
+
+                <input
+                    type="text"
+                    id="whatsapp"
+                    name="whatsapp"
+                    value="{{ escola['whatsapp'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="email">
+                    E-mail
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="{{ escola['email'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="site">
+                    Site
+                </label>
+
+                <input
+                    type="text"
+                    id="site"
+                    name="site"
+                    value="{{ escola['site'] or '' }}"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         EQUIPE GESTORA
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Equipe Gestora</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="diretor">
+                    Diretor(a)
+                </label>
+
+                <input
+                    type="text"
+                    id="diretor"
+                    name="diretor"
+                    value="{{ escola['diretor'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="coordenador1">
+                    Coordenador(a) 1
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador1"
+                    name="coordenador1"
+                    value="{{ escola['coordenador1'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="coordenador2">
+                    Coordenador(a) 2
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador2"
+                    name="coordenador2"
+                    value="{{ escola['coordenador2'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="coordenador3">
+                    Coordenador(a) 3
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador3"
+                    name="coordenador3"
+                    value="{{ escola['coordenador3'] or '' }}"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="secretario">
+                    Secretário(a)
+                </label>
+
+                <input
+                    type="text"
+                    id="secretario"
+                    name="secretario"
+                    value="{{ escola['secretario'] or '' }}"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         DADOS ACADÊMICOS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Dados Acadêmicos</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="tipo_instituicao">
+                    Tipo da Instituição
+                </label>
+
+                <select
+                    name="tipo_instituicao"
+                    id="tipo_instituicao"
+                    required
+                >
+
+                    <option value="">
+                        Selecione o tipo
+                    </option>
+
+                    <option
+                        value="Pública Municipal"
+                        {% if escola['tipo_instituicao'] == 'Pública Municipal' %}selected{% endif %}
+                    >
+                        Pública Municipal
+                    </option>
+
+                    <option
+                        value="Pública Estadual"
+                        {% if escola['tipo_instituicao'] == 'Pública Estadual' %}selected{% endif %}
+                    >
+                        Pública Estadual
+                    </option>
+
+                    <option
+                        value="Pública Federal"
+                        {% if escola['tipo_instituicao'] == 'Pública Federal' %}selected{% endif %}
+                    >
+                        Pública Federal
+                    </option>
+
+                    <option
+                        value="Privada"
+                        {% if escola['tipo_instituicao'] == 'Privada' %}selected{% endif %}
+                    >
+                        Privada
+                    </option>
+
+                    <option
+                        value="Filantrópica"
+                        {% if escola['tipo_instituicao'] == 'Filantrópica' %}selected{% endif %}
+                    >
+                        Filantrópica
+                    </option>
+
+                    <option
+                        value="Comunitária"
+                        {% if escola['tipo_instituicao'] == 'Comunitária' %}selected{% endif %}
+                    >
+                        Comunitária
+                    </option>
+
+                    <option
+                        value="Militar"
+                        {% if escola['tipo_instituicao'] == 'Militar' %}selected{% endif %}
+                    >
+                        Militar
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="campo">
+
+                <label for="ano_letivo">
+                    Ano Letivo
+                </label>
+
+                <select
+                    name="ano_letivo"
+                    id="ano_letivo"
+                    required
+                >
+
+                    <option value="">
+                        Selecione o ano
+                    </option>
+
+                    {% for ano in range(2026, 2036) %}
+
+                        <option
+                            value="{{ ano }}"
+                            {% if escola['ano_letivo']|string == ano|string %}selected{% endif %}
+                        >
+                            {{ ano }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="campo campo-maior">
+
+                <label>
+                    Modalidades de Ensino
+                </label>
+
+                <div class="opcoes-grid">
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Presencial"
+                            {% if 'Presencial' in modalidades_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Presencial</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação a Distância"
+                            {% if 'Educação a Distância' in modalidades_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação a Distância</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação Especial"
+                            {% if 'Educação Especial' in modalidades_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação Especial</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação de Jovens e Adultos"
+                            {% if 'Educação de Jovens e Adultos' in modalidades_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação de Jovens e Adultos</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação Profissional e Tecnológica"
+                            {% if 'Educação Profissional e Tecnológica' in modalidades_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação Profissional e Tecnológica</span>
+
+                    </label>
+
+                </div>
+
+            </div>
+
+            <div class="campo campo-largura-total">
+
+                <label>
+                    Etapas de Ensino
+                </label>
+
+                <div class="opcoes-grid etapas-grid">
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação Infantil"
+                            {% if 'Educação Infantil' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação Infantil</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Fundamental - Anos Iniciais"
+                            {% if 'Ensino Fundamental - Anos Iniciais' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Fundamental — Anos Iniciais</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Fundamental - Anos Finais"
+                            {% if 'Ensino Fundamental - Anos Finais' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Fundamental — Anos Finais</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Médio"
+                            {% if 'Ensino Médio' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Ensino Médio</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação de Jovens e Adultos"
+                            {% if 'Educação de Jovens e Adultos' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação de Jovens e Adultos</span>
+
+                    </label>
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação Profissional"
+                            {% if 'Educação Profissional' in etapas_marcadas %}checked{% endif %}
+                        >
+
+                        <span>Educação Profissional</span>
+
+                    </label>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         DADOS DO ADMINISTRADOR
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Dados do Administrador da Instituição</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="admin_nome">
+                    Nome do Administrador
+                </label>
+
+                <input
+                    type="text"
+                    id="admin_nome"
+                    name="admin_nome"
+                    value="{{ administrador['nome'] if administrador is defined and administrador else '' }}"
+                    placeholder="Nome completo"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_email">
+                    E-mail
+                </label>
+
+                <input
+                    type="email"
+                    id="admin_email"
+                    name="admin_email"
+                    value="{{ administrador['email'] if administrador is defined and administrador else '' }}"
+                    placeholder="email@instituicao.com.br"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_cpf">
+                    CPF
+                </label>
+
+                <input
+                    type="text"
+                    id="admin_cpf"
+                    name="admin_cpf"
+                    value="{{ administrador['cpf'] if administrador is defined and administrador else '' }}"
+                    placeholder="000.000.000-00"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_senha">
+
+                    {% if administrador is defined and administrador %}
+                        Nova Senha
+                    {% else %}
+                        Senha
+                    {% endif %}
+
+                </label>
+
+                <input
+                    type="password"
+                    id="admin_senha"
+                    name="admin_senha"
+                    placeholder="{% if administrador is defined and administrador %}Deixe vazio para manter a senha atual{% else %}Digite uma senha{% endif %}"
+                    {% if administrador is not defined or not administrador %}required{% endif %}
+                >
+
+                {% if administrador is defined and administrador %}
+
+                    <small>
+                        Preencha somente se quiser alterar a senha atual.
+                    </small>
+
+                {% endif %}
+
+            </div>
+
+            <div class="campo">
+
+                <label>
+                    Perfil
+                </label>
+
+                <input
+                    type="text"
+                    value="Administrador da Instituição"
+                    readonly
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label>
+                    Instituição vinculada
+                </label>
+
+                <input
+                    type="text"
+                    value="{{ escola['nome_instituicao'] or '' }}"
+                    readonly
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         IDENTIDADE VISUAL
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Identidade Visual</h2>
+
+        {% if escola["logo"] and escola["logo"] != "" %}
+
+            <div class="logo-atual">
+
+                <p>Logo atual:</p>
+
+                <img
+                    src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                    alt="Logo atual da instituição"
+                    style="
+                        max-width: 180px;
+                        max-height: 120px;
+                        object-fit: contain;
+                        margin-bottom: 18px;
+                    "
+                >
+
+            </div>
+
+        {% endif %}
+
+        <div class="campo">
+
+            <label for="logo">
+                Alterar logo da Instituição
+            </label>
+
+            <input
+                type="file"
+                id="logo"
+                name="logo"
+                accept="image/*"
+            >
+
+            <small>
+                Deixe vazio para manter a logo atual.
+            </small>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         AÇÕES
+    =========================== -->
+
+    <div class="card form-card form-card-acoes">
+
+        <div class="acoes-form">
+
+            <a
+                href="/gestao/instituicoes"
+                class="btn-secundario"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="btn-primario"
+            >
+                Salvar Alterações
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+{% endblock %}

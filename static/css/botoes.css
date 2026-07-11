@@ -1,0 +1,72 @@
+/* ===========================
+   BOTÕES
+=========================== */
+
+.btn-primario,
+.btn-secundario {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 50px;
+    padding: 14px 24px;
+
+    border-radius: 12px;
+
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        color 0.2s,
+        border-color 0.2s,
+        box-shadow 0.2s,
+        transform 0.2s;
+}
+
+/* BOTÃO PRINCIPAL */
+
+.btn-primario {
+    background: var(--azul);
+    color: #ffffff;
+
+    border: 1px solid var(--azul);
+
+    box-shadow: 0 10px 22px rgba(22, 62, 143, 0.20);
+}
+
+.btn-primario:hover {
+    background: var(--azul-escuro);
+    border-color: var(--azul-escuro);
+
+    transform: translateY(-2px);
+}
+
+/* BOTÃO SECUNDÁRIO */
+
+.btn-secundario {
+    background: #eef2f7;
+    color: #334155;
+
+    border: 1px solid #e2e8f0;
+}
+
+.btn-secundario:hover {
+    background: #dfe7f2;
+    border-color: #cbd5e1;
+
+    transform: translateY(-1px);
+}
+
+/* BOTÕES DESABILITADOS */
+
+.btn-primario:disabled,
+.btn-secundario:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}

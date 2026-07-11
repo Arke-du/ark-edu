@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>{% block titulo %}ARK EDU{% endblock %}</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/base.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/menu.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/botoes.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/cards.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/tabelas.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/formularios.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/dashboard.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/responsivo.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+            <a href="/">
+                <img
+                    src="{{ url_for('static', filename='img/logo.png') }}"
+                    alt="ARK EDU"
+                >
+            </a>
+        </div>
+
+        <nav class="menu">
+
+            <a
+                href="/"
+                class="{% if request.path == '/' %}ativo-menu{% endif %}"
+            >
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 11L12 3L21 11"></path>
+                    <path d="M5 10V21H19V10"></path>
+                    <path d="M9 21V15H15V21"></path>
+                </svg>
+
+                <span>Dashboard</span>
+            </a>
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+
+                <a
+                    href="/gestao/instituicoes"
+                    class="{% if request.path.startswith('/gestao/instituicoes') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 21H21"></path>
+                        <path d="M5 21V8L12 3L19 8V21"></path>
+                        <path d="M9 12H9.01"></path>
+                        <path d="M15 12H15.01"></path>
+                        <path d="M9 16H9.01"></path>
+                        <path d="M15 16H15.01"></path>
+                    </svg>
+
+                    <span>Instituições</span>
+                </a>
+
+            {% endif %}
+
+            {% if session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ] %}
+
+                <a
+                    href="/usuarios"
+                    class="{% if request.path.startswith('/usuarios') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
+                    </svg>
+
+                    <span>Usuários</span>
+                </a>
+
+            {% endif %}
+
+            {% if permissao_modulo("Turmas") %}
+
+                <a
+                    href="/turmas"
+                    class="{% if request.path.startswith('/turmas') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 21H21"></path>
+                        <path d="M5 21V8L12 3L19 8V21"></path>
+                        <path d="M9 21V15H15V21"></path>
+                    </svg>
+
+                    <span>Turmas</span>
+                </a>
+
+            {% endif %}
+
+            {% if permissao_modulo("Alunos") %}
+
+                <a
+                    href="/alunos"
+                    class="{% if request.path.startswith('/alunos') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="9" cy="8" r="4"></circle>
+                        <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                        <circle cx="18" cy="9" r="3"></circle>
+                    </svg>
+
+                    <span>Alunos</span>
+                </a>
+
+            {% endif %}
+
+            {% if permissao_modulo("Questões") %}
+
+                <a
+                    href="/questoes"
+                    class="{% if request.path.startswith('/questoes') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                        <path d="M14 2V8H20"></path>
+                    </svg>
+
+                    <span>Banco de Questões</span>
+                </a>
+
+            {% endif %}
+
+            {% if permissao_modulo("Provas") %}
+
+                <a
+                    href="/provas"
+                    class="{% if request.path.startswith('/provas') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                        <path d="M8 8H16"></path>
+                        <path d="M8 12H16"></path>
+                        <path d="M8 16H13"></path>
+                    </svg>
+
+                    <span>Provas</span>
+                </a>
+
+            {% endif %}
+
+            {% if permissao_modulo("Relatórios") %}
+
+                <a
+                    href="/relatorios"
+                    class="{% if request.path.startswith('/relatorios') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 20V10"></path>
+                        <path d="M10 20V4"></path>
+                        <path d="M16 20V14"></path>
+                        <path d="M22 20V8"></path>
+                    </svg>
+
+                    <span>Relatórios</span>
+                </a>
+
+            {% endif %}
+
+        </nav>
+
+        <div class="sidebar-rodape">
+
+            <div class="sidebar-usuario">
+                <strong>
+                    {{ session.get("usuario_nome", "Usuário") }}
+                </strong>
+
+                <span>
+                    {{ session.get("usuario_cargo", "") }}
+                </span>
+            </div>
+
+            <a href="/logout" class="menu-sair">
+                <svg viewBox="0 0 24 24">
+                    <path d="M10 17L15 12L10 7"></path>
+                    <path d="M15 12H3"></path>
+                    <path d="M21 19V5A2 2 0 0 0 19 3H13"></path>
+                </svg>
+
+                <span>Sair</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <div class="topbar-conteudo">
+                {% block cabecalho %}{% endblock %}
+            </div>
+
+            <div class="user-box">
+                <strong>
+                    {{ session.get("usuario_nome", "Usuário") }}
+                </strong>
+
+                <span>
+                    {{ session.get("usuario_cargo", "") }}
+                </span>
+            </div>
+
+        </header>
+
+        <section class="content">
+            {% block conteudo %}{% endblock %}
+        </section>
+
+    </main>
+
+</div>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

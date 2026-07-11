@@ -1,0 +1,139 @@
+/* ===========================
+   CABEÇALHO DAS PÁGINAS
+=========================== */
+
+.pagina-cabecalho {
+    margin-bottom: 30px;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 28px;
+
+    color: var(--azul);
+    text-decoration: none;
+    font-weight: 700;
+
+    transition: color 0.2s;
+}
+
+.voltar:hover {
+    color: var(--azul-escuro);
+}
+
+.pagina-titulo-linha {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.pagina-titulo-linha h1 {
+    margin: 0;
+
+    color: var(--azul);
+    font-size: 34px;
+    line-height: 1.15;
+}
+
+.pagina-titulo-linha p {
+    margin: 10px 0 0;
+
+    color: var(--texto-suave);
+    font-size: 15px;
+}
+
+/* ===========================
+   CARDS
+=========================== */
+
+.card-listagem,
+.card {
+    position: relative;
+
+    width: 100%;
+    max-width: 100%;
+
+    padding: 32px;
+
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: 22px;
+    box-shadow: var(--sombra);
+
+    /*
+       Permite que o menu dos três pontos
+       apareça fora do card sem ser cortado.
+    */
+    overflow: visible;
+}
+
+/* Garante que a tabela não crie barra vertical */
+
+.card-listagem {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+}
+
+/* ===========================
+   ESTADO VAZIO
+=========================== */
+
+.estado-vazio {
+    min-height: 170px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+}
+
+.estado-vazio h2 {
+    margin: 0 0 10px;
+
+    color: var(--azul);
+    font-size: 26px;
+}
+
+.estado-vazio p {
+    margin: 0;
+
+    color: var(--texto-suave);
+    font-size: 16px;
+}
+
+/* ===========================
+   RESPONSIVIDADE
+=========================== */
+
+@media (max-width: 800px) {
+    .pagina-titulo-linha {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .pagina-titulo-linha h1 {
+        font-size: 29px;
+    }
+
+    .card-listagem,
+    .card {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 500px) {
+    .card-listagem,
+    .card {
+        padding: 20px;
+        border-radius: 18px;
+    }
+
+    .estado-vazio h2 {
+        font-size: 22px;
+    }
+}

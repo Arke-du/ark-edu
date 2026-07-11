@@ -1,0 +1,298 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Visualizar Instituição | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-cabecalho">
+
+    <a href="/gestao/instituicoes" class="voltar">
+        ← Voltar para instituições
+    </a>
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h1>{{ escola["nome_instituicao"] }}</h1>
+            <p>Informações completas da instituição.</p>
+        </div>
+
+        <a
+            href="/gestao/instituicoes/editar/{{ escola['id'] }}"
+            class="btn-primario"
+        >
+            Editar Instituição
+        </a>
+    </div>
+
+</div>
+
+<div class="card form-card">
+    <h2>Informações Gerais</h2>
+
+    <div class="form-grid">
+
+        <div class="campo">
+            <label>Nome da Instituição</label>
+            <div class="campo-visualizacao">
+                {{ escola["nome_instituicao"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Código INEP</label>
+            <div class="campo-visualizacao">
+                {{ escola["codigo_inep"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>CNPJ</label>
+            <div class="campo-visualizacao">
+                {{ escola["cnpj"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Status</label>
+            <div>
+                {% if escola["status"] == 1 %}
+                    <span class="status ativo">Ativa</span>
+                {% else %}
+                    <span class="status inativo">Inativa</span>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card form-card">
+    <h2>Endereço</h2>
+
+    <div class="form-grid">
+
+        <div class="campo">
+            <label>CEP</label>
+            <div class="campo-visualizacao">
+                {{ escola["cep"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo campo-maior">
+            <label>Endereço</label>
+            <div class="campo-visualizacao">
+                {{ escola["endereco"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Cidade</label>
+            <div class="campo-visualizacao">
+                {{ escola["cidade"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Estado</label>
+            <div class="campo-visualizacao">
+                {{ escola["estado"] or "-" }}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card form-card">
+    <h2>Contatos</h2>
+
+    <div class="form-grid">
+
+        <div class="campo">
+            <label>Telefone</label>
+            <div class="campo-visualizacao">
+                {{ escola["telefone"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>WhatsApp</label>
+            <div class="campo-visualizacao">
+                {{ escola["whatsapp"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>E-mail</label>
+            <div class="campo-visualizacao">
+                {{ escola["email"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Site</label>
+            <div class="campo-visualizacao">
+                {{ escola["site"] or "-" }}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card form-card">
+    <h2>Equipe Gestora</h2>
+
+    <div class="form-grid">
+
+        <div class="campo">
+            <label>Diretor(a)</label>
+            <div class="campo-visualizacao">
+                {{ escola["diretor"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Coordenador(a) 1</label>
+            <div class="campo-visualizacao">
+                {{ escola["coordenador1"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Coordenador(a) 2</label>
+            <div class="campo-visualizacao">
+                {{ escola["coordenador2"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Coordenador(a) 3</label>
+            <div class="campo-visualizacao">
+                {{ escola["coordenador3"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Secretário(a)</label>
+            <div class="campo-visualizacao">
+                {{ escola["secretario"] or "-" }}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card form-card">
+    <h2>Dados Acadêmicos</h2>
+
+    <div class="form-grid">
+
+        <div class="campo">
+            <label>Tipo da Instituição</label>
+            <div class="campo-visualizacao">
+                {{ escola["tipo_instituicao"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Ano Letivo</label>
+            <div class="campo-visualizacao">
+                {{ escola["ano_letivo"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo campo-maior">
+            <label>Modalidades de Ensino</label>
+            <div class="campo-visualizacao">
+                {{ escola["modalidade_ensino"] or "-" }}
+            </div>
+        </div>
+
+        <div class="campo campo-largura-total">
+            <label>Etapas de Ensino</label>
+            <div class="campo-visualizacao">
+                {{ escola["etapas_ensino"] or "-" }}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card form-card">
+    <h2>Administrador da Instituição</h2>
+
+    {% if administrador %}
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label>Nome</label>
+                <div class="campo-visualizacao">
+                    {{ administrador["nome"] or "-" }}
+                </div>
+            </div>
+
+            <div class="campo">
+                <label>E-mail</label>
+                <div class="campo-visualizacao">
+                    {{ administrador["email"] or "-" }}
+                </div>
+            </div>
+
+            <div class="campo">
+                <label>CPF</label>
+                <div class="campo-visualizacao">
+                    {{ administrador["cpf"] or "-" }}
+                </div>
+            </div>
+
+            <div class="campo">
+                <label>Perfil</label>
+                <div class="campo-visualizacao">
+                    {{ administrador["cargo"] or "Administrador" }}
+                </div>
+            </div>
+
+            <div class="campo">
+                <label>Status</label>
+                <div>
+                    {% if administrador["ativo"] == 1 %}
+                        <span class="status ativo">Ativo</span>
+                    {% else %}
+                        <span class="status inativo">Inativo</span>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+    {% else %}
+
+        <div class="estado-vazio">
+            <h3>Nenhum administrador vinculado</h3>
+            <p>Edite a instituição para cadastrar um administrador.</p>
+        </div>
+
+    {% endif %}
+</div>
+
+<div class="card form-card">
+    <h2>Identidade Visual</h2>
+
+    {% if escola["logo"] %}
+
+        <img
+            src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+            alt="Logo da instituição"
+            style="max-width: 220px; max-height: 150px;"
+        >
+
+    {% else %}
+
+        <div class="campo-visualizacao">
+            Nenhuma logo cadastrada.
+        </div>
+
+    {% endif %}
+</div>
+
+{% endblock %}

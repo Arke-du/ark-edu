@@ -1,0 +1,548 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Cadastrar Usuário | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-cabecalho">
+
+    <a href="/usuarios" class="voltar">
+        ← Voltar para usuários
+    </a>
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h1>Novo Usuário</h1>
+            <p>
+                Cadastre um novo usuário e defina seus acessos à plataforma.
+            </p>
+        </div>
+    </div>
+
+</div>
+
+<form
+    method="POST"
+    action="/cadastrar_usuario"
+    id="formCadastrarUsuario"
+>
+
+    <!-- DADOS DO USUÁRIO -->
+    <div class="card form-card">
+
+        <h2>Dados do Usuário</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="nome">Nome completo</label>
+
+                <input
+                    type="text"
+                    id="nome"
+                    name="nome"
+                    placeholder="Digite o nome completo"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="email">E-mail</label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="usuario@email.com"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="cpf">CPF</label>
+
+                <input
+                    type="text"
+                    id="cpf"
+                    name="cpf"
+                    placeholder="000.000.000-00"
+                    maxlength="14"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="cargo_id">Cargo</label>
+
+                <select
+                    id="cargo_id"
+                    name="cargo_id"
+                    required
+                >
+                    <option value="">Selecione o cargo</option>
+
+                    {% for cargo in cargos %}
+                        <option
+                            value="{{ cargo.id }}"
+                            data-cargo="{{ cargo.nome }}"
+                        >
+                            {{ cargo.nome }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- INSTITUIÇÃO -->
+    <div class="card form-card">
+
+        <h2>Instituição vinculada</h2>
+
+        <p class="ajuda-formulario">
+            Defina a instituição à qual este usuário pertence.
+        </p>
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" %}
+
+            <div class="form-grid">
+
+                <div class="campo campo-largura-total">
+                    <label for="escola_id">Instituição</label>
+
+                    <select
+                        id="escola_id"
+                        name="escola_id"
+                    >
+                        <option value="">
+                            Administração Geral / sem instituição
+                        </option>
+
+                        {% for escola in escolas %}
+                            <option value="{{ escola.id }}">
+                                {{ escola.nome_instituicao }}
+                            </option>
+                        {% endfor %}
+                    </select>
+
+                    <small class="ajuda-formulario">
+                        Apenas o cargo Administrador Geral pode permanecer sem instituição.
+                    </small>
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="campo-visualizacao">
+                {{ nome_instituicao }}
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- SENHA -->
+    <div class="card form-card">
+
+        <h2>Senha de acesso</h2>
+
+        <p class="ajuda-formulario">
+            Crie uma senha inicial para o usuário.
+        </p>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="senha">Senha</label>
+
+                <div class="campo-senha">
+                    <input
+                        type="password"
+                        id="senha"
+                        name="senha"
+                        placeholder="Mínimo de 6 caracteres"
+                        minlength="6"
+                        required
+                    >
+
+                    <button
+                        type="button"
+                        class="botao-ver-senha"
+                        data-alvo="senha"
+                        aria-label="Mostrar senha"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 12C4.5 7.5 8 5 12 5C16 5 19.5 7.5 22 12C19.5 16.5 16 19 12 19C8 19 4.5 16.5 2 12Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="campo">
+                <label for="confirmar_senha">Confirmar senha</label>
+
+                <div class="campo-senha">
+                    <input
+                        type="password"
+                        id="confirmar_senha"
+                        name="confirmar_senha"
+                        placeholder="Digite novamente"
+                        minlength="6"
+                        required
+                    >
+
+                    <button
+                        type="button"
+                        class="botao-ver-senha"
+                        data-alvo="confirmar_senha"
+                        aria-label="Mostrar senha"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 12C4.5 7.5 8 5 12 5C16 5 19.5 7.5 22 12C19.5 16.5 16 19 12 19C8 19 4.5 16.5 2 12Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- PERMISSÕES -->
+    <div class="card form-card">
+
+        <h2>Permissões de acesso</h2>
+
+        <p class="ajuda-formulario">
+            Selecione os módulos que este usuário poderá visualizar e utilizar.
+        </p>
+
+        <div class="opcoes-grid etapas-grid">
+
+            {% for modulo in modulos_plataforma %}
+
+                {% if not (
+                    session.get("usuario_cargo") == "Administrador da Instituição"
+                    and modulo == "Instituições"
+                ) %}
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modulos_permitidos"
+                            value="{{ modulo }}"
+                            {% if modulo == "Dashboard" %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span>{{ modulo }}</span>
+
+                    </label>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <!-- TURMAS -->
+    <div
+        class="card form-card"
+        id="cardTurmas"
+        hidden
+    >
+
+        <h2>Turmas da coordenação</h2>
+
+        <p class="ajuda-formulario">
+            Selecione as turmas que ficarão vinculadas ao coordenador.
+        </p>
+
+        {% if turmas %}
+
+            <div class="opcoes-grid etapas-grid">
+
+                {% for turma in turmas %}
+
+                    <label
+                        class="opcao-check opcao-turma"
+                        data-escola="{{ turma.escola_id }}"
+                    >
+
+                        <input
+                            type="checkbox"
+                            name="turmas_vinculadas"
+                            value="{{ turma.id }}"
+                        >
+
+                        <span>
+                            <strong>{{ turma.nome }}</strong>
+
+                            {% if turma.ano %}
+                                — {{ turma.ano }}
+                            {% endif %}
+
+                            {% if turma.turno %}
+                                — {{ turma.turno }}
+                            {% endif %}
+                        </span>
+
+                    </label>
+
+                {% endfor %}
+
+            </div>
+
+            <div
+                class="estado-vazio estado-vazio-menor"
+                id="mensagemSemTurmas"
+                hidden
+            >
+                <h2>Nenhuma turma disponível</h2>
+                <p>
+                    Não há turmas cadastradas para a instituição selecionada.
+                </p>
+            </div>
+
+        {% else %}
+
+            <div class="estado-vazio estado-vazio-menor">
+                <h2>Nenhuma turma disponível</h2>
+                <p>
+                    Cadastre as turmas da instituição antes de criar os vínculos.
+                </p>
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- AÇÕES -->
+    <div class="card form-card form-card-acoes">
+
+        <div class="acoes-form">
+
+            <a
+                href="/usuarios"
+                class="btn-secundario"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="btn-primario"
+            >
+                Salvar Usuário
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const cargoSelect = document.getElementById("cargo_id");
+    const escolaSelect = document.getElementById("escola_id");
+    const cardTurmas = document.getElementById("cardTurmas");
+    const opcoesTurmas = document.querySelectorAll(".opcao-turma");
+    const mensagemSemTurmas = document.getElementById("mensagemSemTurmas");
+    const campoCpf = document.getElementById("cpf");
+
+    function cargoEhCoordenacao() {
+        if (!cargoSelect) {
+            return false;
+        }
+
+        const opcao = cargoSelect.options[cargoSelect.selectedIndex];
+
+        if (!opcao) {
+            return false;
+        }
+
+        const cargo = (
+            opcao.dataset.cargo ||
+            opcao.textContent ||
+            ""
+        ).toLowerCase();
+
+        return (
+            cargo.includes("coordenador") ||
+            cargo.includes("coordenação") ||
+            cargo.includes("coordenacao")
+        );
+    }
+
+    function filtrarTurmasPorInstituicao() {
+        if (!opcoesTurmas.length) {
+            return;
+        }
+
+        const escolaSelecionada = escolaSelect
+            ? String(escolaSelect.value || "")
+            : "";
+
+        let quantidadeVisivel = 0;
+
+        opcoesTurmas.forEach(function (opcao) {
+
+            const escolaTurma = String(
+                opcao.dataset.escola || ""
+            );
+
+            let exibir = true;
+
+            if (escolaSelect) {
+                exibir = (
+                    escolaSelecionada !== "" &&
+                    escolaTurma === escolaSelecionada
+                );
+            }
+
+            opcao.hidden = !exibir;
+
+            const checkbox = opcao.querySelector(
+                'input[type="checkbox"]'
+            );
+
+            if (!exibir && checkbox) {
+                checkbox.checked = false;
+            }
+
+            if (exibir) {
+                quantidadeVisivel++;
+            }
+        });
+
+        if (mensagemSemTurmas) {
+            mensagemSemTurmas.hidden =
+                quantidadeVisivel !== 0;
+        }
+    }
+
+    function atualizarCardTurmas() {
+        if (!cardTurmas) {
+            return;
+        }
+
+        const mostrar = cargoEhCoordenacao();
+
+        cardTurmas.hidden = !mostrar;
+
+        if (mostrar) {
+            filtrarTurmasPorInstituicao();
+        } else {
+            opcoesTurmas.forEach(function (opcao) {
+
+                const checkbox = opcao.querySelector(
+                    'input[type="checkbox"]'
+                );
+
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
+        }
+    }
+
+    if (cargoSelect) {
+        cargoSelect.addEventListener(
+            "change",
+            atualizarCardTurmas
+        );
+    }
+
+    if (escolaSelect) {
+        escolaSelect.addEventListener(
+            "change",
+            filtrarTurmasPorInstituicao
+        );
+    }
+
+    document
+        .querySelectorAll(".botao-ver-senha")
+        .forEach(function (botao) {
+
+            botao.addEventListener("click", function () {
+
+                const campo = document.getElementById(
+                    botao.dataset.alvo
+                );
+
+                if (!campo) {
+                    return;
+                }
+
+                const mostrar = campo.type === "password";
+
+                campo.type = mostrar
+                    ? "text"
+                    : "password";
+
+                botao.setAttribute(
+                    "aria-label",
+                    mostrar
+                        ? "Ocultar senha"
+                        : "Mostrar senha"
+                );
+
+                botao.innerHTML = mostrar
+                    ? `
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 3L21 21"></path>
+                            <path d="M10.6 10.7A2 2 0 0 0 13.3 13.4"></path>
+                            <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4C17 4 20.5 8 22 12C21.4 13.5 20.5 15 19.3 16.2"></path>
+                            <path d="M6.6 6.6C4.5 8 3.1 10 2 12C3.5 16 7 20 12 20C13.4 20 14.7 19.7 15.8 19.2"></path>
+                        </svg>
+                    `
+                    : `
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 12C4.5 7.5 8 5 12 5C16 5 19.5 7.5 22 12C19.5 16.5 16 19 12 19C8 19 4.5 16.5 2 12Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    `;
+            });
+        });
+
+    if (campoCpf) {
+        campoCpf.addEventListener("input", function () {
+
+            let valor = campoCpf.value
+                .replace(/\D/g, "")
+                .slice(0, 11);
+
+            valor = valor.replace(
+                /(\d{3})(\d)/,
+                "$1.$2"
+            );
+
+            valor = valor.replace(
+                /(\d{3})(\d)/,
+                "$1.$2"
+            );
+
+            valor = valor.replace(
+                /(\d{3})(\d{1,2})$/,
+                "$1-$2"
+            );
+
+            campoCpf.value = valor;
+        });
+    }
+
+    atualizarCardTurmas();
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,671 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Nova Instituição | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="pagina-topo">
+
+    <a href="/gestao/instituicoes" class="voltar">
+        ← Voltar para instituições
+    </a>
+
+    <div class="linha-titulo">
+        <h1>Nova Instituição</h1>
+    </div>
+
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+
+    <!-- ==========================
+         INFORMAÇÕES GERAIS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Informações Gerais</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="nome_instituicao">
+                    Nome da Instituição
+                </label>
+
+                <input
+                    type="text"
+                    id="nome_instituicao"
+                    name="nome_instituicao"
+                    placeholder="Digite o nome da instituição"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="codigo_inep">
+                    Código INEP
+                </label>
+
+                <input
+                    type="text"
+                    id="codigo_inep"
+                    name="codigo_inep"
+                    placeholder="Digite o código INEP"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="cnpj">
+                    CNPJ
+                </label>
+
+                <input
+                    type="text"
+                    id="cnpj"
+                    name="cnpj"
+                    placeholder="00.000.000/0000-00"
+                >
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         ENDEREÇO
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Endereço</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="cep">
+                    CEP
+                </label>
+
+                <input
+                    type="text"
+                    id="cep"
+                    name="cep"
+                    placeholder="00000-000"
+                >
+            </div>
+
+            <div class="campo campo-maior">
+                <label for="endereco">
+                    Endereço
+                </label>
+
+                <input
+                    type="text"
+                    id="endereco"
+                    name="endereco"
+                    placeholder="Rua, avenida, número e complemento"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="cidade">
+                    Cidade
+                </label>
+
+                <input
+                    type="text"
+                    id="cidade"
+                    name="cidade"
+                    placeholder="Digite a cidade"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="estado">
+                    Estado
+                </label>
+
+                <input
+                    type="text"
+                    id="estado"
+                    name="estado"
+                    placeholder="Ex.: Tocantins"
+                >
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         CONTATOS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Contatos</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="telefone">
+                    Telefone
+                </label>
+
+                <input
+                    type="text"
+                    id="telefone"
+                    name="telefone"
+                    placeholder="(00) 0000-0000"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="whatsapp">
+                    WhatsApp
+                </label>
+
+                <input
+                    type="text"
+                    id="whatsapp"
+                    name="whatsapp"
+                    placeholder="(00) 00000-0000"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="email">
+                    E-mail institucional
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="contato@instituicao.com.br"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="site">
+                    Site
+                </label>
+
+                <input
+                    type="text"
+                    id="site"
+                    name="site"
+                    placeholder="www.instituicao.com.br"
+                >
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         EQUIPE GESTORA
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Equipe Gestora</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+                <label for="diretor">
+                    Diretor(a)
+                </label>
+
+                <input
+                    type="text"
+                    id="diretor"
+                    name="diretor"
+                    placeholder="Nome do(a) diretor(a)"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="coordenador1">
+                    Coordenador(a) 1
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador1"
+                    name="coordenador1"
+                    placeholder="Nome do(a) coordenador(a)"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="coordenador2">
+                    Coordenador(a) 2
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador2"
+                    name="coordenador2"
+                    placeholder="Nome do(a) coordenador(a)"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="coordenador3">
+                    Coordenador(a) 3
+                </label>
+
+                <input
+                    type="text"
+                    id="coordenador3"
+                    name="coordenador3"
+                    placeholder="Nome do(a) coordenador(a)"
+                >
+            </div>
+
+            <div class="campo">
+                <label for="secretario">
+                    Secretário(a)
+                </label>
+
+                <input
+                    type="text"
+                    id="secretario"
+                    name="secretario"
+                    placeholder="Nome do(a) secretário(a)"
+                >
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         DADOS ACADÊMICOS
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Dados Acadêmicos</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="tipo_instituicao">
+                    Tipo da Instituição
+                </label>
+
+                <select
+                    name="tipo_instituicao"
+                    id="tipo_instituicao"
+                    required
+                >
+                    <option value="">
+                        Selecione o tipo
+                    </option>
+
+                    <option value="Pública Municipal">
+                        Pública Municipal
+                    </option>
+
+                    <option value="Pública Estadual">
+                        Pública Estadual
+                    </option>
+
+                    <option value="Pública Federal">
+                        Pública Federal
+                    </option>
+
+                    <option value="Privada">
+                        Privada
+                    </option>
+
+                    <option value="Filantrópica">
+                        Filantrópica
+                    </option>
+
+                    <option value="Comunitária">
+                        Comunitária
+                    </option>
+
+                    <option value="Militar">
+                        Militar
+                    </option>
+                </select>
+
+            </div>
+
+            <div class="campo">
+
+                <label for="ano_letivo">
+                    Ano Letivo
+                </label>
+
+                <select
+                    name="ano_letivo"
+                    id="ano_letivo"
+                    required
+                >
+                    <option value="">
+                        Selecione o ano
+                    </option>
+
+                    {% for ano in range(2026, 2036) %}
+                        <option value="{{ ano }}">
+                            {{ ano }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+            </div>
+
+            <div class="campo campo-maior">
+
+                <label>
+                    Modalidades de Ensino
+                </label>
+
+                <div class="opcoes-grid">
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Presencial"
+                        >
+
+                        <span>Presencial</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação a Distância"
+                        >
+
+                        <span>Educação a Distância</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação Especial"
+                        >
+
+                        <span>Educação Especial</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação de Jovens e Adultos"
+                        >
+
+                        <span>Educação de Jovens e Adultos</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="modalidade_ensino"
+                            value="Educação Profissional e Tecnológica"
+                        >
+
+                        <span>Educação Profissional e Tecnológica</span>
+                    </label>
+
+                </div>
+
+            </div>
+
+            <div class="campo campo-largura-total">
+
+                <label>
+                    Etapas de Ensino
+                </label>
+
+                <div class="opcoes-grid etapas-grid">
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação Infantil"
+                        >
+
+                        <span>Educação Infantil</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Fundamental - Anos Iniciais"
+                        >
+
+                        <span>Fundamental — Anos Iniciais</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Fundamental - Anos Finais"
+                        >
+
+                        <span>Fundamental — Anos Finais</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Ensino Médio"
+                        >
+
+                        <span>Ensino Médio</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação de Jovens e Adultos"
+                        >
+
+                        <span>Educação de Jovens e Adultos</span>
+                    </label>
+
+                    <label class="opcao-check">
+                        <input
+                            type="checkbox"
+                            name="etapas_ensino"
+                            value="Educação Profissional"
+                        >
+
+                        <span>Educação Profissional</span>
+                    </label>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         ADMINISTRADOR
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Dados do Administrador da Instituição</h2>
+
+        <div class="form-grid">
+
+            <div class="campo">
+
+                <label for="admin_nome">
+                    Nome do Administrador
+                </label>
+
+                <input
+                    type="text"
+                    id="admin_nome"
+                    name="admin_nome"
+                    placeholder="Nome completo"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_email">
+                    E-mail de acesso
+                </label>
+
+                <input
+                    type="email"
+                    id="admin_email"
+                    name="admin_email"
+                    placeholder="administrador@instituicao.com.br"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_cpf">
+                    CPF
+                </label>
+
+                <input
+                    type="text"
+                    id="admin_cpf"
+                    name="admin_cpf"
+                    placeholder="000.000.000-00"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_senha">
+                    Senha de acesso
+                </label>
+
+                <input
+                    type="password"
+                    id="admin_senha"
+                    name="admin_senha"
+                    placeholder="Mínimo de 6 caracteres"
+                    minlength="6"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_senha2">
+                    Confirmar senha
+                </label>
+
+                <input
+                    type="password"
+                    id="admin_senha2"
+                    name="admin_senha2"
+                    placeholder="Repita a senha"
+                    minlength="6"
+                    required
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label for="admin_perfil">
+                    Perfil
+                </label>
+
+                <input
+                    type="text"
+                    id="admin_perfil"
+                    value="Administrador da Instituição"
+                    readonly
+                >
+
+            </div>
+
+        </div>
+
+        <p class="ajuda-formulario">
+            Ao salvar a instituição, um usuário será criado automaticamente com este e-mail e senha.
+        </p>
+
+    </div>
+
+    <!-- ==========================
+         IDENTIDADE VISUAL
+    =========================== -->
+
+    <div class="card form-card">
+
+        <h2>Identidade Visual</h2>
+
+        <div class="campo">
+
+            <label for="logo">
+                Logo da Instituição
+            </label>
+
+            <input
+                type="file"
+                id="logo"
+                name="logo"
+                accept="image/*"
+            >
+
+        </div>
+
+    </div>
+
+    <!-- ==========================
+         AÇÕES
+    =========================== -->
+
+    <div class="card form-card form-card-acoes">
+
+        <div class="acoes-form">
+
+            <a
+                href="/gestao/instituicoes"
+                class="btn-secundario"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="btn-primario"
+            >
+                Salvar Instituição
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,195 @@
+:root {
+    --azul: #163E8F;
+    --azul-escuro: #0F2F6E;
+    --azul-hover: #214FA8;
+    --azul-claro: #EDF3FF;
+
+    --fundo: #F4F7FC;
+    --branco: #FFFFFF;
+    --borda: #E5EAF4;
+
+    --texto: #132A55;
+    --texto-forte: #0F172A;
+    --texto-suave: #64748B;
+
+    --sombra: 0 12px 35px rgba(22, 62, 143, 0.10);
+    --radius: 18px;
+
+    --largura-sidebar: 280px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    overflow-x: hidden;
+    font-family: Arial, sans-serif;
+    background: var(--fundo);
+    color: var(--texto);
+}
+
+.app {
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* ===========================
+   ÁREA PRINCIPAL
+=========================== */
+
+.main {
+    width: calc(100% - var(--largura-sidebar));
+    min-height: 100vh;
+    margin-left: var(--largura-sidebar);
+    overflow-x: hidden;
+}
+
+/* ===========================
+   BARRA SUPERIOR
+=========================== */
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+
+    width: 100%;
+    height: 92px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 38px;
+
+    background: linear-gradient(
+        90deg,
+        #0F2F6E 0%,
+        #163E8F 55%,
+        #214FA8 100%
+    );
+
+    color: white;
+}
+
+.topbar-conteudo {
+    min-width: 0;
+}
+
+.topbar-title {
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.user-box {
+    min-width: 165px;
+    max-width: 320px;
+
+    padding: 12px 18px;
+
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+}
+
+.user-box strong {
+    display: block;
+    overflow: hidden;
+
+    font-size: 15px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-box span {
+    display: block;
+    margin-top: 3px;
+
+    overflow: hidden;
+
+    font-size: 13px;
+    opacity: 0.9;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ===========================
+   CONTEÚDO
+=========================== */
+
+.content {
+    width: 100%;
+    max-width: 100%;
+
+    padding: 38px;
+
+    overflow-x: hidden;
+}
+
+.content > * {
+    max-width: 100%;
+}
+
+form {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Impede imagens e elementos largos de ultrapassarem a tela */
+
+img {
+    max-width: 100%;
+}
+
+table {
+    max-width: 100%;
+}
+
+/* ===========================
+   RESPONSIVIDADE
+=========================== */
+
+@media (max-width: 900px) {
+    :root {
+        --largura-sidebar: 240px;
+    }
+
+    .topbar {
+        padding: 0 24px;
+    }
+
+    .content {
+        padding: 26px;
+    }
+}
+
+@media (max-width: 700px) {
+    .main {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .topbar {
+        height: auto;
+        min-height: 76px;
+        padding: 14px 18px;
+    }
+
+    .user-box {
+        min-width: 0;
+        max-width: 190px;
+    }
+
+    .content {
+        padding: 20px;
+    }
+}

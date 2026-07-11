@@ -1,0 +1,350 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Dashboard | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<div class="dashboard-cabecalho">
+
+    <div>
+        <span class="dashboard-saude">Visão geral</span>
+
+        <h1>
+            Olá, {{ session.get("usuario_nome", "Usuário") }}!
+        </h1>
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" %}
+            <p>
+                Acompanhe os principais dados de todas as instituições
+                cadastradas na plataforma.
+            </p>
+        {% elif session.get("usuario_cargo") == "Administrador da Instituição" %}
+            <p>
+                Acompanhe os principais dados e atividades da sua instituição.
+            </p>
+        {% else %}
+            <p>
+                Acompanhe suas atividades e acesse os módulos disponíveis.
+            </p>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-perfil">
+        <span>Perfil atual</span>
+
+        <strong>
+            {{ session.get("usuario_cargo", "Usuário") }}
+        </strong>
+
+        {% if nome_instituicao %}
+            <small>{{ nome_instituicao }}</small>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ==================================================
+     INDICADORES CONFORME AS PERMISSÕES
+================================================== -->
+
+<section class="dashboard-indicadores">
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" %}
+    <a href="/gestao/instituicoes" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <path d="M3 21H21"></path>
+                <path d="M5 21V8L12 3L19 8V21"></path>
+                <path d="M9 12H9.01"></path>
+                <path d="M15 12H15.01"></path>
+                <path d="M9 16H9.01"></path>
+                <path d="M15 16H15.01"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Instituições</span>
+            <strong>{{ total_instituicoes|default(0) }}</strong>
+            <small>Escolas cadastradas</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+    {% if
+        session.get("usuario_cargo") in [
+            "Administrador Geral",
+            "Administrador da Instituição"
+        ]
+        or permissao_modulo("Usuários")
+    %}
+    <a href="/usuarios" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M3 21V19C3 16.2 5.2 14 8 14H10"></path>
+                <circle cx="17" cy="11" r="3"></circle>
+                <path d="M13 21V19C13 16.8 14.8 15 17 15C19.2 15 21 16.8 21 19V21"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Usuários</span>
+            <strong>{{ total_usuarios|default(0) }}</strong>
+            <small>Usuários ativos</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Turmas") %}
+    <a href="/turmas" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <path d="M3 21H21"></path>
+                <path d="M5 21V8L12 3L19 8V21"></path>
+                <path d="M9 21V15H15V21"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Turmas</span>
+            <strong>{{ total_turmas|default(0) }}</strong>
+            <small>Turmas disponíveis</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Alunos") %}
+    <a href="/alunos" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <circle cx="9" cy="8" r="4"></circle>
+                <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                <circle cx="18" cy="9" r="3"></circle>
+                <path d="M14 21C14 17.5 16 15 19 15"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Alunos</span>
+            <strong>{{ total_alunos|default(0) }}</strong>
+            <small>Estudantes cadastrados</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Questões") %}
+    <a href="/questoes" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                <path d="M14 2V8H20"></path>
+                <path d="M8 13H16"></path>
+                <path d="M8 17H13"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Questões</span>
+            <strong>{{ total_questoes|default(0) }}</strong>
+            <small>Questões cadastradas</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Provas") %}
+    <a href="/provas" class="indicador-card">
+
+        <div class="indicador-icone">
+            <svg viewBox="0 0 24 24">
+                <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                <path d="M8 8H16"></path>
+                <path d="M8 12H16"></path>
+                <path d="M8 16H13"></path>
+            </svg>
+        </div>
+
+        <div class="indicador-conteudo">
+            <span>Provas</span>
+            <strong>{{ total_provas|default(0) }}</strong>
+            <small>Avaliações cadastradas</small>
+        </div>
+
+    </a>
+    {% endif %}
+
+</section>
+
+<!-- ==================================================
+     ACESSOS RÁPIDOS CONFORME AS PERMISSÕES
+================================================== -->
+
+<section class="dashboard-secao">
+
+    <div class="dashboard-secao-titulo">
+        <div>
+            <h2>Acessos rápidos</h2>
+            <p>Acesse os principais módulos disponíveis para o seu perfil.</p>
+        </div>
+    </div>
+
+    <div class="dashboard-atalhos">
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" %}
+
+            <a href="/gestao/instituicoes/nova" class="atalho-card">
+                <div class="atalho-icone">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 5V19"></path>
+                        <path d="M5 12H19"></path>
+                    </svg>
+                </div>
+
+                <div>
+                    <strong>Nova Instituição</strong>
+                    <span>Cadastre uma nova escola e seu administrador.</span>
+                </div>
+            </a>
+
+            <a href="/gestao/instituicoes" class="atalho-card">
+                <div class="atalho-icone">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 21H21"></path>
+                        <path d="M5 21V8L12 3L19 8V21"></path>
+                        <path d="M9 12H9.01"></path>
+                        <path d="M15 12H15.01"></path>
+                    </svg>
+                </div>
+
+                <div>
+                    <strong>Gerenciar Instituições</strong>
+                    <span>Visualize, edite e controle as escolas.</span>
+                </div>
+            </a>
+
+        {% endif %}
+
+        {% if
+            session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ]
+            or permissao_modulo("Usuários")
+        %}
+        <a href="/usuarios" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Gerenciar Usuários</strong>
+                <span>Consulte os acessos cadastrados.</span>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Turmas") %}
+        <a href="/turmas" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 21H21"></path>
+                    <path d="M5 21V8L12 3L19 8V21"></path>
+                    <path d="M9 21V15H15V21"></path>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Gerenciar Turmas</strong>
+                <span>Cadastre e organize as turmas da escola.</span>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Alunos") %}
+        <a href="/alunos" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="9" cy="8" r="4"></circle>
+                    <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                    <circle cx="18" cy="9" r="3"></circle>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Alunos</strong>
+                <span>Cadastre e organize os estudantes.</span>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Questões") %}
+        <a href="/questoes" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                    <path d="M14 2V8H20"></path>
+                    <path d="M8 13H16"></path>
+                    <path d="M8 17H13"></path>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Banco de Questões</strong>
+                <span>Cadastre e consulte questões.</span>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Provas") %}
+        <a href="/provas" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                    <path d="M8 8H16"></path>
+                    <path d="M8 12H16"></path>
+                    <path d="M8 16H13"></path>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Provas</strong>
+                <span>Crie avaliações e cartões-resposta.</span>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if session.get("usuario_cargo") == "Administrador Geral" or permissao_modulo("Relatórios") %}
+        <a href="/relatorios" class="atalho-card">
+            <div class="atalho-icone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M4 20V10"></path>
+                    <path d="M10 20V4"></path>
+                    <path d="M16 20V14"></path>
+                    <path d="M22 20V8"></path>
+                </svg>
+            </div>
+
+            <div>
+                <strong>Relatórios</strong>
+                <span>Acompanhe resultados e desempenho.</span>
+            </div>
+        </a>
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

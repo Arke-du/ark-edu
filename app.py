@@ -51,6 +51,53 @@ def criar_tabelas():
     banco = conectar_banco()
     cursor = banco.cursor()
 
+    # ==========================
+    # TABELA ESCOLAS
+    # ==========================
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS escolas (
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        nome_instituicao TEXT NOT NULL,
+
+        codigo_inep TEXT,
+
+        cnpj TEXT,
+
+        cep TEXT,
+        endereco TEXT,
+        cidade TEXT,
+        estado TEXT,
+
+        telefone TEXT,
+        whatsapp TEXT,
+        email TEXT,
+        site TEXT,
+
+        diretor TEXT,
+
+        coordenador1 TEXT,
+        coordenador2 TEXT,
+        coordenador3 TEXT,
+
+        secretario TEXT,
+
+        ano_letivo TEXT,
+
+        modalidade_ensino TEXT,
+
+        etapas_ensino TEXT,
+
+        logo TEXT,
+
+        status INTEGER DEFAULT 1,
+
+        criado_em TEXT
+    )
+    """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS turmas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,18 +352,259 @@ def criar_tabelas():
     banco.commit()
     banco.close()
 
-
 @app.route("/")
-def inicio():
+def index():
 
     if "usuario_id" not in session:
         return redirect("/login")
 
-    return render_template(
-        "index.html",
-        usuario_nome=session.get("usuario_nome"),
-        usuario_cargo=session.get("usuario_cargo")
-    )
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    usuario_id = session.get("usuario_id")
+    usuario_cargo = session.get("usuario_cargo", "").strip()
+    escola_id = session.get("escola_id")
+
+    total_instituicoes = 0
+    total_usuarios = 0
+    total_professores = 0
+    total_alunos = 0
+    total_turmas = 0
+    total_questoes = 0
+    total_provas = 0
+    nome_instituicao = None
+
+    permissoes_usuario = []
+
+    try:
+
+        # ==========================================
+        # RECUPERA A INSTITUIÇÃO DO USUÁRIO
+        # ==========================================
+
+        if (
+            usuario_cargo != "Administrador Geral"
+            and not escola_id
+            and usuario_id
+        ):
+
+            cursor.execute("""
+                SELECT escola_id
+                FROM usuarios
+                WHERE id = ?
+                LIMIT 1
+            """, (usuario_id,))
+
+            usuario_banco = cursor.fetchone()
+
+            if usuario_banco and usuario_banco["escola_id"]:
+                escola_id = usuario_banco["escola_id"]
+                session["escola_id"] = escola_id
+
+        # ==========================================
+        # PERMISSÕES DO USUÁRIO
+        # ==========================================
+
+        if usuario_cargo == "Administrador Geral":
+
+            permissoes_usuario = [
+                "Dashboard",
+                "Instituições",
+                "Usuários",
+                "Turmas",
+                "Professores",
+                "Alunos",
+                "Questões",
+                "Provas",
+                "Relatórios"
+            ]
+
+        else:
+
+            cursor.execute("""
+                SELECT modulo
+                FROM usuario_permissoes
+                WHERE usuario_id = ?
+                  AND pode_acessar = 1
+            """, (usuario_id,))
+
+            permissoes_usuario = [
+                linha["modulo"]
+                for linha in cursor.fetchall()
+            ]
+
+        # ==========================================
+        # ADMINISTRADOR GERAL
+        # ==========================================
+
+        if usuario_cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+            """)
+            total_instituicoes = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM usuarios
+                WHERE ativo = 1
+            """)
+            total_usuarios = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM professores
+            """)
+            total_professores = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM alunos
+            """)
+            total_alunos = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM turmas
+            """)
+            total_turmas = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM questoes
+            """)
+            total_questoes = cursor.fetchone()["total"]
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM provas
+            """)
+            total_provas = cursor.fetchone()["total"]
+
+        # ==========================================
+        # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
+        # ==========================================
+
+        elif escola_id:
+
+            cursor.execute("""
+                SELECT nome_instituicao
+                FROM escolas
+                WHERE id = ?
+                LIMIT 1
+            """, (escola_id,))
+
+            escola = cursor.fetchone()
+
+            if escola:
+                nome_instituicao = escola["nome_instituicao"]
+
+            # Instituição do usuário
+            total_instituicoes = 1
+
+            # Usuários da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM usuarios
+                WHERE escola_id = ?
+                  AND ativo = 1
+            """, (escola_id,))
+
+            total_usuarios = cursor.fetchone()["total"]
+
+            # Professores da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM professores
+                WHERE escola_id = ?
+            """, (escola_id,))
+
+            total_professores = cursor.fetchone()["total"]
+
+            # Alunos da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM alunos
+                WHERE escola_id = ?
+            """, (escola_id,))
+
+            total_alunos = cursor.fetchone()["total"]
+
+            # Turmas da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM turmas
+                WHERE escola_id = ?
+            """, (escola_id,))
+
+            total_turmas = cursor.fetchone()["total"]
+
+            # Questões da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM questoes
+                WHERE escola_id = ?
+            """, (escola_id,))
+
+            total_questoes = cursor.fetchone()["total"]
+
+            # Provas da instituição
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM provas
+                WHERE escola_id = ?
+            """, (escola_id,))
+
+            total_provas = cursor.fetchone()["total"]
+
+        else:
+
+            nome_instituicao = "Usuário sem instituição vinculada"
+
+        return render_template(
+            "dashboard/index.html",
+
+            total_instituicoes=total_instituicoes,
+            total_usuarios=total_usuarios,
+            total_professores=total_professores,
+            total_alunos=total_alunos,
+            total_turmas=total_turmas,
+            total_questoes=total_questoes,
+            total_provas=total_provas,
+
+            nome_instituicao=nome_instituicao,
+            permissoes_usuario=permissoes_usuario
+        )
+
+    except sqlite3.OperationalError as erro:
+
+        print(f"Erro no dashboard: {erro}")
+
+        flash(
+            f"Erro ao carregar os dados do dashboard: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "dashboard/index.html",
+
+            total_instituicoes=0,
+            total_usuarios=0,
+            total_professores=0,
+            total_alunos=0,
+            total_turmas=0,
+            total_questoes=0,
+            total_provas=0,
+
+            nome_instituicao=nome_instituicao,
+            permissoes_usuario=permissoes_usuario
+        )
+
+    finally:
+        banco.close()
 
 @app.route("/esqueci_senha")
 def esqueci_senha():
@@ -329,15 +617,49 @@ def turmas():
         return redirect("/acesso_negado")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("SELECT * FROM turmas ORDER BY nome")
+    cargo = session.get("usuario_cargo")
+    escola_id = session.get("escola_id")
+
+    # ==========================================
+    # ADMINISTRADOR GERAL
+    # ==========================================
+
+    if cargo == "Administrador Geral":
+
+        cursor.execute("""
+            SELECT
+                turmas.*,
+                escolas.nome_instituicao
+            FROM turmas
+            LEFT JOIN escolas
+                ON escolas.id = turmas.escola_id
+            ORDER BY
+                escolas.nome_instituicao,
+                turmas.nome
+        """)
+
+    # ==========================================
+    # DEMAIS USUÁRIOS
+    # ==========================================
+
+    else:
+
+        cursor.execute("""
+            SELECT *
+            FROM turmas
+            WHERE escola_id = ?
+            ORDER BY nome
+        """, (escola_id,))
+
     lista_turmas = cursor.fetchall()
 
     banco.close()
 
     return render_template(
-        "turmas.html",
+        "gestao/turmas.html",
         turmas=lista_turmas
     )
 
@@ -345,26 +667,101 @@ def turmas():
 def cadastrar_turma():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
         return redirect("/login")
 
-    nome = request.form["nome"]
-    ano = request.form["ano"]
-    turno = request.form["turno"]
+    nome = request.form.get("nome", "").strip()
+    ano = request.form.get("ano", "").strip()
+    turno = request.form.get("turno", "").strip()
+
+    escola_id = session.get("escola_id")
+    cargo = session.get("usuario_cargo")
+
+    if not nome or not ano or not turno:
+        flash("Preencha todos os campos.", "erro")
+        return redirect("/turmas")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        INSERT INTO turmas (nome, ano, turno)
-        VALUES (?, ?, ?)
-    """, (nome, ano, turno))
+    try:
 
-    banco.commit()
-    banco.close()
+        # Administrador Geral deve escolher uma instituição
+        if cargo == "Administrador Geral":
+
+            escola_form = request.form.get("escola_id")
+
+            if escola_form:
+                escola_id = escola_form
+
+            if not escola_id:
+                flash("Selecione uma instituição.", "erro")
+                return redirect("/turmas")
+
+        # Verifica se já existe turma com mesmo nome
+        cursor.execute("""
+            SELECT id
+            FROM turmas
+            WHERE nome = ?
+              AND ano = ?
+              AND turno = ?
+              AND escola_id = ?
+            LIMIT 1
+        """, (
+            nome,
+            ano,
+            turno,
+            escola_id
+        ))
+
+        if cursor.fetchone():
+            flash(
+                "Já existe uma turma com essas informações.",
+                "erro"
+            )
+            return redirect("/turmas")
+
+        cursor.execute("""
+            INSERT INTO turmas
+            (
+                nome,
+                ano,
+                turno,
+                escola_id
+            )
+            VALUES (?, ?, ?, ?)
+        """, (
+            nome,
+            ano,
+            turno,
+            escola_id
+        ))
+
+        banco.commit()
+
+        flash(
+            "Turma cadastrada com sucesso.",
+            "success"
+        )
+
+    except Exception as erro:
+
+        banco.rollback()
+
+        print("Erro ao cadastrar turma:", erro)
+
+        flash(
+            "Ocorreu um erro ao cadastrar a turma.",
+            "erro"
+        )
+
+    finally:
+        banco.close()
 
     return redirect("/turmas")
 
@@ -1837,7 +2234,8 @@ def corrigir_cartoes(prova_id):
         imagem = np.array(imagem_pil)
 
     except Exception as erro:
-        return f"Erro ao abrir imagem: {erro}"
+        print("Erro ao cadastrar usuário:", erro)
+        traceback.print_exc()
 
     codigos = decode(imagem)
 
@@ -2191,42 +2589,369 @@ def relatorio_questoes(prova_id):
         relatorio=relatorio
     )
 
-@app.route("/usuarios")
-def usuarios():
+@app.route("/gestao/instituicoes")
+def gestao_instituicoes():
 
-    if not cargo_permitido(["Administrador"]):
+    # Apenas o Administrador Geral pode acessar
+    if not cargo_permitido(["Administrador Geral"]):
         return redirect("/login")
 
     banco = conectar_banco()
-
     banco.row_factory = sqlite3.Row
-
     cursor = banco.cursor()
 
     cursor.execute("""
-        SELECT
-            usuarios.id,
-            usuarios.nome,
-            usuarios.email,
-            usuarios.senha,
-            usuarios.ativo,
-            cargos.nome AS cargo
-
-        FROM usuarios
-
-        LEFT JOIN cargos
-        ON usuarios.cargo_id = cargos.id
-
-        ORDER BY usuarios.nome
+        SELECT *
+        FROM escolas
+        ORDER BY nome_instituicao
     """)
 
-    usuarios = cursor.fetchall()
+    escolas = cursor.fetchall()
 
     banco.close()
 
     return render_template(
-        "usuarios.html",
-        usuarios=usuarios
+        "gestao/gestao_instituicoes.html",
+        escolas=escolas
+    )
+
+@app.route("/gestao/instituicoes/nova", methods=["GET", "POST"])
+def nova_instituicao():
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    if request.method == "POST":
+
+        # ==========================
+        # DADOS DO ADMINISTRADOR
+        # ==========================
+
+        admin_nome = request.form.get("admin_nome", "").strip()
+        admin_email = request.form.get("admin_email", "").strip().lower()
+        admin_cpf = request.form.get("admin_cpf", "").strip()
+        admin_senha = request.form.get("admin_senha", "").strip()
+        admin_senha2 = request.form.get("admin_senha2", "").strip()
+
+        if not admin_nome:
+            flash("Informe o nome do administrador.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if not admin_email:
+            flash("Informe o e-mail do administrador.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if not admin_senha:
+            flash("Informe a senha do administrador.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if admin_senha != admin_senha2:
+            flash("As senhas do administrador não conferem.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if len(admin_senha) < 6:
+            flash(
+                "A senha do administrador deve possuir pelo menos 6 caracteres.",
+                "erro"
+            )
+            return render_template("gestao/nova_instituicao.html")
+
+        # ==========================
+        # LOGO
+        # ==========================
+
+        logo = request.files.get("logo")
+        nome_logo = ""
+
+        if logo and logo.filename != "":
+            nome_logo = secure_filename(logo.filename)
+
+            logo.save(
+                os.path.join(
+                    app.config["UPLOAD_FOLDER"],
+                    nome_logo
+                )
+            )
+
+        # ==========================
+        # DADOS ACADÊMICOS
+        # ==========================
+
+        tipo_instituicao = request.form.get("tipo_instituicao")
+        ano_letivo = request.form.get("ano_letivo")
+
+        modalidades = request.form.getlist("modalidade_ensino")
+        etapas = request.form.getlist("etapas_ensino")
+
+        modalidade_ensino = ", ".join(modalidades)
+        etapas_ensino = ", ".join(etapas)
+
+        banco = conectar_banco()
+        banco.row_factory = sqlite3.Row
+        cursor = banco.cursor()
+
+        try:
+            # Verifica se o e-mail já existe
+            cursor.execute("""
+                SELECT id
+                FROM usuarios
+                WHERE LOWER(email) = LOWER(?)
+                LIMIT 1
+            """, (admin_email,))
+
+            usuario_existente = cursor.fetchone()
+
+            if usuario_existente:
+                flash(
+                    "Já existe um usuário cadastrado com esse e-mail.",
+                    "erro"
+                )
+                banco.close()
+
+                return render_template(
+                    "gestao/nova_instituicao.html"
+                )
+
+            # Busca o cargo correto
+            cursor.execute("""
+                SELECT id
+                FROM cargos
+                WHERE nome = 'Administrador da Instituição'
+                LIMIT 1
+            """)
+
+            cargo = cursor.fetchone()
+
+            if cargo is None:
+                cursor.execute("""
+                    INSERT INTO cargos (nome)
+                    VALUES ('Administrador da Instituição')
+                """)
+
+                cargo_id = cursor.lastrowid
+
+            else:
+                cargo_id = cargo["id"]
+
+            # Cadastra a instituição
+            cursor.execute("""
+                INSERT INTO escolas (
+                    nome_instituicao,
+                    codigo_inep,
+                    cnpj,
+                    cep,
+                    endereco,
+                    cidade,
+                    estado,
+                    telefone,
+                    whatsapp,
+                    email,
+                    site,
+                    diretor,
+                    coordenador1,
+                    coordenador2,
+                    coordenador3,
+                    secretario,
+                    tipo_instituicao,
+                    ano_letivo,
+                    modalidade_ensino,
+                    etapas_ensino,
+                    logo,
+                    status,
+                    criado_em
+                )
+                VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            """, (
+                request.form.get("nome_instituicao", "").strip(),
+                request.form.get("codigo_inep", "").strip(),
+                request.form.get("cnpj", "").strip(),
+                request.form.get("cep", "").strip(),
+                request.form.get("endereco", "").strip(),
+                request.form.get("cidade", "").strip(),
+                request.form.get("estado", "").strip(),
+                request.form.get("telefone", "").strip(),
+                request.form.get("whatsapp", "").strip(),
+                request.form.get("email", "").strip(),
+                request.form.get("site", "").strip(),
+                request.form.get("diretor", "").strip(),
+                request.form.get("coordenador1", "").strip(),
+                request.form.get("coordenador2", "").strip(),
+                request.form.get("coordenador3", "").strip(),
+                request.form.get("secretario", "").strip(),
+                tipo_instituicao,
+                ano_letivo,
+                modalidade_ensino,
+                etapas_ensino,
+                nome_logo,
+                1,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+
+            escola_id = cursor.lastrowid
+
+            # Cria automaticamente o administrador da escola
+            cursor.execute("""
+                INSERT INTO usuarios (
+                    nome,
+                    email,
+                    senha,
+                    cargo_id,
+                    ativo,
+                    escola_id,
+                    cpf
+                )
+                VALUES (?, ?, ?, ?, 1, ?, ?)
+            """, (
+                admin_nome,
+                admin_email,
+                admin_senha,
+                cargo_id,
+                escola_id,
+                admin_cpf
+            ))
+
+            banco.commit()
+            banco.close()
+
+            flash(
+                "Instituição e administrador cadastrados com sucesso!",
+                "success"
+            )
+
+            return redirect("/gestao/instituicoes")
+
+        except sqlite3.IntegrityError as erro:
+            banco.rollback()
+            banco.close()
+
+            flash(
+                "Não foi possível cadastrar. Verifique se o e-mail já está em uso.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        except Exception as erro:
+            banco.rollback()
+            banco.close()
+
+            print(f"Erro ao cadastrar instituição: {erro}")
+
+            flash(
+                "Ocorreu um erro ao cadastrar a instituição.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+    return render_template("gestao/nova_instituicao.html")
+
+@app.route("/usuarios")
+def usuarios():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    usuario_cargo = session.get("usuario_cargo", "").strip()
+    usuario_id = session.get("usuario_id")
+    escola_id = session.get("escola_id")
+
+    # Se for administrador da instituição e o escola_id
+    # ainda não estiver na sessão, busca no banco.
+    if (
+        usuario_cargo == "Administrador da Instituição"
+        and not escola_id
+        and usuario_id
+    ):
+        cursor.execute("""
+            SELECT escola_id
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (usuario_id,))
+
+        usuario_logado = cursor.fetchone()
+
+        if usuario_logado and usuario_logado["escola_id"]:
+            escola_id = usuario_logado["escola_id"]
+            session["escola_id"] = escola_id
+
+    if usuario_cargo == "Administrador Geral":
+
+        cursor.execute("""
+            SELECT
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                usuarios.cpf,
+                usuarios.ativo,
+                usuarios.escola_id,
+                cargos.nome AS cargo,
+                escolas.nome_instituicao
+            FROM usuarios
+            LEFT JOIN cargos
+                ON usuarios.cargo_id = cargos.id
+            LEFT JOIN escolas
+                ON usuarios.escola_id = escolas.id
+            ORDER BY usuarios.nome
+        """)
+
+    elif usuario_cargo == "Administrador da Instituição":
+
+        if not escola_id:
+            banco.close()
+
+            flash(
+                "Seu usuário não está vinculado a uma instituição.",
+                "erro"
+            )
+
+            return redirect("/")
+
+        cursor.execute("""
+            SELECT
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                usuarios.cpf,
+                usuarios.ativo,
+                usuarios.escola_id,
+                cargos.nome AS cargo,
+                escolas.nome_instituicao
+            FROM usuarios
+            LEFT JOIN cargos
+                ON usuarios.cargo_id = cargos.id
+            LEFT JOIN escolas
+                ON usuarios.escola_id = escolas.id
+            WHERE usuarios.escola_id = ?
+            ORDER BY usuarios.nome
+        """, (escola_id,))
+
+    else:
+        banco.close()
+        return redirect("/")
+
+    lista_usuarios = cursor.fetchall()
+
+    banco.close()
+
+    return render_template(
+        "gestao/usuarios.html",
+        usuarios=lista_usuarios
     )
 
 @app.route("/gestao")
@@ -2283,143 +3008,1398 @@ def cargos():
         cargos=cargos
     )
 
+import sqlite3
+import traceback
+
+from flask import (
+    request,
+    redirect,
+    render_template,
+    session,
+    flash
+)
+
+
+def coluna_existe(cursor, tabela, coluna):
+    """
+    Verifica se determinada coluna existe em uma tabela.
+    """
+    cursor.execute(f"PRAGMA table_info({tabela})")
+    colunas = cursor.fetchall()
+
+    return any(
+        registro[1] == coluna
+        for registro in colunas
+    )
+
+
+def garantir_estrutura_usuarios(cursor):
+    """
+    Garante que as tabelas e colunas utilizadas no cadastro
+    de usuários estejam disponíveis no banco.
+    """
+
+    # ==============================
+    # COLUNA escola_id EM USUÁRIOS
+    # ==============================
+
+    if not coluna_existe(cursor, "usuarios", "escola_id"):
+        cursor.execute("""
+            ALTER TABLE usuarios
+            ADD COLUMN escola_id INTEGER
+        """)
+
+    # ==============================
+    # COLUNA cpf EM USUÁRIOS
+    # ==============================
+
+    if not coluna_existe(cursor, "usuarios", "cpf"):
+        cursor.execute("""
+            ALTER TABLE usuarios
+            ADD COLUMN cpf TEXT
+        """)
+
+    # ==============================
+    # COLUNA escola_id EM TURMAS
+    # ==============================
+
+    if not coluna_existe(cursor, "turmas", "escola_id"):
+        cursor.execute("""
+            ALTER TABLE turmas
+            ADD COLUMN escola_id INTEGER
+        """)
+
+    # ==============================
+    # PERMISSÕES DOS USUÁRIOS
+    # ==============================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS usuario_permissoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            modulo TEXT NOT NULL,
+            pode_acessar INTEGER DEFAULT 0,
+            UNIQUE(usuario_id, modulo),
+            FOREIGN KEY (usuario_id)
+                REFERENCES usuarios(id)
+                ON DELETE CASCADE
+        )
+    """)
+
+    # ==============================
+    # TURMAS DOS COORDENADORES
+    # ==============================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS coordenador_turmas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            turma_id INTEGER NOT NULL,
+            UNIQUE(usuario_id, turma_id),
+            FOREIGN KEY (usuario_id)
+                REFERENCES usuarios(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (turma_id)
+                REFERENCES turmas(id)
+                ON DELETE CASCADE
+        )
+    """)
+
+
 @app.route("/cadastrar_usuario", methods=["GET", "POST"])
 def cadastrar_usuario():
 
-    if not cargo_permitido(["Administrador"]):
+    # ==============================
+    # CONTROLE DE ACESSO
+    # ==============================
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        flash(
+            "Você não possui permissão para acessar esta página.",
+            "erro"
+        )
         return redirect("/login")
 
-    banco = conectar_banco()
-    banco.row_factory = sqlite3.Row
-    cursor = banco.cursor()
+    banco = None
 
-    cursor.execute("SELECT * FROM cargos ORDER BY nome")
-    cargos = cursor.fetchall()
+    try:
+        banco = conectar_banco()
+        banco.row_factory = sqlite3.Row
 
-    if request.method == "POST":
-        nome = request.form["nome"]
-        email = request.form["email"]
-        senha = request.form["senha"]
-        cargo_id = request.form["cargo_id"]
+        cursor = banco.cursor()
 
-        try:
+        # Ativa o suporte a chaves estrangeiras
+        cursor.execute("PRAGMA foreign_keys = ON")
+
+        # Corrige automaticamente a estrutura do banco
+        garantir_estrutura_usuarios(cursor)
+        banco.commit()
+
+        cargo_logado = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        escola_logada_id = session.get("escola_id")
+
+        modulos_plataforma = [
+            "Dashboard",
+            "Instituições",
+            "Usuários",
+            "Turmas",
+            "Alunos",
+            "Questões",
+            "Provas",
+            "Relatórios"
+        ]
+
+        # ==============================
+        # CARGOS DISPONÍVEIS
+        # ==============================
+
+        if cargo_logado == "Administrador Geral":
+
             cursor.execute("""
-                INSERT INTO usuarios (nome, email, senha, cargo_id, ativo)
-                VALUES (?, ?, ?, ?, 1)
-            """, (nome, email, senha, cargo_id))
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                ORDER BY nome
+            """)
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                WHERE nome != 'Administrador Geral'
+                ORDER BY nome
+            """)
+
+        cargos = cursor.fetchall()
+
+        # ==============================
+        # INSTITUIÇÕES DISPONÍVEIS
+        # ==============================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao
+            """)
+
+            escolas = cursor.fetchall()
+
+        else:
+            escolas = []
+
+        # ==============================
+        # TURMAS DISPONÍVEIS
+        # ==============================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    ano,
+                    turno,
+                    escola_id
+                FROM turmas
+                ORDER BY
+                    escola_id,
+                    ano,
+                    nome,
+                    turno
+            """)
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    ano,
+                    turno,
+                    escola_id
+                FROM turmas
+                WHERE escola_id = ?
+                ORDER BY
+                    ano,
+                    nome,
+                    turno
+            """, (
+                escola_logada_id,
+            ))
+
+        turmas = cursor.fetchall()
+
+        # ==============================
+        # NOME DA INSTITUIÇÃO LOGADA
+        # ==============================
+
+        nome_instituicao = ""
+
+        if (
+            cargo_logado == "Administrador da Instituição"
+            and escola_logada_id
+        ):
+
+            cursor.execute("""
+                SELECT nome_instituicao
+                FROM escolas
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                escola_logada_id,
+            ))
+
+            escola = cursor.fetchone()
+
+            if escola:
+                nome_instituicao = escola["nome_instituicao"]
+
+        # ==============================
+        # SALVAMENTO DO USUÁRIO
+        # ==============================
+
+        if request.method == "POST":
+
+            nome = request.form.get(
+                "nome",
+                ""
+            ).strip()
+
+            email = request.form.get(
+                "email",
+                ""
+            ).strip().lower()
+
+            cpf = request.form.get(
+                "cpf",
+                ""
+            ).strip()
+
+            senha = request.form.get(
+                "senha",
+                ""
+            ).strip()
+
+            confirmar_senha = request.form.get(
+                "confirmar_senha",
+                ""
+            ).strip()
+
+            cargo_id = request.form.get(
+                "cargo_id",
+                ""
+            ).strip()
+
+            modulos_selecionados = request.form.getlist(
+                "modulos_permitidos"
+            )
+
+            turmas_vinculadas = request.form.getlist(
+                "turmas_vinculadas"
+            )
+
+            # ==============================
+            # VALIDAÇÕES BÁSICAS
+            # ==============================
+
+            if not nome:
+                flash(
+                    "Informe o nome do usuário.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if not email:
+                flash(
+                    "Informe o e-mail do usuário.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if "@" not in email:
+                flash(
+                    "Informe um endereço de e-mail válido.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if not senha:
+                flash(
+                    "Informe uma senha.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if len(senha) < 6:
+                flash(
+                    "A senha deve possuir pelo menos 6 caracteres.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if senha != confirmar_senha:
+                flash(
+                    "As senhas não conferem.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            if not cargo_id:
+                flash(
+                    "Selecione um cargo.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            # ==============================
+            # VERIFICA O CARGO SELECIONADO
+            # ==============================
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                cargo_id,
+            ))
+
+            cargo_selecionado = cursor.fetchone()
+
+            if cargo_selecionado is None:
+                flash(
+                    "O cargo selecionado é inválido.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            nome_cargo = cargo_selecionado["nome"].strip()
+
+            # Administrador da Instituição não pode
+            # criar Administrador Geral
+            if (
+                cargo_logado != "Administrador Geral"
+                and nome_cargo == "Administrador Geral"
+            ):
+                flash(
+                    "Você não pode criar um Administrador Geral.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            # ==============================
+            # INSTITUIÇÃO DO NOVO USUÁRIO
+            # ==============================
+
+            if cargo_logado == "Administrador Geral":
+
+                escola_id = request.form.get(
+                    "escola_id",
+                    ""
+                ).strip()
+
+                escola_id = escola_id or None
+
+            else:
+                escola_id = escola_logada_id
+
+            # Administrador Geral não precisa ficar
+            # vinculado a uma instituição
+            if nome_cargo == "Administrador Geral":
+                escola_id = None
+
+            # Demais cargos precisam de instituição
+            if (
+                nome_cargo != "Administrador Geral"
+                and not escola_id
+            ):
+                flash(
+                    "Selecione a instituição do usuário.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            # Confirma se a instituição existe
+            if escola_id:
+
+                cursor.execute("""
+                    SELECT id
+                    FROM escolas
+                    WHERE id = ?
+                      AND COALESCE(status, 1) = 1
+                    LIMIT 1
+                """, (
+                    escola_id,
+                ))
+
+                if cursor.fetchone() is None:
+                    flash(
+                        "A instituição selecionada é inválida ou está inativa.",
+                        "erro"
+                    )
+                    return redirect("/cadastrar_usuario")
+
+            # ==============================
+            # CONTROLE DE PERMISSÕES
+            # ==============================
+
+            if cargo_logado == "Administrador da Instituição":
+
+                modulos_selecionados = [
+                    modulo
+                    for modulo in modulos_selecionados
+                    if modulo != "Instituições"
+                ]
+
+            # ==============================
+            # VERIFICA E-MAIL DUPLICADO
+            # ==============================
+
+            cursor.execute("""
+                SELECT id
+                FROM usuarios
+                WHERE LOWER(email) = LOWER(?)
+                LIMIT 1
+            """, (
+                email,
+            ))
+
+            if cursor.fetchone():
+                flash(
+                    "Já existe um usuário cadastrado com este e-mail.",
+                    "erro"
+                )
+                return redirect("/cadastrar_usuario")
+
+            # ==============================
+            # VERIFICA CPF DUPLICADO
+            # ==============================
+
+            if cpf:
+
+                cursor.execute("""
+                    SELECT id
+                    FROM usuarios
+                    WHERE REPLACE(
+                        REPLACE(
+                            REPLACE(cpf, '.', ''),
+                            '-',
+                            ''
+                        ),
+                        ' ',
+                        ''
+                    ) = REPLACE(
+                        REPLACE(
+                            REPLACE(?, '.', ''),
+                            '-',
+                            ''
+                        ),
+                        ' ',
+                        ''
+                    )
+                    LIMIT 1
+                """, (
+                    cpf,
+                ))
+
+                if cursor.fetchone():
+                    flash(
+                        "Já existe um usuário cadastrado com este CPF.",
+                        "erro"
+                    )
+                    return redirect("/cadastrar_usuario")
+
+            # ==============================
+            # INSERE O USUÁRIO
+            # ==============================
+
+            cursor.execute("""
+                INSERT INTO usuarios (
+                    nome,
+                    email,
+                    cpf,
+                    senha,
+                    cargo_id,
+                    escola_id,
+                    ativo
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+            """, (
+                nome,
+                email,
+                cpf or None,
+                senha,
+                cargo_id,
+                escola_id
+            ))
+
+            usuario_id = cursor.lastrowid
+
+            # ==============================
+            # PERMISSÕES INDIVIDUAIS
+            # ==============================
+
+            for modulo in modulos_plataforma:
+
+                pode_acessar = (
+                    1
+                    if modulo in modulos_selecionados
+                    else 0
+                )
+
+                # Administrador Geral recebe acesso completo
+                if nome_cargo == "Administrador Geral":
+                    pode_acessar = 1
+
+                # Usuários de instituição não acessam
+                # o cadastro geral de instituições
+                if (
+                    cargo_logado == "Administrador da Instituição"
+                    and modulo == "Instituições"
+                ):
+                    pode_acessar = 0
+
+                cursor.execute("""
+                    INSERT OR REPLACE INTO usuario_permissoes (
+                        usuario_id,
+                        modulo,
+                        pode_acessar
+                    )
+                    VALUES (?, ?, ?)
+                """, (
+                    usuario_id,
+                    modulo,
+                    pode_acessar
+                ))
+
+            # ==============================
+            # TURMAS DA COORDENAÇÃO
+            # ==============================
+
+            cargo_coordenacao = (
+                "coordenador" in nome_cargo.lower()
+                or "coordenação" in nome_cargo.lower()
+                or "coordenacao" in nome_cargo.lower()
+            )
+
+            if cargo_coordenacao and escola_id:
+
+                for turma_id in turmas_vinculadas:
+
+                    cursor.execute("""
+                        SELECT id
+                        FROM turmas
+                        WHERE id = ?
+                          AND escola_id = ?
+                        LIMIT 1
+                    """, (
+                        turma_id,
+                        escola_id
+                    ))
+
+                    turma_valida = cursor.fetchone()
+
+                    if turma_valida:
+
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO coordenador_turmas (
+                                usuario_id,
+                                turma_id
+                            )
+                            VALUES (?, ?)
+                        """, (
+                            usuario_id,
+                            turma_id
+                        ))
 
             banco.commit()
+
+            flash(
+                "Usuário cadastrado com sucesso.",
+                "success"
+            )
+
+            return redirect("/usuarios")
+
+        # ==============================
+        # ABERTURA DO FORMULÁRIO
+        # ==============================
+
+        return render_template(
+            "gestao/cadastrar_usuario.html",
+            cargos=cargos,
+            escolas=escolas,
+            turmas=turmas,
+            nome_instituicao=nome_instituicao,
+            modulos_plataforma=modulos_plataforma
+        )
+
+    except sqlite3.IntegrityError as erro:
+
+        if banco:
+            banco.rollback()
+
+        traceback.print_exc()
+
+        print(
+            f"Erro de integridade ao cadastrar usuário: {erro}"
+        )
+
+        flash(
+            "Não foi possível cadastrar o usuário. "
+            "Verifique se o e-mail ou CPF já está cadastrado.",
+            "erro"
+        )
+
+        return redirect("/cadastrar_usuario")
+
+    except sqlite3.OperationalError as erro:
+
+        if banco:
+            banco.rollback()
+
+        traceback.print_exc()
+
+        print(
+            f"Erro na estrutura do banco de dados: {erro}"
+        )
+
+        flash(
+            f"Erro na estrutura do banco de dados: {erro}",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    except Exception as erro:
+
+        if banco:
+            banco.rollback()
+
+        traceback.print_exc()
+
+        print(
+            f"Erro ao cadastrar usuário: {erro}"
+        )
+
+        flash(
+            "Ocorreu um erro ao cadastrar o usuário.",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    finally:
+
+        if banco:
             banco.close()
-
-            return redirect("/gestao")
-
-        except sqlite3.IntegrityError:
-            banco.close()
-            return "Erro: já existe um usuário com esse e-mail."
-
-    banco.close()
-
-    return render_template(
-        "cadastrar_usuario.html",
-        cargos=cargos
-    )
 
 @app.route("/editar_usuario/<int:id>", methods=["GET", "POST"])
 def editar_usuario(id):
 
-    if not cargo_permitido(["Administrador"]):
-        return redirect("/login")
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        flash(
+            "Você não possui permissão para editar usuários.",
+            "erro"
+        )
+        return redirect("/usuarios")
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("SELECT * FROM cargos ORDER BY nome")
-    cargos = cursor.fetchall()
+    cargo_logado = session.get(
+        "usuario_cargo",
+        ""
+    ).strip()
 
-    cursor.execute("SELECT * FROM usuarios WHERE id = ?", (id,))
-    usuario = cursor.fetchone()
+    escola_logada_id = session.get("escola_id")
 
-    if request.method == "POST":
-        nome = request.form["nome"]
-        email = request.form["email"]
-        senha = request.form["senha"]
-        cargo_id = request.form["cargo_id"]
+    modulos_plataforma = [
+        "Dashboard",
+        "Instituições",
+        "Usuários",
+        "Turmas",
+        "Professores",
+        "Alunos",
+        "Questões",
+        "Provas",
+        "Relatórios"
+    ]
+
+    try:
+
+        # ==========================================
+        # BUSCA O USUÁRIO COM SEGURANÇA
+        # ==========================================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    usuarios.*,
+                    escolas.nome_instituicao
+                FROM usuarios
+                LEFT JOIN escolas
+                    ON usuarios.escola_id = escolas.id
+                WHERE usuarios.id = ?
+                LIMIT 1
+            """, (
+                id,
+            ))
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    usuarios.*,
+                    escolas.nome_instituicao
+                FROM usuarios
+                LEFT JOIN escolas
+                    ON usuarios.escola_id = escolas.id
+                WHERE usuarios.id = ?
+                  AND usuarios.escola_id = ?
+                LIMIT 1
+            """, (
+                id,
+                escola_logada_id
+            ))
+
+        usuario = cursor.fetchone()
+
+        if usuario is None:
+
+            flash(
+                "Usuário não encontrado ou sem permissão de acesso.",
+                "erro"
+            )
+
+            return redirect("/usuarios")
+
+        # ==========================================
+        # CARGOS DISPONÍVEIS
+        # ==========================================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                ORDER BY nome
+            """)
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                WHERE nome != 'Administrador Geral'
+                ORDER BY nome
+            """)
+
+        cargos = cursor.fetchall()
+
+        # ==========================================
+        # INSTITUIÇÕES DISPONÍVEIS
+        # ==========================================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao
+            """)
+
+            escolas = cursor.fetchall()
+
+        else:
+            escolas = []
+
+        # ==========================================
+        # SALVAMENTO
+        # ==========================================
+
+        if request.method == "POST":
+
+            nome = request.form.get(
+                "nome",
+                ""
+            ).strip()
+
+            email = request.form.get(
+                "email",
+                ""
+            ).strip().lower()
+
+            cpf = request.form.get(
+                "cpf",
+                ""
+            ).strip()
+
+            nova_senha = request.form.get(
+                "senha",
+                ""
+            ).strip()
+
+            cargo_id = request.form.get(
+                "cargo_id",
+                ""
+            ).strip()
+
+            modulos_selecionados = request.form.getlist(
+                "modulos_permitidos"
+            )
+
+            turmas_selecionadas = request.form.getlist(
+                "turmas_vinculadas"
+            )
+
+            # ======================================
+            # VALIDAÇÕES
+            # ======================================
+
+            if not nome:
+                flash(
+                    "Informe o nome do usuário.",
+                    "erro"
+                )
+                return redirect(f"/editar_usuario/{id}")
+
+            if not email:
+                flash(
+                    "Informe o e-mail do usuário.",
+                    "erro"
+                )
+                return redirect(f"/editar_usuario/{id}")
+
+            if "@" not in email:
+                flash(
+                    "Informe um endereço de e-mail válido.",
+                    "erro"
+                )
+                return redirect(f"/editar_usuario/{id}")
+
+            if not cargo_id:
+                flash(
+                    "Selecione um cargo.",
+                    "erro"
+                )
+                return redirect(f"/editar_usuario/{id}")
+
+            if nova_senha and len(nova_senha) < 6:
+                flash(
+                    "A nova senha deve possuir pelo menos 6 caracteres.",
+                    "erro"
+                )
+                return redirect(f"/editar_usuario/{id}")
+
+            # ======================================
+            # VERIFICA E-MAIL DUPLICADO
+            # ======================================
+
+            cursor.execute("""
+                SELECT id
+                FROM usuarios
+                WHERE LOWER(email) = LOWER(?)
+                  AND id != ?
+                LIMIT 1
+            """, (
+                email,
+                id
+            ))
+
+            if cursor.fetchone():
+
+                flash(
+                    "Este e-mail já está sendo utilizado por outro usuário.",
+                    "erro"
+                )
+
+                return redirect(f"/editar_usuario/{id}")
+
+            # ======================================
+            # VERIFICA O CARGO
+            # ======================================
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome
+                FROM cargos
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                cargo_id,
+            ))
+
+            cargo_selecionado = cursor.fetchone()
+
+            if cargo_selecionado is None:
+
+                flash(
+                    "O cargo selecionado não existe.",
+                    "erro"
+                )
+
+                return redirect(f"/editar_usuario/{id}")
+
+            nome_cargo = cargo_selecionado["nome"].strip()
+
+            if (
+                cargo_logado != "Administrador Geral"
+                and nome_cargo == "Administrador Geral"
+            ):
+
+                flash(
+                    "Você não pode atribuir o cargo de Administrador Geral.",
+                    "erro"
+                )
+
+                return redirect(f"/editar_usuario/{id}")
+
+            # ======================================
+            # DEFINE A INSTITUIÇÃO
+            # ======================================
+
+            if cargo_logado == "Administrador Geral":
+
+                escola_id = request.form.get(
+                    "escola_id",
+                    ""
+                ).strip()
+
+                escola_id = escola_id or None
+
+            else:
+                escola_id = escola_logada_id
+
+            # Administrador Geral pode não possuir instituição
+            if nome_cargo == "Administrador Geral":
+                escola_id = None
+
+            # Outros cargos precisam estar vinculados
+            if (
+                nome_cargo != "Administrador Geral"
+                and not escola_id
+            ):
+
+                flash(
+                    "Selecione a instituição do usuário.",
+                    "erro"
+                )
+
+                return redirect(f"/editar_usuario/{id}")
+
+            # Confirma se a instituição existe e está ativa
+            if escola_id:
+
+                cursor.execute("""
+                    SELECT id
+                    FROM escolas
+                    WHERE id = ?
+                      AND COALESCE(status, 1) = 1
+                    LIMIT 1
+                """, (
+                    escola_id,
+                ))
+
+                if cursor.fetchone() is None:
+
+                    flash(
+                        "A instituição selecionada é inválida ou está inativa.",
+                        "erro"
+                    )
+
+                    return redirect(f"/editar_usuario/{id}")
+
+            # Administrador de instituição não pode
+            # liberar acesso ao módulo Instituições
+            if cargo_logado == "Administrador da Instituição":
+
+                modulos_selecionados = [
+                    modulo
+                    for modulo in modulos_selecionados
+                    if modulo != "Instituições"
+                ]
+
+            # ======================================
+            # ATUALIZA O USUÁRIO
+            # ======================================
+
+            if nova_senha:
+
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET
+                        nome = ?,
+                        email = ?,
+                        cpf = ?,
+                        senha = ?,
+                        cargo_id = ?,
+                        escola_id = ?
+                    WHERE id = ?
+                """, (
+                    nome,
+                    email,
+                    cpf or None,
+                    nova_senha,
+                    cargo_id,
+                    escola_id,
+                    id
+                ))
+
+            else:
+
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET
+                        nome = ?,
+                        email = ?,
+                        cpf = ?,
+                        cargo_id = ?,
+                        escola_id = ?
+                    WHERE id = ?
+                """, (
+                    nome,
+                    email,
+                    cpf or None,
+                    cargo_id,
+                    escola_id,
+                    id
+                ))
+
+            # ======================================
+            # ATUALIZA AS PERMISSÕES
+            # ======================================
+
+            cursor.execute("""
+                DELETE FROM usuario_permissoes
+                WHERE usuario_id = ?
+            """, (
+                id,
+            ))
+
+            for modulo in modulos_plataforma:
+
+                pode_acessar = (
+                    1
+                    if modulo in modulos_selecionados
+                    else 0
+                )
+
+                # Administrador Geral recebe acesso completo
+                if nome_cargo == "Administrador Geral":
+                    pode_acessar = 1
+
+                # Usuários administrados pela instituição
+                # nunca recebem o módulo Instituições
+                if (
+                    cargo_logado == "Administrador da Instituição"
+                    and modulo == "Instituições"
+                ):
+                    pode_acessar = 0
+
+                cursor.execute("""
+                    INSERT INTO usuario_permissoes (
+                        usuario_id,
+                        modulo,
+                        pode_acessar
+                    )
+                    VALUES (?, ?, ?)
+                """, (
+                    id,
+                    modulo,
+                    pode_acessar
+                ))
+
+            # ======================================
+            # ATUALIZA AS TURMAS DA COORDENAÇÃO
+            # ======================================
+
+            cursor.execute("""
+                DELETE FROM coordenador_turmas
+                WHERE usuario_id = ?
+            """, (
+                id,
+            ))
+
+            nome_cargo_minusculo = nome_cargo.lower()
+
+            cargo_coordenacao = (
+                "coordenador" in nome_cargo_minusculo
+                or "coordenação" in nome_cargo_minusculo
+                or "coordenacao" in nome_cargo_minusculo
+            )
+
+            if cargo_coordenacao and escola_id:
+
+                for turma_id in turmas_selecionadas:
+
+                    cursor.execute("""
+                        SELECT id
+                        FROM turmas
+                        WHERE id = ?
+                          AND escola_id = ?
+                        LIMIT 1
+                    """, (
+                        turma_id,
+                        escola_id
+                    ))
+
+                    turma_valida = cursor.fetchone()
+
+                    if turma_valida:
+
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO coordenador_turmas (
+                                usuario_id,
+                                turma_id
+                            )
+                            VALUES (?, ?)
+                        """, (
+                            id,
+                            turma_id
+                        ))
+
+            banco.commit()
+
+            flash(
+                "Usuário atualizado com sucesso.",
+                "success"
+            )
+
+            return redirect("/usuarios")
+
+        # ==========================================
+        # PERMISSÕES JÁ MARCADAS
+        # ==========================================
 
         cursor.execute("""
-            UPDATE usuarios
-            SET nome = ?, email = ?, senha = ?, cargo_id = ?
-            WHERE id = ?
-        """, (nome, email, senha, cargo_id, id))
+            SELECT modulo
+            FROM usuario_permissoes
+            WHERE usuario_id = ?
+              AND pode_acessar = 1
+        """, (
+            id,
+        ))
 
-        banco.commit()
+        permissoes_marcadas = [
+            linha["modulo"]
+            for linha in cursor.fetchall()
+        ]
+
+        # ==========================================
+        # TURMAS DISPONÍVEIS
+        # ==========================================
+
+        if cargo_logado == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    ano,
+                    turno,
+                    escola_id
+                FROM turmas
+                ORDER BY escola_id, ano, nome, turno
+            """)
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    ano,
+                    turno,
+                    escola_id
+                FROM turmas
+                WHERE escola_id = ?
+                ORDER BY ano, nome, turno
+            """, (
+                escola_logada_id,
+            ))
+
+        turmas = cursor.fetchall()
+
+        # ==========================================
+        # TURMAS JÁ MARCADAS
+        # ==========================================
+
+        cursor.execute("""
+            SELECT turma_id
+            FROM coordenador_turmas
+            WHERE usuario_id = ?
+        """, (
+            id,
+        ))
+
+        turmas_marcadas = [
+            linha["turma_id"]
+            for linha in cursor.fetchall()
+        ]
+
+        # ==========================================
+        # ABRE A TELA
+        # ==========================================
+
+        return render_template(
+            "gestao/editar_usuario.html",
+            usuario=usuario,
+            cargos=cargos,
+            escolas=escolas,
+            turmas=turmas,
+            turmas_marcadas=turmas_marcadas,
+            modulos_plataforma=modulos_plataforma,
+            permissoes_marcadas=permissoes_marcadas
+        )
+
+    except sqlite3.IntegrityError as erro:
+
+        banco.rollback()
+
+        print(
+            f"Erro de integridade ao editar usuário: {erro}"
+        )
+
+        flash(
+            "Não foi possível salvar. Verifique se o e-mail ou CPF já está cadastrado.",
+            "erro"
+        )
+
+        return redirect(f"/editar_usuario/{id}")
+
+    except Exception as erro:
+
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print(
+            f"Erro ao editar usuário: {erro}"
+        )
+
+        flash(
+            "Ocorreu um erro ao editar o usuário.",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    finally:
         banco.close()
-
-        return redirect("/gestao")
-
-    banco.close()
-
-    return render_template(
-        "editar_usuario.html",
-        usuario=usuario,
-        cargos=cargos
-    )
-
-@app.route("/excluir_usuario/<int:id>")
-def excluir_usuario(id):
-
-    if not cargo_permitido(["Administrador"]):
-        return redirect("/login")
-
-    banco = conectar_banco()
-    cursor = banco.cursor()
-
-    cursor.execute(
-        "DELETE FROM usuarios WHERE id = ?",
-        (id,)
-    )
-
-    banco.commit()
-    banco.close()
-
-    return redirect("/gestao")
 
 @app.route("/ativar_inativar_usuario/<int:id>")
 def ativar_inativar_usuario(id):
 
-    if not cargo_permitido(["Administrador"]):
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
         return redirect("/login")
+
+    # Impede o usuário conectado de inativar a própria conta
+    if id == session.get("usuario_id"):
+        flash(
+            "Você não pode inativar o usuário que está conectado.",
+            "erro"
+        )
+        return redirect("/usuarios")
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute(
-        "SELECT ativo FROM usuarios WHERE id = ?",
-        (id,)
-    )
+    cargo_logado = session.get("usuario_cargo")
+    escola_id = session.get("escola_id")
+
+    # Administrador Geral pode alterar qualquer usuário.
+    # Administrador da Instituição altera apenas usuários da própria escola.
+    if cargo_logado == "Administrador Geral":
+
+        cursor.execute("""
+            SELECT id, ativo
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (id,))
+
+    else:
+
+        cursor.execute("""
+            SELECT id, ativo
+            FROM usuarios
+            WHERE id = ?
+              AND escola_id = ?
+            LIMIT 1
+        """, (
+            id,
+            escola_id
+        ))
 
     usuario = cursor.fetchone()
 
-    if not usuario:
+    if usuario is None:
         banco.close()
-        return redirect("/gestao")
 
-    if usuario["ativo"] == 1:
-        novo_status = 0
-    else:
-        novo_status = 1
+        flash(
+            "Usuário não encontrado ou sem permissão para esta ação.",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    novo_status = 0 if usuario["ativo"] == 1 else 1
 
     cursor.execute("""
         UPDATE usuarios
         SET ativo = ?
         WHERE id = ?
-    """, (novo_status, id))
+    """, (
+        novo_status,
+        id
+    ))
 
     banco.commit()
     banco.close()
 
-    return redirect("/gestao")
+    if novo_status == 1:
+        flash("Usuário ativado com sucesso.", "success")
+    else:
+        flash("Usuário inativado com sucesso.", "success")
+
+    return redirect("/usuarios")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -2510,36 +4490,91 @@ def permissao_modulo(modulo):
     if "usuario_id" not in session:
         return False
 
+    usuario_id = session.get("usuario_id")
+    cargo = session.get("usuario_cargo", "").strip()
+
+    # Administrador Geral possui acesso completo
+    if cargo == "Administrador Geral":
+        return True
+
+    # Administrador da Instituição possui acesso completo,
+    # exceto ao gerenciamento geral das instituições
+    if cargo == "Administrador da Instituição":
+        return modulo != "Instituições"
+
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT cargo_id
-        FROM usuarios
-        WHERE id = ?
-    """, (session["usuario_id"],))
+    try:
 
-    usuario = cursor.fetchone()
+        # Verifica se o usuário possui permissões individuais cadastradas
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM usuario_permissoes
+            WHERE usuario_id = ?
+        """, (usuario_id,))
 
-    if not usuario:
+        possui_permissoes_individuais = (
+            cursor.fetchone()["total"] > 0
+        )
+
+        # Se existem permissões individuais, elas são definitivas:
+        # marcado = acessa; desmarcado = não acessa.
+        if possui_permissoes_individuais:
+
+            cursor.execute("""
+                SELECT pode_acessar
+                FROM usuario_permissoes
+                WHERE usuario_id = ?
+                  AND modulo = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+                modulo
+            ))
+
+            permissao_individual = cursor.fetchone()
+
+            if permissao_individual is None:
+                return False
+
+            return permissao_individual["pode_acessar"] == 1
+
+        # Só usa as permissões do cargo quando o usuário ainda
+        # não possui nenhuma configuração individual.
+        cursor.execute("""
+            SELECT cargo_id
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (usuario_id,))
+
+        usuario = cursor.fetchone()
+
+        if usuario is None:
+            return False
+
+        cursor.execute("""
+            SELECT pode_acessar
+            FROM permissoes
+            WHERE cargo_id = ?
+              AND modulo = ?
+            LIMIT 1
+        """, (
+            usuario["cargo_id"],
+            modulo
+        ))
+
+        permissao_cargo = cursor.fetchone()
+
+        if permissao_cargo is None:
+            return False
+
+        return permissao_cargo["pode_acessar"] == 1
+
+    finally:
         banco.close()
-        return False
-
-    cargo_id = usuario[0]
-
-    cursor.execute("""
-        SELECT 1
-        FROM permissoes
-        WHERE cargo_id = ?
-        AND modulo = ?
-        AND pode_acessar = 1
-    """, (cargo_id, modulo))
-
-    permissao = cursor.fetchone()
-
-    banco.close()
-
-    return permissao is not None
 
 @app.context_processor
 def inject_permissoes():
@@ -2764,5 +4799,552 @@ def salvar_senha_usuario():
 
 criar_tabelas()
 
+@app.route("/gestao/instituicoes/editar/<int:id>", methods=["GET", "POST"])
+def editar_instituicao(id):
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cursor.execute(
+        "SELECT * FROM escolas WHERE id = ?",
+        (id,)
+    )
+
+    escola = cursor.fetchone()
+
+    if escola is None:
+        banco.close()
+        return redirect("/gestao/instituicoes")
+
+    cursor.execute("""
+        SELECT *
+        FROM usuarios
+        WHERE escola_id = ?
+        ORDER BY id
+        LIMIT 1
+    """, (id,))
+
+    administrador = cursor.fetchone()
+
+    if request.method == "POST":
+
+        admin_nome = request.form.get("admin_nome", "").strip()
+        admin_email = request.form.get("admin_email", "").strip().lower()
+        admin_cpf = request.form.get("admin_cpf", "").strip()
+        admin_senha = request.form.get("admin_senha", "").strip()
+
+        if not admin_nome:
+            flash("Informe o nome do administrador.", "erro")
+            banco.close()
+            return redirect(f"/gestao/instituicoes/editar/{id}")
+
+        if not admin_email:
+            flash("Informe o e-mail do administrador.", "erro")
+            banco.close()
+            return redirect(f"/gestao/instituicoes/editar/{id}")
+
+        try:
+            # Verifica se o e-mail já pertence a outro usuário
+            if administrador:
+                cursor.execute("""
+                    SELECT id
+                    FROM usuarios
+                    WHERE LOWER(email) = LOWER(?)
+                      AND id != ?
+                    LIMIT 1
+                """, (
+                    admin_email,
+                    administrador["id"]
+                ))
+            else:
+                cursor.execute("""
+                    SELECT id
+                    FROM usuarios
+                    WHERE LOWER(email) = LOWER(?)
+                    LIMIT 1
+                """, (admin_email,))
+
+            email_em_uso = cursor.fetchone()
+
+            if email_em_uso:
+                flash(
+                    "Este e-mail já está sendo utilizado por outro usuário.",
+                    "erro"
+                )
+                banco.close()
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            # Mantém a logo atual se nenhuma nova for enviada
+            logo = request.files.get("logo")
+            nome_logo = escola["logo"] or ""
+
+            if logo and logo.filename != "":
+                nome_logo = secure_filename(logo.filename)
+
+                logo.save(
+                    os.path.join(
+                        app.config["UPLOAD_FOLDER"],
+                        nome_logo
+                    )
+                )
+
+            modalidades = request.form.getlist("modalidade_ensino")
+            etapas = request.form.getlist("etapas_ensino")
+
+            modalidade_ensino = ", ".join(modalidades)
+            etapas_ensino = ", ".join(etapas)
+
+            # Atualiza a instituição
+            cursor.execute("""
+                UPDATE escolas
+                SET
+                    nome_instituicao = ?,
+                    codigo_inep = ?,
+                    cnpj = ?,
+                    cep = ?,
+                    endereco = ?,
+                    cidade = ?,
+                    estado = ?,
+                    telefone = ?,
+                    whatsapp = ?,
+                    email = ?,
+                    site = ?,
+                    diretor = ?,
+                    coordenador1 = ?,
+                    coordenador2 = ?,
+                    coordenador3 = ?,
+                    secretario = ?,
+                    tipo_instituicao = ?,
+                    ano_letivo = ?,
+                    modalidade_ensino = ?,
+                    etapas_ensino = ?,
+                    logo = ?
+                WHERE id = ?
+            """, (
+                request.form.get("nome_instituicao", "").strip(),
+                request.form.get("codigo_inep", "").strip(),
+                request.form.get("cnpj", "").strip(),
+                request.form.get("cep", "").strip(),
+                request.form.get("endereco", "").strip(),
+                request.form.get("cidade", "").strip(),
+                request.form.get("estado", "").strip(),
+                request.form.get("telefone", "").strip(),
+                request.form.get("whatsapp", "").strip(),
+                request.form.get("email", "").strip(),
+                request.form.get("site", "").strip(),
+                request.form.get("diretor", "").strip(),
+                request.form.get("coordenador1", "").strip(),
+                request.form.get("coordenador2", "").strip(),
+                request.form.get("coordenador3", "").strip(),
+                request.form.get("secretario", "").strip(),
+                request.form.get("tipo_instituicao"),
+                request.form.get("ano_letivo"),
+                modalidade_ensino,
+                etapas_ensino,
+                nome_logo,
+                id
+            ))
+
+            if administrador:
+
+                if admin_senha:
+                    if len(admin_senha) < 6:
+                        flash(
+                            "A nova senha deve possuir pelo menos 6 caracteres.",
+                            "erro"
+                        )
+                        banco.rollback()
+                        banco.close()
+                        return redirect(f"/gestao/instituicoes/editar/{id}")
+
+                    cursor.execute("""
+                        UPDATE usuarios
+                        SET
+                            nome = ?,
+                            email = ?,
+                            cpf = ?,
+                            senha = ?,
+                            escola_id = ?
+                        WHERE id = ?
+                    """, (
+                        admin_nome,
+                        admin_email,
+                        admin_cpf,
+                        admin_senha,
+                        id,
+                        administrador["id"]
+                    ))
+
+                else:
+                    cursor.execute("""
+                        UPDATE usuarios
+                        SET
+                            nome = ?,
+                            email = ?,
+                            cpf = ?,
+                            escola_id = ?
+                        WHERE id = ?
+                    """, (
+                        admin_nome,
+                        admin_email,
+                        admin_cpf,
+                        id,
+                        administrador["id"]
+                    ))
+
+            else:
+                if not admin_senha:
+                    flash(
+                        "Informe uma senha para criar o administrador da instituição.",
+                        "erro"
+                    )
+                    banco.rollback()
+                    banco.close()
+                    return redirect(f"/gestao/instituicoes/editar/{id}")
+
+                if len(admin_senha) < 6:
+                    flash(
+                        "A senha deve possuir pelo menos 6 caracteres.",
+                        "erro"
+                    )
+                    banco.rollback()
+                    banco.close()
+                    return redirect(f"/gestao/instituicoes/editar/{id}")
+
+                cursor.execute("""
+                    SELECT id
+                    FROM cargos
+                    WHERE nome = 'Administrador da Instituição'
+                    LIMIT 1
+                """)
+
+                cargo = cursor.fetchone()
+
+                if cargo is None:
+                    cursor.execute("""
+                        INSERT INTO cargos (nome)
+                        VALUES ('Administrador da Instituição')
+                    """)
+
+                    cargo_id = cursor.lastrowid
+                else:
+                    cargo_id = cargo["id"]
+
+                cursor.execute("""
+                    INSERT INTO usuarios (
+                        nome,
+                        email,
+                        senha,
+                        cargo_id,
+                        ativo,
+                        escola_id,
+                        cpf
+                    )
+                    VALUES (?, ?, ?, ?, 1, ?, ?)
+                """, (
+                    admin_nome,
+                    admin_email,
+                    admin_senha,
+                    cargo_id,
+                    id,
+                    admin_cpf
+                ))
+
+            banco.commit()
+            banco.close()
+
+            flash(
+                "Instituição e administrador atualizados com sucesso!",
+                "success"
+            )
+
+            return redirect("/gestao/instituicoes")
+
+        except sqlite3.IntegrityError:
+            banco.rollback()
+            banco.close()
+
+            flash(
+                "Não foi possível salvar. Verifique se o e-mail já está em uso.",
+                "erro"
+            )
+
+            return redirect(f"/gestao/instituicoes/editar/{id}")
+
+        except Exception as erro:
+            banco.rollback()
+            banco.close()
+
+            print(f"Erro ao editar instituição: {erro}")
+
+            flash(
+                "Ocorreu um erro ao salvar as alterações.",
+                "erro"
+            )
+
+            return redirect(f"/gestao/instituicoes/editar/{id}")
+
+    modalidades_marcadas = [
+        item.strip()
+        for item in (escola["modalidade_ensino"] or "").split(",")
+        if item.strip()
+    ]
+
+    etapas_marcadas = [
+        item.strip()
+        for item in (escola["etapas_ensino"] or "").split(",")
+        if item.strip()
+    ]
+
+    banco.close()
+
+    return render_template(
+        "gestao/editar_instituicao.html",
+        escola=escola,
+        administrador=administrador,
+        modalidades_marcadas=modalidades_marcadas,
+        etapas_marcadas=etapas_marcadas
+    )
+
+criar_tabelas()
+
+@app.route("/gestao/instituicoes/ver/<int:id>")
+def ver_instituicao(id):
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM escolas
+        WHERE id = ?
+    """, (id,))
+
+    escola = cursor.fetchone()
+
+    if escola is None:
+        banco.close()
+        return redirect("/gestao/instituicoes")
+
+    cursor.execute("""
+        SELECT
+            usuarios.id,
+            usuarios.nome,
+            usuarios.email,
+            usuarios.cpf,
+            usuarios.ativo,
+            cargos.nome AS cargo
+        FROM usuarios
+        LEFT JOIN cargos
+            ON usuarios.cargo_id = cargos.id
+        WHERE usuarios.escola_id = ?
+        ORDER BY usuarios.id
+        LIMIT 1
+    """, (id,))
+
+    administrador = cursor.fetchone()
+
+    banco.close()
+
+    return render_template(
+        "gestao/ver_instituicao.html",
+        escola=escola,
+        administrador=administrador
+    )
+
+@app.route("/gestao/instituicoes/inativar/<int:id>")
+def inativar_instituicao(id):
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    cursor = banco.cursor()
+
+    cursor.execute("""
+        UPDATE escolas
+        SET status = 0
+        WHERE id = ?
+    """, (id,))
+
+    cursor.execute("""
+        UPDATE usuarios
+        SET ativo = 0
+        WHERE escola_id = ?
+    """, (id,))
+
+    banco.commit()
+    banco.close()
+
+    flash("Instituição inativada com sucesso.", "success")
+
+    return redirect("/gestao/instituicoes")
+
+@app.route("/gestao/instituicoes/ativar/<int:id>")
+def ativar_instituicao(id):
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    cursor = banco.cursor()
+
+    cursor.execute("""
+        UPDATE escolas
+        SET status = 1
+        WHERE id = ?
+    """, (id,))
+
+    cursor.execute("""
+        UPDATE usuarios
+        SET ativo = 1
+        WHERE escola_id = ?
+    """, (id,))
+
+    banco.commit()
+    banco.close()
+
+    flash("Instituição ativada com sucesso.", "success")
+
+    return redirect("/gestao/instituicoes")
+
+@app.route("/gestao/instituicoes/excluir/<int:id>")
+def excluir_instituicao(id):
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    banco = conectar_banco()
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            DELETE FROM usuarios
+            WHERE escola_id = ?
+        """, (id,))
+
+        cursor.execute("""
+            DELETE FROM escolas
+            WHERE id = ?
+        """, (id,))
+
+        banco.commit()
+
+        flash("Instituição excluída com sucesso.", "success")
+
+    except Exception as erro:
+        banco.rollback()
+
+        print(f"Erro ao excluir instituição: {erro}")
+
+        flash(
+            "Não foi possível excluir a instituição.",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect("/gestao/instituicoes")
+
+@app.route("/excluir_usuario/<int:id>")
+def excluir_usuario(id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/login")
+
+    if id == session.get("usuario_id"):
+        flash(
+            "Você não pode excluir o próprio usuário conectado.",
+            "erro"
+        )
+        return redirect("/usuarios")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo_logado = session.get("usuario_cargo")
+    escola_id = session.get("escola_id")
+
+    if cargo_logado == "Administrador Geral":
+        cursor.execute("""
+            SELECT id
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (id,))
+    else:
+        cursor.execute("""
+            SELECT id
+            FROM usuarios
+            WHERE id = ?
+              AND escola_id = ?
+            LIMIT 1
+        """, (
+            id,
+            escola_id
+        ))
+
+    usuario = cursor.fetchone()
+
+    if usuario is None:
+        banco.close()
+
+        flash(
+            "Usuário não encontrado ou sem permissão para excluir.",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    try:
+        cursor.execute("""
+            DELETE FROM coordenador_turmas
+            WHERE usuario_id = ?
+        """, (id,))
+
+        cursor.execute("""
+            DELETE FROM usuarios
+            WHERE id = ?
+        """, (id,))
+
+        banco.commit()
+
+        flash(
+            "Usuário excluído com sucesso.",
+            "success"
+        )
+
+    except Exception as erro:
+        banco.rollback()
+
+        print(f"Erro ao excluir usuário: {erro}")
+
+        flash(
+            "Não foi possível excluir o usuário.",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect("/usuarios")
+
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
