@@ -4,6 +4,265 @@
 
 {% block conteudo %}
 
+<style>
+/* =====================================================
+   MODAL DE INSTITUIÇÃO — PADRÃO ARK EDU
+===================================================== */
+
+.modal-confirmacao {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.modal-confirmacao.aberto {
+    display: flex;
+}
+
+.modal-fundo {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .58);
+    backdrop-filter: blur(6px);
+}
+
+.modal-caixa {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .65);
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .28);
+    animation: modalInstituicaoEntrada .22s ease-out;
+}
+
+@keyframes modalInstituicaoEntrada {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-conteudo {
+    padding: 28px 28px 18px;
+    text-align: center;
+}
+
+.modal-icone {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 18px;
+    border-radius: 22px;
+}
+
+.modal-icone svg {
+    width: 36px;
+    height: 36px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icone-perigo {
+    border: 1px solid #fecaca;
+    background: linear-gradient(145deg, #fff7f7 0%, #fee2e2 100%);
+    color: #dc2626;
+    box-shadow: 0 10px 24px rgba(220, 38, 38, .12);
+}
+
+.icone-alerta {
+    border: 1px solid #fed7aa;
+    background: linear-gradient(145deg, #fffaf0 0%, #ffedd5 100%);
+    color: #ea580c;
+    box-shadow: 0 10px 24px rgba(234, 88, 12, .12);
+}
+
+.icone-sucesso {
+    border: 1px solid #bbf7d0;
+    background: linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%);
+    color: #16a34a;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, .12);
+}
+
+.modal-caixa h2 {
+    margin: 0 0 8px;
+    color: #123b82;
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.modal-subtitulo {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.modal-instituicao-destaque {
+    margin: 0 28px 18px;
+    padding: 16px 18px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: #f8fbff;
+    text-align: center;
+}
+
+.modal-instituicao-destaque strong {
+    display: block;
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.4;
+}
+
+.modal-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 28px 24px;
+    padding: 13px 14px;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #92400e;
+    font-size: 13px;
+    line-height: 1.55;
+    text-align: left;
+}
+
+.modal-aviso svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin-top: 1px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.modal-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 28px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.btn-modal-cancelar,
+.btn-modal-confirmar {
+    min-height: 42px;
+    padding: 0 17px;
+    border-radius: 11px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.btn-modal-cancelar {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+}
+
+.btn-modal-cancelar:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.btn-modal-confirmar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid transparent;
+    color: #ffffff;
+}
+
+.confirmar-perigo {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 7px 16px rgba(220, 38, 38, .18);
+}
+
+.confirmar-perigo:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+}
+
+.confirmar-alerta {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    box-shadow: 0 7px 16px rgba(217, 119, 6, .18);
+}
+
+.confirmar-alerta:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-1px);
+}
+
+.confirmar-sucesso {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 7px 16px rgba(22, 163, 74, .18);
+}
+
+.confirmar-sucesso:hover {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    transform: translateY(-1px);
+}
+
+body.modal-aberto {
+    overflow: hidden;
+}
+
+@media (max-width: 560px) {
+    .modal-confirmacao {
+        padding: 14px;
+    }
+
+    .modal-conteudo,
+    .modal-acoes {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .modal-instituicao-destaque,
+    .modal-aviso {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    .modal-acoes {
+        flex-direction: column-reverse;
+    }
+
+    .btn-modal-cancelar,
+    .btn-modal-confirmar {
+        width: 100%;
+    }
+}
+</style>
+
 <div class="pagina-cabecalho">
 
     <a href="/" class="voltar">
@@ -168,26 +427,63 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="tituloConfirmacao"
+        aria-describedby="mensagemConfirmacao"
     >
-        <div class="modal-icone" id="iconeConfirmacao">
-            !
+        <div class="modal-conteudo">
+
+            <div class="modal-icone" id="iconeConfirmacao">
+                <svg
+                    id="svgConfirmacao"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                </svg>
+            </div>
+
+            <h2 id="tituloConfirmacao">
+                Confirmar ação
+            </h2>
+
+            <p
+                class="modal-subtitulo"
+                id="mensagemConfirmacao"
+            >
+                Deseja continuar?
+            </p>
+
         </div>
 
-        <h2 id="tituloConfirmacao">
-            Confirmar ação
-        </h2>
+        <div class="modal-instituicao-destaque">
+            <strong id="nomeInstituicaoConfirmacao">
+                Instituição
+            </strong>
+        </div>
 
-        <p id="mensagemConfirmacao">
-            Deseja continuar?
-        </p>
+        <div class="modal-aviso">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+            </svg>
+
+            <div id="textoAvisoConfirmacao">
+                Esta ação poderá alterar o acesso da instituição à plataforma.
+            </div>
+        </div>
 
         <div class="modal-acoes">
+
             <button
                 type="button"
                 class="btn-modal-cancelar"
                 onclick="fecharConfirmacao()"
             >
-                Não
+                Cancelar
             </button>
 
             <a
@@ -195,19 +491,22 @@
                 class="btn-modal-confirmar"
                 id="botaoConfirmar"
             >
-                Sim
+                Confirmar
             </a>
+
         </div>
     </div>
 </div>
 
 <script>
 function fecharMenusAbertos(menuIgnorado = null) {
-    document.querySelectorAll(".dropdown-acoes.aberto").forEach(function(menu) {
-        if (menu !== menuIgnorado) {
-            menu.classList.remove("aberto");
-        }
-    });
+    document
+        .querySelectorAll(".dropdown-acoes.aberto")
+        .forEach(function(menu) {
+            if (menu !== menuIgnorado) {
+                menu.classList.remove("aberto");
+            }
+        });
 }
 
 function alternarMenuAcoes(event, menuId) {
@@ -233,59 +532,91 @@ function abrirConfirmacao(acao, id, nomeInstituicao) {
     const mensagem = document.getElementById("mensagemConfirmacao");
     const botaoConfirmar = document.getElementById("botaoConfirmar");
     const icone = document.getElementById("iconeConfirmacao");
+    const svg = document.getElementById("svgConfirmacao");
+    const nomeDestaque = document.getElementById(
+        "nomeInstituicaoConfirmacao"
+    );
+    const textoAviso = document.getElementById(
+        "textoAvisoConfirmacao"
+    );
 
     modal.classList.add("aberto");
     modal.setAttribute("aria-hidden", "false");
 
+    document.body.classList.add("modal-aberto");
+
     botaoConfirmar.className = "btn-modal-confirmar";
     icone.className = "modal-icone";
 
+    nomeDestaque.textContent = nomeInstituicao;
+
     if (acao === "inativar") {
-        titulo.textContent = "Confirmar inativação";
+        titulo.textContent = "Inativar instituição";
 
         mensagem.textContent =
-            'Deseja realmente inativar a instituição "' +
-            nomeInstituicao +
-            '"? Ela ficará sem acesso à plataforma até ser reativada.';
+            "Você está prestes a suspender temporariamente o acesso desta instituição.";
 
-        botaoConfirmar.textContent = "Sim, inativar";
+        botaoConfirmar.textContent = "Inativar instituição";
         botaoConfirmar.href =
             "/gestao/instituicoes/inativar/" + id;
 
         botaoConfirmar.classList.add("confirmar-alerta");
         icone.classList.add("icone-alerta");
+
+        svg.innerHTML = `
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M8 12h8"></path>
+        `;
+
+        textoAviso.textContent =
+            "A instituição e seus usuários ficarão sem acesso até que ela seja reativada.";
     }
 
     if (acao === "ativar") {
-        titulo.textContent = "Confirmar ativação";
+        titulo.textContent = "Ativar instituição";
 
         mensagem.textContent =
-            'Deseja realmente ativar a instituição "' +
-            nomeInstituicao +
-            '"?';
+            "Você está prestes a restaurar o acesso desta instituição.";
 
-        botaoConfirmar.textContent = "Sim, ativar";
+        botaoConfirmar.textContent = "Ativar instituição";
         botaoConfirmar.href =
             "/gestao/instituicoes/ativar/" + id;
 
         botaoConfirmar.classList.add("confirmar-sucesso");
         icone.classList.add("icone-sucesso");
+
+        svg.innerHTML = `
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M8 12l2.5 2.5L16 9"></path>
+        `;
+
+        textoAviso.textContent =
+            "A instituição e seus usuários poderão voltar a acessar normalmente a plataforma.";
     }
 
     if (acao === "excluir") {
-        titulo.textContent = "Confirmar exclusão";
+        titulo.textContent = "Excluir instituição";
 
         mensagem.textContent =
-            'Deseja realmente excluir a instituição "' +
-            nomeInstituicao +
-            '"? Esta ação não poderá ser desfeita.';
+            "Você está prestes a excluir permanentemente esta instituição.";
 
-        botaoConfirmar.textContent = "Sim, excluir";
+        botaoConfirmar.textContent = "Excluir instituição";
         botaoConfirmar.href =
             "/gestao/instituicoes/excluir/" + id;
 
         botaoConfirmar.classList.add("confirmar-perigo");
         icone.classList.add("icone-perigo");
+
+        svg.innerHTML = `
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4h8v2"></path>
+            <path d="M19 6l-1 14H6L5 6"></path>
+            <path d="M10 11v6"></path>
+            <path d="M14 11v6"></path>
+        `;
+
+        textoAviso.textContent =
+            "Esta ação não poderá ser desfeita e poderá remover usuários, turmas, alunos e outros dados vinculados.";
     }
 }
 
@@ -294,23 +625,34 @@ function fecharConfirmacao() {
 
     modal.classList.remove("aberto");
     modal.setAttribute("aria-hidden", "true");
+
+    document.body.classList.remove("modal-aberto");
 }
 
 document.addEventListener("click", function() {
     fecharMenusAbertos();
 });
 
-document.querySelectorAll(".dropdown-acoes").forEach(function(menu) {
-    menu.addEventListener("click", function(event) {
-        event.stopPropagation();
+document
+    .querySelectorAll(".dropdown-acoes")
+    .forEach(function(menu) {
+        menu.addEventListener("click", function(event) {
+            event.stopPropagation();
+        });
     });
-});
 
 document.addEventListener("keydown", function(event) {
     if (event.key === "Escape") {
         fecharMenusAbertos();
         fecharConfirmacao();
     }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    const modal = document.getElementById("modalConfirmacao");
+
+    modal.classList.remove("aberto");
+    modal.setAttribute("aria-hidden", "true");
 });
 </script>
 

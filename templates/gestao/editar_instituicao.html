@@ -16,7 +16,11 @@
 
 </div>
 
-<form method="POST" enctype="multipart/form-data">
+<form
+    method="POST"
+    enctype="multipart/form-data"
+    id="form-instituicao"
+>
 
     <!-- ==========================
          INFORMAÇÕES GERAIS
@@ -29,7 +33,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="nome_instituicao">
                     Nome da Instituição
                 </label>
@@ -41,11 +44,9 @@
                     value="{{ escola['nome_instituicao'] or '' }}"
                     required
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="codigo_inep">
                     Código INEP
                 </label>
@@ -56,11 +57,9 @@
                     name="codigo_inep"
                     value="{{ escola['codigo_inep'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="cnpj">
                     CNPJ
                 </label>
@@ -71,7 +70,6 @@
                     name="cnpj"
                     value="{{ escola['cnpj'] or '' }}"
                 >
-
             </div>
 
         </div>
@@ -89,7 +87,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="cep">
                     CEP
                 </label>
@@ -100,11 +97,9 @@
                     name="cep"
                     value="{{ escola['cep'] or '' }}"
                 >
-
             </div>
 
             <div class="campo campo-maior">
-
                 <label for="endereco">
                     Endereço
                 </label>
@@ -115,11 +110,9 @@
                     name="endereco"
                     value="{{ escola['endereco'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="cidade">
                     Cidade
                 </label>
@@ -130,11 +123,9 @@
                     name="cidade"
                     value="{{ escola['cidade'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="estado">
                     Estado
                 </label>
@@ -145,7 +136,6 @@
                     name="estado"
                     value="{{ escola['estado'] or '' }}"
                 >
-
             </div>
 
         </div>
@@ -163,7 +153,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="telefone">
                     Telefone
                 </label>
@@ -174,11 +163,9 @@
                     name="telefone"
                     value="{{ escola['telefone'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="whatsapp">
                     WhatsApp
                 </label>
@@ -189,11 +176,9 @@
                     name="whatsapp"
                     value="{{ escola['whatsapp'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="email">
                     E-mail
                 </label>
@@ -204,11 +189,9 @@
                     name="email"
                     value="{{ escola['email'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="site">
                     Site
                 </label>
@@ -219,7 +202,6 @@
                     name="site"
                     value="{{ escola['site'] or '' }}"
                 >
-
             </div>
 
         </div>
@@ -237,7 +219,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="diretor">
                     Diretor(a)
                 </label>
@@ -248,11 +229,9 @@
                     name="diretor"
                     value="{{ escola['diretor'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="coordenador1">
                     Coordenador(a) 1
                 </label>
@@ -263,11 +242,9 @@
                     name="coordenador1"
                     value="{{ escola['coordenador1'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="coordenador2">
                     Coordenador(a) 2
                 </label>
@@ -278,11 +255,9 @@
                     name="coordenador2"
                     value="{{ escola['coordenador2'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="coordenador3">
                     Coordenador(a) 3
                 </label>
@@ -293,11 +268,9 @@
                     name="coordenador3"
                     value="{{ escola['coordenador3'] or '' }}"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="secretario">
                     Secretário(a)
                 </label>
@@ -308,7 +281,6 @@
                     name="secretario"
                     value="{{ escola['secretario'] or '' }}"
                 >
-
             </div>
 
         </div>
@@ -326,7 +298,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="tipo_instituicao">
                     Tipo da Instituição
                 </label>
@@ -336,10 +307,7 @@
                     id="tipo_instituicao"
                     required
                 >
-
-                    <option value="">
-                        Selecione o tipo
-                    </option>
+                    <option value="">Selecione o tipo</option>
 
                     <option
                         value="Pública Municipal"
@@ -389,13 +357,10 @@
                     >
                         Militar
                     </option>
-
                 </select>
-
             </div>
 
             <div class="campo">
-
                 <label for="ano_letivo">
                     Ano Letivo
                 </label>
@@ -405,28 +370,20 @@
                     id="ano_letivo"
                     required
                 >
-
-                    <option value="">
-                        Selecione o ano
-                    </option>
+                    <option value="">Selecione o ano</option>
 
                     {% for ano in range(2026, 2036) %}
-
                         <option
                             value="{{ ano }}"
                             {% if escola['ano_letivo']|string == ano|string %}selected{% endif %}
                         >
                             {{ ano }}
                         </option>
-
                     {% endfor %}
-
                 </select>
-
             </div>
 
             <div class="campo campo-maior">
-
                 <label>
                     Modalidades de Ensino
                 </label>
@@ -434,72 +391,56 @@
                 <div class="opcoes-grid">
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="modalidade_ensino"
                             value="Presencial"
                             {% if 'Presencial' in modalidades_marcadas %}checked{% endif %}
                         >
-
                         <span>Presencial</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="modalidade_ensino"
                             value="Educação a Distância"
                             {% if 'Educação a Distância' in modalidades_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação a Distância</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="modalidade_ensino"
                             value="Educação Especial"
                             {% if 'Educação Especial' in modalidades_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação Especial</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="modalidade_ensino"
                             value="Educação de Jovens e Adultos"
                             {% if 'Educação de Jovens e Adultos' in modalidades_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação de Jovens e Adultos</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="modalidade_ensino"
                             value="Educação Profissional e Tecnológica"
                             {% if 'Educação Profissional e Tecnológica' in modalidades_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação Profissional e Tecnológica</span>
-
                     </label>
 
                 </div>
-
             </div>
 
             <div class="campo campo-largura-total">
@@ -508,91 +449,108 @@
                     Etapas de Ensino
                 </label>
 
+                <p class="ajuda-formulario">
+                    Ao selecionar uma etapa, os componentes correspondentes serão exibidos. Os componentes já cadastrados permanecerão marcados.
+                </p>
+
                 <div class="opcoes-grid etapas-grid">
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação Infantil"
+                            class="etapa-checkbox"
+                            data-etapa="Educação Infantil"
                             {% if 'Educação Infantil' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação Infantil</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Fundamental - Anos Iniciais"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Fundamental - Anos Iniciais"
                             {% if 'Ensino Fundamental - Anos Iniciais' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Fundamental — Anos Iniciais</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Fundamental - Anos Finais"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Fundamental - Anos Finais"
                             {% if 'Ensino Fundamental - Anos Finais' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Fundamental — Anos Finais</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Médio"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Médio"
                             {% if 'Ensino Médio' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Ensino Médio</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação de Jovens e Adultos"
+                            class="etapa-checkbox"
+                            data-etapa="Educação de Jovens e Adultos"
                             {% if 'Educação de Jovens e Adultos' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação de Jovens e Adultos</span>
-
                     </label>
 
                     <label class="opcao-check">
-
                         <input
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação Profissional"
+                            class="etapa-checkbox"
+                            data-etapa="Educação Profissional"
                             {% if 'Educação Profissional' in etapas_marcadas %}checked{% endif %}
                         >
-
                         <span>Educação Profissional</span>
-
                     </label>
 
                 </div>
-
             </div>
 
         </div>
+
+    </div>
+
+    <!-- ==========================
+         COMPONENTES CURRICULARES
+    =========================== -->
+
+    <div
+        class="card form-card"
+        id="card-componentes"
+        hidden
+    >
+
+        <h2>Componentes Curriculares</h2>
+
+        <p class="ajuda-formulario">
+            Marque os componentes oferecidos pela instituição. Também é possível adicionar componentes manualmente em cada etapa.
+        </p>
+
+        <div id="componentes-container"></div>
 
     </div>
 
@@ -607,7 +565,6 @@
         <div class="form-grid">
 
             <div class="campo">
-
                 <label for="admin_nome">
                     Nome do Administrador
                 </label>
@@ -620,11 +577,9 @@
                     placeholder="Nome completo"
                     required
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="admin_email">
                     E-mail
                 </label>
@@ -637,11 +592,9 @@
                     placeholder="email@instituicao.com.br"
                     required
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="admin_cpf">
                     CPF
                 </label>
@@ -653,19 +606,15 @@
                     value="{{ administrador['cpf'] if administrador is defined and administrador else '' }}"
                     placeholder="000.000.000-00"
                 >
-
             </div>
 
             <div class="campo">
-
                 <label for="admin_senha">
-
                     {% if administrador is defined and administrador %}
                         Nova Senha
                     {% else %}
                         Senha
                     {% endif %}
-
                 </label>
 
                 <input
@@ -677,17 +626,13 @@
                 >
 
                 {% if administrador is defined and administrador %}
-
                     <small>
                         Preencha somente se quiser alterar a senha atual.
                     </small>
-
                 {% endif %}
-
             </div>
 
             <div class="campo">
-
                 <label>
                     Perfil
                 </label>
@@ -697,11 +642,9 @@
                     value="Administrador da Instituição"
                     readonly
                 >
-
             </div>
 
             <div class="campo">
-
                 <label>
                     Instituição vinculada
                 </label>
@@ -711,7 +654,6 @@
                     value="{{ escola['nome_instituicao'] or '' }}"
                     readonly
                 >
-
             </div>
 
         </div>
@@ -730,24 +672,25 @@
 
             <div class="logo-atual">
 
-                <p>Logo atual:</p>
+                <div class="logo-atual-imagem">
+                    <img
+                        src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                        alt="Logo atual da instituição"
+                    >
+                </div>
 
-                <img
-                    src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
-                    alt="Logo atual da instituição"
-                    style="
-                        max-width: 180px;
-                        max-height: 120px;
-                        object-fit: contain;
-                        margin-bottom: 18px;
-                    "
-                >
+                <div class="logo-atual-texto">
+                    <strong>Logo atual da instituição</strong>
+                    <span>
+                        Escolha uma nova imagem somente se desejar substituir a logo exibida.
+                    </span>
+                </div>
 
             </div>
 
         {% endif %}
 
-        <div class="campo">
+        <div class="campo upload-logo">
 
             <label for="logo">
                 Alterar logo da Instituição
@@ -757,11 +700,22 @@
                 type="file"
                 id="logo"
                 name="logo"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                class="upload-logo-input"
             >
 
-            <small>
-                Deixe vazio para manter a logo atual.
+            <label for="logo" class="upload-logo-caixa">
+                <span class="upload-logo-botao">
+                    Escolher imagem
+                </span>
+
+                <span class="upload-logo-nome" id="nomeArquivoLogo">
+                    Nenhum arquivo selecionado
+                </span>
+            </label>
+
+            <small class="upload-logo-ajuda">
+                Formatos aceitos: PNG, JPG, WEBP ou SVG. Deixe vazio para manter a logo atual.
             </small>
 
         </div>
@@ -795,5 +749,861 @@
     </div>
 
 </form>
+
+
+<style>
+/* =====================================================
+   COMPONENTES CURRICULARES — EDIÇÃO
+===================================================== */
+
+#card-componentes .bloco-componentes-etapa {
+    padding: 24px;
+    margin-top: 22px;
+    background: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 18px;
+}
+
+#card-componentes .bloco-componentes-etapa:first-child {
+    margin-top: 8px;
+}
+
+#card-componentes .bloco-componentes-topo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+#card-componentes .bloco-componentes-topo h3 {
+    margin: 0 0 6px;
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+#card-componentes .selecionar-todos-label {
+    min-width: 190px;
+}
+
+#card-componentes .componentes-grid {
+    margin-top: 14px;
+}
+
+#card-componentes .componente-item {
+    position: relative;
+    min-height: 58px;
+    padding-right: 48px;
+}
+
+#card-componentes .componente-item span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#card-componentes .btn-remover-componente {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: #b42318;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    background: #fff1f0;
+    border: 1px solid #fecaca;
+    border-radius: 9px;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+#card-componentes .btn-remover-componente:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    transform: translateY(-50%) scale(1.05);
+}
+
+#card-componentes .adicionar-componente-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 18px;
+    background: #f8fafc;
+    border: 1px dashed #b8c8e2;
+    border-radius: 14px;
+}
+
+#card-componentes .adicionar-componente-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+#card-componentes .adicionar-componente-label {
+    color: #173f7a;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+#card-componentes .novo-componente-input {
+    width: 100%;
+    height: 48px;
+    padding: 0 15px;
+    color: #173f7a;
+    font-family: inherit;
+    font-size: 15px;
+    background: #ffffff;
+    border: 1px solid #c9d5e7;
+    border-radius: 11px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+#card-componentes .novo-componente-input::placeholder {
+    color: #94a3b8;
+}
+
+#card-componentes .novo-componente-input:focus {
+    border-color: #2458a6;
+    box-shadow: 0 0 0 3px rgba(36, 88, 166, .12);
+}
+
+#card-componentes .btn-adicionar-componente {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 156px;
+    height: 48px;
+    padding: 0 20px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 750;
+    white-space: nowrap;
+    background: #174898;
+    border: 1px solid #174898;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+#card-componentes .btn-adicionar-componente:hover {
+    background: #103b82;
+    border-color: #103b82;
+    box-shadow: 0 7px 16px rgba(23, 72, 152, .18);
+    transform: translateY(-1px);
+}
+
+#card-componentes .btn-adicionar-componente:active {
+    transform: translateY(0);
+}
+
+#card-componentes .btn-adicionar-icone {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+/* =====================================================
+   IDENTIDADE VISUAL — UPLOAD DA LOGO
+===================================================== */
+
+.logo-atual {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin: 14px 0 24px;
+    padding: 18px;
+    background: #f8fafc;
+    border: 1px solid #dbe5f2;
+    border-radius: 14px;
+}
+
+.logo-atual-imagem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 190px;
+    min-height: 120px;
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+.logo-atual-imagem img {
+    display: block;
+    max-width: 165px;
+    max-height: 100px;
+    object-fit: contain;
+}
+
+.logo-atual-texto strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #173f7a;
+    font-size: 15px;
+}
+
+.logo-atual-texto span {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.upload-logo {
+    margin-top: 10px;
+}
+
+.upload-logo-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.upload-logo-caixa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 58px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+
+.upload-logo-caixa:hover {
+    background: #f8fafc;
+    border-color: #2458a6;
+}
+
+.upload-logo-input:focus + .upload-logo-caixa {
+    border-color: #2458a6;
+    box-shadow: 0 0 0 3px rgba(36, 88, 166, .12);
+}
+
+.upload-logo-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 148px;
+    height: 40px;
+    padding: 0 16px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 750;
+    white-space: nowrap;
+    background: #174898;
+    border-radius: 9px;
+}
+
+.upload-logo-nome {
+    min-width: 0;
+    color: #64748b;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-logo-ajuda {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    #card-componentes .bloco-componentes-topo {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #card-componentes .selecionar-todos-label {
+        min-width: 0;
+    }
+
+    #card-componentes .adicionar-componente-area {
+        grid-template-columns: 1fr;
+    }
+
+    #card-componentes .btn-adicionar-componente {
+        width: 100%;
+    }
+
+    .logo-atual {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .logo-atual-imagem {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .upload-logo-caixa {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .upload-logo-botao {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .upload-logo-nome {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const COMPONENTES_POR_ETAPA = {
+        "Educação Infantil": [
+            "O eu, o outro e o nós",
+            "Corpo, gestos e movimentos",
+            "Traços, sons, cores e formas",
+            "Escuta, fala, pensamento e imaginação",
+            "Espaços, tempos, quantidades, relações e transformações"
+        ],
+
+        "Ensino Fundamental - Anos Iniciais": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "História",
+            "Geografia",
+            "Ensino Religioso"
+        ],
+
+        "Ensino Fundamental - Anos Finais": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "História",
+            "Geografia",
+            "Ensino Religioso"
+        ],
+
+        "Ensino Médio": [
+            "Língua Portuguesa",
+            "Literatura",
+            "Produção Textual",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Língua Espanhola",
+            "Matemática",
+            "Biologia",
+            "Física",
+            "Química",
+            "História",
+            "Geografia",
+            "Filosofia",
+            "Sociologia",
+            "Projeto de Vida"
+        ],
+
+        "Educação de Jovens e Adultos": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "Biologia",
+            "Física",
+            "Química",
+            "História",
+            "Geografia",
+            "Filosofia",
+            "Sociologia",
+            "Ensino Religioso"
+        ],
+
+        "Educação Profissional": [
+            "Língua Portuguesa",
+            "Matemática",
+            "Língua Inglesa",
+            "Informática Básica",
+            "Projeto de Vida",
+            "Empreendedorismo"
+        ]
+    };
+
+    const COMPONENTES_SALVOS = {{ componentes_salvos | default([]) | tojson }};
+
+    const cardComponentes = document.getElementById("card-componentes");
+    const componentesContainer = document.getElementById("componentes-container");
+    const etapasCheckboxes = document.querySelectorAll(".etapa-checkbox");
+    const campoLogo = document.getElementById("logo");
+    const nomeArquivoLogo = document.getElementById("nomeArquivoLogo");
+
+    if (campoLogo && nomeArquivoLogo) {
+        campoLogo.addEventListener("change", function () {
+            const arquivo = campoLogo.files && campoLogo.files[0];
+
+            nomeArquivoLogo.textContent = arquivo
+                ? arquivo.name
+                : "Nenhum arquivo selecionado";
+        });
+    }
+
+    function criarSlug(texto) {
+        return texto
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .toLowerCase();
+    }
+
+    function criarValorComponente(etapa, nome, tipo) {
+        return JSON.stringify({
+            etapa: etapa,
+            nome: nome,
+            tipo: tipo
+        });
+    }
+
+    function obterComponentesSalvosDaEtapa(etapa) {
+        return COMPONENTES_SALVOS.filter(function (componente) {
+            return componente.etapa === etapa;
+        });
+    }
+
+    function componenteEstaSalvo(etapa, nome) {
+        return COMPONENTES_SALVOS.some(function (componente) {
+            return (
+                componente.etapa === etapa &&
+                componente.nome.trim().toLowerCase() === nome.trim().toLowerCase()
+            );
+        });
+    }
+
+    function criarCheckboxComponente(etapa, nome, tipo, marcado) {
+
+        const label = document.createElement("label");
+        label.className = "opcao-check componente-item";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "componentes_curriculares";
+        input.value = criarValorComponente(etapa, nome, tipo);
+        input.checked = marcado;
+        input.className = "componente-checkbox";
+        input.dataset.tipo = tipo;
+        input.dataset.nome = nome;
+
+        const span = document.createElement("span");
+        span.textContent = nome;
+
+        label.appendChild(input);
+        label.appendChild(span);
+
+        if (tipo === "manual") {
+
+            const botaoRemover = document.createElement("button");
+            botaoRemover.type = "button";
+            botaoRemover.className = "btn-remover-componente";
+            botaoRemover.innerHTML = "&times;";
+            botaoRemover.title = "Remover componente";
+            botaoRemover.setAttribute(
+                "aria-label",
+                "Remover componente " + nome
+            );
+
+            botaoRemover.addEventListener("click", function () {
+                label.remove();
+                atualizarSelecionarTodos(etapa);
+            });
+
+            label.appendChild(botaoRemover);
+        }
+
+        return label;
+    }
+
+    function atualizarSelecionarTodos(etapa) {
+
+        const blocos = componentesContainer.querySelectorAll(
+            ".bloco-componentes-etapa"
+        );
+
+        let bloco = null;
+
+        blocos.forEach(function (item) {
+            if (item.dataset.blocoEtapa === etapa) {
+                bloco = item;
+            }
+        });
+
+        if (!bloco) {
+            return;
+        }
+
+        const checkboxTodos = bloco.querySelector(
+            ".selecionar-todos-componentes"
+        );
+
+        const componentes = bloco.querySelectorAll(
+            ".componente-checkbox"
+        );
+
+        if (componentes.length === 0) {
+            checkboxTodos.checked = false;
+            checkboxTodos.indeterminate = false;
+            return;
+        }
+
+        const selecionados = bloco.querySelectorAll(
+            ".componente-checkbox:checked"
+        );
+
+        checkboxTodos.checked =
+            selecionados.length === componentes.length;
+
+        checkboxTodos.indeterminate =
+            selecionados.length > 0 &&
+            selecionados.length < componentes.length;
+    }
+
+    function adicionarComponenteManual(etapa, listaComponentes, campo) {
+
+        const nome = campo.value.trim();
+
+        if (!nome) {
+            campo.focus();
+            return;
+        }
+
+        const nomesExistentes = Array.from(
+            listaComponentes.querySelectorAll(".componente-checkbox")
+        ).map(function (checkbox) {
+            return checkbox.dataset.nome.trim().toLowerCase();
+        });
+
+        if (nomesExistentes.includes(nome.toLowerCase())) {
+            alert("Este componente já foi adicionado nesta etapa.");
+            campo.focus();
+            return;
+        }
+
+        listaComponentes.appendChild(
+            criarCheckboxComponente(
+                etapa,
+                nome,
+                "manual",
+                true
+            )
+        );
+
+        campo.value = "";
+        campo.focus();
+
+        atualizarSelecionarTodos(etapa);
+    }
+
+    function criarBlocoEtapa(etapa) {
+
+        const slug = criarSlug(etapa);
+
+        const bloco = document.createElement("section");
+        bloco.className = "bloco-componentes-etapa";
+        bloco.dataset.blocoEtapa = etapa;
+
+        const topo = document.createElement("div");
+        topo.className = "bloco-componentes-topo";
+
+        const tituloArea = document.createElement("div");
+
+        const titulo = document.createElement("h3");
+        titulo.textContent =
+            etapa === "Educação Infantil"
+                ? etapa + " — Campos de Experiência"
+                : etapa;
+
+        const subtitulo = document.createElement("p");
+        subtitulo.className = "ajuda-formulario";
+        subtitulo.textContent =
+            "Selecione os componentes oferecidos pela instituição nesta etapa.";
+
+        tituloArea.appendChild(titulo);
+        tituloArea.appendChild(subtitulo);
+
+        const selecionarTodosLabel = document.createElement("label");
+        selecionarTodosLabel.className =
+            "opcao-check selecionar-todos-label";
+
+        const selecionarTodos = document.createElement("input");
+        selecionarTodos.type = "checkbox";
+        selecionarTodos.className =
+            "selecionar-todos-componentes";
+
+        const selecionarTodosTexto = document.createElement("span");
+        selecionarTodosTexto.textContent = "Selecionar todos";
+
+        selecionarTodosLabel.appendChild(selecionarTodos);
+        selecionarTodosLabel.appendChild(selecionarTodosTexto);
+
+        topo.appendChild(tituloArea);
+        topo.appendChild(selecionarTodosLabel);
+
+        const lista = document.createElement("div");
+        lista.className = "opcoes-grid componentes-grid";
+
+        const componentesPadrao = COMPONENTES_POR_ETAPA[etapa] || [];
+
+        componentesPadrao.forEach(function (nome) {
+
+            lista.appendChild(
+                criarCheckboxComponente(
+                    etapa,
+                    nome,
+                    "padrao",
+                    componenteEstaSalvo(etapa, nome)
+                )
+            );
+        });
+
+        const componentesManuaisSalvos =
+            obterComponentesSalvosDaEtapa(etapa).filter(function (componente) {
+
+                const nomeJaEhPadrao = componentesPadrao.some(
+                    function (nomePadrao) {
+                        return (
+                            nomePadrao.trim().toLowerCase() ===
+                            componente.nome.trim().toLowerCase()
+                        );
+                    }
+                );
+
+                return (
+                    componente.tipo === "manual" ||
+                    !nomeJaEhPadrao
+                );
+            });
+
+        componentesManuaisSalvos.forEach(function (componente) {
+
+            lista.appendChild(
+                criarCheckboxComponente(
+                    etapa,
+                    componente.nome,
+                    "manual",
+                    true
+                )
+            );
+        });
+
+        const areaAdicionar = document.createElement("div");
+        areaAdicionar.className = "adicionar-componente-area";
+
+        const campoArea = document.createElement("div");
+        campoArea.className = "adicionar-componente-campo";
+
+        const campoLabel = document.createElement("label");
+        campoLabel.className = "adicionar-componente-label";
+        campoLabel.htmlFor = "novo-componente-" + slug;
+        campoLabel.textContent = "Adicionar outro componente";
+
+        const campoNovo = document.createElement("input");
+        campoNovo.type = "text";
+        campoNovo.id = "novo-componente-" + slug;
+        campoNovo.className = "novo-componente-input";
+        campoNovo.placeholder =
+            "Ex.: Robótica, Educação Financeira...";
+        campoNovo.maxLength = 120;
+        campoNovo.autocomplete = "off";
+
+        campoArea.appendChild(campoLabel);
+        campoArea.appendChild(campoNovo);
+
+        const botaoAdicionar = document.createElement("button");
+        botaoAdicionar.type = "button";
+        botaoAdicionar.className = "btn-adicionar-componente";
+        botaoAdicionar.innerHTML =
+            '<span class="btn-adicionar-icone" aria-hidden="true">+</span>' +
+            '<span>Adicionar</span>';
+
+        botaoAdicionar.addEventListener("click", function () {
+            adicionarComponenteManual(
+                etapa,
+                lista,
+                campoNovo
+            );
+        });
+
+        campoNovo.addEventListener("keydown", function (event) {
+
+            if (event.key === "Enter") {
+                event.preventDefault();
+
+                adicionarComponenteManual(
+                    etapa,
+                    lista,
+                    campoNovo
+                );
+            }
+        });
+
+        selecionarTodos.addEventListener("change", function () {
+
+            lista.querySelectorAll(
+                ".componente-checkbox"
+            ).forEach(function (checkbox) {
+                checkbox.checked = selecionarTodos.checked;
+            });
+
+            selecionarTodos.indeterminate = false;
+        });
+
+        lista.addEventListener("change", function (event) {
+
+            if (
+                event.target.classList.contains(
+                    "componente-checkbox"
+                )
+            ) {
+                atualizarSelecionarTodos(etapa);
+            }
+        });
+
+        areaAdicionar.appendChild(campoArea);
+        areaAdicionar.appendChild(botaoAdicionar);
+
+        bloco.appendChild(topo);
+        bloco.appendChild(lista);
+        bloco.appendChild(areaAdicionar);
+
+        setTimeout(function () {
+            atualizarSelecionarTodos(etapa);
+        }, 0);
+
+        return bloco;
+    }
+
+    function atualizarComponentes() {
+
+        const etapasSelecionadas = Array.from(
+            etapasCheckboxes
+        )
+            .filter(function (checkbox) {
+                return checkbox.checked;
+            })
+            .map(function (checkbox) {
+                return checkbox.dataset.etapa;
+            });
+
+        cardComponentes.hidden =
+            etapasSelecionadas.length === 0;
+
+        etapasSelecionadas.forEach(function (etapa) {
+
+            let blocoExistente = null;
+
+            componentesContainer
+                .querySelectorAll(".bloco-componentes-etapa")
+                .forEach(function (bloco) {
+
+                    if (
+                        bloco.dataset.blocoEtapa === etapa
+                    ) {
+                        blocoExistente = bloco;
+                    }
+                });
+
+            if (!blocoExistente) {
+
+                componentesContainer.appendChild(
+                    criarBlocoEtapa(etapa)
+                );
+            }
+        });
+
+        componentesContainer
+            .querySelectorAll(".bloco-componentes-etapa")
+            .forEach(function (bloco) {
+
+                if (
+                    !etapasSelecionadas.includes(
+                        bloco.dataset.blocoEtapa
+                    )
+                ) {
+                    bloco.remove();
+                }
+            });
+    }
+
+    etapasCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener(
+            "change",
+            atualizarComponentes
+        );
+    });
+
+    document
+        .getElementById("form-instituicao")
+        .addEventListener("submit", function (event) {
+
+            const etapasSelecionadas =
+                document.querySelectorAll(
+                    ".etapa-checkbox:checked"
+                );
+
+            if (etapasSelecionadas.length === 0) {
+                event.preventDefault();
+
+                alert(
+                    "Selecione pelo menos uma etapa de ensino."
+                );
+
+                return;
+            }
+
+            const componentesSelecionados =
+                document.querySelectorAll(
+                    ".componente-checkbox:checked"
+                );
+
+            if (componentesSelecionados.length === 0) {
+                event.preventDefault();
+
+                alert(
+                    "Selecione pelo menos um componente curricular."
+                );
+            }
+        });
+
+    atualizarComponentes();
+});
+</script>
 
 {% endblock %}

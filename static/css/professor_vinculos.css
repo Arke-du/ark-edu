@@ -1,0 +1,210 @@
+/* =====================================================
+   ARK EDU - PROFESSOR VÍNCULOS
+   CSS ISOLADO
+===================================================== */
+
+.pv-pagina{
+    max-width:1200px;
+    margin:0 auto;
+    padding:20px;
+}
+
+.pv-topo{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:24px;
+    margin-bottom:24px;
+}
+
+.pv-etiqueta{
+    display:inline-block;
+    color:#2563eb;
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    margin-bottom:6px;
+}
+
+.pv-topo h1{
+    margin:0 0 8px;
+    color:#123b82;
+    font-size:32px;
+}
+
+.pv-topo p{
+    color:#64748b;
+}
+
+.pv-voltar{
+    padding:10px 18px;
+    border:1px solid #dbe3ee;
+    border-radius:10px;
+    text-decoration:none;
+    color:#334155;
+    background:#fff;
+}
+
+.pv-card{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+    padding:24px;
+    margin-bottom:22px;
+    box-shadow:0 8px 20px rgba(0,0,0,.05);
+}
+
+.pv-professor-card{
+    display:flex;
+    gap:18px;
+    align-items:center;
+}
+
+.pv-avatar{
+    width:64px;
+    height:64px;
+    border-radius:14px;
+    background:#2563eb;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+}
+
+.pv-avatar svg{
+    width:28px;
+    height:28px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+}
+
+.pv-professor-info h2{
+    margin:4px 0 10px;
+}
+
+.pv-professor-dados{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+}
+
+.pv-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+}
+
+.pv-campo label{
+    display:block;
+    margin-bottom:6px;
+    font-weight:700;
+}
+
+.pv-campo select{
+    width:100%;
+    height:44px;
+    border:1px solid #cbd5e1;
+    border-radius:10px;
+    padding:0 12px;
+}
+
+.pv-acoes{
+    margin-top:20px;
+    text-align:right;
+}
+
+.pv-salvar{
+    background:#2563eb;
+    color:#fff;
+    border:0;
+    border-radius:10px;
+    padding:12px 20px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.pv-card-lista-topo{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.pv-contador{
+    background:#eff6ff;
+    color:#2563eb;
+    padding:6px 12px;
+    border-radius:999px;
+    font-weight:700;
+}
+
+.pv-tabela-area{
+    overflow:auto;
+}
+
+.pv-tabela{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.pv-tabela th{
+    background:#f8fafc;
+    text-align:left;
+    padding:12px;
+}
+
+.pv-tabela td{
+    padding:12px;
+    border-top:1px solid #e5e7eb;
+}
+
+.pv-componente{
+    background:#ecfdf5;
+    color:#047857;
+    padding:4px 10px;
+    border-radius:999px;
+}
+
+.pv-excluir{
+    background:#fff1f2;
+    color:#dc2626;
+    border:1px solid #fecdd3;
+    padding:8px 14px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.pv-vazio{
+    padding:40px;
+    text-align:center;
+    color:#64748b;
+}
+
+.pv-alerta{
+    padding:12px;
+    border-radius:10px;
+    margin-bottom:10px;
+}
+
+.pv-alerta-success,.pv-alerta-sucesso{
+    background:#ecfdf5;
+    color:#047857;
+}
+
+.pv-alerta-erro{
+    background:#fef2f2;
+    color:#b91c1c;
+}
+
+@media (max-width:768px){
+    .pv-topo{
+        flex-direction:column;
+    }
+    .pv-grid{
+        grid-template-columns:1fr;
+    }
+    .pv-professor-card{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+}

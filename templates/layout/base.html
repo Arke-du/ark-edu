@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
 
@@ -49,11 +50,17 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='css/responsivo.css') }}"
     >
+
+    {% block estilos %}{% endblock %}
 </head>
 
 <body>
 
 <div class="app">
+
+    <!-- =====================================================
+         MENU LATERAL
+    ====================================================== -->
 
     <aside class="sidebar">
 
@@ -68,6 +75,8 @@
 
         <nav class="menu">
 
+            <!-- Dashboard -->
+
             <a
                 href="/"
                 class="{% if request.path == '/' %}ativo-menu{% endif %}"
@@ -80,6 +89,9 @@
 
                 <span>Dashboard</span>
             </a>
+
+
+            <!-- Instituições -->
 
             {% if session.get("usuario_cargo") == "Administrador Geral" %}
 
@@ -101,6 +113,9 @@
 
             {% endif %}
 
+
+            <!-- Usuários -->
+
             {% if session.get("usuario_cargo") in [
                 "Administrador Geral",
                 "Administrador da Instituição"
@@ -120,6 +135,38 @@
 
             {% endif %}
 
+
+            <!-- Anos Letivos -->
+
+            {% if session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ] %}
+
+                <a
+                    href="/anos-letivos"
+                    class="{% if request.path.startswith('/anos-letivos') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <path d="M16 3V7"></path>
+                        <path d="M8 3V7"></path>
+                        <path d="M3 10H21"></path>
+                        <path d="M8 14H8.01"></path>
+                        <path d="M12 14H12.01"></path>
+                        <path d="M16 14H16.01"></path>
+                        <path d="M8 18H8.01"></path>
+                        <path d="M12 18H12.01"></path>
+                    </svg>
+
+                    <span>Anos Letivos</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Turmas -->
+
             {% if permissao_modulo("Turmas") %}
 
                 <a
@@ -136,6 +183,9 @@
                 </a>
 
             {% endif %}
+
+
+            <!-- Alunos -->
 
             {% if permissao_modulo("Alunos") %}
 
@@ -154,6 +204,9 @@
 
             {% endif %}
 
+
+            <!-- Banco de Questões -->
+
             {% if permissao_modulo("Questões") %}
 
                 <a
@@ -169,6 +222,9 @@
                 </a>
 
             {% endif %}
+
+
+            <!-- Provas -->
 
             {% if permissao_modulo("Provas") %}
 
@@ -187,6 +243,9 @@
                 </a>
 
             {% endif %}
+
+
+            <!-- Relatórios -->
 
             {% if permissao_modulo("Relatórios") %}
 
@@ -208,9 +267,15 @@
 
         </nav>
 
+
+        <!-- =====================================================
+             RODAPÉ DO MENU
+        ====================================================== -->
+
         <div class="sidebar-rodape">
 
             <div class="sidebar-usuario">
+
                 <strong>
                     {{ session.get("usuario_nome", "Usuário") }}
                 </strong>
@@ -218,9 +283,11 @@
                 <span>
                     {{ session.get("usuario_cargo", "") }}
                 </span>
+
             </div>
 
             <a href="/logout" class="menu-sair">
+
                 <svg viewBox="0 0 24 24">
                     <path d="M10 17L15 12L10 7"></path>
                     <path d="M15 12H3"></path>
@@ -228,11 +295,17 @@
                 </svg>
 
                 <span>Sair</span>
+
             </a>
 
         </div>
 
     </aside>
+
+
+    <!-- =====================================================
+         CONTEÚDO PRINCIPAL
+    ====================================================== -->
 
     <main class="main">
 
@@ -243,6 +316,7 @@
             </div>
 
             <div class="user-box">
+
                 <strong>
                     {{ session.get("usuario_nome", "Usuário") }}
                 </strong>
@@ -250,6 +324,7 @@
                 <span>
                     {{ session.get("usuario_cargo", "") }}
                 </span>
+
             </div>
 
         </header>
@@ -265,4 +340,5 @@
 {% block scripts %}{% endblock %}
 
 </body>
+
 </html>

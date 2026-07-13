@@ -16,7 +16,7 @@
 
 </div>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" id="form-instituicao">
 
     <!-- ==========================
          INFORMAÇÕES GERAIS
@@ -304,37 +304,14 @@
                     id="tipo_instituicao"
                     required
                 >
-                    <option value="">
-                        Selecione o tipo
-                    </option>
-
-                    <option value="Pública Municipal">
-                        Pública Municipal
-                    </option>
-
-                    <option value="Pública Estadual">
-                        Pública Estadual
-                    </option>
-
-                    <option value="Pública Federal">
-                        Pública Federal
-                    </option>
-
-                    <option value="Privada">
-                        Privada
-                    </option>
-
-                    <option value="Filantrópica">
-                        Filantrópica
-                    </option>
-
-                    <option value="Comunitária">
-                        Comunitária
-                    </option>
-
-                    <option value="Militar">
-                        Militar
-                    </option>
+                    <option value="">Selecione o tipo</option>
+                    <option value="Pública Municipal">Pública Municipal</option>
+                    <option value="Pública Estadual">Pública Estadual</option>
+                    <option value="Pública Federal">Pública Federal</option>
+                    <option value="Privada">Privada</option>
+                    <option value="Filantrópica">Filantrópica</option>
+                    <option value="Comunitária">Comunitária</option>
+                    <option value="Militar">Militar</option>
                 </select>
 
             </div>
@@ -350,9 +327,7 @@
                     id="ano_letivo"
                     required
                 >
-                    <option value="">
-                        Selecione o ano
-                    </option>
+                    <option value="">Selecione o ano</option>
 
                     {% for ano in range(2026, 2036) %}
                         <option value="{{ ano }}">
@@ -377,7 +352,6 @@
                             name="modalidade_ensino"
                             value="Presencial"
                         >
-
                         <span>Presencial</span>
                     </label>
 
@@ -387,7 +361,6 @@
                             name="modalidade_ensino"
                             value="Educação a Distância"
                         >
-
                         <span>Educação a Distância</span>
                     </label>
 
@@ -397,7 +370,6 @@
                             name="modalidade_ensino"
                             value="Educação Especial"
                         >
-
                         <span>Educação Especial</span>
                     </label>
 
@@ -407,7 +379,6 @@
                             name="modalidade_ensino"
                             value="Educação de Jovens e Adultos"
                         >
-
                         <span>Educação de Jovens e Adultos</span>
                     </label>
 
@@ -417,7 +388,6 @@
                             name="modalidade_ensino"
                             value="Educação Profissional e Tecnológica"
                         >
-
                         <span>Educação Profissional e Tecnológica</span>
                     </label>
 
@@ -431,6 +401,10 @@
                     Etapas de Ensino
                 </label>
 
+                <p class="ajuda-formulario">
+                    Ao selecionar uma etapa, todos os componentes curriculares correspondentes serão marcados automaticamente.
+                </p>
+
                 <div class="opcoes-grid etapas-grid">
 
                     <label class="opcao-check">
@@ -438,8 +412,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação Infantil"
+                            class="etapa-checkbox"
+                            data-etapa="Educação Infantil"
                         >
-
                         <span>Educação Infantil</span>
                     </label>
 
@@ -448,8 +423,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Fundamental - Anos Iniciais"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Fundamental - Anos Iniciais"
                         >
-
                         <span>Fundamental — Anos Iniciais</span>
                     </label>
 
@@ -458,8 +434,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Fundamental - Anos Finais"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Fundamental - Anos Finais"
                         >
-
                         <span>Fundamental — Anos Finais</span>
                     </label>
 
@@ -468,8 +445,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Ensino Médio"
+                            class="etapa-checkbox"
+                            data-etapa="Ensino Médio"
                         >
-
                         <span>Ensino Médio</span>
                     </label>
 
@@ -478,8 +456,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação de Jovens e Adultos"
+                            class="etapa-checkbox"
+                            data-etapa="Educação de Jovens e Adultos"
                         >
-
                         <span>Educação de Jovens e Adultos</span>
                     </label>
 
@@ -488,8 +467,9 @@
                             type="checkbox"
                             name="etapas_ensino"
                             value="Educação Profissional"
+                            class="etapa-checkbox"
+                            data-etapa="Educação Profissional"
                         >
-
                         <span>Educação Profissional</span>
                     </label>
 
@@ -498,6 +478,30 @@
             </div>
 
         </div>
+
+    </div>
+
+    <!-- ==========================
+         COMPONENTES CURRICULARES
+    =========================== -->
+
+    <div
+        class="card form-card"
+        id="card-componentes"
+        hidden
+    >
+
+        <div class="componentes-cabecalho">
+            <div>
+                <h2>Componentes Curriculares</h2>
+
+                <p class="ajuda-formulario">
+                    Os componentes são carregados conforme as etapas selecionadas. Você pode desmarcar componentes ou adicionar outros manualmente.
+                </p>
+            </div>
+        </div>
+
+        <div id="componentes-container"></div>
 
     </div>
 
@@ -623,7 +627,7 @@
 
         <h2>Identidade Visual</h2>
 
-        <div class="campo">
+        <div class="campo upload-logo">
 
             <label for="logo">
                 Logo da Instituição
@@ -633,8 +637,25 @@
                 type="file"
                 id="logo"
                 name="logo"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                class="upload-logo-input"
             >
+
+            <label for="logo" class="upload-logo-caixa">
+
+                <span class="upload-logo-botao">
+                    Escolher imagem
+                </span>
+
+                <span class="upload-logo-nome" id="nomeArquivoLogo">
+                    Nenhum arquivo selecionado
+                </span>
+
+            </label>
+
+            <small class="upload-logo-ajuda">
+                Formatos aceitos: PNG, JPG, WEBP ou SVG.
+            </small>
 
         </div>
 
@@ -667,5 +688,695 @@
     </div>
 
 </form>
+
+
+<style>
+/* =====================================================
+   COMPONENTES CURRICULARES — ÁREA DE ADIÇÃO
+===================================================== */
+
+#card-componentes .bloco-componentes-etapa {
+    padding: 24px;
+    margin-top: 22px;
+    background: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 18px;
+}
+
+#card-componentes .bloco-componentes-etapa:first-child {
+    margin-top: 8px;
+}
+
+#card-componentes .bloco-componentes-topo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+#card-componentes .bloco-componentes-topo h3 {
+    margin: 0 0 6px;
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+#card-componentes .selecionar-todos-label {
+    min-width: 190px;
+}
+
+#card-componentes .componentes-grid {
+    margin-top: 14px;
+}
+
+#card-componentes .componente-item {
+    position: relative;
+    min-height: 58px;
+    padding-right: 48px;
+}
+
+#card-componentes .componente-item span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#card-componentes .btn-remover-componente {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: #b42318;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    background: #fff1f0;
+    border: 1px solid #fecaca;
+    border-radius: 9px;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+#card-componentes .btn-remover-componente:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    transform: translateY(-50%) scale(1.05);
+}
+
+#card-componentes .adicionar-componente-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 18px;
+    background: #f8fafc;
+    border: 1px dashed #b8c8e2;
+    border-radius: 14px;
+}
+
+#card-componentes .adicionar-componente-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+#card-componentes .adicionar-componente-label {
+    color: #173f7a;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+#card-componentes .novo-componente-input {
+    width: 100%;
+    height: 48px;
+    padding: 0 15px;
+    color: #173f7a;
+    font-family: inherit;
+    font-size: 15px;
+    background: #ffffff;
+    border: 1px solid #c9d5e7;
+    border-radius: 11px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+#card-componentes .novo-componente-input::placeholder {
+    color: #94a3b8;
+}
+
+#card-componentes .novo-componente-input:focus {
+    border-color: #2458a6;
+    box-shadow: 0 0 0 3px rgba(36, 88, 166, .12);
+}
+
+#card-componentes .btn-adicionar-componente {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 156px;
+    height: 48px;
+    padding: 0 20px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 750;
+    white-space: nowrap;
+    background: #174898;
+    border: 1px solid #174898;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+#card-componentes .btn-adicionar-componente:hover {
+    background: #103b82;
+    border-color: #103b82;
+    box-shadow: 0 7px 16px rgba(23, 72, 152, .18);
+    transform: translateY(-1px);
+}
+
+#card-componentes .btn-adicionar-componente:active {
+    transform: translateY(0);
+}
+
+#card-componentes .btn-adicionar-icone {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+@media (max-width: 760px) {
+    #card-componentes .bloco-componentes-topo {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #card-componentes .selecionar-todos-label {
+        min-width: 0;
+    }
+
+    #card-componentes .adicionar-componente-area {
+        grid-template-columns: 1fr;
+    }
+
+    #card-componentes .btn-adicionar-componente {
+        width: 100%;
+    }
+}
+
+/* =====================================================
+   IDENTIDADE VISUAL — UPLOAD DA LOGO
+===================================================== */
+
+.upload-logo {
+    margin-top: 10px;
+}
+
+.upload-logo-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.upload-logo-caixa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 58px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    cursor: pointer;
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease,
+        background-color .2s ease;
+}
+
+.upload-logo-caixa:hover {
+    background: #f8fafc;
+    border-color: #2458a6;
+}
+
+.upload-logo-input:focus + .upload-logo-caixa {
+    border-color: #2458a6;
+    box-shadow: 0 0 0 3px rgba(36, 88, 166, .12);
+}
+
+.upload-logo-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 148px;
+    height: 40px;
+    padding: 0 16px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 750;
+    white-space: nowrap;
+    background: #174898;
+    border-radius: 9px;
+}
+
+.upload-logo-nome {
+    min-width: 0;
+    color: #64748b;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-logo-ajuda {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    .upload-logo-caixa {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .upload-logo-botao {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .upload-logo-nome {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const COMPONENTES_POR_ETAPA = {
+        "Educação Infantil": [
+            "O eu, o outro e o nós",
+            "Corpo, gestos e movimentos",
+            "Traços, sons, cores e formas",
+            "Escuta, fala, pensamento e imaginação",
+            "Espaços, tempos, quantidades, relações e transformações"
+        ],
+
+        "Ensino Fundamental - Anos Iniciais": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "História",
+            "Geografia",
+            "Ensino Religioso"
+        ],
+
+        "Ensino Fundamental - Anos Finais": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "História",
+            "Geografia",
+            "Ensino Religioso"
+        ],
+
+        "Ensino Médio": [
+            "Língua Portuguesa",
+            "Literatura",
+            "Produção Textual",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Língua Espanhola",
+            "Matemática",
+            "Biologia",
+            "Física",
+            "Química",
+            "História",
+            "Geografia",
+            "Filosofia",
+            "Sociologia",
+            "Projeto de Vida"
+        ],
+
+        "Educação de Jovens e Adultos": [
+            "Língua Portuguesa",
+            "Arte",
+            "Educação Física",
+            "Língua Inglesa",
+            "Matemática",
+            "Ciências",
+            "Biologia",
+            "Física",
+            "Química",
+            "História",
+            "Geografia",
+            "Filosofia",
+            "Sociologia",
+            "Ensino Religioso"
+        ],
+
+        "Educação Profissional": [
+            "Língua Portuguesa",
+            "Matemática",
+            "Língua Inglesa",
+            "Informática Básica",
+            "Projeto de Vida",
+            "Empreendedorismo"
+        ]
+    };
+
+    const cardComponentes = document.getElementById("card-componentes");
+    const componentesContainer = document.getElementById("componentes-container");
+    const etapasCheckboxes = document.querySelectorAll(".etapa-checkbox");
+    const campoLogo = document.getElementById("logo");
+    const nomeArquivoLogo = document.getElementById("nomeArquivoLogo");
+
+    if (campoLogo && nomeArquivoLogo) {
+        campoLogo.addEventListener("change", function () {
+            const arquivo = campoLogo.files && campoLogo.files[0];
+
+            nomeArquivoLogo.textContent = arquivo
+                ? arquivo.name
+                : "Nenhum arquivo selecionado";
+        });
+    }
+
+    function criarSlug(texto) {
+        return texto
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .toLowerCase();
+    }
+
+    function criarValorComponente(etapa, nome, tipo) {
+        return JSON.stringify({
+            etapa: etapa,
+            nome: nome,
+            tipo: tipo
+        });
+    }
+
+    function criarCheckboxComponente(etapa, nome, tipo = "padrao") {
+
+        const label = document.createElement("label");
+        label.className = "opcao-check componente-item";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "componentes_curriculares";
+        input.value = criarValorComponente(etapa, nome, tipo);
+        input.checked = true;
+        input.className = "componente-checkbox";
+        input.dataset.tipo = tipo;
+        input.dataset.nome = nome;
+
+        const span = document.createElement("span");
+        span.textContent = nome;
+
+        label.appendChild(input);
+        label.appendChild(span);
+
+        if (tipo === "manual") {
+            const botaoRemover = document.createElement("button");
+            botaoRemover.type = "button";
+            botaoRemover.className = "btn-remover-componente";
+            botaoRemover.innerHTML = "&times;";
+            botaoRemover.title = "Remover componente";
+            botaoRemover.setAttribute("aria-label", "Remover componente " + nome);
+
+            botaoRemover.addEventListener("click", function () {
+                label.remove();
+                atualizarSelecionarTodos(etapa);
+            });
+
+            label.appendChild(botaoRemover);
+        }
+
+        return label;
+    }
+
+    function atualizarSelecionarTodos(etapa) {
+
+        const bloco = componentesContainer.querySelector(
+            '[data-bloco-etapa="' + CSS.escape(etapa) + '"]'
+        );
+
+        if (!bloco) {
+            return;
+        }
+
+        const checkboxTodos = bloco.querySelector(".selecionar-todos-componentes");
+        const componentes = bloco.querySelectorAll(".componente-checkbox");
+
+        if (componentes.length === 0) {
+            checkboxTodos.checked = false;
+            checkboxTodos.indeterminate = false;
+            return;
+        }
+
+        const selecionados = bloco.querySelectorAll(".componente-checkbox:checked");
+
+        checkboxTodos.checked = selecionados.length === componentes.length;
+        checkboxTodos.indeterminate =
+            selecionados.length > 0 &&
+            selecionados.length < componentes.length;
+    }
+
+    function adicionarComponenteManual(etapa, listaComponentes) {
+
+        const campo = listaComponentes
+            .closest(".bloco-componentes-etapa")
+            .querySelector(".novo-componente-input");
+
+        const nome = campo.value.trim();
+
+        if (!nome) {
+            campo.focus();
+            return;
+        }
+
+        const nomesExistentes = Array.from(
+            listaComponentes.querySelectorAll(".componente-checkbox")
+        ).map(function (checkbox) {
+            return checkbox.dataset.nome.trim().toLowerCase();
+        });
+
+        if (nomesExistentes.includes(nome.toLowerCase())) {
+            alert("Este componente já foi adicionado nesta etapa.");
+            campo.focus();
+            return;
+        }
+
+        listaComponentes.appendChild(
+            criarCheckboxComponente(etapa, nome, "manual")
+        );
+
+        campo.value = "";
+        campo.focus();
+
+        atualizarSelecionarTodos(etapa);
+    }
+
+    function criarBlocoEtapa(etapa) {
+
+        const slug = criarSlug(etapa);
+
+        const bloco = document.createElement("section");
+        bloco.className = "bloco-componentes-etapa";
+        bloco.dataset.blocoEtapa = etapa;
+        bloco.id = "componentes-" + slug;
+
+        const topo = document.createElement("div");
+        topo.className = "bloco-componentes-topo";
+
+        const tituloArea = document.createElement("div");
+
+        const titulo = document.createElement("h3");
+        titulo.textContent =
+            etapa === "Educação Infantil"
+                ? etapa + " — Campos de Experiência"
+                : etapa;
+
+        const subtitulo = document.createElement("p");
+        subtitulo.className = "ajuda-formulario";
+        subtitulo.textContent =
+            "Selecione os componentes oferecidos pela instituição nesta etapa.";
+
+        tituloArea.appendChild(titulo);
+        tituloArea.appendChild(subtitulo);
+
+        const selecionarTodosLabel = document.createElement("label");
+        selecionarTodosLabel.className = "opcao-check selecionar-todos-label";
+
+        const selecionarTodos = document.createElement("input");
+        selecionarTodos.type = "checkbox";
+        selecionarTodos.className = "selecionar-todos-componentes";
+        selecionarTodos.checked = true;
+
+        const selecionarTodosTexto = document.createElement("span");
+        selecionarTodosTexto.textContent = "Selecionar todos";
+
+        selecionarTodosLabel.appendChild(selecionarTodos);
+        selecionarTodosLabel.appendChild(selecionarTodosTexto);
+
+        topo.appendChild(tituloArea);
+        topo.appendChild(selecionarTodosLabel);
+
+        const lista = document.createElement("div");
+        lista.className = "opcoes-grid componentes-grid";
+
+        COMPONENTES_POR_ETAPA[etapa].forEach(function (nome) {
+            lista.appendChild(
+                criarCheckboxComponente(etapa, nome, "padrao")
+            );
+        });
+
+        const areaAdicionar = document.createElement("div");
+        areaAdicionar.className = "adicionar-componente-area";
+
+        const campoArea = document.createElement("div");
+        campoArea.className = "adicionar-componente-campo";
+
+        const campoLabel = document.createElement("label");
+        campoLabel.className = "adicionar-componente-label";
+        campoLabel.htmlFor = "novo-componente-" + slug;
+        campoLabel.textContent = "Adicionar outro componente";
+
+        const campoNovo = document.createElement("input");
+        campoNovo.type = "text";
+        campoNovo.id = "novo-componente-" + slug;
+        campoNovo.className = "novo-componente-input";
+        campoNovo.placeholder = "Ex.: Robótica, Educação Financeira...";
+        campoNovo.maxLength = 120;
+        campoNovo.autocomplete = "off";
+
+        campoArea.appendChild(campoLabel);
+        campoArea.appendChild(campoNovo);
+
+        const botaoAdicionar = document.createElement("button");
+        botaoAdicionar.type = "button";
+        botaoAdicionar.className = "btn-adicionar-componente";
+        botaoAdicionar.innerHTML =
+            '<span class="btn-adicionar-icone" aria-hidden="true">+</span>' +
+            '<span>Adicionar</span>';
+
+        botaoAdicionar.addEventListener("click", function () {
+            adicionarComponenteManual(etapa, lista);
+        });
+
+        campoNovo.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                adicionarComponenteManual(etapa, lista);
+            }
+        });
+
+        selecionarTodos.addEventListener("change", function () {
+            lista.querySelectorAll(".componente-checkbox").forEach(function (checkbox) {
+                checkbox.checked = selecionarTodos.checked;
+            });
+
+            selecionarTodos.indeterminate = false;
+        });
+
+        lista.addEventListener("change", function (event) {
+            if (event.target.classList.contains("componente-checkbox")) {
+                atualizarSelecionarTodos(etapa);
+            }
+        });
+
+        areaAdicionar.appendChild(campoArea);
+        areaAdicionar.appendChild(botaoAdicionar);
+
+        bloco.appendChild(topo);
+        bloco.appendChild(lista);
+        bloco.appendChild(areaAdicionar);
+
+        return bloco;
+    }
+
+    function atualizarComponentes() {
+
+        const etapasSelecionadas = Array.from(etapasCheckboxes)
+            .filter(function (checkbox) {
+                return checkbox.checked;
+            })
+            .map(function (checkbox) {
+                return checkbox.dataset.etapa;
+            });
+
+        cardComponentes.hidden = etapasSelecionadas.length === 0;
+
+        etapasSelecionadas.forEach(function (etapa) {
+
+            const blocoExistente = componentesContainer.querySelector(
+                '[data-bloco-etapa="' + CSS.escape(etapa) + '"]'
+            );
+
+            if (!blocoExistente) {
+                componentesContainer.appendChild(
+                    criarBlocoEtapa(etapa)
+                );
+            }
+        });
+
+        componentesContainer
+            .querySelectorAll(".bloco-componentes-etapa")
+            .forEach(function (bloco) {
+
+                if (!etapasSelecionadas.includes(bloco.dataset.blocoEtapa)) {
+                    bloco.remove();
+                }
+            });
+    }
+
+    etapasCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener("change", atualizarComponentes);
+    });
+
+    document
+        .getElementById("form-instituicao")
+        .addEventListener("submit", function (event) {
+
+            const senha = document.getElementById("admin_senha").value;
+            const confirmarSenha = document.getElementById("admin_senha2").value;
+
+            if (senha !== confirmarSenha) {
+                event.preventDefault();
+                alert("As senhas do administrador não coincidem.");
+                document.getElementById("admin_senha2").focus();
+                return;
+            }
+
+            const etapasSelecionadas = document.querySelectorAll(
+                ".etapa-checkbox:checked"
+            );
+
+            if (etapasSelecionadas.length === 0) {
+                event.preventDefault();
+                alert("Selecione pelo menos uma etapa de ensino.");
+                return;
+            }
+
+            const componentesSelecionados = document.querySelectorAll(
+                '.componente-checkbox:checked'
+            );
+
+            if (componentesSelecionados.length === 0) {
+                event.preventDefault();
+                alert("Selecione pelo menos um componente curricular.");
+            }
+        });
+
+    atualizarComponentes();
+});
+</script>
 
 {% endblock %}

@@ -253,78 +253,6 @@
 
     </div>
 
-    <!-- TURMAS -->
-    <div
-        class="card form-card"
-        id="cardTurmas"
-        hidden
-    >
-
-        <h2>Turmas da coordenação</h2>
-
-        <p class="ajuda-formulario">
-            Selecione as turmas que ficarão vinculadas ao coordenador.
-        </p>
-
-        {% if turmas %}
-
-            <div class="opcoes-grid etapas-grid">
-
-                {% for turma in turmas %}
-
-                    <label
-                        class="opcao-check opcao-turma"
-                        data-escola="{{ turma.escola_id }}"
-                    >
-
-                        <input
-                            type="checkbox"
-                            name="turmas_vinculadas"
-                            value="{{ turma.id }}"
-                        >
-
-                        <span>
-                            <strong>{{ turma.nome }}</strong>
-
-                            {% if turma.ano %}
-                                — {{ turma.ano }}
-                            {% endif %}
-
-                            {% if turma.turno %}
-                                — {{ turma.turno }}
-                            {% endif %}
-                        </span>
-
-                    </label>
-
-                {% endfor %}
-
-            </div>
-
-            <div
-                class="estado-vazio estado-vazio-menor"
-                id="mensagemSemTurmas"
-                hidden
-            >
-                <h2>Nenhuma turma disponível</h2>
-                <p>
-                    Não há turmas cadastradas para a instituição selecionada.
-                </p>
-            </div>
-
-        {% else %}
-
-            <div class="estado-vazio estado-vazio-menor">
-                <h2>Nenhuma turma disponível</h2>
-                <p>
-                    Cadastre as turmas da instituição antes de criar os vínculos.
-                </p>
-            </div>
-
-        {% endif %}
-
-    </div>
-
     <!-- AÇÕES -->
     <div class="card form-card form-card-acoes">
 
@@ -350,38 +278,301 @@
 
 </form>
 
+
+<style>
+/* =====================================================
+   FOTO DO USUÁRIO
+===================================================== */
+
+.foto-usuario-layout {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin-top: 20px;
+}
+
+.foto-usuario-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 126px;
+    height: 126px;
+    flex: 0 0 126px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #dbe5f2;
+    border-radius: 50%;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+}
+
+.foto-usuario-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.foto-usuario-avatar-padrao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 62px;
+    height: 62px;
+    color: #174898;
+}
+
+.foto-usuario-avatar-padrao svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.foto-usuario-controles {
+    flex: 1;
+    min-width: 0;
+}
+
+.upload-foto-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.upload-foto-caixa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 58px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    cursor: pointer;
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease,
+        background-color .2s ease;
+}
+
+.upload-foto-caixa:hover {
+    background: #f8fafc;
+    border-color: #2458a6;
+}
+
+.upload-foto-input:focus + .upload-foto-caixa {
+    border-color: #2458a6;
+    box-shadow: 0 0 0 3px rgba(36, 88, 166, .12);
+}
+
+.upload-foto-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 148px;
+    height: 40px;
+    padding: 0 16px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 750;
+    white-space: nowrap;
+    background: #174898;
+    border-radius: 9px;
+}
+
+.upload-foto-nome {
+    min-width: 0;
+    color: #64748b;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-foto-ajuda {
+    display: block;
+    margin-top: 9px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.btn-remover-foto {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    margin-top: 10px;
+    padding: 0 14px;
+    color: #b42318;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    background: #fff1f0;
+    border: 1px solid #fecaca;
+    border-radius: 9px;
+    cursor: pointer;
+    transition:
+        background-color .2s ease,
+        border-color .2s ease;
+}
+
+.btn-remover-foto:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+@media (max-width: 700px) {
+    .foto-usuario-layout {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .foto-usuario-preview {
+        align-self: center;
+    }
+
+    .upload-foto-caixa {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .upload-foto-botao {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .upload-foto-nome {
+        width: 100%;
+        text-align: center;
+    }
+
+    .btn-remover-foto {
+        width: 100%;
+    }
+}
+</style>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
     const cargoSelect = document.getElementById("cargo_id");
     const escolaSelect = document.getElementById("escola_id");
     const cardTurmas = document.getElementById("cardTurmas");
+    const cardComponentes = document.getElementById("cardComponentes");
+    const tituloCardTurmas = document.getElementById("tituloCardTurmas");
+    const descricaoCardTurmas = document.getElementById("descricaoCardTurmas");
     const opcoesTurmas = document.querySelectorAll(".opcao-turma");
+    const opcoesComponentes = document.querySelectorAll(".opcao-componente");
     const mensagemSemTurmas = document.getElementById("mensagemSemTurmas");
     const campoCpf = document.getElementById("cpf");
+    const campoFoto = document.getElementById("foto");
+    const previewFotoUsuario = document.getElementById("previewFotoUsuario");
+    const avatarPadraoUsuario = document.getElementById("avatarPadraoUsuario");
+    const nomeArquivoFoto = document.getElementById("nomeArquivoFoto");
+    const textoBotaoFoto = document.getElementById("textoBotaoFoto");
+    const btnRemoverFoto = document.getElementById("btnRemoverFoto");
 
-    function cargoEhCoordenacao() {
+    if (
+        campoFoto &&
+        previewFotoUsuario &&
+        avatarPadraoUsuario &&
+        nomeArquivoFoto &&
+        textoBotaoFoto &&
+        btnRemoverFoto
+    ) {
+        campoFoto.addEventListener("change", function () {
+
+            const arquivo = campoFoto.files && campoFoto.files[0];
+
+            if (!arquivo) {
+                return;
+            }
+
+            const formatosPermitidos = [
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+            ];
+
+            if (!formatosPermitidos.includes(arquivo.type)) {
+                alert("Selecione uma imagem PNG, JPG, JPEG ou WEBP.");
+                campoFoto.value = "";
+                return;
+            }
+
+            const limiteBytes = 5 * 1024 * 1024;
+
+            if (arquivo.size > limiteBytes) {
+                alert("A foto deve ter no máximo 5 MB.");
+                campoFoto.value = "";
+                return;
+            }
+
+            const leitor = new FileReader();
+
+            leitor.addEventListener("load", function () {
+                previewFotoUsuario.src = leitor.result;
+                previewFotoUsuario.hidden = false;
+                avatarPadraoUsuario.hidden = true;
+                nomeArquivoFoto.textContent = arquivo.name;
+                textoBotaoFoto.textContent = "Alterar foto";
+                btnRemoverFoto.hidden = false;
+            });
+
+            leitor.readAsDataURL(arquivo);
+        });
+
+        btnRemoverFoto.addEventListener("click", function () {
+            campoFoto.value = "";
+            previewFotoUsuario.src = "";
+            previewFotoUsuario.hidden = true;
+            avatarPadraoUsuario.hidden = false;
+            nomeArquivoFoto.textContent = "Nenhum arquivo selecionado";
+            textoBotaoFoto.textContent = "Escolher foto";
+            btnRemoverFoto.hidden = true;
+        });
+    }
+
+    if (mensagemSemTurmas) {
+        mensagemSemTurmas.style.display = "none";
+    }
+
+    function obterNomeCargo() {
         if (!cargoSelect) {
-            return false;
+            return "";
         }
 
         const opcao = cargoSelect.options[cargoSelect.selectedIndex];
 
         if (!opcao) {
-            return false;
+            return "";
         }
 
-        const cargo = (
+        return (
             opcao.dataset.cargo ||
             opcao.textContent ||
             ""
-        ).toLowerCase();
+        ).trim().toLowerCase();
+    }
+
+    function cargoEhCoordenacao() {
+        const cargo = obterNomeCargo();
 
         return (
             cargo.includes("coordenador") ||
             cargo.includes("coordenação") ||
             cargo.includes("coordenacao")
         );
+    }
+
+    function cargoEhProfessor() {
+        return obterNomeCargo() === "professor";
     }
 
     function filtrarTurmasPorInstituicao() {
@@ -426,40 +617,77 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         if (mensagemSemTurmas) {
-            mensagemSemTurmas.hidden =
-                quantidadeVisivel !== 0;
+            mensagemSemTurmas.style.display =
+                quantidadeVisivel === 0
+                    ? "block"
+                    : "none";
         }
     }
 
-    function atualizarCardTurmas() {
-        if (!cardTurmas) {
-            return;
+    function limparSelecoesTurmas() {
+        opcoesTurmas.forEach(function (opcao) {
+            const checkbox = opcao.querySelector(
+                'input[type="checkbox"]'
+            );
+
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+    }
+
+    function limparSelecoesComponentes() {
+        opcoesComponentes.forEach(function (opcao) {
+            const checkbox = opcao.querySelector(
+                'input[type="checkbox"]'
+            );
+
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+    }
+
+    function atualizarCamposPorCargo() {
+        const coordenacao = cargoEhCoordenacao();
+        const professor = cargoEhProfessor();
+        const mostrarTurmas = coordenacao || professor;
+
+        if (cardTurmas) {
+            cardTurmas.hidden = !mostrarTurmas;
+
+            if (mostrarTurmas) {
+                if (tituloCardTurmas) {
+                    tituloCardTurmas.textContent = professor
+                        ? "Turmas do professor"
+                        : "Turmas da coordenação";
+                }
+
+                if (descricaoCardTurmas) {
+                    descricaoCardTurmas.textContent = professor
+                        ? "Selecione as turmas em que o professor lecionará."
+                        : "Selecione as turmas que ficarão vinculadas ao coordenador.";
+                }
+
+                filtrarTurmasPorInstituicao();
+            } else {
+                limparSelecoesTurmas();
+            }
         }
 
-        const mostrar = cargoEhCoordenacao();
+        if (cardComponentes) {
+            cardComponentes.hidden = !professor;
 
-        cardTurmas.hidden = !mostrar;
-
-        if (mostrar) {
-            filtrarTurmasPorInstituicao();
-        } else {
-            opcoesTurmas.forEach(function (opcao) {
-
-                const checkbox = opcao.querySelector(
-                    'input[type="checkbox"]'
-                );
-
-                if (checkbox) {
-                    checkbox.checked = false;
-                }
-            });
+            if (!professor) {
+                limparSelecoesComponentes();
+            }
         }
     }
 
     if (cargoSelect) {
         cargoSelect.addEventListener(
             "change",
-            atualizarCardTurmas
+            atualizarCamposPorCargo
         );
     }
 
@@ -541,7 +769,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    atualizarCardTurmas();
+    atualizarCamposPorCargo();
 });
 </script>
 

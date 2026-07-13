@@ -4,16 +4,45 @@
 
 {% block conteudo %}
 
-<div class="pagina-cabecalho">
+<div class="pagina-cabecalho visualizar-instituicao-topo">
 
     <a href="/gestao/instituicoes" class="voltar">
         ← Voltar para instituições
     </a>
 
     <div class="pagina-titulo-linha">
-        <div>
-            <h1>{{ escola["nome_instituicao"] }}</h1>
-            <p>Informações completas da instituição.</p>
+
+        <div class="instituicao-titulo-area">
+
+            {% if escola["logo"] %}
+                <div class="instituicao-logo-miniatura">
+                    <img
+                        src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                        alt="Logo de {{ escola['nome_instituicao'] }}"
+                    >
+                </div>
+            {% else %}
+                <div class="instituicao-logo-miniatura instituicao-logo-sem-imagem">
+                    <span aria-hidden="true">🏫</span>
+                </div>
+            {% endif %}
+
+            <div>
+                <div class="titulo-com-status">
+                    <h1>{{ escola["nome_instituicao"] }}</h1>
+
+                    {% if escola["status"] == 1 %}
+                        <span class="status ativo">Ativa</span>
+                    {% else %}
+                        <span class="status inativo">Inativa</span>
+                    {% endif %}
+                </div>
+
+                <p>
+                    Consulte os dados cadastrais, acadêmicos e administrativos da instituição.
+                </p>
+            </div>
+
         </div>
 
         <a
@@ -22,39 +51,65 @@
         >
             Editar Instituição
         </a>
+
     </div>
 
 </div>
 
-<div class="card form-card">
-    <h2>Informações Gerais</h2>
+
+<!-- ==================================================
+     INFORMAÇÕES GERAIS
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Cadastro</span>
+            <h2>Informações Gerais</h2>
+        </div>
+    </div>
 
     <div class="form-grid">
 
         <div class="campo">
             <label>Nome da Instituição</label>
             <div class="campo-visualizacao">
-                {{ escola["nome_instituicao"] or "-" }}
+                {{ escola["nome_instituicao"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Código INEP</label>
             <div class="campo-visualizacao">
-                {{ escola["codigo_inep"] or "-" }}
+                {{ escola["codigo_inep"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>CNPJ</label>
             <div class="campo-visualizacao">
-                {{ escola["cnpj"] or "-" }}
+                {{ escola["cnpj"] or "Não informado" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Tipo da Instituição</label>
+            <div class="campo-visualizacao">
+                {{ escola["tipo_instituicao"] or "Não informado" }}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Ano Letivo</label>
+            <div class="campo-visualizacao">
+                {{ escola["ano_letivo"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Status</label>
-            <div>
+            <div class="campo-status-visualizacao">
                 {% if escola["status"] == 1 %}
                     <span class="status ativo">Ativa</span>
                 {% else %}
@@ -64,161 +119,435 @@
         </div>
 
     </div>
+
 </div>
 
-<div class="card form-card">
-    <h2>Endereço</h2>
+
+<!-- ==================================================
+     ENDEREÇO
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Localização</span>
+            <h2>Endereço</h2>
+        </div>
+    </div>
 
     <div class="form-grid">
 
         <div class="campo">
             <label>CEP</label>
             <div class="campo-visualizacao">
-                {{ escola["cep"] or "-" }}
+                {{ escola["cep"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo campo-maior">
             <label>Endereço</label>
             <div class="campo-visualizacao">
-                {{ escola["endereco"] or "-" }}
+                {{ escola["endereco"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Cidade</label>
             <div class="campo-visualizacao">
-                {{ escola["cidade"] or "-" }}
+                {{ escola["cidade"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Estado</label>
             <div class="campo-visualizacao">
-                {{ escola["estado"] or "-" }}
+                {{ escola["estado"] or "Não informado" }}
             </div>
         </div>
 
     </div>
+
 </div>
 
-<div class="card form-card">
-    <h2>Contatos</h2>
+
+<!-- ==================================================
+     CONTATOS
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Comunicação</span>
+            <h2>Contatos</h2>
+        </div>
+    </div>
 
     <div class="form-grid">
 
         <div class="campo">
             <label>Telefone</label>
             <div class="campo-visualizacao">
-                {{ escola["telefone"] or "-" }}
+                {{ escola["telefone"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>WhatsApp</label>
             <div class="campo-visualizacao">
-                {{ escola["whatsapp"] or "-" }}
+                {{ escola["whatsapp"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>E-mail</label>
             <div class="campo-visualizacao">
-                {{ escola["email"] or "-" }}
+                {% if escola["email"] %}
+                    <a href="mailto:{{ escola['email'] }}" class="link-visualizacao">
+                        {{ escola["email"] }}
+                    </a>
+                {% else %}
+                    Não informado
+                {% endif %}
             </div>
         </div>
 
         <div class="campo">
             <label>Site</label>
             <div class="campo-visualizacao">
-                {{ escola["site"] or "-" }}
+                {% if escola["site"] %}
+                    <a
+                        href="{% if escola['site'].startswith('http') %}{{ escola['site'] }}{% else %}https://{{ escola['site'] }}{% endif %}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="link-visualizacao"
+                    >
+                        {{ escola["site"] }}
+                    </a>
+                {% else %}
+                    Não informado
+                {% endif %}
             </div>
         </div>
 
     </div>
+
 </div>
 
-<div class="card form-card">
-    <h2>Equipe Gestora</h2>
+
+<!-- ==================================================
+     EQUIPE GESTORA
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Gestão</span>
+            <h2>Equipe Gestora</h2>
+        </div>
+    </div>
 
     <div class="form-grid">
 
         <div class="campo">
             <label>Diretor(a)</label>
             <div class="campo-visualizacao">
-                {{ escola["diretor"] or "-" }}
+                {{ escola["diretor"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Coordenador(a) 1</label>
             <div class="campo-visualizacao">
-                {{ escola["coordenador1"] or "-" }}
+                {{ escola["coordenador1"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Coordenador(a) 2</label>
             <div class="campo-visualizacao">
-                {{ escola["coordenador2"] or "-" }}
+                {{ escola["coordenador2"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Coordenador(a) 3</label>
             <div class="campo-visualizacao">
-                {{ escola["coordenador3"] or "-" }}
+                {{ escola["coordenador3"] or "Não informado" }}
             </div>
         </div>
 
         <div class="campo">
             <label>Secretário(a)</label>
             <div class="campo-visualizacao">
-                {{ escola["secretario"] or "-" }}
+                {{ escola["secretario"] or "Não informado" }}
             </div>
         </div>
 
     </div>
+
 </div>
 
-<div class="card form-card">
-    <h2>Dados Acadêmicos</h2>
+
+<!-- ==================================================
+     DADOS ACADÊMICOS
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Ensino</span>
+            <h2>Dados Acadêmicos</h2>
+        </div>
+    </div>
 
     <div class="form-grid">
 
-        <div class="campo">
-            <label>Tipo da Instituição</label>
-            <div class="campo-visualizacao">
-                {{ escola["tipo_instituicao"] or "-" }}
-            </div>
-        </div>
-
-        <div class="campo">
-            <label>Ano Letivo</label>
-            <div class="campo-visualizacao">
-                {{ escola["ano_letivo"] or "-" }}
-            </div>
-        </div>
-
-        <div class="campo campo-maior">
+        <div class="campo campo-largura-total">
             <label>Modalidades de Ensino</label>
-            <div class="campo-visualizacao">
-                {{ escola["modalidade_ensino"] or "-" }}
-            </div>
+
+            {% if escola["modalidade_ensino"] %}
+                <div
+                    class="lista-badges lista-valores"
+                    data-valores="{{ escola['modalidade_ensino']|e }}"
+                ></div>
+            {% else %}
+                <div class="campo-visualizacao">Não informado</div>
+            {% endif %}
         </div>
 
         <div class="campo campo-largura-total">
             <label>Etapas de Ensino</label>
-            <div class="campo-visualizacao">
-                {{ escola["etapas_ensino"] or "-" }}
-            </div>
+
+            {% if escola["etapas_ensino"] %}
+                <div
+                    class="lista-badges lista-valores"
+                    data-valores="{{ escola['etapas_ensino']|e }}"
+                ></div>
+            {% else %}
+                <div class="campo-visualizacao">Não informado</div>
+            {% endif %}
         </div>
 
     </div>
+
 </div>
 
-<div class="card form-card">
-    <h2>Administrador da Instituição</h2>
+
+<!-- ==================================================
+     COMPONENTES CURRICULARES
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Currículo</span>
+            <h2>Componentes Curriculares</h2>
+        </div>
+    </div>
+
+    {% if componentes_por_etapa is defined and componentes_por_etapa %}
+
+        <div class="componentes-visualizacao-grid">
+
+            {% for etapa, componentes in componentes_por_etapa.items() %}
+
+                <section class="componentes-etapa-card">
+
+                    <div class="componentes-etapa-topo">
+                        <h3>{{ etapa }}</h3>
+
+                        <span class="componentes-contagem">
+                            {{ componentes|length }}
+                            {% if componentes|length == 1 %}
+                                componente
+                            {% else %}
+                                componentes
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="lista-badges">
+                        {% for componente in componentes %}
+                            <span class="badge-informacao">
+                                {% if componente is mapping %}
+                                    {{ componente["nome"] }}
+                                {% else %}
+                                    {{ componente }}
+                                {% endif %}
+                            </span>
+                        {% endfor %}
+                    </div>
+
+                </section>
+
+            {% endfor %}
+
+        </div>
+
+    {% elif componentes_salvos is defined and componentes_salvos %}
+
+        <div class="componentes-visualizacao-grid">
+
+            {% for grupo in componentes_salvos|groupby("etapa") %}
+
+                <section class="componentes-etapa-card">
+
+                    <div class="componentes-etapa-topo">
+                        <h3>{{ grupo.grouper }}</h3>
+
+                        <span class="componentes-contagem">
+                            {{ grupo.list|length }}
+                            {% if grupo.list|length == 1 %}
+                                componente
+                            {% else %}
+                                componentes
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="lista-badges">
+                        {% for componente in grupo.list %}
+                            <span class="badge-informacao">
+                                {{ componente["nome"] }}
+                            </span>
+                        {% endfor %}
+                    </div>
+
+                </section>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="estado-vazio estado-vazio-visualizacao">
+            <h3>Nenhum componente carregado</h3>
+            <p>
+                Os componentes curriculares não foram enviados pela rota desta página.
+            </p>
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+
+<!-- ==================================================
+     USUÁRIOS VINCULADOS
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+
+        <div>
+            <span class="card-visualizacao-etiqueta">Equipe</span>
+            <h2>Usuários Vinculados</h2>
+        </div>
+
+        <span class="usuarios-total">
+            {{ usuarios_instituicao|length }}
+            {% if usuarios_instituicao|length == 1 %}
+                usuário
+            {% else %}
+                usuários
+            {% endif %}
+        </span>
+
+    </div>
+
+    {% if usuarios_instituicao %}
+
+        <div class="usuarios-instituicao-lista">
+
+            {% for usuario in usuarios_instituicao %}
+
+                <article class="usuario-instituicao-card">
+
+                    <div class="usuario-instituicao-avatar">
+                        {% if usuario["foto"] %}
+                            <img
+                                src="{{ url_for('static', filename='uploads/usuarios/' + usuario['foto']) }}"
+                                alt="Foto de {{ usuario['nome'] or 'usuário' }}"
+                                loading="lazy"
+                            >
+                        {% else %}
+                            <span aria-hidden="true">
+                                {{ usuario["nome"][:1]|upper if usuario["nome"] else "U" }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="usuario-instituicao-dados">
+
+                        <strong>
+                            {{ usuario["nome"] or "Nome não informado" }}
+                        </strong>
+
+                        <span class="usuario-instituicao-cargo">
+                            {{ usuario["cargo"] or "Cargo não informado" }}
+                        </span>
+
+                        {% if usuario["email"] %}
+                            <a
+                                href="mailto:{{ usuario['email'] }}"
+                                class="usuario-instituicao-email"
+                            >
+                                {{ usuario["email"] }}
+                            </a>
+                        {% endif %}
+
+                    </div>
+
+                    <div class="usuario-instituicao-status">
+
+                        {% if usuario["ativo"] == 1 %}
+                            <span class="status ativo">Ativo</span>
+                        {% else %}
+                            <span class="status inativo">Inativo</span>
+                        {% endif %}
+
+                    </div>
+
+                </article>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="estado-vazio estado-vazio-visualizacao">
+            <h3>Nenhum usuário vinculado</h3>
+            <p>
+                Ainda não existem usuários cadastrados para esta instituição.
+            </p>
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- ==================================================
+     ADMINISTRADOR
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Acesso</span>
+            <h2>Administrador da Instituição</h2>
+        </div>
+    </div>
 
     {% if administrador %}
 
@@ -227,34 +556,43 @@
             <div class="campo">
                 <label>Nome</label>
                 <div class="campo-visualizacao">
-                    {{ administrador["nome"] or "-" }}
+                    {{ administrador["nome"] or "Não informado" }}
                 </div>
             </div>
 
             <div class="campo">
                 <label>E-mail</label>
                 <div class="campo-visualizacao">
-                    {{ administrador["email"] or "-" }}
+                    {% if administrador["email"] %}
+                        <a
+                            href="mailto:{{ administrador['email'] }}"
+                            class="link-visualizacao"
+                        >
+                            {{ administrador["email"] }}
+                        </a>
+                    {% else %}
+                        Não informado
+                    {% endif %}
                 </div>
             </div>
 
             <div class="campo">
                 <label>CPF</label>
                 <div class="campo-visualizacao">
-                    {{ administrador["cpf"] or "-" }}
+                    {{ administrador["cpf"] or "Não informado" }}
                 </div>
             </div>
 
             <div class="campo">
                 <label>Perfil</label>
                 <div class="campo-visualizacao">
-                    {{ administrador["cargo"] or "Administrador" }}
+                    {{ administrador["cargo"] or "Administrador da Instituição" }}
                 </div>
             </div>
 
             <div class="campo">
                 <label>Status</label>
-                <div>
+                <div class="campo-status-visualizacao">
                     {% if administrador["ativo"] == 1 %}
                         <span class="status ativo">Ativo</span>
                     {% else %}
@@ -267,32 +605,577 @@
 
     {% else %}
 
-        <div class="estado-vazio">
+        <div class="estado-vazio estado-vazio-visualizacao">
             <h3>Nenhum administrador vinculado</h3>
             <p>Edite a instituição para cadastrar um administrador.</p>
         </div>
 
     {% endif %}
+
 </div>
 
-<div class="card form-card">
-    <h2>Identidade Visual</h2>
+
+<!-- ==================================================
+     IDENTIDADE VISUAL
+=================================================== -->
+
+<div class="card form-card card-visualizacao">
+
+    <div class="card-visualizacao-cabecalho">
+        <div>
+            <span class="card-visualizacao-etiqueta">Marca</span>
+            <h2>Identidade Visual</h2>
+        </div>
+    </div>
 
     {% if escola["logo"] %}
 
-        <img
-            src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
-            alt="Logo da instituição"
-            style="max-width: 220px; max-height: 150px;"
-        >
+        <div class="logo-visualizacao">
+
+            <div class="logo-visualizacao-imagem">
+                <img
+                    src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                    alt="Logo da instituição {{ escola['nome_instituicao'] }}"
+                >
+            </div>
+
+            <div>
+                <strong>Logo cadastrada</strong>
+                <p>
+                    Esta é a imagem utilizada para representar a instituição no sistema.
+                </p>
+            </div>
+
+        </div>
 
     {% else %}
 
-        <div class="campo-visualizacao">
-            Nenhuma logo cadastrada.
+        <div class="estado-vazio estado-vazio-visualizacao">
+            <h3>Nenhuma logo cadastrada</h3>
+            <p>Você pode incluir uma imagem pela opção Editar Instituição.</p>
         </div>
 
     {% endif %}
+
 </div>
+
+
+<!-- ==================================================
+     AÇÕES
+=================================================== -->
+
+<div class="card form-card form-card-acoes">
+
+    <div class="acoes-form">
+
+        <a
+            href="/gestao/instituicoes"
+            class="btn-secundario"
+        >
+            Voltar
+        </a>
+
+        <a
+            href="/gestao/instituicoes/editar/{{ escola['id'] }}"
+            class="btn-primario"
+        >
+            Editar Instituição
+        </a>
+
+    </div>
+
+</div>
+
+
+<style>
+/* =====================================================
+   VISUALIZAR INSTITUIÇÃO
+===================================================== */
+
+.visualizar-instituicao-topo {
+    margin-bottom: 26px;
+}
+
+.instituicao-titulo-area {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+}
+
+.instituicao-logo-miniatura {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 74px;
+    height: 74px;
+    flex: 0 0 74px;
+    padding: 8px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 18px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+    box-sizing: border-box;
+}
+
+.instituicao-logo-miniatura img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.instituicao-logo-sem-imagem {
+    color: #174898;
+    font-size: 31px;
+    background: #eef4ff;
+}
+
+.titulo-com-status {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.titulo-com-status h1 {
+    margin: 0;
+}
+
+.card-visualizacao {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-visualizacao::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    content: "";
+    background: #174898;
+}
+
+.card-visualizacao-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 24px;
+}
+
+.card-visualizacao-cabecalho h2 {
+    margin: 3px 0 0;
+}
+
+.card-visualizacao-etiqueta {
+    display: inline-block;
+    color: #2563a8;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.card-visualizacao .campo label {
+    margin-bottom: 7px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+.card-visualizacao .campo-visualizacao {
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.campo-status-visualizacao {
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+}
+
+.link-visualizacao {
+    color: #174898;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.link-visualizacao:hover {
+    text-decoration: underline;
+}
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 800;
+    border-radius: 999px;
+}
+
+.status.ativo {
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.status.inativo {
+    color: #991b1b;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
+.lista-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.badge-informacao {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 7px 12px;
+    color: #174898;
+    font-size: 13px;
+    font-weight: 700;
+    background: #eef4ff;
+    border: 1px solid #cdddf6;
+    border-radius: 10px;
+}
+
+.componentes-visualizacao-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.componentes-etapa-card {
+    min-width: 0;
+    padding: 20px;
+    background: #f8fafc;
+    border: 1px solid #dbe5f2;
+    border-radius: 15px;
+}
+
+.componentes-etapa-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.componentes-etapa-topo h3 {
+    margin: 0;
+    color: #173f7a;
+    font-size: 16px;
+    line-height: 1.4;
+}
+
+.componentes-contagem {
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 750;
+    background: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 999px;
+}
+
+.logo-visualizacao {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px;
+    background: #f8fafc;
+    border: 1px solid #dbe5f2;
+    border-radius: 15px;
+}
+
+.logo-visualizacao-imagem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 230px;
+    min-height: 150px;
+    flex: 0 0 230px;
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 13px;
+    box-sizing: border-box;
+}
+
+.logo-visualizacao-imagem img {
+    display: block;
+    max-width: 195px;
+    max-height: 120px;
+    object-fit: contain;
+}
+
+.logo-visualizacao strong {
+    display: block;
+    margin-bottom: 7px;
+    color: #173f7a;
+    font-size: 16px;
+}
+
+.logo-visualizacao p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.estado-vazio-visualizacao {
+    min-height: 130px;
+    padding: 24px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 15px;
+}
+
+.estado-vazio-visualizacao h3 {
+    margin: 0 0 7px;
+    color: #173f7a;
+    font-size: 16px;
+}
+
+.estado-vazio-visualizacao p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .componentes-visualizacao-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .pagina-titulo-linha {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .instituicao-titulo-area {
+        align-items: flex-start;
+    }
+
+    .instituicao-logo-miniatura {
+        width: 62px;
+        height: 62px;
+        flex-basis: 62px;
+    }
+
+    .pagina-titulo-linha > .btn-primario {
+        width: 100%;
+    }
+
+    .logo-visualizacao {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .logo-visualizacao-imagem {
+        width: 100%;
+        flex-basis: auto;
+    }
+}
+
+/* =====================================================
+   USUÁRIOS VINCULADOS À INSTITUIÇÃO
+===================================================== */
+
+.usuarios-total {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 5px 12px;
+    color: #174898;
+    font-size: 12px;
+    font-weight: 800;
+    background: #eef4ff;
+    border: 1px solid #cdddf6;
+    border-radius: 999px;
+}
+
+.usuarios-instituicao-lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.usuario-instituicao-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #dbe5f2;
+    border-radius: 14px;
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease,
+        transform .2s ease;
+}
+
+.usuario-instituicao-card:hover {
+    border-color: #b9cbea;
+    box-shadow: 0 7px 18px rgba(15, 23, 42, .05);
+    transform: translateY(-1px);
+}
+
+.usuario-instituicao-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 800;
+    background: #174898;
+    border: 1px solid #cdddf6;
+    border-radius: 13px;
+    box-sizing: border-box;
+}
+
+.usuario-instituicao-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.usuario-instituicao-avatar span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.usuario-instituicao-dados {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.usuario-instituicao-dados strong {
+    color: #173f7a;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+}
+
+.usuario-instituicao-cargo {
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.usuario-instituicao-email {
+    color: #64748b;
+    font-size: 12px;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.usuario-instituicao-email:hover {
+    color: #174898;
+    text-decoration: underline;
+}
+
+.usuario-instituicao-status {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+    .usuarios-instituicao-lista {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .card-visualizacao-cabecalho {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .usuarios-total {
+        align-self: flex-start;
+    }
+
+    .usuario-instituicao-card {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .usuario-instituicao-status {
+        width: 100%;
+        padding-left: 60px;
+    }
+}
+
+</style>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    document.querySelectorAll(".lista-valores").forEach(function (container) {
+
+        const valorBruto = container.dataset.valores || "";
+
+        const valores = valorBruto
+            .replace(/^\[|\]$/g, "")
+            .replace(/["']/g, "")
+            .split(/[,;|]+/)
+            .map(function (valor) {
+                return valor.trim();
+            })
+            .filter(Boolean);
+
+        if (valores.length === 0) {
+            const vazio = document.createElement("div");
+            vazio.className = "campo-visualizacao";
+            vazio.textContent = "Não informado";
+            container.replaceWith(vazio);
+            return;
+        }
+
+        valores.forEach(function (valor) {
+            const badge = document.createElement("span");
+            badge.className = "badge-informacao";
+            badge.textContent = valor;
+            container.appendChild(badge);
+        });
+    });
+
+});
+</script>
 
 {% endblock %}

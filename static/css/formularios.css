@@ -14,20 +14,16 @@ form {
 .form-card {
     width: 100%;
     max-width: 100%;
-
     background: var(--branco);
     border: 1px solid var(--borda);
     border-radius: 22px;
-
     padding: 32px;
     margin-bottom: 28px;
-
     box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
 }
 
 .form-card h2 {
     margin: 0 0 28px;
-
     color: var(--azul);
     font-size: 22px;
     font-weight: 700;
@@ -37,32 +33,31 @@ form {
    GRID
 ===================================================== */
 
-.form-grid{
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:22px;
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
 }
 
-.campo{
-    display:flex;
-    flex-direction:column;
-    min-width:0;
+.campo {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
-.campo-maior{
-    grid-column:span 2;
+.campo-maior {
+    grid-column: span 2;
 }
 
-.campo-largura-total{
-    grid-column:1/-1;
+.campo-largura-total {
+    grid-column: 1 / -1;
 }
 
-.campo label{
-    margin-bottom:8px;
-
-    color:#475569;
-    font-size:14px;
-    font-weight:600;
+.campo label {
+    margin-bottom: 8px;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 /* =====================================================
@@ -71,144 +66,142 @@ form {
 
 .campo input,
 .campo select,
-.campo textarea{
-
-    width:100%;
-    max-width:100%;
-
-    padding:14px 16px;
-
-    background:#fff;
-
-    border:1px solid #d7dde7;
-    border-radius:12px;
-
-    color:var(--texto-forte);
-
-    font-size:15px;
-    font-family:inherit;
-
-    transition:.25s;
+.campo textarea {
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #d7dde7;
+    border-radius: 12px;
+    color: var(--texto-forte);
+    font-size: 15px;
+    font-family: inherit;
+    transition: .25s;
 }
 
-.campo textarea{
-    min-height:120px;
-    resize:vertical;
+.campo textarea {
+    min-height: 120px;
+    resize: vertical;
 }
 
 .campo input::placeholder,
-.campo textarea::placeholder{
-    color:#94a3b8;
+.campo textarea::placeholder {
+    color: #94a3b8;
 }
 
 .campo input:focus,
 .campo select:focus,
-.campo textarea:focus{
-
-    outline:none;
-
-    border-color:var(--azul);
-
-    box-shadow:0 0 0 4px rgba(22,62,143,.12);
+.campo textarea:focus {
+    outline: none;
+    border-color: var(--azul);
+    box-shadow: 0 0 0 4px rgba(22, 62, 143, .12);
 }
 
-.campo input[type=file]{
-    padding:10px;
-    cursor:pointer;
+.campo input[type="file"] {
+    padding: 10px;
+    cursor: pointer;
 }
 
 /* =====================================================
    CHECKBOXES
 ===================================================== */
 
-.opcoes-grid{
-
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-
-    gap:12px;
+.opcoes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.etapas-grid{
-    grid-template-columns:repeat(3,minmax(0,1fr));
+.etapas-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.opcao-check{
-
-    display:flex;
-    align-items:center;
-
-    gap:12px;
-
-    padding:13px 15px;
-
-    background:#f8fafc;
-
-    border:1px solid var(--borda);
-    border-radius:12px;
-
-    cursor:pointer;
-
-    transition:.25s;
+.opcao-check {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    padding: 13px 15px;
+    background: #f8fafc;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transform: none !important;
+    transition:
+        background-color .2s ease,
+        border-color .2s ease,
+        box-shadow .2s ease;
 }
 
-.opcao-check:hover{
-
-    background:var(--azul-claro);
-
-    border-color:rgba(22,62,143,.35);
+.opcao-check:hover {
+    background: var(--azul-claro);
+    border-color: rgba(22, 62, 143, .35);
+    transform: none !important;
 }
 
-.opcao-check input{
-
-    width:18px;
-    height:18px;
-
-    accent-color:var(--azul);
+.opcao-check input[type="checkbox"] {
+    appearance: auto;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    margin: 0;
+    padding: 0;
+    flex: 0 0 18px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    accent-color: var(--azul);
+    cursor: pointer;
+    transition: none;
 }
 
-.opcao-check span{
-    flex:1;
+.opcao-check input[type="checkbox"]:focus,
+.opcao-check input[type="checkbox"]:focus-visible {
+    outline: none;
+    border: 0;
+    box-shadow: none;
 }
 
-.opcao-check:has(input:checked){
+.opcao-check span {
+    flex: 1;
+    min-width: 0;
+}
 
-    background:var(--azul-claro);
+.opcao-check:has(input[type="checkbox"]:checked) {
+    background: var(--azul-claro);
+    border: 1px solid var(--azul);
+    color: var(--azul-escuro);
+    transform: none !important;
+}
 
-    border-color:var(--azul);
-
-    color:var(--azul-escuro);
+.opcao-check:active {
+    transform: none !important;
 }
 
 /* =====================================================
    VISUALIZAÇÃO
 ===================================================== */
 
-.campo-visualizacao{
-
-    min-height:48px;
-
-    padding:14px 16px;
-
-    background:#f8fafc;
-
-    border:1px solid var(--borda);
-    border-radius:12px;
-
-    color:var(--texto);
+.campo-visualizacao {
+    min-height: 48px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    color: var(--texto);
 }
 
-.ajuda-formulario{
-
-    margin-top:18px;
-
-    color:var(--texto-suave);
-
-    font-size:13px;
+.ajuda-formulario {
+    margin-top: 18px;
+    color: var(--texto-suave);
+    font-size: 13px;
 }
 
 /* =====================================================
-   BOTÕES
+   BOTÕES DOS FORMULÁRIOS
 ===================================================== */
 
 .form-card-acoes {
@@ -218,15 +211,12 @@ form {
 
 .acoes-form {
     width: 100%;
-
     display: flex;
     align-items: center;
     justify-content: flex-end;
     flex-wrap: wrap;
-
     gap: 16px;
-
-    margin: 0;
+    margin: 28px 0 0;
     padding: 0;
 }
 
@@ -235,163 +225,30 @@ form {
 .acoes-form .btn-primario,
 .acoes-form .btn-secundario {
     position: static;
-
-    min-width: 170px;
-    min-height: 52px;
-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
+    width: auto;
+    min-width: 230px;
+    min-height: 56px;
+    padding: 0 28px;
     margin: 0;
-    flex-shrink: 0;
-}
-
-@media (max-width: 700px) {
-    .form-card-acoes {
-        padding: 20px;
-    }
-
-    .acoes-form {
-        flex-direction: column-reverse;
-        align-items: stretch;
-    }
-
-    .acoes-form a,
-    .acoes-form button,
-    .acoes-form .btn-primario,
-    .acoes-form .btn-secundario {
-        width: 100%;
-        min-width: 100%;
-    }
-}
-
-@media(max-width:1100px){
-
-    .form-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-
-    .campo-maior{
-        grid-column:span 1;
-    }
-
-    .etapas-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-
-}
-
-@media(max-width:700px){
-
-    .form-card{
-        padding:22px;
-    }
-
-    .form-grid,
-    .opcoes-grid,
-    .etapas-grid{
-        grid-template-columns:1fr;
-    }
-
-    .campo-maior,
-    .campo-largura-total{
-        grid-column:span 1;
-    }
-
-    .acoes-form{
-
-        flex-direction:column-reverse;
-
-        align-items:stretch;
-
-        margin-bottom:20px;
-
-        padding-bottom:20px;
-    }
-
-    .acoes-form a,
-    .acoes-form button,
-    .acoes-form .btn-primario,
-    .acoes-form .btn-secundario{
-
-        width:100%;
-        min-width:100%;
-    }
-
-}
-
-.form-card-acoes {
-    padding: 24px 32px;
-    margin-bottom: 30px;
-}
-
-.acoes-form {
-    width: 100%;
-
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-
-    gap: 16px;
-
-    margin: 0;
-    padding: 0;
-}
-
-.acoes-form a,
-.acoes-form button,
-.acoes-form .btn-primario,
-.acoes-form .btn-secundario {
-    position: static;
-
-    min-width: 170px;
-    min-height: 52px;
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    margin: 0;
-    flex-shrink: 0;
-}
-
-@media (max-width: 700px) {
-    .form-card-acoes {
-        padding: 20px;
-    }
-
-    .acoes-form {
-        flex-direction: column-reverse;
-        align-items: stretch;
-    }
-
-    .acoes-form a,
-    .acoes-form button,
-    .acoes-form .btn-primario,
-    .acoes-form .btn-secundario {
-        width: 100%;
-        min-width: 100%;
-    }
-}
-
-.estado-vazio-menor {
-    min-height: 120px;
-    padding: 20px;
-    background: #f8fafc;
-    border: 1px dashed var(--borda);
     border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.estado-vazio-menor h2 {
-    font-size: 18px;
-}
+/* =====================================================
+   ESTADOS VAZIOS
+===================================================== */
 
 .estado-vazio-menor {
     min-height: 120px;
     padding: 20px;
-
     background: #f8fafc;
     border: 1px dashed var(--borda);
     border-radius: 14px;
@@ -419,25 +276,18 @@ form {
     position: absolute;
     top: 50%;
     right: 12px;
-
     width: 36px;
     height: 36px;
-
     display: flex;
     align-items: center;
     justify-content: center;
-
     padding: 0;
     margin: 0;
-
     background: transparent;
     border: none;
     border-radius: 10px;
-
     color: #64748b;
-
     cursor: pointer;
-
     transform: translateY(-50%);
     transition: background-color .2s, color .2s;
 }
@@ -455,67 +305,100 @@ form {
 .botao-ver-senha svg {
     width: 20px;
     height: 20px;
-
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
-
     pointer-events: none;
 }
 
-.cadastro-ver-senha{
-
-    position:absolute;
-
-    top:50%;
-    right:10px;
-
-    width:36px;
-    height:36px;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    padding:0;
-
-    background:transparent;
-
-    border:none;
-    border-radius:10px;
-
-    color:#64748b;
-
-    cursor:pointer;
-
-    transform:translateY(-50%);
-
-    transition:.2s;
+.cadastro-ver-senha {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: #64748b;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: .2s;
 }
 
-.cadastro-ver-senha:hover{
-
-    background:#eef4ff;
-
-    color:#17479e;
+.cadastro-ver-senha:hover {
+    background: #eef4ff;
+    color: #17479e;
 }
 
-.icone-olho{
+.icone-olho {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    transition: .2s;
+}
 
-    width:20px;
-    height:20px;
+/* =====================================================
+   RESPONSIVIDADE
+===================================================== */
 
-    stroke:currentColor;
+@media (max-width: 1100px) {
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 
-    stroke-width:2;
+    .campo-maior {
+        grid-column: span 1;
+    }
 
-    stroke-linecap:round;
+    .etapas-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 
-    stroke-linejoin:round;
+@media (max-width: 700px) {
+    .form-card {
+        padding: 22px;
+    }
 
-    fill:none;
+    .form-card-acoes {
+        padding: 20px;
+    }
 
-    transition:.2s;
+    .form-grid,
+    .opcoes-grid,
+    .etapas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .campo-maior,
+    .campo-largura-total {
+        grid-column: span 1;
+    }
+
+    .acoes-form {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        margin-top: 22px;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .acoes-form a,
+    .acoes-form button,
+    .acoes-form .btn-primario,
+    .acoes-form .btn-secundario {
+        width: 100%;
+        min-width: 100%;
+    }
 }

@@ -1,3 +1,9 @@
+import os
+import json
+import sqlite3
+import uuid
+
+from datetime import datetime
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash
@@ -40,6 +46,244 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def conectar_banco():
     return sqlite3.connect(DB_PATH)
 
+def obter_escola_usuario(usuario_id=None):
+    """
+    Retorna o ID da instituição vinculada ao usuário.
+
+    Primeiro tenta utilizar a escola registrada na sessão.
+    Se não existir, consulta a tabela usuarios e atualiza
+    a sessão automaticamente.
+    """
+
+    escola_id = session.get("escola_id")
+
+    if escola_id:
+        try:
+            return int(escola_id)
+        except (TypeError, ValueError):
+            session.pop("escola_id", None)
+
+    if not usuario_id:
+        usuario_id = session.get("usuario_id")
+
+    if not usuario_id:
+        return None
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        cursor.execute("""
+            SELECT escola_id
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (
+            usuario_id,
+        ))
+
+        usuario = cursor.fetchone()
+
+        if not usuario or not usuario["escola_id"]:
+            return None
+
+        escola_id = int(usuario["escola_id"])
+
+        session["escola_id"] = escola_id
+
+        return escola_id
+
+    except sqlite3.Error as erro:
+
+        print(
+            "ERRO AO RECUPERAR A INSTITUIÇÃO DO USUÁRIO:",
+            erro
+        )
+
+        return None
+
+    finally:
+        banco.close()
+
+
+def obter_ano_letivo_ativo(escola_id):
+    """
+    Retorna o ano letivo oficialmente ativo da instituição.
+
+    Retorno:
+        sqlite3.Row com:
+        - id
+        - escola_id
+        - ano
+        - data_inicio
+        - data_fim
+        - ativo
+        - encerrado
+
+    Retorna None quando a instituição não possui ano ativo.
+    """
+
+    if not escola_id:
+        return None
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                ano,
+                data_inicio,
+                data_fim,
+                ativo,
+                encerrado
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND encerrado = 0
+            ORDER BY ano DESC
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        return cursor.fetchone()
+
+    except sqlite3.Error as erro:
+
+        print(
+            "ERRO AO BUSCAR O ANO LETIVO ATIVO:",
+            erro
+        )
+
+        return None
+
+    finally:
+        banco.close()
+
+
+def obter_ano_letivo_selecionado(escola_id):
+    """
+    Retorna o ano letivo que deve ser utilizado pela plataforma.
+
+    Futuramente, o administrador poderá selecionar um ano antigo
+    para consulta. Quando não houver seleção manual, será utilizado
+    automaticamente o ano letivo ativo.
+    """
+
+    if not escola_id:
+        return None
+
+    ano_selecionado_id = session.get("ano_letivo_selecionado_id")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        # =====================================================
+        # ANO ESCOLHIDO MANUALMENTE PARA CONSULTA
+        # =====================================================
+
+        if ano_selecionado_id:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    escola_id,
+                    ano,
+                    data_inicio,
+                    data_fim,
+                    ativo,
+                    encerrado
+                FROM anos_letivos
+                WHERE id = ?
+                  AND escola_id = ?
+                LIMIT 1
+            """, (
+                ano_selecionado_id,
+                escola_id
+            ))
+
+            ano_selecionado = cursor.fetchone()
+
+            if ano_selecionado:
+                return ano_selecionado
+
+            # Remove da sessão caso o ano não pertença à escola.
+            session.pop(
+                "ano_letivo_selecionado_id",
+                None
+            )
+
+        # =====================================================
+        # ANO ATIVO PADRÃO
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                ano,
+                data_inicio,
+                data_fim,
+                ativo,
+                encerrado
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND encerrado = 0
+            ORDER BY ano DESC
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        return cursor.fetchone()
+
+    except sqlite3.Error as erro:
+
+        print(
+            "ERRO AO BUSCAR O ANO LETIVO SELECIONADO:",
+            erro
+        )
+
+        return None
+
+    finally:
+        banco.close()
+
+
+def atualizar_ano_letivo_na_sessao(escola_id):
+    """
+    Atualiza a sessão com o ano letivo utilizado pela plataforma.
+
+    Retorna o registro do ano letivo ou None.
+    """
+
+    ano_letivo = obter_ano_letivo_selecionado(
+        escola_id
+    )
+
+    if not ano_letivo:
+
+        session.pop("ano_letivo_id", None)
+        session.pop("ano_letivo", None)
+
+        return None
+
+    session["ano_letivo_id"] = ano_letivo["id"]
+    session["ano_letivo"] = ano_letivo["ano"]
+
+    return ano_letivo
+
 def cargo_permitido(cargos_permitidos):
 
     if "usuario_id" not in session:
@@ -51,71 +295,77 @@ def criar_tabelas():
     banco = conectar_banco()
     cursor = banco.cursor()
 
-    # ==========================
-    # TABELA ESCOLAS
-    # ==========================
+    cursor.execute("PRAGMA foreign_keys = ON")
+
+    def garantir_coluna(tabela, coluna, definicao):
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        colunas = {linha[1] for linha in cursor.fetchall()}
+
+        if coluna not in colunas:
+            cursor.execute(
+                f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"
+            )
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS escolas (
+        CREATE TABLE IF NOT EXISTS escolas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_instituicao TEXT NOT NULL,
+            codigo_inep TEXT,
+            cnpj TEXT,
+            cep TEXT,
+            endereco TEXT,
+            cidade TEXT,
+            estado TEXT,
+            telefone TEXT,
+            whatsapp TEXT,
+            email TEXT,
+            site TEXT,
+            diretor TEXT,
+            coordenador1 TEXT,
+            coordenador2 TEXT,
+            coordenador3 TEXT,
+            secretario TEXT,
+            tipo_instituicao TEXT,
+            ano_letivo TEXT,
+            modalidade_ensino TEXT,
+            etapas_ensino TEXT,
+            logo TEXT,
+            status INTEGER DEFAULT 1,
+            criado_em TEXT
+        )
+    """)
 
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cargos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE NOT NULL
+        )
+    """)
 
-        nome_instituicao TEXT NOT NULL,
-
-        codigo_inep TEXT,
-
-        cnpj TEXT,
-
-        cep TEXT,
-        endereco TEXT,
-        cidade TEXT,
-        estado TEXT,
-
-        telefone TEXT,
-        whatsapp TEXT,
-        email TEXT,
-        site TEXT,
-
-        diretor TEXT,
-
-        coordenador1 TEXT,
-        coordenador2 TEXT,
-        coordenador3 TEXT,
-
-        secretario TEXT,
-
-        ano_letivo TEXT,
-
-        modalidade_ensino TEXT,
-
-        etapas_ensino TEXT,
-
-        logo TEXT,
-
-        status INTEGER DEFAULT 1,
-
-        criado_em TEXT
-    )
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            senha TEXT NOT NULL,
+            cargo_id INTEGER,
+            ativo INTEGER DEFAULT 1,
+            escola_id INTEGER,
+            cpf TEXT,
+            FOREIGN KEY (cargo_id) REFERENCES cargos(id),
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE SET NULL
+        )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS turmas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
+            etapa TEXT,
             ano TEXT NOT NULL,
-            turno TEXT NOT NULL
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS respostas_alunos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prova_id INTEGER,
-            aluno_id INTEGER,
-            numero_questao INTEGER,
-            resposta_aluno TEXT,
-            resposta_correta TEXT,
-            acertou INTEGER
+            turno TEXT NOT NULL,
+            escola_id INTEGER,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
         )
     """)
 
@@ -125,7 +375,9 @@ def criar_tabelas():
             nome TEXT NOT NULL,
             matricula TEXT,
             turma_id INTEGER NOT NULL,
-            FOREIGN KEY (turma_id) REFERENCES turmas(id)
+            escola_id INTEGER,
+            FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
         )
     """)
 
@@ -134,7 +386,9 @@ def criar_tabelas():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
             email TEXT,
-            disciplina TEXT
+            disciplina TEXT,
+            escola_id INTEGER,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
         )
     """)
 
@@ -143,7 +397,7 @@ def criar_tabelas():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             professor_id INTEGER NOT NULL,
             disciplina TEXT NOT NULL,
-            FOREIGN KEY (professor_id) REFERENCES professores(id)
+            FOREIGN KEY (professor_id) REFERENCES professores(id) ON DELETE CASCADE
         )
     """)
 
@@ -152,8 +406,36 @@ def criar_tabelas():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             professor_id INTEGER NOT NULL,
             turma_id INTEGER NOT NULL,
-            FOREIGN KEY (professor_id) REFERENCES professores(id),
-            FOREIGN KEY (turma_id) REFERENCES turmas(id)
+            FOREIGN KEY (professor_id) REFERENCES professores(id) ON DELETE CASCADE,
+            FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+            UNIQUE (professor_id, turma_id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS componentes_curriculares (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER NOT NULL,
+            etapa_ensino TEXT NOT NULL,
+            nome TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'padrao',
+            ativo INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS professor_componentes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            professor_id INTEGER NOT NULL,
+            turma_id INTEGER NOT NULL,
+            componente_id INTEGER NOT NULL,
+            escola_id INTEGER NOT NULL,
+            FOREIGN KEY (professor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+            FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+            FOREIGN KEY (componente_id) REFERENCES componentes_curriculares(id) ON DELETE CASCADE,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            UNIQUE (professor_id, turma_id, componente_id)
         )
     """)
 
@@ -169,7 +451,9 @@ def criar_tabelas():
             alternativa_d TEXT NOT NULL,
             correta TEXT NOT NULL,
             habilidade TEXT,
-            dificuldade TEXT NOT NULL
+            dificuldade TEXT NOT NULL,
+            escola_id INTEGER,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
         )
     """)
 
@@ -181,8 +465,12 @@ def criar_tabelas():
             professor_id INTEGER,
             disciplina TEXT NOT NULL,
             quantidade INTEGER NOT NULL,
+            data_geracao TEXT,
+            data_aplicacao TEXT,
+            escola_id INTEGER,
             FOREIGN KEY (turma_id) REFERENCES turmas(id),
-            FOREIGN KEY (professor_id) REFERENCES professores(id)
+            FOREIGN KEY (professor_id) REFERENCES professores(id),
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
         )
     """)
 
@@ -191,8 +479,35 @@ def criar_tabelas():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             prova_id INTEGER NOT NULL,
             questao_id INTEGER NOT NULL,
-            FOREIGN KEY (prova_id) REFERENCES provas(id),
-            FOREIGN KEY (questao_id) REFERENCES questoes(id)
+            FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE,
+            FOREIGN KEY (questao_id) REFERENCES questoes(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS respostas_alunos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prova_id INTEGER,
+            aluno_id INTEGER,
+            numero_questao INTEGER,
+            resposta_aluno TEXT,
+            resposta_correta TEXT,
+            acertou INTEGER,
+            FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE,
+            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS resultados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prova_id INTEGER,
+            aluno_id INTEGER,
+            acertos INTEGER,
+            erros INTEGER,
+            nota REAL,
+            FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE,
+            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
         )
     """)
 
@@ -210,48 +525,6 @@ def criar_tabelas():
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS resultados (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prova_id INTEGER,
-            aluno_id INTEGER,
-            acertos INTEGER,
-            erros INTEGER,
-            nota REAL
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS respostas_alunos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prova_id INTEGER,
-            aluno_id INTEGER,
-            numero_questao INTEGER,
-            resposta_aluno TEXT,
-            resposta_correta TEXT,
-            acertou INTEGER
-        )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cargos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
-    )
-""")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            senha TEXT NOT NULL,
-            cargo_id INTEGER,
-            ativo INTEGER DEFAULT 1,
-            FOREIGN KEY (cargo_id) REFERENCES cargos(id)
-        )
-    """)
-
-    cursor.execute("""
         CREATE TABLE IF NOT EXISTS permissoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cargo_id INTEGER,
@@ -260,16 +533,8 @@ def criar_tabelas():
             cadastrar INTEGER DEFAULT 0,
             editar INTEGER DEFAULT 0,
             excluir INTEGER DEFAULT 0,
-            FOREIGN KEY (cargo_id) REFERENCES cargos(id)
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS permissoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cargo_id INTEGER NOT NULL,
-            modulo TEXT NOT NULL,
-            pode_acessar INTEGER DEFAULT 0
+            pode_acessar INTEGER DEFAULT 0,
+            FOREIGN KEY (cargo_id) REFERENCES cargos(id) ON DELETE CASCADE
         )
     """)
 
@@ -280,77 +545,124 @@ def criar_tabelas():
             codigo TEXT NOT NULL,
             usado INTEGER DEFAULT 0,
             criado_em TEXT,
-            FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
         )
     """)
 
+    garantir_coluna("escolas", "tipo_instituicao", "TEXT")
+    garantir_coluna("usuarios", "escola_id", "INTEGER")
+    garantir_coluna("usuarios", "cpf", "TEXT")
+    garantir_coluna("turmas", "escola_id", "INTEGER")
+    garantir_coluna("turmas", "etapa", "TEXT")
+    garantir_coluna("alunos", "escola_id", "INTEGER")
+    garantir_coluna("professores", "escola_id", "INTEGER")
+    garantir_coluna("questoes", "escola_id", "INTEGER")
+    garantir_coluna("provas", "professor_id", "INTEGER")
+    garantir_coluna("provas", "data_geracao", "TEXT")
+    garantir_coluna("provas", "data_aplicacao", "TEXT")
+    garantir_coluna("provas", "escola_id", "INTEGER")
+    garantir_coluna("instituicao", "logo", "TEXT")
+    garantir_coluna("permissoes", "pode_acessar", "INTEGER DEFAULT 0")
+
+    garantir_coluna("componentes_curriculares", "escola_id", "INTEGER")
+    garantir_coluna("componentes_curriculares", "etapa_ensino", "TEXT")
+    garantir_coluna("componentes_curriculares", "nome", "TEXT")
+    garantir_coluna(
+        "componentes_curriculares",
+        "tipo",
+        "TEXT DEFAULT 'padrao'"
+    )
+    garantir_coluna(
+        "componentes_curriculares",
+        "ativo",
+        "INTEGER DEFAULT 1"
+    )
+
+    cursor.execute("PRAGMA table_info(turmas)")
+    colunas_turmas = {linha[1] for linha in cursor.fetchall()}
+
+    if "etapa_ensino" in colunas_turmas and "etapa" in colunas_turmas:
+        cursor.execute("""
+            UPDATE turmas
+            SET etapa = etapa_ensino
+            WHERE (etapa IS NULL OR TRIM(etapa) = '')
+              AND etapa_ensino IS NOT NULL
+        """)
+
+    cursor.execute("""
+        UPDATE componentes_curriculares
+        SET tipo = 'padrao'
+        WHERE tipo IS NULL OR TRIM(tipo) = ''
+    """)
+
+    cursor.execute("""
+        UPDATE componentes_curriculares
+        SET ativo = 1
+        WHERE ativo IS NULL
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_componentes_escola_etapa
+        ON componentes_curriculares (escola_id, etapa_ensino)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_usuarios_escola
+        ON usuarios (escola_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_turmas_escola
+        ON turmas (escola_id)
+    """)
+
     cargos = [
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor",
         "Secretaria"
     ]
 
-    for cargo in cargos:
-        try:
-            cursor.execute(
-                "INSERT INTO cargos (nome) VALUES (?)",
-                (cargo,)
-            )
-        except:
-            pass
+    for nome_cargo in cargos:
+        cursor.execute(
+            "INSERT OR IGNORE INTO cargos (nome) VALUES (?)",
+            (nome_cargo,)
+        )
 
-    try:
+    cursor.execute("""
+        SELECT id
+        FROM cargos
+        WHERE nome = ?
+        LIMIT 1
+    """, ("Administrador Geral",))
+
+    cargo_admin = cursor.fetchone()
+    cargo_admin_id = cargo_admin[0] if cargo_admin else None
+
+    if cargo_admin_id:
         cursor.execute("""
-            INSERT INTO usuarios
-            (nome, email, senha, cargo_id)
-            VALUES (?, ?, ?, ?)
+            INSERT OR IGNORE INTO usuarios (
+                nome,
+                email,
+                senha,
+                cargo_id,
+                ativo
+            )
+            VALUES (?, ?, ?, ?, 1)
         """, (
             "Administrador",
             "admin",
             "admin123",
-            1
-            ))
-    except:
-            pass
-
-    try:
-        cursor.execute(
-            "ALTER TABLE provas ADD COLUMN professor_id INTEGER"
-        )
-    except sqlite3.OperationalError:
-        pass
-
-
-    try:
-        cursor.execute(
-            "ALTER TABLE provas ADD COLUMN data_aplicacao TEXT"
-        )
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE instituicao ADD COLUMN logo TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE provas ADD COLUMN data_geracao TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE provas ADD COLUMN data_aplicacao TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE permissoes ADD COLUMN pode_acessar INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
+            cargo_admin_id
+        ))
 
     banco.commit()
     banco.close()
+
+# =========================================================
+# DASHBOARD
+# =========================================================
 
 @app.route("/")
 def index():
@@ -363,7 +675,11 @@ def index():
     cursor = banco.cursor()
 
     usuario_id = session.get("usuario_id")
-    usuario_cargo = session.get("usuario_cargo", "").strip()
+    usuario_cargo = session.get(
+        "usuario_cargo",
+        ""
+    ).strip()
+
     escola_id = session.get("escola_id")
 
     total_instituicoes = 0
@@ -373,15 +689,19 @@ def index():
     total_turmas = 0
     total_questoes = 0
     total_provas = 0
+
     nome_instituicao = None
+
+    ano_letivo_id_ativo = None
+    ano_letivo_ativo = None
 
     permissoes_usuario = []
 
     try:
 
-        # ==========================================
-        # RECUPERA A INSTITUIÇÃO DO USUÁRIO
-        # ==========================================
+        # =====================================================
+        # RECUPERAR A INSTITUIÇÃO DO USUÁRIO
+        # =====================================================
 
         if (
             usuario_cargo != "Administrador Geral"
@@ -394,17 +714,22 @@ def index():
                 FROM usuarios
                 WHERE id = ?
                 LIMIT 1
-            """, (usuario_id,))
+            """, (
+                usuario_id,
+            ))
 
             usuario_banco = cursor.fetchone()
 
-            if usuario_banco and usuario_banco["escola_id"]:
+            if (
+                usuario_banco
+                and usuario_banco["escola_id"]
+            ):
                 escola_id = usuario_banco["escola_id"]
                 session["escola_id"] = escola_id
 
-        # ==========================================
+        # =====================================================
         # PERMISSÕES DO USUÁRIO
-        # ==========================================
+        # =====================================================
 
         if usuario_cargo == "Administrador Geral":
 
@@ -412,6 +737,7 @@ def index():
                 "Dashboard",
                 "Instituições",
                 "Usuários",
+                "Anos Letivos",
                 "Turmas",
                 "Professores",
                 "Alunos",
@@ -427,142 +753,351 @@ def index():
                 FROM usuario_permissoes
                 WHERE usuario_id = ?
                   AND pode_acessar = 1
-            """, (usuario_id,))
+            """, (
+                usuario_id,
+            ))
 
             permissoes_usuario = [
                 linha["modulo"]
                 for linha in cursor.fetchall()
             ]
 
-        # ==========================================
+            # Administrador da Instituição sempre poderá
+            # acessar a gestão de anos letivos.
+            if (
+                usuario_cargo == "Administrador da Instituição"
+                and "Anos Letivos" not in permissoes_usuario
+            ):
+                permissoes_usuario.append("Anos Letivos")
+
+        # =====================================================
         # ADMINISTRADOR GERAL
-        # ==========================================
+        #
+        # Alunos, turmas e provas são contados somente nos
+        # anos letivos ativos de cada instituição.
+        # =====================================================
 
         if usuario_cargo == "Administrador Geral":
 
+            # Instituições ativas
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM escolas
                 WHERE COALESCE(status, 1) = 1
             """)
-            total_instituicoes = cursor.fetchone()["total"]
 
+            resultado = cursor.fetchone()
+
+            total_instituicoes = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Usuários ativos de todas as instituições
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM usuarios
                 WHERE ativo = 1
             """)
-            total_usuarios = cursor.fetchone()["total"]
 
+            resultado = cursor.fetchone()
+
+            total_usuarios = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Professores cadastrados
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM professores
             """)
-            total_professores = cursor.fetchone()["total"]
 
+            resultado = cursor.fetchone()
+
+            total_professores = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Alunos dos anos ativos
             cursor.execute("""
                 SELECT COUNT(*) AS total
-                FROM alunos
-            """)
-            total_alunos = cursor.fetchone()["total"]
+                FROM alunos AS a
 
+                INNER JOIN anos_letivos AS al
+                    ON al.id = a.ano_letivo_id
+                   AND al.escola_id = a.escola_id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
+            """)
+
+            resultado = cursor.fetchone()
+
+            total_alunos = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Turmas dos anos ativos
             cursor.execute("""
                 SELECT COUNT(*) AS total
-                FROM turmas
-            """)
-            total_turmas = cursor.fetchone()["total"]
+                FROM turmas AS t
 
+                INNER JOIN anos_letivos AS al
+                    ON al.id = t.ano_letivo_id
+                   AND al.escola_id = t.escola_id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
+            """)
+
+            resultado = cursor.fetchone()
+
+            total_turmas = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Banco de questões não depende de ano letivo
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM questoes
             """)
-            total_questoes = cursor.fetchone()["total"]
 
+            resultado = cursor.fetchone()
+
+            total_questoes = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # Provas dos anos ativos
             cursor.execute("""
                 SELECT COUNT(*) AS total
-                FROM provas
-            """)
-            total_provas = cursor.fetchone()["total"]
+                FROM provas AS p
 
-        # ==========================================
+                INNER JOIN anos_letivos AS al
+                    ON al.id = p.ano_letivo_id
+                   AND al.escola_id = p.escola_id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
+            """)
+
+            resultado = cursor.fetchone()
+
+            total_provas = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+        # =====================================================
         # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
-        # ==========================================
+        # =====================================================
 
         elif escola_id:
 
+            # =================================================
+            # DADOS DA INSTITUIÇÃO
+            # =================================================
+
             cursor.execute("""
-                SELECT nome_instituicao
+                SELECT
+                    id,
+                    nome_instituicao
                 FROM escolas
                 WHERE id = ?
                 LIMIT 1
-            """, (escola_id,))
+            """, (
+                escola_id,
+            ))
 
             escola = cursor.fetchone()
 
             if escola:
                 nome_instituicao = escola["nome_instituicao"]
 
+            # =================================================
+            # ANO LETIVO ATIVO DA INSTITUIÇÃO
+            # =================================================
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    ano
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                  AND encerrado = 0
+                ORDER BY ano DESC
+                LIMIT 1
+            """, (
+                escola_id,
+            ))
+
+            ano_ativo = cursor.fetchone()
+
+            if ano_ativo:
+                ano_letivo_id_ativo = ano_ativo["id"]
+                ano_letivo_ativo = ano_ativo["ano"]
+
+                # Guarda o ano ativo na sessão para ser
+                # utilizado futuramente por outras páginas.
+                session["ano_letivo_id"] = ano_letivo_id_ativo
+                session["ano_letivo"] = ano_letivo_ativo
+
+            else:
+                session.pop("ano_letivo_id", None)
+                session.pop("ano_letivo", None)
+
             # Instituição do usuário
             total_instituicoes = 1
 
-            # Usuários da instituição
+            # =================================================
+            # USUÁRIOS DA INSTITUIÇÃO
+            # =================================================
+
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM usuarios
                 WHERE escola_id = ?
                   AND ativo = 1
-            """, (escola_id,))
+            """, (
+                escola_id,
+            ))
 
-            total_usuarios = cursor.fetchone()["total"]
+            resultado = cursor.fetchone()
 
-            # Professores da instituição
+            total_usuarios = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
+
+            # =================================================
+            # PROFESSORES DA INSTITUIÇÃO
+            # =================================================
+
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM professores
                 WHERE escola_id = ?
-            """, (escola_id,))
+            """, (
+                escola_id,
+            ))
 
-            total_professores = cursor.fetchone()["total"]
+            resultado = cursor.fetchone()
 
-            # Alunos da instituição
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM alunos
-                WHERE escola_id = ?
-            """, (escola_id,))
+            total_professores = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
 
-            total_alunos = cursor.fetchone()["total"]
+            # =================================================
+            # DADOS DO ANO LETIVO ATIVO
+            # =================================================
 
-            # Turmas da instituição
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM turmas
-                WHERE escola_id = ?
-            """, (escola_id,))
+            if ano_letivo_id_ativo:
 
-            total_turmas = cursor.fetchone()["total"]
+                # Alunos do ano ativo
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM alunos
+                    WHERE escola_id = ?
+                      AND ano_letivo_id = ?
+                """, (
+                    escola_id,
+                    ano_letivo_id_ativo
+                ))
 
-            # Questões da instituição
+                resultado = cursor.fetchone()
+
+                total_alunos = (
+                    resultado["total"]
+                    if resultado
+                    else 0
+                )
+
+                # Turmas do ano ativo
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM turmas
+                    WHERE escola_id = ?
+                      AND ano_letivo_id = ?
+                """, (
+                    escola_id,
+                    ano_letivo_id_ativo
+                ))
+
+                resultado = cursor.fetchone()
+
+                total_turmas = (
+                    resultado["total"]
+                    if resultado
+                    else 0
+                )
+
+                # Provas do ano ativo
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM provas
+                    WHERE escola_id = ?
+                      AND ano_letivo_id = ?
+                """, (
+                    escola_id,
+                    ano_letivo_id_ativo
+                ))
+
+                resultado = cursor.fetchone()
+
+                total_provas = (
+                    resultado["total"]
+                    if resultado
+                    else 0
+                )
+
+            # =================================================
+            # QUESTÕES DA INSTITUIÇÃO
+            #
+            # O banco de questões não é zerado na troca de ano.
+            # =================================================
+
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM questoes
                 WHERE escola_id = ?
-            """, (escola_id,))
+            """, (
+                escola_id,
+            ))
 
-            total_questoes = cursor.fetchone()["total"]
+            resultado = cursor.fetchone()
 
-            # Provas da instituição
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM provas
-                WHERE escola_id = ?
-            """, (escola_id,))
+            total_questoes = (
+                resultado["total"]
+                if resultado
+                else 0
+            )
 
-            total_provas = cursor.fetchone()["total"]
+        # =====================================================
+        # USUÁRIO SEM INSTITUIÇÃO
+        # =====================================================
 
         else:
 
-            nome_instituicao = "Usuário sem instituição vinculada"
+            nome_instituicao = (
+                "Usuário sem instituição vinculada"
+            )
+
+        # =====================================================
+        # CARREGAR O DASHBOARD
+        # =====================================================
 
         return render_template(
             "dashboard/index.html",
@@ -576,12 +1111,22 @@ def index():
             total_provas=total_provas,
 
             nome_instituicao=nome_instituicao,
+
+            ano_letivo_id_ativo=ano_letivo_id_ativo,
+            ano_letivo_ativo=ano_letivo_ativo,
+
             permissoes_usuario=permissoes_usuario
         )
 
-    except sqlite3.OperationalError as erro:
+    except sqlite3.Error as erro:
 
-        print(f"Erro no dashboard: {erro}")
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO AO CARREGAR O DASHBOARD:",
+            erro
+        )
 
         flash(
             f"Erro ao carregar os dados do dashboard: {erro}",
@@ -600,6 +1145,10 @@ def index():
             total_provas=0,
 
             nome_instituicao=nome_instituicao,
+
+            ano_letivo_id_ativo=None,
+            ano_letivo_ativo=None,
+
             permissoes_usuario=permissoes_usuario
         )
 
@@ -609,6 +1158,10 @@ def index():
 @app.route("/esqueci_senha")
 def esqueci_senha():
     return render_template("esqueci_senha.html")
+
+# =========================================================
+# LISTAR TURMAS
+# =========================================================
 
 @app.route("/turmas")
 def turmas():
@@ -620,48 +1173,307 @@ def turmas():
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cargo = session.get("usuario_cargo")
+    cargo = session.get("usuario_cargo", "").strip()
+    usuario_id = session.get("usuario_id")
     escola_id = session.get("escola_id")
 
-    # ==========================================
-    # ADMINISTRADOR GERAL
-    # ==========================================
+    cargos_que_gerenciam = [
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria"
+    ]
 
-    if cargo == "Administrador Geral":
+    pode_gerenciar = cargo in cargos_que_gerenciam
 
-        cursor.execute("""
-            SELECT
-                turmas.*,
-                escolas.nome_instituicao
-            FROM turmas
-            LEFT JOIN escolas
-                ON escolas.id = turmas.escola_id
-            ORDER BY
-                escolas.nome_instituicao,
-                turmas.nome
-        """)
+    escolas = []
+    lista_turmas = []
+    ano_letivo_ativo = None
 
-    # ==========================================
-    # DEMAIS USUÁRIOS
-    # ==========================================
+    try:
 
-    else:
+        # =====================================================
+        # ADMINISTRADOR GERAL
+        # Visualiza apenas o ano ativo de cada instituição
+        # =====================================================
 
-        cursor.execute("""
-            SELECT *
-            FROM turmas
-            WHERE escola_id = ?
-            ORDER BY nome
-        """, (escola_id,))
+        if cargo == "Administrador Geral":
 
-    lista_turmas = cursor.fetchall()
+            cursor.execute("""
+                SELECT
+                    turmas.*,
+                    escolas.nome_instituicao,
 
-    banco.close()
+                    anos_letivos.id AS ano_letivo_id_atual,
+                    anos_letivos.ano AS ano_letivo_atual,
 
-    return render_template(
-        "gestao/turmas.html",
-        turmas=lista_turmas
-    )
+                    (
+                        SELECT COUNT(*)
+                        FROM alunos
+                        WHERE alunos.turma_id = turmas.id
+                    ) AS total_alunos,
+
+                    (
+                        SELECT COUNT(DISTINCT pv.professor_id)
+                        FROM professor_vinculos AS pv
+                        WHERE pv.turma_id = turmas.id
+                    ) AS total_professores
+
+                FROM turmas
+
+                INNER JOIN anos_letivos
+                    ON anos_letivos.id = turmas.ano_letivo_id
+                   AND anos_letivos.escola_id = turmas.escola_id
+                   AND anos_letivos.ativo = 1
+
+                LEFT JOIN escolas
+                    ON escolas.id = turmas.escola_id
+
+                ORDER BY
+                    escolas.nome_instituicao COLLATE NOCASE ASC,
+                    anos_letivos.ano DESC,
+                    turmas.etapa COLLATE NOCASE ASC,
+                    turmas.ano COLLATE NOCASE ASC,
+                    turmas.nome COLLATE NOCASE ASC,
+                    turmas.turno COLLATE NOCASE ASC
+            """)
+
+            lista_turmas = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT
+                    escolas.id,
+                    escolas.nome_instituicao,
+                    anos_letivos.id AS ano_letivo_id,
+                    anos_letivos.ano AS ano_letivo_ativo
+
+                FROM escolas
+
+                LEFT JOIN anos_letivos
+                    ON anos_letivos.escola_id = escolas.id
+                   AND anos_letivos.ativo = 1
+
+                WHERE COALESCE(escolas.status, 1) = 1
+
+                ORDER BY
+                    escolas.nome_instituicao COLLATE NOCASE ASC
+            """)
+
+            escolas = cursor.fetchall()
+
+        # =====================================================
+        # PROFESSOR
+        # Somente turmas em que possui vínculo no ano ativo
+        # =====================================================
+
+        elif cargo == "Professor":
+
+            if not escola_id and usuario_id:
+
+                cursor.execute("""
+                    SELECT escola_id
+                    FROM usuarios
+                    WHERE id = ?
+                    LIMIT 1
+                """, (
+                    usuario_id,
+                ))
+
+                usuario = cursor.fetchone()
+
+                if usuario and usuario["escola_id"]:
+                    escola_id = usuario["escola_id"]
+                    session["escola_id"] = escola_id
+
+            cursor.execute("""
+                SELECT
+                    ano,
+                    id
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                LIMIT 1
+            """, (
+                escola_id,
+            ))
+
+            ano_ativo = cursor.fetchone()
+
+            if ano_ativo:
+                ano_letivo_ativo = ano_ativo["ano"]
+
+            cursor.execute("""
+                SELECT DISTINCT
+                    turmas.*,
+                    escolas.nome_instituicao,
+
+                    anos_letivos.id AS ano_letivo_id_atual,
+                    anos_letivos.ano AS ano_letivo_atual,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM alunos
+                        WHERE alunos.turma_id = turmas.id
+                    ) AS total_alunos,
+
+                    (
+                        SELECT COUNT(DISTINCT pv_total.professor_id)
+                        FROM professor_vinculos AS pv_total
+                        WHERE pv_total.turma_id = turmas.id
+                    ) AS total_professores
+
+                FROM turmas
+
+                INNER JOIN professor_vinculos AS pv
+                    ON pv.turma_id = turmas.id
+
+                INNER JOIN anos_letivos
+                    ON anos_letivos.id = turmas.ano_letivo_id
+                   AND anos_letivos.escola_id = turmas.escola_id
+                   AND anos_letivos.ativo = 1
+
+                LEFT JOIN escolas
+                    ON escolas.id = turmas.escola_id
+
+                WHERE pv.professor_id = ?
+                  AND turmas.escola_id = ?
+
+                ORDER BY
+                    turmas.etapa COLLATE NOCASE ASC,
+                    turmas.ano COLLATE NOCASE ASC,
+                    turmas.nome COLLATE NOCASE ASC,
+                    turmas.turno COLLATE NOCASE ASC
+            """, (
+                usuario_id,
+                escola_id
+            ))
+
+            lista_turmas = cursor.fetchall()
+
+        # =====================================================
+        # ADMINISTRADOR DA INSTITUIÇÃO,
+        # COORDENADOR E SECRETARIA
+        # =====================================================
+
+        else:
+
+            # Recupera a instituição diretamente do usuário,
+            # caso ela não esteja registrada na sessão.
+            if not escola_id and usuario_id:
+
+                cursor.execute("""
+                    SELECT escola_id
+                    FROM usuarios
+                    WHERE id = ?
+                    LIMIT 1
+                """, (
+                    usuario_id,
+                ))
+
+                usuario = cursor.fetchone()
+
+                if usuario and usuario["escola_id"]:
+                    escola_id = usuario["escola_id"]
+                    session["escola_id"] = escola_id
+
+            # Busca o ano ativo da instituição.
+            cursor.execute("""
+                SELECT
+                    id,
+                    ano
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                LIMIT 1
+            """, (
+                escola_id,
+            ))
+
+            ano_ativo = cursor.fetchone()
+
+            if ano_ativo:
+                ano_letivo_ativo = ano_ativo["ano"]
+
+            cursor.execute("""
+                SELECT
+                    turmas.*,
+                    escolas.nome_instituicao,
+
+                    anos_letivos.id AS ano_letivo_id_atual,
+                    anos_letivos.ano AS ano_letivo_atual,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM alunos
+                        WHERE alunos.turma_id = turmas.id
+                    ) AS total_alunos,
+
+                    (
+                        SELECT COUNT(DISTINCT pv.professor_id)
+                        FROM professor_vinculos AS pv
+                        WHERE pv.turma_id = turmas.id
+                    ) AS total_professores
+
+                FROM turmas
+
+                INNER JOIN anos_letivos
+                    ON anos_letivos.id = turmas.ano_letivo_id
+                   AND anos_letivos.escola_id = turmas.escola_id
+                   AND anos_letivos.ativo = 1
+
+                LEFT JOIN escolas
+                    ON escolas.id = turmas.escola_id
+
+                WHERE turmas.escola_id = ?
+
+                ORDER BY
+                    turmas.etapa COLLATE NOCASE ASC,
+                    turmas.ano COLLATE NOCASE ASC,
+                    turmas.nome COLLATE NOCASE ASC,
+                    turmas.turno COLLATE NOCASE ASC
+            """, (
+                escola_id,
+            ))
+
+            lista_turmas = cursor.fetchall()
+
+        return render_template(
+            "gestao/turmas.html",
+            turmas=lista_turmas,
+            escolas=escolas,
+            cargo=cargo,
+            pode_gerenciar=pode_gerenciar,
+            ano_letivo_ativo=ano_letivo_ativo
+        )
+
+    except sqlite3.Error as erro:
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO LISTAR TURMAS:", erro)
+
+        flash(
+            f"Erro ao carregar as turmas: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "gestao/turmas.html",
+            turmas=[],
+            escolas=[],
+            cargo=cargo,
+            pode_gerenciar=pode_gerenciar,
+            ano_letivo_ativo=None
+        )
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# CADASTRAR TURMA
+# =========================================================
 
 @app.route("/cadastrar_turma", methods=["POST"])
 def cadastrar_turma():
@@ -672,17 +1484,37 @@ def cadastrar_turma():
         "Coordenador",
         "Secretaria"
     ]):
-        return redirect("/login")
 
-    nome = request.form.get("nome", "").strip()
+        flash(
+            "Você não possui permissão para cadastrar turmas.",
+            "erro"
+        )
+
+        return redirect("/acesso_negado")
+
+    etapa = request.form.get("etapa", "").strip()
     ano = request.form.get("ano", "").strip()
+    identificacao = request.form.get("nome", "").strip()
     turno = request.form.get("turno", "").strip()
 
+    usuario_id = session.get("usuario_id")
+    cargo = session.get("usuario_cargo", "").strip()
     escola_id = session.get("escola_id")
-    cargo = session.get("usuario_cargo")
 
-    if not nome or not ano or not turno:
-        flash("Preencha todos os campos.", "erro")
+    if not etapa:
+        flash("Selecione a etapa de ensino.", "erro")
+        return redirect("/turmas")
+
+    if not ano:
+        flash("Selecione o ano ou série.", "erro")
+        return redirect("/turmas")
+
+    if not identificacao:
+        flash("Informe a identificação da turma.", "erro")
+        return redirect("/turmas")
+
+    if not turno:
+        flash("Selecione o turno.", "erro")
         return redirect("/turmas")
 
     banco = conectar_banco()
@@ -691,79 +1523,709 @@ def cadastrar_turma():
 
     try:
 
-        # Administrador Geral deve escolher uma instituição
+        # =====================================================
+        # DESCOBRIR A INSTITUIÇÃO
+        # =====================================================
+
+        if (
+            cargo != "Administrador Geral"
+            and not escola_id
+            and usuario_id
+        ):
+
+            cursor.execute("""
+                SELECT escola_id
+                FROM usuarios
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+            ))
+
+            usuario = cursor.fetchone()
+
+            if usuario and usuario["escola_id"]:
+                escola_id = usuario["escola_id"]
+                session["escola_id"] = escola_id
+
+        # Administrador Geral seleciona a instituição.
         if cargo == "Administrador Geral":
 
-            escola_form = request.form.get("escola_id")
+            escola_formulario = request.form.get(
+                "escola_id",
+                ""
+            ).strip()
 
-            if escola_form:
-                escola_id = escola_form
+            if escola_formulario:
+                escola_id = escola_formulario
 
-            if not escola_id:
-                flash("Selecione uma instituição.", "erro")
-                return redirect("/turmas")
+        if not escola_id:
 
-        # Verifica se já existe turma com mesmo nome
+            flash(
+                "Não foi possível identificar a instituição da turma.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        try:
+            escola_id = int(escola_id)
+
+        except (TypeError, ValueError):
+
+            flash(
+                "A instituição selecionada é inválida.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        # =====================================================
+        # VALIDAR INSTITUIÇÃO
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome_instituicao
+            FROM escolas
+            WHERE id = ?
+              AND COALESCE(status, 1) = 1
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        escola = cursor.fetchone()
+
+        if escola is None:
+
+            flash(
+                "A instituição selecionada não existe ou está inativa.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        # =====================================================
+        # BUSCAR ANO LETIVO ATIVO DA INSTITUIÇÃO
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                ano
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND encerrado = 0
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        ano_letivo = cursor.fetchone()
+
+        if ano_letivo is None:
+
+            flash(
+                "A instituição não possui um ano letivo ativo. "
+                "Abra um ano letivo antes de cadastrar a turma.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        ano_letivo_id = ano_letivo["id"]
+        numero_ano_letivo = ano_letivo["ano"]
+
+        # =====================================================
+        # VERIFICAR TURMA DUPLICADA NO MESMO ANO
+        # =====================================================
+
         cursor.execute("""
             SELECT id
             FROM turmas
-            WHERE nome = ?
-              AND ano = ?
-              AND turno = ?
+            WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(etapa)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(ano)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(turno)) = LOWER(TRIM(?))
               AND escola_id = ?
+              AND ano_letivo_id = ?
             LIMIT 1
         """, (
-            nome,
+            identificacao,
+            etapa,
             ano,
             turno,
-            escola_id
+            escola_id,
+            ano_letivo_id
         ))
 
         if cursor.fetchone():
+
             flash(
-                "Já existe uma turma com essas informações.",
+                f"Já existe uma turma igual cadastrada em "
+                f"{numero_ano_letivo}.",
                 "erro"
             )
+
             return redirect("/turmas")
 
+        # =====================================================
+        # CADASTRAR TURMA
+        #
+        # ano_letivo:
+        # campo antigo mantido temporariamente por compatibilidade
+        #
+        # ano_letivo_id:
+        # novo vínculo oficial com a tabela anos_letivos
+        # =====================================================
+
         cursor.execute("""
-            INSERT INTO turmas
-            (
+            INSERT INTO turmas (
                 nome,
+                etapa,
                 ano,
                 turno,
-                escola_id
+                escola_id,
+                ano_letivo,
+                ano_letivo_id
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            nome,
+            identificacao,
+            etapa,
             ano,
             turno,
-            escola_id
+            escola_id,
+            numero_ano_letivo,
+            ano_letivo_id
         ))
 
         banco.commit()
 
         flash(
-            "Turma cadastrada com sucesso.",
+            f"Turma cadastrada com sucesso no ano letivo "
+            f"{numero_ano_letivo}.",
             "success"
         )
 
-    except Exception as erro:
+        return redirect("/turmas")
+
+    except sqlite3.Error as erro:
 
         banco.rollback()
 
-        print("Erro ao cadastrar turma:", erro)
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO DO BANCO AO CADASTRAR TURMA:",
+            erro
+        )
 
         flash(
-            "Ocorreu um erro ao cadastrar a turma.",
+            f"Erro ao cadastrar turma: {erro}",
             "erro"
         )
+
+        return redirect("/turmas")
 
     finally:
         banco.close()
 
-    return redirect("/turmas")
+# =========================================================
+# VISUALIZAR TURMA
+# =========================================================
+
+@app.route("/turmas/<int:turma_id>")
+def visualizar_turma(turma_id):
+
+    if not permissao_modulo("Turmas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo = session.get("usuario_cargo", "").strip()
+    usuario_id = session.get("usuario_id")
+    escola_id = session.get("escola_id")
+
+    pode_editar = cargo in [
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria"
+    ]
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                turmas.*,
+                escolas.nome_instituicao
+            FROM turmas
+            LEFT JOIN escolas
+                ON escolas.id = turmas.escola_id
+            WHERE turmas.id = ?
+            LIMIT 1
+        """, (
+            turma_id,
+        ))
+
+        turma = cursor.fetchone()
+
+        if turma is None:
+
+            flash(
+                "Turma não encontrada.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        # Professor só acessa turma em que possui vínculo.
+        if cargo == "Professor":
+
+            cursor.execute("""
+                SELECT 1
+                FROM professor_vinculos
+                WHERE professor_id = ?
+                  AND turma_id = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+                turma_id
+            ))
+
+            if cursor.fetchone() is None:
+
+                flash(
+                    "Você não está vinculado a esta turma.",
+                    "erro"
+                )
+
+                return redirect("/turmas")
+
+        elif cargo != "Administrador Geral":
+
+            if turma["escola_id"] != escola_id:
+
+                flash(
+                    "Você não possui acesso a esta turma.",
+                    "erro"
+                )
+
+                return redirect("/turmas")
+
+        cursor.execute("""
+            SELECT *
+            FROM alunos
+            WHERE turma_id = ?
+            ORDER BY nome COLLATE NOCASE ASC
+        """, (
+            turma_id,
+        ))
+
+        alunos = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                cargos.nome AS cargo,
+                GROUP_CONCAT(
+                    DISTINCT componentes_curriculares.nome
+                ) AS componentes
+
+            FROM professor_vinculos
+
+            INNER JOIN usuarios
+                ON usuarios.id =
+                   professor_vinculos.professor_id
+
+            INNER JOIN cargos
+                ON cargos.id = usuarios.cargo_id
+
+            LEFT JOIN componentes_curriculares
+                ON componentes_curriculares.id =
+                   professor_vinculos.componente_id
+
+            WHERE professor_vinculos.turma_id = ?
+
+            GROUP BY
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                cargos.nome
+
+            ORDER BY usuarios.nome COLLATE NOCASE ASC
+        """, (
+            turma_id,
+        ))
+
+        professores = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT *
+            FROM provas
+            WHERE turma_id = ?
+            ORDER BY id DESC
+        """, (
+            turma_id,
+        ))
+
+        avaliacoes = cursor.fetchall()
+
+        return render_template(
+            "gestao/visualizar_turma.html",
+            turma=turma,
+            alunos=alunos,
+            professores=professores,
+            avaliacoes=avaliacoes,
+            cargo=cargo,
+            pode_editar=pode_editar
+        )
+
+    except sqlite3.Error as erro:
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO VISUALIZAR TURMA:", erro)
+
+        flash(
+            f"Erro ao carregar os dados da turma: {erro}",
+            "erro"
+        )
+
+        return redirect("/turmas")
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# EDITAR TURMA
+# =========================================================
+
+@app.route(
+    "/turmas/<int:turma_id>/editar",
+    methods=["GET", "POST"]
+)
+def editar_turma(turma_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria"
+    ]):
+
+        flash(
+            "Você não possui permissão para editar turmas.",
+            "erro"
+        )
+
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = session.get("escola_id")
+
+    try:
+
+        cursor.execute("""
+            SELECT *
+            FROM turmas
+            WHERE id = ?
+            LIMIT 1
+        """, (
+            turma_id,
+        ))
+
+        turma = cursor.fetchone()
+
+        if turma is None:
+
+            flash(
+                "Turma não encontrada.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        if (
+            cargo != "Administrador Geral"
+            and turma["escola_id"] != escola_id
+        ):
+
+            flash(
+                "Você não possui acesso a esta turma.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        if request.method == "POST":
+
+            etapa = request.form.get("etapa", "").strip()
+            ano = request.form.get("ano", "").strip()
+            nome = request.form.get("nome", "").strip()
+            turno = request.form.get("turno", "").strip()
+
+            if not etapa or not ano or not nome or not turno:
+
+                flash(
+                    "Preencha todos os dados da turma.",
+                    "erro"
+                )
+
+                return redirect(
+                    f"/turmas/{turma_id}/editar"
+                )
+
+            cursor.execute("""
+                SELECT id
+                FROM turmas
+                WHERE LOWER(TRIM(nome)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(etapa)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(ano)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(turno)) = LOWER(TRIM(?))
+                  AND escola_id = ?
+                  AND id != ?
+                LIMIT 1
+            """, (
+                nome,
+                etapa,
+                ano,
+                turno,
+                turma["escola_id"],
+                turma_id
+            ))
+
+            if cursor.fetchone():
+
+                flash(
+                    "Já existe outra turma com esses mesmos dados.",
+                    "erro"
+                )
+
+                return redirect(
+                    f"/turmas/{turma_id}/editar"
+                )
+
+            cursor.execute("""
+                UPDATE turmas
+                SET
+                    nome = ?,
+                    etapa = ?,
+                    ano = ?,
+                    turno = ?
+                WHERE id = ?
+            """, (
+                nome,
+                etapa,
+                ano,
+                turno,
+                turma_id
+            ))
+
+            banco.commit()
+
+            flash(
+                "Turma atualizada com sucesso.",
+                "success"
+            )
+
+            return redirect(
+                f"/turmas/{turma_id}"
+            )
+
+        return render_template(
+            "gestao/editar_turma.html",
+            turma=turma
+        )
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO EDITAR TURMA:", erro)
+
+        flash(
+            f"Erro ao editar turma: {erro}",
+            "erro"
+        )
+
+        return redirect("/turmas")
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# EXCLUIR TURMA
+# =========================================================
+
+@app.route(
+    "/turmas/<int:turma_id>/excluir",
+    methods=["POST"]
+)
+def excluir_turma(turma_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria"
+    ]):
+
+        flash(
+            "Você não possui permissão para excluir turmas.",
+            "erro"
+        )
+
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = session.get("escola_id")
+
+    try:
+
+        cursor.execute("""
+            SELECT *
+            FROM turmas
+            WHERE id = ?
+            LIMIT 1
+        """, (
+            turma_id,
+        ))
+
+        turma = cursor.fetchone()
+
+        if turma is None:
+
+            flash(
+                "Turma não encontrada.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        if (
+            cargo != "Administrador Geral"
+            and turma["escola_id"] != escola_id
+        ):
+
+            flash(
+                "Você não possui permissão para excluir esta turma.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM alunos
+            WHERE turma_id = ?
+        """, (
+            turma_id,
+        ))
+
+        total_alunos = cursor.fetchone()["total"]
+
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM provas
+            WHERE turma_id = ?
+        """, (
+            turma_id,
+        ))
+
+        total_provas = cursor.fetchone()["total"]
+
+        if total_alunos > 0 or total_provas > 0:
+
+            flash(
+                "Não é possível excluir a turma porque existem alunos ou avaliações vinculados.",
+                "erro"
+            )
+
+            return redirect("/turmas")
+
+        cursor.execute("""
+            DELETE FROM professor_vinculos
+            WHERE turma_id = ?
+        """, (
+            turma_id,
+        ))
+
+        cursor.execute("""
+            DELETE FROM professor_turmas
+            WHERE turma_id = ?
+        """, (
+            turma_id,
+        ))
+
+        cursor.execute("""
+            DELETE FROM coordenador_turmas
+            WHERE turma_id = ?
+        """, (
+            turma_id,
+        ))
+
+        cursor.execute("""
+            DELETE FROM turmas
+            WHERE id = ?
+        """, (
+            turma_id,
+        ))
+
+        banco.commit()
+
+        flash(
+            "Turma excluída com sucesso.",
+            "success"
+        )
+
+        return redirect("/turmas")
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO EXCLUIR TURMA:", erro)
+
+        flash(
+            f"Erro ao excluir turma: {erro}",
+            "erro"
+        )
+
+        return redirect("/turmas")
+
+    finally:
+        banco.close()
+
+# =========================================================
+# LISTAR ALUNOS
+# =========================================================
 
 @app.route("/alunos")
 def alunos():
@@ -772,53 +2234,506 @@ def alunos():
         return redirect("/acesso_negado")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("SELECT * FROM turmas ORDER BY nome")
-    lista_turmas = cursor.fetchall()
+    usuario_id = session.get("usuario_id")
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = session.get("escola_id")
 
-    cursor.execute("""
-        SELECT alunos.id, alunos.nome, alunos.matricula, turmas.nome
-        FROM alunos
-        JOIN turmas ON alunos.turma_id = turmas.id
-        ORDER BY alunos.nome
-    """)
-    lista_alunos = cursor.fetchall()
+    lista_turmas = []
+    lista_alunos = []
 
-    banco.close()
+    ano_letivo_id_ativo = None
+    ano_letivo_ativo = None
 
-    return render_template(
-        "alunos.html",
-        alunos=lista_alunos,
-        turmas=lista_turmas
-    )
+    try:
+
+        # =====================================================
+        # RECUPERAR A INSTITUIÇÃO DO USUÁRIO
+        # =====================================================
+
+        if (
+            cargo != "Administrador Geral"
+            and not escola_id
+            and usuario_id
+        ):
+
+            cursor.execute("""
+                SELECT escola_id
+                FROM usuarios
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+            ))
+
+            usuario = cursor.fetchone()
+
+            if usuario and usuario["escola_id"]:
+                escola_id = usuario["escola_id"]
+                session["escola_id"] = escola_id
+
+        # =====================================================
+        # ADMINISTRADOR GERAL
+        #
+        # Visualiza alunos dos anos ativos de todas as escolas.
+        # =====================================================
+
+        if cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    t.id,
+                    t.nome,
+                    t.etapa,
+                    t.ano,
+                    t.turno,
+                    t.escola_id,
+                    t.ano_letivo_id,
+
+                    e.nome_instituicao,
+
+                    al.ano AS ano_letivo
+
+                FROM turmas AS t
+
+                INNER JOIN anos_letivos AS al
+                    ON al.id = t.ano_letivo_id
+                   AND al.escola_id = t.escola_id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
+
+                INNER JOIN escolas AS e
+                    ON e.id = t.escola_id
+
+                ORDER BY
+                    e.nome_instituicao COLLATE NOCASE ASC,
+                    t.etapa COLLATE NOCASE ASC,
+                    t.ano COLLATE NOCASE ASC,
+                    t.nome COLLATE NOCASE ASC,
+                    t.turno COLLATE NOCASE ASC
+            """)
+
+            lista_turmas = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT
+                    a.id,
+                    a.nome,
+                    a.matricula,
+                    a.turma_id,
+                    a.escola_id,
+                    a.ano_letivo_id,
+
+                    t.nome AS nome_turma,
+                    t.ano AS ano_turma,
+                    t.etapa,
+                    t.turno,
+
+                    e.nome_instituicao,
+
+                    al.ano AS ano_letivo
+
+                FROM alunos AS a
+
+                INNER JOIN turmas AS t
+                    ON t.id = a.turma_id
+                   AND t.escola_id = a.escola_id
+                   AND t.ano_letivo_id = a.ano_letivo_id
+
+                INNER JOIN anos_letivos AS al
+                    ON al.id = a.ano_letivo_id
+                   AND al.escola_id = a.escola_id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
+
+                INNER JOIN escolas AS e
+                    ON e.id = a.escola_id
+
+                ORDER BY
+                    e.nome_instituicao COLLATE NOCASE ASC,
+                    a.nome COLLATE NOCASE ASC
+            """)
+
+            lista_alunos = cursor.fetchall()
+
+        # =====================================================
+        # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
+        # =====================================================
+
+        else:
+
+            if not escola_id:
+
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
+
+                return render_template(
+                    "alunos.html",
+                    alunos=[],
+                    turmas=[],
+                    ano_letivo_ativo=None
+                )
+
+            # =================================================
+            # BUSCAR O ANO LETIVO ATIVO
+            # =================================================
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    ano
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                  AND encerrado = 0
+                ORDER BY ano DESC
+                LIMIT 1
+            """, (
+                escola_id,
+            ))
+
+            ano_ativo = cursor.fetchone()
+
+            if ano_ativo:
+
+                ano_letivo_id_ativo = ano_ativo["id"]
+                ano_letivo_ativo = ano_ativo["ano"]
+
+                session["ano_letivo_id"] = ano_letivo_id_ativo
+                session["ano_letivo"] = ano_letivo_ativo
+
+            else:
+
+                session.pop("ano_letivo_id", None)
+                session.pop("ano_letivo", None)
+
+                flash(
+                    "A instituição não possui um ano letivo ativo.",
+                    "erro"
+                )
+
+                return render_template(
+                    "alunos.html",
+                    alunos=[],
+                    turmas=[],
+                    ano_letivo_ativo=None
+                )
+
+            # =================================================
+            # TURMAS DO ANO ATIVO
+            # =================================================
+
+            cursor.execute("""
+                SELECT
+                    t.id,
+                    t.nome,
+                    t.etapa,
+                    t.ano,
+                    t.turno,
+                    t.escola_id,
+                    t.ano_letivo_id,
+
+                    al.ano AS ano_letivo
+
+                FROM turmas AS t
+
+                INNER JOIN anos_letivos AS al
+                    ON al.id = t.ano_letivo_id
+                   AND al.escola_id = t.escola_id
+
+                WHERE t.escola_id = ?
+                  AND t.ano_letivo_id = ?
+
+                ORDER BY
+                    t.etapa COLLATE NOCASE ASC,
+                    t.ano COLLATE NOCASE ASC,
+                    t.nome COLLATE NOCASE ASC,
+                    t.turno COLLATE NOCASE ASC
+            """, (
+                escola_id,
+                ano_letivo_id_ativo
+            ))
+
+            lista_turmas = cursor.fetchall()
+
+            # =================================================
+            # ALUNOS DO ANO ATIVO
+            # =================================================
+
+            cursor.execute("""
+                SELECT
+                    a.id,
+                    a.nome,
+                    a.matricula,
+                    a.turma_id,
+                    a.escola_id,
+                    a.ano_letivo_id,
+
+                    t.nome AS nome_turma,
+                    t.ano AS ano_turma,
+                    t.etapa,
+                    t.turno,
+
+                    al.ano AS ano_letivo
+
+                FROM alunos AS a
+
+                INNER JOIN turmas AS t
+                    ON t.id = a.turma_id
+                   AND t.escola_id = a.escola_id
+                   AND t.ano_letivo_id = a.ano_letivo_id
+
+                INNER JOIN anos_letivos AS al
+                    ON al.id = a.ano_letivo_id
+                   AND al.escola_id = a.escola_id
+
+                WHERE a.escola_id = ?
+                  AND a.ano_letivo_id = ?
+
+                ORDER BY
+                    a.nome COLLATE NOCASE ASC
+            """, (
+                escola_id,
+                ano_letivo_id_ativo
+            ))
+
+            lista_alunos = cursor.fetchall()
+
+        return render_template(
+            "alunos.html",
+            alunos=lista_alunos,
+            turmas=lista_turmas,
+            ano_letivo_ativo=ano_letivo_ativo,
+            cargo=cargo
+        )
+
+    except sqlite3.Error as erro:
+
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO AO LISTAR ALUNOS:",
+            erro
+        )
+
+        flash(
+            f"Erro ao carregar os alunos: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "alunos.html",
+            alunos=[],
+            turmas=[],
+            ano_letivo_ativo=None,
+            cargo=cargo
+        )
+
+    finally:
+        banco.close()
+
+# =========================================================
+# CADASTRAR ALUNO
+# =========================================================
 
 @app.route("/cadastrar_aluno", methods=["POST"])
 def cadastrar_aluno():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
-        return redirect("/login")
+        return redirect("/acesso_negado")
 
-    nome = request.form["nome"]
-    matricula = request.form["matricula"]
-    turma_id = request.form["turma_id"]
+    nome = request.form.get("nome", "").strip()
+    matricula = request.form.get("matricula", "").strip()
+    turma_id = request.form.get("turma_id", "").strip()
+
+    usuario_id = session.get("usuario_id")
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = session.get("escola_id")
+
+    if not nome:
+        flash("Informe o nome do aluno.", "erro")
+        return redirect("/alunos")
+
+    if not matricula:
+        flash("Informe a matrícula.", "erro")
+        return redirect("/alunos")
+
+    if not turma_id:
+        flash("Selecione uma turma.", "erro")
+        return redirect("/alunos")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        INSERT INTO alunos (nome, matricula, turma_id)
-        VALUES (?, ?, ?)
-    """, (nome, matricula, turma_id))
+    try:
 
-    banco.commit()
-    banco.close()
+        # =====================================================
+        # RECUPERAR ESCOLA DO USUÁRIO
+        # =====================================================
 
-    return redirect("/alunos")
+        if (
+            cargo != "Administrador Geral"
+            and not escola_id
+            and usuario_id
+        ):
+
+            cursor.execute("""
+                SELECT escola_id
+                FROM usuarios
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+            ))
+
+            usuario = cursor.fetchone()
+
+            if usuario:
+                escola_id = usuario["escola_id"]
+                session["escola_id"] = escola_id
+
+        if not escola_id:
+
+            flash(
+                "Não foi possível identificar a instituição.",
+                "erro"
+            )
+
+            return redirect("/alunos")
+
+        # =====================================================
+        # BUSCAR A TURMA
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                ano_letivo_id
+            FROM turmas
+            WHERE id = ?
+            LIMIT 1
+        """, (
+            turma_id,
+        ))
+
+        turma = cursor.fetchone()
+
+        if turma is None:
+
+            flash(
+                "A turma selecionada não existe.",
+                "erro"
+            )
+
+            return redirect("/alunos")
+
+        # Segurança
+        if cargo != "Administrador Geral":
+
+            if turma["escola_id"] != escola_id:
+
+                flash(
+                    "A turma não pertence à sua instituição.",
+                    "erro"
+                )
+
+                return redirect("/alunos")
+
+        ano_letivo_id = turma["ano_letivo_id"]
+
+        # =====================================================
+        # VERIFICAR MATRÍCULA DUPLICADA
+        # =====================================================
+
+        cursor.execute("""
+            SELECT id
+            FROM alunos
+            WHERE matricula = ?
+              AND escola_id = ?
+              AND ano_letivo_id = ?
+            LIMIT 1
+        """, (
+            matricula,
+            escola_id,
+            ano_letivo_id
+        ))
+
+        if cursor.fetchone():
+
+            flash(
+                "Já existe um aluno com essa matrícula neste ano letivo.",
+                "erro"
+            )
+
+            return redirect("/alunos")
+
+        # =====================================================
+        # CADASTRAR ALUNO
+        # =====================================================
+
+        cursor.execute("""
+            INSERT INTO alunos (
+
+                nome,
+                matricula,
+
+                turma_id,
+                escola_id,
+                ano_letivo_id
+
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            nome,
+            matricula,
+
+            turma_id,
+            escola_id,
+            ano_letivo_id
+        ))
+
+        banco.commit()
+
+        flash(
+            "Aluno cadastrado com sucesso.",
+            "success"
+        )
+
+        return redirect("/alunos")
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO AO CADASTRAR ALUNO:",
+            erro
+        )
+
+        flash(
+            f"Erro ao cadastrar aluno: {erro}",
+            "erro"
+        )
+
+        return redirect("/alunos")
+
+    finally:
+        banco.close()
 
 @app.route("/professores")
 def professores():
@@ -1746,64 +3661,6 @@ def atualizar_aluno(aluno_id):
     return redirect("/alunos")
 
 # ==========================
-# EXCLUIR TURMA
-# ==========================
-
-@app.route("/excluir_turma/<int:turma_id>")
-def excluir_turma(turma_id):
-
-    if not cargo_permitido([
-        "Administrador",
-        "Coordenador",
-        "Secretaria"
-    ]):
-        return redirect("/login")
-
-    banco = conectar_banco()
-    cursor = banco.cursor()
-
-    cursor.execute(
-        "DELETE FROM alunos WHERE turma_id = ?",
-        (turma_id,)
-    )
-
-    cursor.execute(
-        "DELETE FROM turmas WHERE id = ?",
-        (turma_id,)
-    )
-
-    banco.commit()
-    banco.close()
-
-    return redirect("/turmas")
-
-
-# ==========================
-# EDITAR TURMA
-# ==========================
-
-@app.route("/editar_turma/<int:turma_id>")
-def editar_turma(turma_id):
-
-    banco = conectar_banco()
-    cursor = banco.cursor()
-
-    cursor.execute(
-        "SELECT * FROM turmas WHERE id = ?",
-        (turma_id,)
-    )
-
-    turma = cursor.fetchone()
-
-    banco.close()
-
-    return render_template(
-        "editar_turma.html",
-        turma=turma
-    )
-
-
-# ==========================
 # ATUALIZAR TURMA
 # ==========================
 
@@ -2589,151 +4446,527 @@ def relatorio_questoes(prova_id):
         relatorio=relatorio
     )
 
+# =========================================================
+# LISTAR INSTITUIÇÕES
+# =========================================================
+
 @app.route("/gestao/instituicoes")
 def gestao_instituicoes():
 
-    # Apenas o Administrador Geral pode acessar
-    if not cargo_permitido(["Administrador Geral"]):
-        return redirect("/login")
+    # Somente o Administrador Geral pode acessar.
+    if not cargo_permitido([
+        "Administrador Geral"
+    ]):
+        return redirect("/acesso_negado")
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM escolas
-        ORDER BY nome_instituicao
-    """)
+    try:
 
-    escolas = cursor.fetchall()
+        cursor.execute("""
+            SELECT
+                escolas.*,
 
-    banco.close()
+                anos_letivos.id AS ano_letivo_id_ativo,
+                anos_letivos.ano AS ano_letivo_ativo,
+                anos_letivos.data_inicio AS ano_data_inicio,
+                anos_letivos.data_fim AS ano_data_fim,
+                anos_letivos.encerrado AS ano_encerrado,
 
-    return render_template(
-        "gestao/gestao_instituicoes.html",
-        escolas=escolas
-    )
+                (
+                    SELECT COUNT(*)
+                    FROM usuarios
+                    WHERE usuarios.escola_id = escolas.id
+                      AND usuarios.ativo = 1
+                ) AS total_usuarios,
+
+                (
+                    SELECT COUNT(*)
+                    FROM turmas
+                    WHERE turmas.escola_id = escolas.id
+                      AND turmas.ano_letivo_id = anos_letivos.id
+                ) AS total_turmas_ano_ativo,
+
+                (
+                    SELECT COUNT(*)
+                    FROM alunos
+                    WHERE alunos.escola_id = escolas.id
+                      AND alunos.ano_letivo_id = anos_letivos.id
+                ) AS total_alunos_ano_ativo,
+
+                (
+                    SELECT COUNT(*)
+                    FROM provas
+                    WHERE provas.escola_id = escolas.id
+                      AND provas.ano_letivo_id = anos_letivos.id
+                ) AS total_provas_ano_ativo
+
+            FROM escolas
+
+            LEFT JOIN anos_letivos
+                ON anos_letivos.escola_id = escolas.id
+               AND anos_letivos.ativo = 1
+               AND anos_letivos.encerrado = 0
+
+            ORDER BY
+                escolas.nome_instituicao COLLATE NOCASE ASC
+        """)
+
+        escolas = cursor.fetchall()
+
+        return render_template(
+            "gestao/gestao_instituicoes.html",
+            escolas=escolas
+        )
+
+    except sqlite3.Error as erro:
+
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO AO LISTAR INSTITUIÇÕES:",
+            erro
+        )
+
+        flash(
+            f"Erro ao carregar as instituições: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "gestao/gestao_instituicoes.html",
+            escolas=[]
+        )
+
+    finally:
+        banco.close()
 
 @app.route("/gestao/instituicoes/nova", methods=["GET", "POST"])
 def nova_instituicao():
+
+    print("ROTA NOVA INSTITUIÇÃO ACESSADA")
+    print("MÉTODO RECEBIDO:", request.method)
 
     if not cargo_permitido(["Administrador Geral"]):
         return redirect("/login")
 
     if request.method == "POST":
 
-        # ==========================
-        # DADOS DO ADMINISTRADOR
-        # ==========================
+        print("FORMULÁRIO RECEBIDO:")
+        print(request.form.to_dict(flat=False))
 
-        admin_nome = request.form.get("admin_nome", "").strip()
-        admin_email = request.form.get("admin_email", "").strip().lower()
-        admin_cpf = request.form.get("admin_cpf", "").strip()
-        admin_senha = request.form.get("admin_senha", "").strip()
-        admin_senha2 = request.form.get("admin_senha2", "").strip()
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/login")
+
+    if request.method == "POST":
+
+        # =====================================================
+        # DADOS DA INSTITUIÇÃO
+        # =====================================================
+
+        nome_instituicao = request.form.get(
+            "nome_instituicao",
+            ""
+        ).strip()
+
+        codigo_inep = request.form.get(
+            "codigo_inep",
+            ""
+        ).strip()
+
+        cnpj = request.form.get(
+            "cnpj",
+            ""
+        ).strip()
+
+        cep = request.form.get(
+            "cep",
+            ""
+        ).strip()
+
+        endereco = request.form.get(
+            "endereco",
+            ""
+        ).strip()
+
+        cidade = request.form.get(
+            "cidade",
+            ""
+        ).strip()
+
+        estado = request.form.get(
+            "estado",
+            ""
+        ).strip()
+
+        telefone = request.form.get(
+            "telefone",
+            ""
+        ).strip()
+
+        whatsapp = request.form.get(
+            "whatsapp",
+            ""
+        ).strip()
+
+        email_institucional = request.form.get(
+            "email",
+            ""
+        ).strip().lower()
+
+        site = request.form.get(
+            "site",
+            ""
+        ).strip()
+
+        diretor = request.form.get(
+            "diretor",
+            ""
+        ).strip()
+
+        coordenador1 = request.form.get(
+            "coordenador1",
+            ""
+        ).strip()
+
+        coordenador2 = request.form.get(
+            "coordenador2",
+            ""
+        ).strip()
+
+        coordenador3 = request.form.get(
+            "coordenador3",
+            ""
+        ).strip()
+
+        secretario = request.form.get(
+            "secretario",
+            ""
+        ).strip()
+
+        if not nome_instituicao:
+            flash(
+                "Informe o nome da instituição.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        # =====================================================
+        # DADOS DO ADMINISTRADOR
+        # =====================================================
+
+        admin_nome = request.form.get(
+            "admin_nome",
+            ""
+        ).strip()
+
+        admin_email = request.form.get(
+            "admin_email",
+            ""
+        ).strip().lower()
+
+        admin_cpf = request.form.get(
+            "admin_cpf",
+            ""
+        ).strip()
+
+        admin_senha = request.form.get(
+            "admin_senha",
+            ""
+        ).strip()
+
+        admin_senha2 = request.form.get(
+            "admin_senha2",
+            ""
+        ).strip()
 
         if not admin_nome:
-            flash("Informe o nome do administrador.", "erro")
-            return render_template("gestao/nova_instituicao.html")
+            flash(
+                "Informe o nome do administrador.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
 
         if not admin_email:
-            flash("Informe o e-mail do administrador.", "erro")
-            return render_template("gestao/nova_instituicao.html")
+            flash(
+                "Informe o e-mail do administrador.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
 
         if not admin_senha:
-            flash("Informe a senha do administrador.", "erro")
-            return render_template("gestao/nova_instituicao.html")
+            flash(
+                "Informe a senha do administrador.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
 
         if admin_senha != admin_senha2:
-            flash("As senhas do administrador não conferem.", "erro")
-            return render_template("gestao/nova_instituicao.html")
+            flash(
+                "As senhas do administrador não conferem.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
 
         if len(admin_senha) < 6:
             flash(
                 "A senha do administrador deve possuir pelo menos 6 caracteres.",
                 "erro"
             )
-            return render_template("gestao/nova_instituicao.html")
 
-        # ==========================
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        # =====================================================
+        # DADOS ACADÊMICOS
+        # =====================================================
+
+        tipo_instituicao = request.form.get(
+            "tipo_instituicao",
+            ""
+        ).strip()
+
+        ano_letivo = request.form.get(
+            "ano_letivo",
+            ""
+        ).strip()
+
+        modalidades = request.form.getlist(
+            "modalidade_ensino"
+        )
+
+        etapas = request.form.getlist(
+            "etapas_ensino"
+        )
+
+        componentes_recebidos = request.form.getlist(
+            "componentes_curriculares"
+        )
+
+        if not tipo_instituicao:
+            flash(
+                "Selecione o tipo da instituição.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        if not ano_letivo:
+            flash(
+                "Selecione o ano letivo.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        if not etapas:
+            flash(
+                "Selecione pelo menos uma etapa de ensino.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        if not componentes_recebidos:
+            flash(
+                "Selecione pelo menos um componente curricular.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        modalidade_ensino = ", ".join(modalidades)
+        etapas_ensino = ", ".join(etapas)
+
+        # =====================================================
+        # ORGANIZA OS COMPONENTES RECEBIDOS DO HTML
+        # =====================================================
+
+        componentes_processados = []
+        componentes_repetidos = set()
+
+        for componente_json in componentes_recebidos:
+
+            try:
+                componente = json.loads(componente_json)
+
+                etapa = str(
+                    componente.get("etapa", "")
+                ).strip()
+
+                nome = str(
+                    componente.get("nome", "")
+                ).strip()
+
+                tipo = str(
+                    componente.get("tipo", "padrao")
+                ).strip().lower()
+
+            except (
+                json.JSONDecodeError,
+                TypeError,
+                AttributeError
+            ):
+                continue
+
+            if not etapa or not nome:
+                continue
+
+            # Impede componente de uma etapa não selecionada
+            if etapa not in etapas:
+                continue
+
+            # Aceita somente os dois tipos previstos
+            if tipo not in ["padrao", "manual"]:
+                tipo = "padrao"
+
+            chave_componente = (
+                etapa.lower(),
+                nome.lower()
+            )
+
+            # Impede componentes repetidos
+            if chave_componente in componentes_repetidos:
+                continue
+
+            componentes_repetidos.add(
+                chave_componente
+            )
+
+            componentes_processados.append({
+                "etapa": etapa,
+                "nome": nome,
+                "tipo": tipo
+            })
+
+        if not componentes_processados:
+            flash(
+                "Não foi possível identificar os componentes curriculares selecionados.",
+                "erro"
+            )
+
+            return render_template(
+                "gestao/nova_instituicao.html"
+            )
+
+        # =====================================================
         # LOGO
-        # ==========================
+        # =====================================================
 
         logo = request.files.get("logo")
         nome_logo = ""
 
-        if logo and logo.filename != "":
-            nome_logo = secure_filename(logo.filename)
+        if logo and logo.filename:
 
-            logo.save(
-                os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    nome_logo
-                )
+            nome_logo = secure_filename(
+                logo.filename
             )
 
-        # ==========================
-        # DADOS ACADÊMICOS
-        # ==========================
+            caminho_logo = os.path.join(
+                app.config["UPLOAD_FOLDER"],
+                nome_logo
+            )
 
-        tipo_instituicao = request.form.get("tipo_instituicao")
-        ano_letivo = request.form.get("ano_letivo")
+            logo.save(caminho_logo)
 
-        modalidades = request.form.getlist("modalidade_ensino")
-        etapas = request.form.getlist("etapas_ensino")
-
-        modalidade_ensino = ", ".join(modalidades)
-        etapas_ensino = ", ".join(etapas)
+        # =====================================================
+        # BANCO DE DADOS
+        # =====================================================
 
         banco = conectar_banco()
         banco.row_factory = sqlite3.Row
         cursor = banco.cursor()
 
         try:
-            # Verifica se o e-mail já existe
+
+            # -------------------------------------------------
+            # Verifica se o e-mail do administrador já existe
+            # -------------------------------------------------
+
             cursor.execute("""
                 SELECT id
                 FROM usuarios
                 WHERE LOWER(email) = LOWER(?)
                 LIMIT 1
-            """, (admin_email,))
+            """, (
+                admin_email,
+            ))
 
             usuario_existente = cursor.fetchone()
 
             if usuario_existente:
+
                 flash(
                     "Já existe um usuário cadastrado com esse e-mail.",
                     "erro"
                 )
+
                 banco.close()
 
                 return render_template(
                     "gestao/nova_instituicao.html"
                 )
 
-            # Busca o cargo correto
+            # -------------------------------------------------
+            # Busca o cargo Administrador da Instituição
+            # -------------------------------------------------
+
             cursor.execute("""
                 SELECT id
                 FROM cargos
-                WHERE nome = 'Administrador da Instituição'
+                WHERE nome = ?
                 LIMIT 1
-            """)
+            """, (
+                "Administrador da Instituição",
+            ))
 
             cargo = cursor.fetchone()
 
             if cargo is None:
+
                 cursor.execute("""
                     INSERT INTO cargos (nome)
-                    VALUES ('Administrador da Instituição')
-                """)
+                    VALUES (?)
+                """, (
+                    "Administrador da Instituição",
+                ))
 
                 cargo_id = cursor.lastrowid
 
             else:
                 cargo_id = cargo["id"]
 
+            # -------------------------------------------------
             # Cadastra a instituição
+            # -------------------------------------------------
+
             cursor.execute("""
                 INSERT INTO escolas (
                     nome_instituicao,
@@ -2765,34 +4998,61 @@ def nova_instituicao():
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             """, (
-                request.form.get("nome_instituicao", "").strip(),
-                request.form.get("codigo_inep", "").strip(),
-                request.form.get("cnpj", "").strip(),
-                request.form.get("cep", "").strip(),
-                request.form.get("endereco", "").strip(),
-                request.form.get("cidade", "").strip(),
-                request.form.get("estado", "").strip(),
-                request.form.get("telefone", "").strip(),
-                request.form.get("whatsapp", "").strip(),
-                request.form.get("email", "").strip(),
-                request.form.get("site", "").strip(),
-                request.form.get("diretor", "").strip(),
-                request.form.get("coordenador1", "").strip(),
-                request.form.get("coordenador2", "").strip(),
-                request.form.get("coordenador3", "").strip(),
-                request.form.get("secretario", "").strip(),
+                nome_instituicao,
+                codigo_inep,
+                cnpj,
+                cep,
+                endereco,
+                cidade,
+                estado,
+                telefone,
+                whatsapp,
+                email_institucional,
+                site,
+                diretor,
+                coordenador1,
+                coordenador2,
+                coordenador3,
+                secretario,
                 tipo_instituicao,
                 ano_letivo,
                 modalidade_ensino,
                 etapas_ensino,
                 nome_logo,
                 1,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             ))
 
             escola_id = cursor.lastrowid
 
-            # Cria automaticamente o administrador da escola
+            # -------------------------------------------------
+            # Salva os componentes curriculares da instituição
+            # -------------------------------------------------
+
+            for componente in componentes_processados:
+
+                cursor.execute("""
+                    INSERT INTO componentes_curriculares (
+                        escola_id,
+                        etapa_ensino,
+                        nome,
+                        tipo,
+                        ativo
+                    )
+                    VALUES (?, ?, ?, ?, 1)
+                """, (
+                    escola_id,
+                    componente["etapa"],
+                    componente["nome"],
+                    componente["tipo"]
+                ))
+
+            # -------------------------------------------------
+            # Cria o administrador da instituição
+            # -------------------------------------------------
+
             cursor.execute("""
                 INSERT INTO usuarios (
                     nome,
@@ -2814,21 +5074,30 @@ def nova_instituicao():
             ))
 
             banco.commit()
-            banco.close()
 
             flash(
-                "Instituição e administrador cadastrados com sucesso!",
+                "Instituição, administrador e componentes curriculares cadastrados com sucesso!",
                 "success"
             )
 
-            return redirect("/gestao/instituicoes")
+            return redirect(
+                "/gestao/instituicoes"
+            )
 
-        except sqlite3.IntegrityError as erro:
+        except Exception as erro:
+
             banco.rollback()
-            banco.close()
+
+            import traceback
+            traceback.print_exc()
+
+            print(
+                "ERRO COMPLETO AO CADASTRAR INSTITUIÇÃO:",
+                repr(erro)
+            )
 
             flash(
-                "Não foi possível cadastrar. Verifique se o e-mail já está em uso.",
+                f"Erro ao cadastrar a instituição: {erro}",
                 "erro"
             )
 
@@ -2837,13 +5106,19 @@ def nova_instituicao():
             )
 
         except Exception as erro:
-            banco.rollback()
-            banco.close()
 
-            print(f"Erro ao cadastrar instituição: {erro}")
+            banco.rollback()
+
+            import traceback
+            traceback.print_exc()
+
+            print(
+                "ERRO COMPLETO AO CADASTRAR INSTITUIÇÃO:",
+                repr(erro)
+            )
 
             flash(
-                "Ocorreu um erro ao cadastrar a instituição.",
+                f"Erro ao cadastrar a instituição: {erro}",
                 "erro"
             )
 
@@ -2851,7 +5126,12 @@ def nova_instituicao():
                 "gestao/nova_instituicao.html"
             )
 
-    return render_template("gestao/nova_instituicao.html")
+        finally:
+            banco.close()
+
+    return render_template(
+        "gestao/nova_instituicao.html"
+    )
 
 @app.route("/usuarios")
 def usuarios():
@@ -2907,7 +5187,7 @@ def usuarios():
                 ON usuarios.cargo_id = cargos.id
             LEFT JOIN escolas
                 ON usuarios.escola_id = escolas.id
-            ORDER BY usuarios.nome
+            ORDER BY usuarios.nome COLLATE NOCASE ASC
         """)
 
     elif usuario_cargo == "Administrador da Instituição":
@@ -2938,7 +5218,7 @@ def usuarios():
             LEFT JOIN escolas
                 ON usuarios.escola_id = escolas.id
             WHERE usuarios.escola_id = ?
-            ORDER BY usuarios.nome
+            ORDER BY usuarios.nome COLLATE NOCASE ASC
         """, (escola_id,))
 
     else:
@@ -3105,6 +5385,53 @@ def garantir_estrutura_usuarios(cursor):
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS componentes_curriculares (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER NOT NULL,
+            etapa_ensino TEXT NOT NULL,
+            nome TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'padrao',
+            ativo INTEGER NOT NULL DEFAULT 1,
+
+            FOREIGN KEY (escola_id)
+                REFERENCES escolas(id)
+                ON DELETE CASCADE,
+
+            UNIQUE (
+                escola_id,
+                etapa_ensino,
+                nome
+            )
+        )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS professor_vinculos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        professor_id INTEGER NOT NULL,
+        turma_id INTEGER NOT NULL,
+        componente_id INTEGER NOT NULL,
+
+        FOREIGN KEY (professor_id)
+            REFERENCES usuarios(id)
+            ON DELETE CASCADE,
+
+        FOREIGN KEY (turma_id)
+            REFERENCES turmas(id)
+            ON DELETE CASCADE,
+
+        FOREIGN KEY (componente_id)
+            REFERENCES componentes_curriculares(id)
+            ON DELETE CASCADE,
+
+        UNIQUE (
+            professor_id,
+            turma_id,
+            componente_id
+        )
+    )
+""")
 
 @app.route("/cadastrar_usuario", methods=["GET", "POST"])
 def cadastrar_usuario():
@@ -3366,6 +5693,29 @@ def cadastrar_usuario():
                     "erro"
                 )
                 return redirect("/cadastrar_usuario")
+
+                if (
+                    foto.mimetype
+                    and foto.mimetype not in tipos_permitidos
+                ):
+                    flash(
+                        "O arquivo enviado não é uma imagem válida.",
+                        "erro"
+                    )
+                    return redirect("/cadastrar_usuario")
+
+                foto.stream.seek(0, os.SEEK_END)
+                tamanho_foto = foto.stream.tell()
+                foto.stream.seek(0)
+
+                limite_foto = 5 * 1024 * 1024
+
+                if tamanho_foto > limite_foto:
+                    flash(
+                        "A foto deve ter no máximo 5 MB.",
+                        "erro"
+                    )
+                    return redirect("/cadastrar_usuario")
 
             # ==============================
             # VERIFICA O CARGO SELECIONADO
@@ -4809,46 +7159,99 @@ def editar_instituicao(id):
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute(
-        "SELECT * FROM escolas WHERE id = ?",
-        (id,)
-    )
+    try:
+        cursor.execute("""
+            SELECT *
+            FROM escolas
+            WHERE id = ?
+            LIMIT 1
+        """, (id,))
 
-    escola = cursor.fetchone()
+        escola = cursor.fetchone()
 
-    if escola is None:
-        banco.close()
-        return redirect("/gestao/instituicoes")
+        if escola is None:
+            flash("Instituição não encontrada.", "erro")
+            return redirect("/gestao/instituicoes")
 
-    cursor.execute("""
-        SELECT *
-        FROM usuarios
-        WHERE escola_id = ?
-        ORDER BY id
-        LIMIT 1
-    """, (id,))
+        cursor.execute("""
+            SELECT usuarios.*
+            FROM usuarios
+            LEFT JOIN cargos
+                ON cargos.id = usuarios.cargo_id
+            WHERE usuarios.escola_id = ?
+              AND cargos.nome = 'Administrador da Instituição'
+            ORDER BY usuarios.id
+            LIMIT 1
+        """, (id,))
 
-    administrador = cursor.fetchone()
+        administrador = cursor.fetchone()
 
-    if request.method == "POST":
+        if request.method == "POST":
 
-        admin_nome = request.form.get("admin_nome", "").strip()
-        admin_email = request.form.get("admin_email", "").strip().lower()
-        admin_cpf = request.form.get("admin_cpf", "").strip()
-        admin_senha = request.form.get("admin_senha", "").strip()
+            nome_instituicao = request.form.get("nome_instituicao", "").strip()
+            codigo_inep = request.form.get("codigo_inep", "").strip()
+            cnpj = request.form.get("cnpj", "").strip()
+            cep = request.form.get("cep", "").strip()
+            endereco = request.form.get("endereco", "").strip()
+            cidade = request.form.get("cidade", "").strip()
+            estado = request.form.get("estado", "").strip()
+            telefone = request.form.get("telefone", "").strip()
+            whatsapp = request.form.get("whatsapp", "").strip()
+            email_institucional = request.form.get("email", "").strip().lower()
+            site = request.form.get("site", "").strip()
+            diretor = request.form.get("diretor", "").strip()
+            coordenador1 = request.form.get("coordenador1", "").strip()
+            coordenador2 = request.form.get("coordenador2", "").strip()
+            coordenador3 = request.form.get("coordenador3", "").strip()
+            secretario = request.form.get("secretario", "").strip()
+            tipo_instituicao = request.form.get("tipo_instituicao", "").strip()
+            ano_letivo = request.form.get("ano_letivo", "").strip()
 
-        if not admin_nome:
-            flash("Informe o nome do administrador.", "erro")
-            banco.close()
-            return redirect(f"/gestao/instituicoes/editar/{id}")
+            modalidades = request.form.getlist("modalidade_ensino")
+            etapas = request.form.getlist("etapas_ensino")
+            componentes_recebidos = request.form.getlist("componentes_curriculares")
 
-        if not admin_email:
-            flash("Informe o e-mail do administrador.", "erro")
-            banco.close()
-            return redirect(f"/gestao/instituicoes/editar/{id}")
+            admin_nome = request.form.get("admin_nome", "").strip()
+            admin_email = request.form.get("admin_email", "").strip().lower()
+            admin_cpf = request.form.get("admin_cpf", "").strip()
+            admin_senha = request.form.get("admin_senha", "").strip()
 
-        try:
-            # Verifica se o e-mail já pertence a outro usuário
+            if not nome_instituicao:
+                flash("Informe o nome da instituição.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not tipo_instituicao:
+                flash("Selecione o tipo da instituição.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not ano_letivo:
+                flash("Selecione o ano letivo.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not etapas:
+                flash("Selecione pelo menos uma etapa de ensino.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not componentes_recebidos:
+                flash("Selecione pelo menos um componente curricular.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not admin_nome:
+                flash("Informe o nome do administrador.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not admin_email:
+                flash("Informe o e-mail do administrador.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if admin_senha and len(admin_senha) < 6:
+                flash("A nova senha deve possuir pelo menos 6 caracteres.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
+            if not administrador and not admin_senha:
+                flash("Informe uma senha para criar o administrador da instituição.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
+
             if administrador:
                 cursor.execute("""
                     SELECT id
@@ -4856,10 +7259,7 @@ def editar_instituicao(id):
                     WHERE LOWER(email) = LOWER(?)
                       AND id != ?
                     LIMIT 1
-                """, (
-                    admin_email,
-                    administrador["id"]
-                ))
+                """, (admin_email, administrador["id"]))
             else:
                 cursor.execute("""
                     SELECT id
@@ -4868,37 +7268,57 @@ def editar_instituicao(id):
                     LIMIT 1
                 """, (admin_email,))
 
-            email_em_uso = cursor.fetchone()
-
-            if email_em_uso:
-                flash(
-                    "Este e-mail já está sendo utilizado por outro usuário.",
-                    "erro"
-                )
-                banco.close()
+            if cursor.fetchone():
+                flash("Este e-mail já está sendo utilizado por outro usuário.", "erro")
                 return redirect(f"/gestao/instituicoes/editar/{id}")
 
-            # Mantém a logo atual se nenhuma nova for enviada
-            logo = request.files.get("logo")
-            nome_logo = escola["logo"] or ""
+            componentes_processados = []
+            componentes_repetidos = set()
 
-            if logo and logo.filename != "":
-                nome_logo = secure_filename(logo.filename)
+            for componente_json in componentes_recebidos:
+                try:
+                    componente = json.loads(componente_json)
+                    etapa = str(componente.get("etapa", "")).strip()
+                    nome = str(componente.get("nome", "")).strip()
+                    tipo = str(componente.get("tipo", "padrao")).strip().lower()
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    continue
 
-                logo.save(
-                    os.path.join(
-                        app.config["UPLOAD_FOLDER"],
-                        nome_logo
-                    )
-                )
+                if not etapa or not nome:
+                    continue
 
-            modalidades = request.form.getlist("modalidade_ensino")
-            etapas = request.form.getlist("etapas_ensino")
+                if etapa not in etapas:
+                    continue
+
+                if tipo not in ["padrao", "manual"]:
+                    tipo = "padrao"
+
+                chave = (etapa.lower(), nome.lower())
+
+                if chave in componentes_repetidos:
+                    continue
+
+                componentes_repetidos.add(chave)
+                componentes_processados.append({
+                    "etapa": etapa,
+                    "nome": nome,
+                    "tipo": tipo
+                })
+
+            if not componentes_processados:
+                flash("Não foi possível identificar os componentes curriculares selecionados.", "erro")
+                return redirect(f"/gestao/instituicoes/editar/{id}")
 
             modalidade_ensino = ", ".join(modalidades)
             etapas_ensino = ", ".join(etapas)
 
-            # Atualiza a instituição
+            logo = request.files.get("logo")
+            nome_logo = escola["logo"] or ""
+
+            if logo and logo.filename:
+                nome_logo = secure_filename(logo.filename)
+                logo.save(os.path.join(app.config["UPLOAD_FOLDER"], nome_logo))
+
             cursor.execute("""
                 UPDATE escolas
                 SET
@@ -4925,50 +7345,57 @@ def editar_instituicao(id):
                     logo = ?
                 WHERE id = ?
             """, (
-                request.form.get("nome_instituicao", "").strip(),
-                request.form.get("codigo_inep", "").strip(),
-                request.form.get("cnpj", "").strip(),
-                request.form.get("cep", "").strip(),
-                request.form.get("endereco", "").strip(),
-                request.form.get("cidade", "").strip(),
-                request.form.get("estado", "").strip(),
-                request.form.get("telefone", "").strip(),
-                request.form.get("whatsapp", "").strip(),
-                request.form.get("email", "").strip(),
-                request.form.get("site", "").strip(),
-                request.form.get("diretor", "").strip(),
-                request.form.get("coordenador1", "").strip(),
-                request.form.get("coordenador2", "").strip(),
-                request.form.get("coordenador3", "").strip(),
-                request.form.get("secretario", "").strip(),
-                request.form.get("tipo_instituicao"),
-                request.form.get("ano_letivo"),
+                nome_instituicao,
+                codigo_inep,
+                cnpj,
+                cep,
+                endereco,
+                cidade,
+                estado,
+                telefone,
+                whatsapp,
+                email_institucional,
+                site,
+                diretor,
+                coordenador1,
+                coordenador2,
+                coordenador3,
+                secretario,
+                tipo_instituicao,
+                ano_letivo,
                 modalidade_ensino,
                 etapas_ensino,
                 nome_logo,
                 id
             ))
 
+            cursor.execute("""
+                DELETE FROM componentes_curriculares
+                WHERE escola_id = ?
+            """, (id,))
+
+            for componente in componentes_processados:
+                cursor.execute("""
+                    INSERT INTO componentes_curriculares (
+                        escola_id,
+                        etapa_ensino,
+                        nome,
+                        tipo,
+                        ativo
+                    )
+                    VALUES (?, ?, ?, ?, 1)
+                """, (
+                    id,
+                    componente["etapa"],
+                    componente["nome"],
+                    componente["tipo"]
+                ))
+
             if administrador:
-
                 if admin_senha:
-                    if len(admin_senha) < 6:
-                        flash(
-                            "A nova senha deve possuir pelo menos 6 caracteres.",
-                            "erro"
-                        )
-                        banco.rollback()
-                        banco.close()
-                        return redirect(f"/gestao/instituicoes/editar/{id}")
-
                     cursor.execute("""
                         UPDATE usuarios
-                        SET
-                            nome = ?,
-                            email = ?,
-                            cpf = ?,
-                            senha = ?,
-                            escola_id = ?
+                        SET nome = ?, email = ?, cpf = ?, senha = ?, escola_id = ?, ativo = 1
                         WHERE id = ?
                     """, (
                         admin_nome,
@@ -4978,15 +7405,10 @@ def editar_instituicao(id):
                         id,
                         administrador["id"]
                     ))
-
                 else:
                     cursor.execute("""
                         UPDATE usuarios
-                        SET
-                            nome = ?,
-                            email = ?,
-                            cpf = ?,
-                            escola_id = ?
+                        SET nome = ?, email = ?, cpf = ?, escola_id = ?, ativo = 1
                         WHERE id = ?
                     """, (
                         admin_nome,
@@ -4995,41 +7417,21 @@ def editar_instituicao(id):
                         id,
                         administrador["id"]
                     ))
-
             else:
-                if not admin_senha:
-                    flash(
-                        "Informe uma senha para criar o administrador da instituição.",
-                        "erro"
-                    )
-                    banco.rollback()
-                    banco.close()
-                    return redirect(f"/gestao/instituicoes/editar/{id}")
-
-                if len(admin_senha) < 6:
-                    flash(
-                        "A senha deve possuir pelo menos 6 caracteres.",
-                        "erro"
-                    )
-                    banco.rollback()
-                    banco.close()
-                    return redirect(f"/gestao/instituicoes/editar/{id}")
-
                 cursor.execute("""
                     SELECT id
                     FROM cargos
-                    WHERE nome = 'Administrador da Instituição'
+                    WHERE nome = ?
                     LIMIT 1
-                """)
+                """, ("Administrador da Instituição",))
 
                 cargo = cursor.fetchone()
 
                 if cargo is None:
                     cursor.execute("""
                         INSERT INTO cargos (nome)
-                        VALUES ('Administrador da Instituição')
-                    """)
-
+                        VALUES (?)
+                    """, ("Administrador da Instituição",))
                     cargo_id = cursor.lastrowid
                 else:
                     cargo_id = cargo["id"]
@@ -5055,62 +7457,101 @@ def editar_instituicao(id):
                 ))
 
             banco.commit()
-            banco.close()
 
             flash(
-                "Instituição e administrador atualizados com sucesso!",
+                "Instituição, administrador e componentes curriculares atualizados com sucesso!",
                 "success"
             )
 
             return redirect("/gestao/instituicoes")
 
-        except sqlite3.IntegrityError:
-            banco.rollback()
-            banco.close()
+        modalidades_marcadas = [
+            item.strip()
+            for item in (escola["modalidade_ensino"] or "").split(",")
+            if item.strip()
+        ]
 
-            flash(
-                "Não foi possível salvar. Verifique se o e-mail já está em uso.",
-                "erro"
-            )
+        etapas_marcadas = [
+            item.strip()
+            for item in (escola["etapas_ensino"] or "").split(",")
+            if item.strip()
+        ]
 
-            return redirect(f"/gestao/instituicoes/editar/{id}")
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                etapa_ensino,
+                nome,
+                tipo,
+                ativo
+            FROM componentes_curriculares
+            WHERE escola_id = ?
+              AND ativo = 1
+            ORDER BY etapa_ensino, nome
+        """, (id,))
 
-        except Exception as erro:
-            banco.rollback()
-            banco.close()
+        componentes_banco = cursor.fetchall()
 
-            print(f"Erro ao editar instituição: {erro}")
+        componentes_salvos = [
+            {
+                "id": componente["id"],
+                "escola_id": componente["escola_id"],
+                "etapa": componente["etapa_ensino"],
+                "nome": componente["nome"],
+                "tipo": componente["tipo"] or "padrao",
+                "ativo": componente["ativo"]
+            }
+            for componente in componentes_banco
+        ]
 
-            flash(
-                "Ocorreu um erro ao salvar as alterações.",
-                "erro"
-            )
+        return render_template(
+            "gestao/editar_instituicao.html",
+            escola=escola,
+            administrador=administrador,
+            modalidades_marcadas=modalidades_marcadas,
+            etapas_marcadas=etapas_marcadas,
+            componentes_salvos=componentes_salvos
+        )
 
-            return redirect(f"/gestao/instituicoes/editar/{id}")
+    except sqlite3.IntegrityError as erro:
+        banco.rollback()
 
-    modalidades_marcadas = [
-        item.strip()
-        for item in (escola["modalidade_ensino"] or "").split(",")
-        if item.strip()
-    ]
+        import traceback
+        traceback.print_exc()
 
-    etapas_marcadas = [
-        item.strip()
-        for item in (escola["etapas_ensino"] or "").split(",")
-        if item.strip()
-    ]
+        print(
+            "ERRO DE INTEGRIDADE AO EDITAR INSTITUIÇÃO:",
+            repr(erro)
+        )
 
-    banco.close()
+        flash(
+            f"Não foi possível salvar as alterações: {erro}",
+            "erro"
+        )
 
-    return render_template(
-        "gestao/editar_instituicao.html",
-        escola=escola,
-        administrador=administrador,
-        modalidades_marcadas=modalidades_marcadas,
-        etapas_marcadas=etapas_marcadas
-    )
+        return redirect(f"/gestao/instituicoes/editar/{id}")
 
-criar_tabelas()
+    except Exception as erro:
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print(
+            "ERRO COMPLETO AO EDITAR INSTITUIÇÃO:",
+            repr(erro)
+        )
+
+        flash(
+            f"Ocorreu um erro ao salvar as alterações: {erro}",
+            "erro"
+        )
+
+        return redirect(f"/gestao/instituicoes/editar/{id}")
+
+    finally:
+        banco.close()
 
 @app.route("/gestao/instituicoes/ver/<int:id>")
 def ver_instituicao(id):
@@ -5121,6 +7562,10 @@ def ver_instituicao(id):
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
+
+    # ======================================================
+    # INSTITUIÇÃO
+    # ======================================================
 
     cursor.execute("""
         SELECT *
@@ -5134,6 +7579,10 @@ def ver_instituicao(id):
         banco.close()
         return redirect("/gestao/instituicoes")
 
+    # ======================================================
+    # ADMINISTRADOR DA INSTITUIÇÃO
+    # ======================================================
+
     cursor.execute("""
         SELECT
             usuarios.id,
@@ -5146,18 +7595,78 @@ def ver_instituicao(id):
         LEFT JOIN cargos
             ON usuarios.cargo_id = cargos.id
         WHERE usuarios.escola_id = ?
+          AND cargos.nome = 'Administrador da Instituição'
         ORDER BY usuarios.id
         LIMIT 1
     """, (id,))
 
     administrador = cursor.fetchone()
 
+    # ======================================================
+    # TODOS OS USUÁRIOS VINCULADOS À INSTITUIÇÃO
+    # ======================================================
+
+    cursor.execute("""
+        SELECT
+            usuarios.id,
+            usuarios.nome,
+            usuarios.email,
+            usuarios.cpf,
+            usuarios.ativo,
+            cargos.nome AS cargo
+        FROM usuarios
+        LEFT JOIN cargos
+            ON usuarios.cargo_id = cargos.id
+        WHERE usuarios.escola_id = ?
+        ORDER BY
+            usuarios.ativo DESC,
+            cargos.nome,
+            usuarios.nome
+    """, (id,))
+
+    usuarios_instituicao = cursor.fetchall()
+
+    # ======================================================
+    # COMPONENTES CURRICULARES
+    # ======================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            escola_id,
+            etapa_ensino,
+            nome,
+            tipo,
+            ativo
+        FROM componentes_curriculares
+        WHERE escola_id = ?
+          AND ativo = 1
+        ORDER BY etapa_ensino, nome
+    """, (id,))
+
+    componentes = cursor.fetchall()
+
+    componentes_salvos = []
+
+    for componente in componentes:
+
+        componentes_salvos.append({
+            "id": componente["id"],
+            "escola_id": componente["escola_id"],
+            "etapa": componente["etapa_ensino"],
+            "nome": componente["nome"],
+            "tipo": componente["tipo"],
+            "ativo": componente["ativo"]
+        })
+
     banco.close()
 
     return render_template(
         "gestao/ver_instituicao.html",
         escola=escola,
-        administrador=administrador
+        administrador=administrador,
+        usuarios_instituicao=usuarios_instituicao,
+        componentes_salvos=componentes_salvos
     )
 
 @app.route("/gestao/instituicoes/inativar/<int:id>")
@@ -5342,9 +7851,1364 @@ def excluir_usuario(id):
 
     return redirect("/usuarios")
 
+# =====================================================
+# VÍNCULOS DO PROFESSOR
+# =====================================================
+
+@app.route(
+    "/professor/<int:professor_id>/vinculos",
+    methods=["GET", "POST"]
+)
+def professor_vinculos(professor_id):
+
+    # Apenas administradores podem gerenciar vínculos
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        flash(
+            "Você não possui permissão para acessar os vínculos.",
+            "erro"
+        )
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        cursor.execute("PRAGMA foreign_keys = ON")
+
+        cargo_logado = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        escola_logada_id = session.get("escola_id")
+
+        # =================================================
+        # BUSCA O PROFESSOR
+        # =================================================
+
+        cursor.execute("""
+            SELECT
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                usuarios.escola_id,
+                usuarios.ativo,
+                cargos.nome AS cargo,
+                escolas.nome_instituicao
+            FROM usuarios
+
+            INNER JOIN cargos
+                ON cargos.id = usuarios.cargo_id
+
+            LEFT JOIN escolas
+                ON escolas.id = usuarios.escola_id
+
+            WHERE usuarios.id = ?
+            LIMIT 1
+        """, (
+            professor_id,
+        ))
+
+        professor = cursor.fetchone()
+
+        if professor is None:
+            flash(
+                "Professor não encontrado.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        # Confirma que o usuário selecionado é professor
+        if professor["cargo"] != "Professor":
+            flash(
+                "O usuário selecionado não possui o cargo Professor.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        # Confirma que o professor está ativo
+        if professor["ativo"] != 1:
+            flash(
+                "O professor selecionado está inativo.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        escola_professor_id = professor["escola_id"]
+
+        if not escola_professor_id:
+            flash(
+                "O professor não está vinculado a uma instituição.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        # Administrador da instituição só acessa professores
+        # da própria instituição
+        if (
+            cargo_logado == "Administrador da Instituição"
+            and escola_professor_id != escola_logada_id
+        ):
+            flash(
+                "Você não possui permissão para acessar esse professor.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        # =================================================
+        # SALVA UM NOVO VÍNCULO
+        # =================================================
+
+        if request.method == "POST":
+
+            turma_id = request.form.get(
+                "turma_id",
+                ""
+            ).strip()
+
+            componente_id = request.form.get(
+                "componente_id",
+                ""
+            ).strip()
+
+            if not turma_id:
+                flash(
+                    "Selecione uma turma.",
+                    "erro"
+                )
+                return redirect(
+                    f"/professor/{professor_id}/vinculos"
+                )
+
+            if not componente_id:
+                flash(
+                    "Selecione um componente curricular.",
+                    "erro"
+                )
+                return redirect(
+                    f"/professor/{professor_id}/vinculos"
+                )
+
+            # Confirma que a turma pertence à mesma instituição
+            cursor.execute("""
+                SELECT id
+                FROM turmas
+                WHERE id = ?
+                  AND escola_id = ?
+                LIMIT 1
+            """, (
+                turma_id,
+                escola_professor_id
+            ))
+
+            turma = cursor.fetchone()
+
+            if turma is None:
+                flash(
+                    "A turma selecionada não pertence à instituição do professor.",
+                    "erro"
+                )
+                return redirect(
+                    f"/professor/{professor_id}/vinculos"
+                )
+
+            # Confirma que o componente pertence à mesma instituição
+            cursor.execute("""
+                SELECT id
+                FROM componentes_curriculares
+                WHERE id = ?
+                  AND escola_id = ?
+                  AND ativo = 1
+                LIMIT 1
+            """, (
+                componente_id,
+                escola_professor_id
+            ))
+
+            componente = cursor.fetchone()
+
+            if componente is None:
+                flash(
+                    "O componente curricular selecionado é inválido.",
+                    "erro"
+                )
+                return redirect(
+                    f"/professor/{professor_id}/vinculos"
+                )
+
+            # Verifica vínculo duplicado
+            cursor.execute("""
+                SELECT id
+                FROM professor_vinculos
+                WHERE professor_id = ?
+                  AND turma_id = ?
+                  AND componente_id = ?
+                LIMIT 1
+            """, (
+                professor_id,
+                turma_id,
+                componente_id
+            ))
+
+            vinculo_existente = cursor.fetchone()
+
+            if vinculo_existente:
+                flash(
+                    "Esse vínculo já está cadastrado.",
+                    "erro"
+                )
+                return redirect(
+                    f"/professor/{professor_id}/vinculos"
+                )
+
+            cursor.execute("""
+                INSERT INTO professor_vinculos (
+                    professor_id,
+                    turma_id,
+                    componente_id
+                )
+                VALUES (?, ?, ?)
+            """, (
+                professor_id,
+                turma_id,
+                componente_id
+            ))
+
+            banco.commit()
+
+            flash(
+                "Vínculo cadastrado com sucesso.",
+                "success"
+            )
+
+            return redirect(
+                f"/professor/{professor_id}/vinculos"
+            )
+
+        # =================================================
+        # LISTA AS TURMAS DA INSTITUIÇÃO
+        # =================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                etapa,
+                ano,
+                nome,
+                turno
+            FROM turmas
+            WHERE escola_id = ?
+            ORDER BY
+                etapa COLLATE NOCASE ASC,
+                CAST(ano AS INTEGER) ASC,
+                nome COLLATE NOCASE ASC,
+                turno COLLATE NOCASE ASC
+        """, (
+            escola_professor_id,
+        ))
+
+        turmas = cursor.fetchall()
+
+        # =================================================
+        # LISTA OS COMPONENTES DA INSTITUIÇÃO
+        # =================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome
+            FROM componentes_curriculares
+            WHERE escola_id = ?
+              AND ativo = 1
+            ORDER BY nome COLLATE NOCASE ASC
+        """, (
+            escola_professor_id,
+        ))
+
+        componentes = cursor.fetchall()
+
+        # =================================================
+        # LISTA OS VÍNCULOS DO PROFESSOR
+        # =================================================
+
+        cursor.execute("""
+            SELECT
+                professor_vinculos.id,
+
+                turmas.id AS turma_id,
+                turmas.etapa,
+                turmas.ano,
+                turmas.nome AS turma_nome,
+                turmas.turno,
+
+                componentes_curriculares.id AS componente_id,
+                componentes_curriculares.nome AS componente_nome
+
+            FROM professor_vinculos
+
+            INNER JOIN turmas
+                ON turmas.id = professor_vinculos.turma_id
+
+            INNER JOIN componentes_curriculares
+                ON componentes_curriculares.id =
+                   professor_vinculos.componente_id
+
+            WHERE professor_vinculos.professor_id = ?
+
+            ORDER BY
+                turmas.etapa COLLATE NOCASE ASC,
+                CAST(turmas.ano AS INTEGER) ASC,
+                turmas.nome COLLATE NOCASE ASC,
+                componentes_curriculares.nome COLLATE NOCASE ASC
+        """, (
+            professor_id,
+        ))
+
+        vinculos = cursor.fetchall()
+
+        return render_template(
+            "gestao/professor_vinculos.html",
+            professor=professor,
+            turmas=turmas,
+            componentes=componentes,
+            vinculos=vinculos
+        )
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        print(
+            "ERRO NOS VÍNCULOS DO PROFESSOR:",
+            erro
+        )
+
+        flash(
+            f"Erro ao carregar os vínculos: {erro}",
+            "erro"
+        )
+
+        return redirect("/usuarios")
+
+    finally:
+        banco.close()
+
+
+# =====================================================
+# EXCLUIR VÍNCULO DO PROFESSOR
+# =====================================================
+
+@app.route(
+    "/professor/<int:professor_id>/vinculos/<int:vinculo_id>/excluir",
+    methods=["POST"]
+)
+def excluir_professor_vinculo(
+    professor_id,
+    vinculo_id
+):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        flash(
+            "Você não possui permissão para excluir vínculos.",
+            "erro"
+        )
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        cargo_logado = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        escola_logada_id = session.get("escola_id")
+
+        # Busca o vínculo e a instituição do professor
+        cursor.execute("""
+            SELECT
+                professor_vinculos.id,
+                usuarios.escola_id
+
+            FROM professor_vinculos
+
+            INNER JOIN usuarios
+                ON usuarios.id =
+                   professor_vinculos.professor_id
+
+            WHERE professor_vinculos.id = ?
+              AND professor_vinculos.professor_id = ?
+
+            LIMIT 1
+        """, (
+            vinculo_id,
+            professor_id
+        ))
+
+        vinculo = cursor.fetchone()
+
+        if vinculo is None:
+            flash(
+                "Vínculo não encontrado.",
+                "erro"
+            )
+            return redirect(
+                f"/professor/{professor_id}/vinculos"
+            )
+
+        if (
+            cargo_logado == "Administrador da Instituição"
+            and vinculo["escola_id"] != escola_logada_id
+        ):
+            flash(
+                "Você não possui permissão para excluir esse vínculo.",
+                "erro"
+            )
+            return redirect("/usuarios")
+
+        cursor.execute("""
+            DELETE FROM professor_vinculos
+            WHERE id = ?
+              AND professor_id = ?
+        """, (
+            vinculo_id,
+            professor_id
+        ))
+
+        banco.commit()
+
+        flash(
+            "Vínculo excluído com sucesso.",
+            "success"
+        )
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        print(
+            "ERRO AO EXCLUIR VÍNCULO:",
+            erro
+        )
+
+        flash(
+            f"Erro ao excluir o vínculo: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect(
+        f"/professor/{professor_id}/vinculos"
+    )
+
+# =====================================================
+# COMPONENTES CURRICULARES
+# =====================================================
+
+@app.route("/componentes_curriculares", methods=["GET", "POST"])
+def componentes_curriculares():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador"
+    ]):
+        flash(
+            "Você não possui permissão para acessar os componentes curriculares.",
+            "erro"
+        )
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        usuario_cargo = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        usuario_id = session.get("usuario_id")
+        escola_id = session.get("escola_id")
+
+        # =================================================
+        # RECUPERA A INSTITUIÇÃO DO USUÁRIO
+        # =================================================
+
+        if (
+            usuario_cargo != "Administrador Geral"
+            and not escola_id
+            and usuario_id
+        ):
+
+            cursor.execute("""
+                SELECT escola_id
+                FROM usuarios
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                usuario_id,
+            ))
+
+            usuario = cursor.fetchone()
+
+            if usuario and usuario["escola_id"]:
+                escola_id = usuario["escola_id"]
+                session["escola_id"] = escola_id
+
+        # =================================================
+        # CADASTRA NOVO COMPONENTE
+        # =================================================
+
+        if request.method == "POST":
+
+            nome = request.form.get(
+                "nome",
+                ""
+            ).strip()
+
+            escola_formulario = request.form.get(
+                "escola_id",
+                ""
+            ).strip()
+
+            if usuario_cargo == "Administrador Geral":
+                escola_cadastro_id = escola_formulario
+            else:
+                escola_cadastro_id = escola_id
+
+            if not escola_cadastro_id:
+                flash(
+                    "Selecione uma instituição.",
+                    "erro"
+                )
+                return redirect("/componentes_curriculares")
+
+            if not nome:
+                flash(
+                    "Informe o nome do componente curricular.",
+                    "erro"
+                )
+                return redirect("/componentes_curriculares")
+
+            cursor.execute("""
+                SELECT id
+                FROM escolas
+                WHERE id = ?
+                  AND COALESCE(status, 1) = 1
+                LIMIT 1
+            """, (
+                escola_cadastro_id,
+            ))
+
+            escola = cursor.fetchone()
+
+            if escola is None:
+                flash(
+                    "A instituição selecionada é inválida ou está inativa.",
+                    "erro"
+                )
+                return redirect("/componentes_curriculares")
+
+            cursor.execute("""
+                SELECT id
+                FROM componentes_curriculares
+                WHERE escola_id = ?
+                  AND LOWER(TRIM(nome)) = LOWER(TRIM(?))
+                LIMIT 1
+            """, (
+                escola_cadastro_id,
+                nome
+            ))
+
+            componente_existente = cursor.fetchone()
+
+            if componente_existente:
+                flash(
+                    "Esse componente curricular já está cadastrado.",
+                    "erro"
+                )
+                return redirect("/componentes_curriculares")
+
+            cursor.execute("""
+                INSERT INTO componentes_curriculares (
+                    escola_id,
+                    nome,
+                    ativo,
+                    criado_em
+                )
+                VALUES (?, ?, 1, ?)
+            """, (
+                escola_cadastro_id,
+                nome,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+
+            banco.commit()
+
+            flash(
+                "Componente curricular cadastrado com sucesso.",
+                "success"
+            )
+
+            return redirect("/componentes_curriculares")
+
+        # =================================================
+        # LISTA INSTITUIÇÕES PARA ADMINISTRADOR GERAL
+        # =================================================
+
+        escolas = []
+
+        if usuario_cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao COLLATE NOCASE ASC
+            """)
+
+            escolas = cursor.fetchall()
+
+        # =================================================
+        # LISTA COMPONENTES
+        # =================================================
+
+        if usuario_cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    componentes_curriculares.id,
+                    componentes_curriculares.nome,
+                    componentes_curriculares.ativo,
+                    componentes_curriculares.escola_id,
+                    escolas.nome_instituicao
+
+                FROM componentes_curriculares
+
+                INNER JOIN escolas
+                    ON escolas.id =
+                       componentes_curriculares.escola_id
+
+                ORDER BY
+                    escolas.nome_instituicao COLLATE NOCASE ASC,
+                    componentes_curriculares.nome COLLATE NOCASE ASC
+            """)
+
+        else:
+
+            if not escola_id:
+                flash(
+                    "Seu usuário não está vinculado a uma instituição.",
+                    "erro"
+                )
+                return redirect("/")
+
+            cursor.execute("""
+                SELECT
+                    componentes_curriculares.id,
+                    componentes_curriculares.nome,
+                    componentes_curriculares.ativo,
+                    componentes_curriculares.escola_id,
+                    escolas.nome_instituicao
+
+                FROM componentes_curriculares
+
+                INNER JOIN escolas
+                    ON escolas.id =
+                       componentes_curriculares.escola_id
+
+                WHERE componentes_curriculares.escola_id = ?
+
+                ORDER BY
+                    componentes_curriculares.nome COLLATE NOCASE ASC
+            """, (
+                escola_id,
+            ))
+
+        componentes = cursor.fetchall()
+
+        return render_template(
+            "gestao/componentes_curriculares.html",
+            componentes=componentes,
+            escolas=escolas,
+            usuario_cargo=usuario_cargo
+        )
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        print(
+            "ERRO NOS COMPONENTES CURRICULARES:",
+            erro
+        )
+
+        flash(
+            f"Erro ao carregar os componentes curriculares: {erro}",
+            "erro"
+        )
+
+        return redirect("/")
+
+    finally:
+        banco.close()
+
+
+# =====================================================
+# ALTERAR STATUS DO COMPONENTE
+# =====================================================
+
+@app.route(
+    "/componentes_curriculares/<int:componente_id>/status",
+    methods=["POST"]
+)
+def alterar_status_componente(componente_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador"
+    ]):
+        flash(
+            "Você não possui permissão para alterar componentes curriculares.",
+            "erro"
+        )
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        usuario_cargo = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        escola_id = session.get("escola_id")
+
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                ativo
+            FROM componentes_curriculares
+            WHERE id = ?
+            LIMIT 1
+        """, (
+            componente_id,
+        ))
+
+        componente = cursor.fetchone()
+
+        if componente is None:
+            flash(
+                "Componente curricular não encontrado.",
+                "erro"
+            )
+            return redirect("/componentes_curriculares")
+
+        if (
+            usuario_cargo != "Administrador Geral"
+            and componente["escola_id"] != escola_id
+        ):
+            flash(
+                "Você não possui permissão para alterar esse componente.",
+                "erro"
+            )
+            return redirect("/componentes_curriculares")
+
+        novo_status = 0 if componente["ativo"] == 1 else 1
+
+        cursor.execute("""
+            UPDATE componentes_curriculares
+            SET ativo = ?
+            WHERE id = ?
+        """, (
+            novo_status,
+            componente_id
+        ))
+
+        banco.commit()
+
+        if novo_status == 1:
+            flash(
+                "Componente curricular ativado com sucesso.",
+                "success"
+            )
+        else:
+            flash(
+                "Componente curricular desativado com sucesso.",
+                "success"
+            )
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        print(
+            "ERRO AO ALTERAR COMPONENTE:",
+            erro
+        )
+
+        flash(
+            f"Erro ao alterar o componente curricular: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect("/componentes_curriculares")
+
+
+# =====================================================
+# EXCLUIR COMPONENTE
+# =====================================================
+
+# =========================================================
+# LISTAR ANOS LETIVOS
+# =========================================================
+
+@app.route("/anos-letivos")
+def anos_letivos():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = obter_escola_usuario()
+
+    lista_anos = []
+    escolas = []
+
+    try:
+
+        if cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT
+                    al.id,
+                    al.escola_id,
+                    al.ano,
+                    al.data_inicio,
+                    al.data_fim,
+                    al.ativo,
+                    al.encerrado,
+                    al.criado_em,
+                    e.nome_instituicao,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM turmas AS t
+                        WHERE t.ano_letivo_id = al.id
+                    ) AS total_turmas,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM alunos AS a
+                        WHERE a.ano_letivo_id = al.id
+                    ) AS total_alunos,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM provas AS p
+                        WHERE p.ano_letivo_id = al.id
+                    ) AS total_provas
+
+                FROM anos_letivos AS al
+
+                INNER JOIN escolas AS e
+                    ON e.id = al.escola_id
+
+                ORDER BY
+                    e.nome_instituicao COLLATE NOCASE ASC,
+                    al.ano DESC
+            """)
+
+            lista_anos = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao COLLATE NOCASE ASC
+            """)
+
+            escolas = cursor.fetchall()
+
+        else:
+
+            if not escola_id:
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
+                return redirect("/")
+
+            atualizar_ano_letivo_na_sessao(escola_id)
+
+            cursor.execute("""
+                SELECT
+                    al.id,
+                    al.escola_id,
+                    al.ano,
+                    al.data_inicio,
+                    al.data_fim,
+                    al.ativo,
+                    al.encerrado,
+                    al.criado_em,
+                    e.nome_instituicao,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM turmas AS t
+                        WHERE t.ano_letivo_id = al.id
+                    ) AS total_turmas,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM alunos AS a
+                        WHERE a.ano_letivo_id = al.id
+                    ) AS total_alunos,
+
+                    (
+                        SELECT COUNT(*)
+                        FROM provas AS p
+                        WHERE p.ano_letivo_id = al.id
+                    ) AS total_provas
+
+                FROM anos_letivos AS al
+
+                INNER JOIN escolas AS e
+                    ON e.id = al.escola_id
+
+                WHERE al.escola_id = ?
+
+                ORDER BY al.ano DESC
+            """, (
+                escola_id,
+            ))
+
+            lista_anos = cursor.fetchall()
+
+        return render_template(
+            "gestao/anos_letivos.html",
+            anos_letivos=lista_anos,
+            escolas=escolas,
+            cargo=cargo
+        )
+
+    except sqlite3.Error as erro:
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO LISTAR ANOS LETIVOS:", erro)
+
+        flash(
+            f"Erro ao carregar os anos letivos: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "gestao/anos_letivos.html",
+            anos_letivos=[],
+            escolas=[],
+            cargo=cargo
+        )
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# ABRIR NOVO ANO LETIVO
+# =========================================================
+
+@app.route("/anos-letivos/abrir", methods=["POST"])
+def abrir_ano_letivo():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    cargo = session.get("usuario_cargo", "").strip()
+
+    if cargo == "Administrador Geral":
+        escola_id = request.form.get("escola_id", "").strip()
+    else:
+        escola_id = obter_escola_usuario()
+
+    ano = request.form.get("ano", "").strip()
+    data_inicio = request.form.get("data_inicio", "").strip()
+    data_fim = request.form.get("data_fim", "").strip()
+
+    copiar_turmas = (
+        request.form.get("copiar_turmas") == "1"
+    )
+
+    if not escola_id:
+        flash("Selecione uma instituição.", "erro")
+        return redirect("/anos-letivos")
+
+    try:
+        escola_id = int(escola_id)
+    except (TypeError, ValueError):
+        flash("A instituição selecionada é inválida.", "erro")
+        return redirect("/anos-letivos")
+
+    try:
+        ano = int(ano)
+    except (TypeError, ValueError):
+        flash("Informe um ano letivo válido.", "erro")
+        return redirect("/anos-letivos")
+
+    if ano < 2000 or ano > 2100:
+        flash("Informe um ano entre 2000 e 2100.", "erro")
+        return redirect("/anos-letivos")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        cursor.execute("""
+            SELECT id, nome_instituicao
+            FROM escolas
+            WHERE id = ?
+              AND COALESCE(status, 1) = 1
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        escola = cursor.fetchone()
+
+        if escola is None:
+            flash(
+                "A instituição não existe ou está inativa.",
+                "erro"
+            )
+            return redirect("/anos-letivos")
+
+        cursor.execute("""
+            SELECT id
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ano = ?
+            LIMIT 1
+        """, (
+            escola_id,
+            ano
+        ))
+
+        if cursor.fetchone():
+            flash(
+                f"O ano letivo {ano} já está cadastrado.",
+                "erro"
+            )
+            return redirect("/anos-letivos")
+
+        # Guarda o ano anterior para copiar as turmas.
+        cursor.execute("""
+            SELECT id, ano
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND encerrado = 0
+            ORDER BY ano DESC
+            LIMIT 1
+        """, (
+            escola_id,
+        ))
+
+        ano_anterior = cursor.fetchone()
+
+        # Encerra o ano ativo atual.
+        cursor.execute("""
+            UPDATE anos_letivos
+            SET
+                ativo = 0,
+                encerrado = 1
+            WHERE escola_id = ?
+              AND ativo = 1
+        """, (
+            escola_id,
+        ))
+
+        # Cria o novo ano.
+        cursor.execute("""
+            INSERT INTO anos_letivos (
+                escola_id,
+                ano,
+                data_inicio,
+                data_fim,
+                ativo,
+                encerrado
+            )
+            VALUES (?, ?, ?, ?, 1, 0)
+        """, (
+            escola_id,
+            ano,
+            data_inicio or None,
+            data_fim or None
+        ))
+
+        novo_ano_id = cursor.lastrowid
+
+        # Copia as turmas do ano anterior, quando solicitado.
+        total_turmas_copiadas = 0
+
+        if copiar_turmas and ano_anterior:
+
+            cursor.execute("""
+                SELECT
+                    nome,
+                    etapa,
+                    ano,
+                    turno
+                FROM turmas
+                WHERE escola_id = ?
+                  AND ano_letivo_id = ?
+                ORDER BY id
+            """, (
+                escola_id,
+                ano_anterior["id"]
+            ))
+
+            turmas_anteriores = cursor.fetchall()
+
+            for turma in turmas_anteriores:
+
+                cursor.execute("""
+                    INSERT INTO turmas (
+                        nome,
+                        etapa,
+                        ano,
+                        turno,
+                        escola_id,
+                        ano_letivo,
+                        ano_letivo_id
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    turma["nome"],
+                    turma["etapa"],
+                    turma["ano"],
+                    turma["turno"],
+                    escola_id,
+                    ano,
+                    novo_ano_id
+                ))
+
+                total_turmas_copiadas += 1
+
+        # Mantém o campo antigo sincronizado.
+        cursor.execute("""
+            UPDATE escolas
+            SET ano_letivo = ?
+            WHERE id = ?
+        """, (
+            ano,
+            escola_id
+        ))
+
+        banco.commit()
+
+        # Remove eventual consulta a um ano antigo.
+        session.pop("ano_letivo_selecionado_id", None)
+
+        if cargo != "Administrador Geral":
+            session["ano_letivo_id"] = novo_ano_id
+            session["ano_letivo"] = ano
+
+        mensagem = f"Ano letivo {ano} aberto com sucesso."
+
+        if copiar_turmas:
+            mensagem += (
+                f" {total_turmas_copiadas} turma(s) "
+                "foram copiadas."
+            )
+
+        flash(mensagem, "success")
+
+        return redirect("/anos-letivos")
+
+    except sqlite3.Error as erro:
+
+        banco.rollback()
+
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO ABRIR ANO LETIVO:", erro)
+
+        flash(
+            f"Erro ao abrir o ano letivo: {erro}",
+            "erro"
+        )
+
+        return redirect("/anos-letivos")
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# CONSULTAR UM ANO LETIVO
+# =========================================================
+
+@app.route(
+    "/anos-letivos/<int:ano_letivo_id>/selecionar",
+    methods=["POST"]
+)
+def selecionar_ano_letivo(ano_letivo_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = obter_escola_usuario()
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+
+        if cargo == "Administrador Geral":
+
+            cursor.execute("""
+                SELECT id, escola_id, ano
+                FROM anos_letivos
+                WHERE id = ?
+                LIMIT 1
+            """, (
+                ano_letivo_id,
+            ))
+
+        else:
+
+            cursor.execute("""
+                SELECT id, escola_id, ano
+                FROM anos_letivos
+                WHERE id = ?
+                  AND escola_id = ?
+                LIMIT 1
+            """, (
+                ano_letivo_id,
+                escola_id
+            ))
+
+        ano_letivo = cursor.fetchone()
+
+        if ano_letivo is None:
+            flash(
+                "Ano letivo não encontrado ou sem permissão.",
+                "erro"
+            )
+            return redirect("/anos-letivos")
+
+        session["ano_letivo_selecionado_id"] = ano_letivo["id"]
+        session["ano_letivo_id"] = ano_letivo["id"]
+        session["ano_letivo"] = ano_letivo["ano"]
+
+        flash(
+            f"A plataforma está consultando o ano "
+            f"{ano_letivo['ano']}.",
+            "success"
+        )
+
+        return redirect("/anos-letivos")
+
+    except sqlite3.Error as erro:
+
+        print("ERRO AO SELECIONAR ANO LETIVO:", erro)
+
+        flash(
+            f"Erro ao selecionar o ano letivo: {erro}",
+            "erro"
+        )
+
+        return redirect("/anos-letivos")
+
+    finally:
+        banco.close()
+
+
+# =========================================================
+# VOLTAR AO ANO ATIVO
+# =========================================================
+
+@app.route(
+    "/anos-letivos/usar-ativo",
+    methods=["POST"]
+)
+def usar_ano_letivo_ativo():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    session.pop("ano_letivo_selecionado_id", None)
+
+    escola_id = obter_escola_usuario()
+
+    if escola_id:
+        atualizar_ano_letivo_na_sessao(escola_id)
+    else:
+        session.pop("ano_letivo_id", None)
+        session.pop("ano_letivo", None)
+
+    flash(
+        "A plataforma voltou a utilizar o ano letivo ativo.",
+        "success"
+    )
+
+    return redirect("/anos-letivos")
+
 if __name__ == "__main__":
+    criar_tabelas()
+
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=False
+        debug=True
     )

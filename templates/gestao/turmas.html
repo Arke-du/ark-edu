@@ -4,6 +4,599 @@
 
 {% block conteudo %}
 
+
+<style>
+/* =====================================================
+   AÇÕES DA TABELA DE TURMAS — PADRÃO ARK EDU
+===================================================== */
+
+.card-listagem-turmas {
+    overflow: visible;
+}
+
+.tabela-responsiva {
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.tabela-turmas .coluna-acoes {
+    width: 190px;
+    min-width: 190px;
+    text-align: center;
+}
+
+.acoes-turma {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.form-excluir-turma {
+    margin: 0;
+    padding: 0;
+}
+
+.btn-ver-turma,
+.btn-excluir-turma {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 0 13px;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        border-color .18s ease,
+        background .18s ease,
+        color .18s ease;
+}
+
+.btn-ver-turma svg,
+.btn-excluir-turma svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Botão principal: Ver */
+.btn-ver-turma {
+    border: 1px solid #1d4ed8;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+    box-shadow: 0 5px 14px rgba(37, 99, 235, .20);
+}
+
+.btn-ver-turma:hover {
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, .28);
+}
+
+.btn-ver-turma:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(37, 99, 235, .20);
+}
+
+/* Botão de risco: Excluir */
+.btn-excluir-turma {
+    border: 1px solid #fecaca;
+    background: #ffffff;
+    color: #dc2626;
+    box-shadow: 0 3px 10px rgba(220, 38, 38, .08);
+}
+
+.btn-excluir-turma:hover {
+    border-color: #ef4444;
+    background: #fef2f2;
+    color: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 7px 16px rgba(220, 38, 38, .14);
+}
+
+.btn-excluir-turma:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(220, 38, 38, .10);
+}
+
+.btn-ver-turma:focus-visible,
+.btn-excluir-turma:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, .28);
+    outline-offset: 2px;
+}
+
+/* Ajuste visual da linha */
+.tabela-turmas tbody td {
+    vertical-align: middle;
+}
+
+@media (max-width: 720px) {
+    .tabela-turmas .coluna-acoes {
+        width: 168px;
+        min-width: 168px;
+    }
+
+    .btn-ver-turma,
+    .btn-excluir-turma {
+        min-height: 36px;
+        padding: 0 11px;
+        font-size: 12px;
+    }
+
+    .btn-ver-turma svg,
+    .btn-excluir-turma svg {
+        width: 15px;
+        height: 15px;
+    }
+}
+
+
+/* =====================================================
+   FILTROS DE TURMAS — PADRÃO ARK EDU
+===================================================== */
+
+.filtros-turmas {
+    margin: 22px 0 18px;
+    padding: 18px;
+    border: 1px solid #dbeafe;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.filtros-turmas-grid {
+    display: grid;
+    grid-template-columns:
+        minmax(260px, 1.6fr)
+        repeat(4, minmax(155px, 1fr))
+        minmax(155px, auto);
+    gap: 12px;
+    align-items: end;
+}
+
+.filtro-campo {
+    min-width: 0;
+}
+
+.filtro-campo label {
+    display: block;
+    margin-bottom: 7px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.filtro-campo input,
+.filtro-campo select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 43px;
+    box-sizing: border-box;
+    padding: 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition:
+        border-color .18s ease,
+        box-shadow .18s ease,
+        background .18s ease;
+}
+
+.filtro-campo input::placeholder {
+    color: #94a3b8;
+}
+
+.filtro-campo input:focus,
+.filtro-campo select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .14);
+}
+
+.btn-limpar-filtros {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: end;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 43px;
+    padding: 0 14px;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #334155;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        transform .18s ease,
+        border-color .18s ease,
+        background .18s ease,
+        color .18s ease,
+        box-shadow .18s ease;
+}
+
+.btn-limpar-filtros:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    color: #123b82;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, .08);
+}
+
+.btn-limpar-filtros svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.filtros-rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.contador-turmas {
+    font-weight: 700;
+}
+
+.contador-turmas strong {
+    color: #123b82;
+}
+
+.sem-resultado-filtro {
+    display: none;
+}
+
+@media (max-width: 1180px) {
+    .filtros-turmas-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+
+    .filtro-busca {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 650px) {
+    .filtros-turmas {
+        padding: 15px;
+    }
+
+    .filtros-turmas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filtro-busca {
+        grid-column: auto;
+    }
+
+    .btn-limpar-filtros {
+        width: 100%;
+    }
+
+    .filtros-rodape {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+/* =====================================================
+   MODAL DE EXCLUSÃO — PADRÃO ARK EDU
+===================================================== */
+
+.ark-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, .58);
+    backdrop-filter: blur(6px);
+}
+
+.ark-modal-overlay.ativo {
+    display: flex;
+}
+
+.ark-modal {
+    width: 100%;
+    max-width: 520px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .65);
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .28);
+    animation: arkModalEntrada .22s ease-out;
+}
+
+@keyframes arkModalEntrada {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.ark-modal-cabecalho {
+    padding: 28px 28px 18px;
+    text-align: center;
+}
+
+.ark-modal-icone {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 18px;
+    border: 1px solid #fecaca;
+    border-radius: 22px;
+    background: linear-gradient(145deg, #fff7f7 0%, #fee2e2 100%);
+    color: #dc2626;
+    box-shadow: 0 10px 24px rgba(220, 38, 38, .12);
+}
+
+.ark-modal-icone svg {
+    width: 36px;
+    height: 36px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ark-modal-titulo {
+    margin: 0 0 8px;
+    color: #123b82;
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.ark-modal-texto {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.ark-modal-turma {
+    margin: 0 28px 18px;
+    padding: 16px 18px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: #f8fbff;
+    text-align: center;
+}
+
+.ark-modal-turma strong {
+    display: block;
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.ark-modal-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 28px 24px;
+    padding: 13px 14px;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #92400e;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.ark-modal-aviso svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin-top: 1px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ark-modal-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 28px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.ark-btn-cancelar,
+.ark-btn-confirmar {
+    min-height: 42px;
+    padding: 0 17px;
+    border-radius: 11px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.ark-btn-cancelar {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+}
+
+.ark-btn-cancelar:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.ark-btn-confirmar {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #dc2626;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #ffffff;
+    box-shadow: 0 7px 16px rgba(220, 38, 38, .18);
+}
+
+.ark-btn-confirmar:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(220, 38, 38, .24);
+}
+
+.ark-btn-confirmar svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+body.modal-aberto {
+    overflow: hidden;
+}
+
+@media (max-width: 560px) {
+    .ark-modal-overlay {
+        padding: 14px;
+    }
+
+    .ark-modal-cabecalho,
+    .ark-modal-acoes {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .ark-modal-turma,
+    .ark-modal-aviso {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    .ark-modal-acoes {
+        flex-direction: column-reverse;
+    }
+
+    .ark-btn-cancelar,
+    .ark-btn-confirmar {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+
+/* =====================================================
+   ANO LETIVO ATIVO
+===================================================== */
+
+.ano-letivo-ativo-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 22px;
+    padding: 15px 18px;
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
+}
+
+.ano-letivo-ativo-texto {
+    min-width: 0;
+}
+
+.ano-letivo-ativo-texto span {
+    display: block;
+    margin-bottom: 3px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.ano-letivo-ativo-texto strong {
+    color: #123b82;
+    font-size: 17px;
+    font-weight: 900;
+}
+
+.ano-letivo-ativo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 76px;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #123b82;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.ano-letivo-ativo-box.oculto {
+    display: none;
+}
+
+@media (max-width: 560px) {
+    .ano-letivo-ativo-box {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+</style>
+
+
 <div class="pagina-cabecalho">
 
     <a href="/" class="voltar">
@@ -12,70 +605,223 @@
 
     <div class="pagina-titulo-linha">
         <div>
-            <h1>Cadastro de Turmas</h1>
+            <h1>
+                {% if pode_gerenciar %}
+                    Gestão de Turmas
+                {% else %}
+                    Minhas Turmas
+                {% endif %}
+            </h1>
+
             <p>
-                Gerencie as turmas da instituição e seus vínculos.
+                {% if pode_gerenciar %}
+                    Cadastre, consulte e gerencie as turmas da instituição.
+                {% else %}
+                    Consulte as turmas em que você está vinculado.
+                {% endif %}
             </p>
         </div>
     </div>
 
 </div>
 
-<!-- CADASTRO -->
+
+<!-- =====================================================
+     CADASTRO DE TURMA
+     SOMENTE PARA OS CARGOS COM PERMISSÃO DE GERENCIAMENTO
+====================================================== -->
+
+{% if pode_gerenciar %}
+
 <div class="card form-card">
 
     <h2>Nova Turma</h2>
 
     <p class="ajuda-formulario">
-        Cadastre turmas para organizar alunos, professores e avaliações.
+        A turma será vinculada automaticamente ao ano letivo ativo
+        da instituição.
     </p>
 
-    <form action="/cadastrar_turma" method="POST">
+    {% if cargo == "Administrador Geral" %}
+        <div
+            class="ano-letivo-ativo-box oculto"
+            id="boxAnoLetivoInstituicao"
+        >
+            <div class="ano-letivo-ativo-texto">
+                <span>Ano letivo da instituição selecionada</span>
+                <strong id="textoAnoLetivoInstituicao">
+                    Selecione uma instituição
+                </strong>
+            </div>
+
+            <span
+                class="ano-letivo-ativo-badge"
+                id="badgeAnoLetivoInstituicao"
+            >
+                —
+            </span>
+        </div>
+    {% else %}
+        <div class="ano-letivo-ativo-box">
+            <div class="ano-letivo-ativo-texto">
+                <span>Ano letivo ativo</span>
+                <strong>
+                    As novas turmas serão cadastradas neste ano.
+                </strong>
+            </div>
+
+            <span class="ano-letivo-ativo-badge">
+                {{ ano_letivo_ativo or "Não definido" }}
+            </span>
+        </div>
+    {% endif %}
+
+    <form
+        action="{{ url_for('cadastrar_turma') }}"
+        method="POST"
+        id="formTurma"
+    >
 
         <div class="form-grid">
 
+            {% if cargo == "Administrador Geral" %}
+
+                <div class="campo">
+                    <label for="escola_id">
+                        Instituição
+                    </label>
+
+                    <select
+                        id="escola_id"
+                        name="escola_id"
+                        required
+                    >
+                        <option value="">
+                            Selecione a instituição
+                        </option>
+
+                        {% for escola in escolas %}
+                            <option
+                                value="{{ escola['id'] }}"
+                                data-ano-letivo="{{ escola['ano_letivo_ativo'] or '' }}"
+                            >
+                                {{ escola["nome_instituicao"] }}
+                                {% if escola["ano_letivo_ativo"] %}
+                                    — Ano ativo: {{ escola["ano_letivo_ativo"] }}
+                                {% else %}
+                                    — Sem ano ativo
+                                {% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+            {% endif %}
+
             <div class="campo">
-                <label for="nome">Nome da turma</label>
+                <label for="etapa">
+                    Etapa de ensino
+                </label>
+
+                <select
+                    id="etapa"
+                    name="etapa"
+                    required
+                >
+                    <option value="">
+                        Selecione a etapa
+                    </option>
+
+                    <option value="Educação Infantil">
+                        Educação Infantil
+                    </option>
+
+                    <option value="Ensino Fundamental - Anos Iniciais">
+                        Ensino Fundamental — Anos Iniciais
+                    </option>
+
+                    <option value="Ensino Fundamental - Anos Finais">
+                        Ensino Fundamental — Anos Finais
+                    </option>
+
+                    <option value="Ensino Médio">
+                        Ensino Médio
+                    </option>
+
+                    <option value="Educação de Jovens e Adultos">
+                        Educação de Jovens e Adultos — EJA
+                    </option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="ano">
+                    Ano/Série
+                </label>
+
+                <select
+                    id="ano"
+                    name="ano"
+                    required
+                    disabled
+                >
+                    <option value="">
+                        Primeiro selecione a etapa
+                    </option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="nome">
+                    Identificação da turma
+                </label>
 
                 <input
                     type="text"
                     id="nome"
                     name="nome"
-                    placeholder="Ex.: 5º Ano B"
+                    placeholder="Ex.: A, B, C ou Turma Única"
+                    maxlength="30"
+                    autocomplete="off"
                     required
                 >
             </div>
 
             <div class="campo">
-                <label for="ano">Ano/Série</label>
-
-                <input
-                    type="text"
-                    id="ano"
-                    name="ano"
-                    placeholder="Ex.: 5º Ano"
-                    required
-                >
-            </div>
-
-            <div class="campo">
-                <label for="turno">Turno</label>
+                <label for="turno">
+                    Turno
+                </label>
 
                 <select
                     id="turno"
                     name="turno"
                     required
                 >
-                    <option value="">Selecione</option>
-                    <option value="Matutino">Matutino</option>
-                    <option value="Vespertino">Vespertino</option>
-                    <option value="Noturno">Noturno</option>
+                    <option value="">
+                        Selecione
+                    </option>
+
+                    <option value="Matutino">
+                        Matutino
+                    </option>
+
+                    <option value="Vespertino">
+                        Vespertino
+                    </option>
+
+                    <option value="Noturno">
+                        Noturno
+                    </option>
+
+                    <option value="Integral">
+                        Integral
+                    </option>
                 </select>
             </div>
 
         </div>
 
-        <div class="acoes-form" style="margin-top: 24px;">
+        <div class="acoes-form">
 
             <button
                 type="submit"
@@ -90,94 +836,300 @@
 
 </div>
 
-<!-- LISTAGEM -->
-<div class="card form-card">
+{% endif %}
+
+
+<!-- =====================================================
+     LISTAGEM DE TURMAS
+====================================================== -->
+
+<div class="card form-card card-listagem-turmas">
 
     <div class="pagina-titulo-linha">
+
         <div>
-            <h2>Turmas Cadastradas</h2>
+            <h2>
+                {% if cargo == "Professor" %}
+                    Turmas vinculadas
+                {% else %}
+                    Turmas cadastradas
+                {% endif %}
+            </h2>
+
             <p class="ajuda-formulario">
-                Consulte e gerencie as turmas já cadastradas.
+                {% if cargo == "Professor" %}
+                    Acesse os dados das turmas em que você leciona.
+                {% else %}
+                    Consulte e gerencie as turmas já cadastradas.
+                {% endif %}
             </p>
         </div>
+
     </div>
 
-    <div class="tabela-container">
 
-        <table>
+    <!-- =====================================================
+         FILTROS DA LISTAGEM
+    ====================================================== -->
+
+    <div class="filtros-turmas" id="areaFiltrosTurmas">
+
+        <div class="filtros-turmas-grid">
+
+            <div class="filtro-campo filtro-busca">
+                <label for="filtroBuscaTurma">
+                    Pesquisar
+                </label>
+
+                <input
+                    type="search"
+                    id="filtroBuscaTurma"
+                    placeholder="Digite turma, etapa, ano ou instituição"
+                    autocomplete="off"
+                >
+            </div>
+
+            {% if cargo == "Administrador Geral" %}
+                <div class="filtro-campo">
+                    <label for="filtroInstituicaoTurma">
+                        Instituição
+                    </label>
+
+                    <select id="filtroInstituicaoTurma">
+                        <option value="">
+                            Todas as instituições
+                        </option>
+                    </select>
+                </div>
+            {% endif %}
+
+            <div class="filtro-campo">
+                <label for="filtroAnoLetivoTurma">
+                    Ano letivo
+                </label>
+
+                <select id="filtroAnoLetivoTurma">
+                    <option value="">
+                        Todos os anos letivos
+                    </option>
+                </select>
+            </div>
+
+            <div class="filtro-campo">
+                <label for="filtroEtapaTurma">
+                    Etapa
+                </label>
+
+                <select id="filtroEtapaTurma">
+                    <option value="">
+                        Todas as etapas
+                    </option>
+                </select>
+            </div>
+
+            <div class="filtro-campo">
+                <label for="filtroAnoTurma">
+                    Ano/Série
+                </label>
+
+                <select id="filtroAnoTurma">
+                    <option value="">
+                        Todos os anos
+                    </option>
+                </select>
+            </div>
+
+            <button
+                type="button"
+                class="btn-limpar-filtros"
+                id="btnLimparFiltrosTurma"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                </svg>
+
+                Limpar filtros
+            </button>
+
+        </div>
+
+        <div class="filtros-rodape">
+
+            <span
+                class="contador-turmas"
+                id="contadorTurmas"
+            >
+                Exibindo as turmas cadastradas.
+            </span>
+
+            <span>
+                Os filtros são aplicados automaticamente.
+            </span>
+
+        </div>
+
+    </div>
+
+    <div class="tabela-responsiva">
+
+        <table class="tabela-padrao tabela-turmas" id="tabelaTurmas">
 
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Nome</th>
+
+                    {% if cargo == "Administrador Geral" %}
+                        <th>Instituição</th>
+                    {% endif %}
+
+                    <th>Ano Letivo</th>
+                    <th>Etapa</th>
+                    <th>Turma</th>
                     <th>Ano/Série</th>
                     <th>Turno</th>
-                    <th class="acoes">Ações</th>
+                    <th>Alunos</th>
+                    <th>Professores</th>
+                    <th class="coluna-acoes">Ver</th>
                 </tr>
             </thead>
 
             <tbody>
 
                 {% for turma in turmas %}
-                <tr>
 
-                    <td>{{ turma[0] }}</td>
-                    <td>{{ turma[1] }}</td>
-                    <td>{{ turma[2] }}</td>
-                    <td>{{ turma[3] }}</td>
+                    <tr
+                        class="linha-turma"
+                        data-id="{{ turma['id'] }}"
+                        data-instituicao="{{ turma['nome_instituicao'] or '' }}"
+                        data-ano-letivo="{{ turma['ano_letivo_atual'] or turma['ano_letivo'] or '' }}"
+                        data-etapa="{{ turma['etapa'] or '' }}"
+                        data-turma="{{ turma['ano'] or '' }} {{ turma['nome'] or '' }}"
+                        data-ano="{{ turma['ano'] or '' }}"
+                        data-turno="{{ turma['turno'] or '' }}"
+                    >
 
-                    <td class="acoes">
+                        <td>
+                            {{ turma["id"] }}
+                        </td>
 
-                        <div class="menu-acoes">
+                        {% if cargo == "Administrador Geral" %}
+                            <td>
+                                {{ turma["nome_instituicao"] or "Não informada" }}
+                            </td>
+                        {% endif %}
 
-                            <button
-                                class="btn-menu"
-                                type="button"
-                                aria-label="Abrir ações da turma"
-                                onclick="toggleMenu(this)"
-                            >
-                                ⋮
-                            </button>
+                        <td>
+                            {{ turma["ano_letivo_atual"] or turma["ano_letivo"] or "Não informado" }}
+                        </td>
 
-                            <div class="dropdown">
+                        <td>
+                            {{ turma["etapa"] or "Não informada" }}
+                        </td>
 
-                                <a href="/turma/{{ turma[0] }}/alunos">
-                                    Ver alunos
-                                </a>
+                        <td>
+                            <strong>
+                                {{ turma["ano"] }} "{{ turma["nome"] }}"
+                            </strong>
+                        </td>
 
-                                <a href="/turma_professores/{{ turma[0] }}">
-                                    Ver professores
-                                </a>
+                        <td>
+                            {{ turma["ano"] or "Não informado" }}
+                        </td>
 
-                                <a href="/editar_turma/{{ turma[0] }}">
-                                    Editar turma
-                                </a>
+                        <td>
+                            {{ turma["turno"] or "Não informado" }}
+                        </td>
+
+                        <td>
+                            {{ turma["total_alunos"] or 0 }}
+                        </td>
+
+                        <td>
+                            {{ turma["total_professores"] or 0 }}
+                        </td>
+
+                        <td class="coluna-acoes">
+
+                            <div class="acoes-turma">
 
                                 <a
-                                    href="/excluir_turma/{{ turma[0] }}"
-                                    class="excluir"
-                                    onclick="return confirm('Deseja realmente excluir esta turma?')"
+                                    href="{{ url_for('visualizar_turma', turma_id=turma['id']) }}"
+                                    class="btn-ver-turma"
+                                    aria-label="Ver turma {{ turma['ano'] }} {{ turma['nome'] }}"
                                 >
-                                    Excluir turma
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <span>Ver</span>
                                 </a>
+
+                                {% if pode_gerenciar %}
+
+                                    <form
+                                        action="{{ url_for('excluir_turma', turma_id=turma['id']) }}"
+                                        method="POST"
+                                        class="form-excluir-turma"
+                                        data-nome-turma="{{ turma['ano'] }} {{ turma['nome'] }}"
+                                        data-etapa-turma="{{ turma['etapa'] or 'Etapa não informada' }}"
+                                        data-turno-turma="{{ turma['turno'] or 'Turno não informado' }}"
+                                    >
+                                        <button
+                                            type="submit"
+                                            class="btn-excluir-turma"
+                                            aria-label="Excluir turma {{ turma['ano'] }} {{ turma['nome'] }}"
+                                        >
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M8 6V4h8v2"></path>
+                                                <path d="M19 6l-1 14H6L5 6"></path>
+                                                <path d="M10 11v6"></path>
+                                                <path d="M14 11v6"></path>
+                                            </svg>
+                                            <span>Excluir</span>
+                                        </button>
+                                    </form>
+
+                                {% endif %}
 
                             </div>
 
-                        </div>
+                        </td>
 
-                    </td>
-
-                </tr>
+                    </tr>
 
                 {% else %}
 
-                <tr>
-                    <td colspan="5" class="sem-registro">
-                        Nenhuma turma cadastrada ainda.
-                    </td>
-                </tr>
+                    <tr>
+                        <td
+                            colspan="{% if cargo == 'Administrador Geral' %}10{% else %}9{% endif %}"
+                            class="sem-registro"
+                        >
+                            {% if cargo == "Professor" %}
+                                Você ainda não está vinculado a nenhuma turma.
+                            {% else %}
+                                Nenhuma turma cadastrada no ano letivo ativo.
+                            {% endif %}
+                        </td>
+                    </tr>
 
                 {% endfor %}
+
+                {% if turmas %}
+                    <tr
+                        id="linhaSemResultadoFiltro"
+                        class="sem-resultado-filtro"
+                    >
+                        <td
+                            colspan="{% if cargo == 'Administrador Geral' %}10{% else %}9{% endif %}"
+                            class="sem-registro"
+                        >
+                            Nenhuma turma corresponde aos filtros selecionados.
+                        </td>
+                    </tr>
+                {% endif %}
 
             </tbody>
 
@@ -187,40 +1139,699 @@
 
 </div>
 
+
+
+<!-- =====================================================
+     MODAL DE CONFIRMAÇÃO DE EXCLUSÃO
+====================================================== -->
+
+<div
+    class="ark-modal-overlay"
+    id="modalExcluirTurma"
+    aria-hidden="true"
+>
+    <div
+        class="ark-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalExcluirTitulo"
+        aria-describedby="modalExcluirDescricao"
+    >
+
+        <div class="ark-modal-cabecalho">
+
+            <div class="ark-modal-icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                </svg>
+            </div>
+
+            <h2
+                class="ark-modal-titulo"
+                id="modalExcluirTitulo"
+            >
+                Excluir turma
+            </h2>
+
+            <p
+                class="ark-modal-texto"
+                id="modalExcluirDescricao"
+            >
+                Você está prestes a excluir permanentemente esta turma.
+            </p>
+
+        </div>
+
+        <div class="ark-modal-turma">
+            <strong id="modalNomeTurma">
+                Turma
+            </strong>
+            <span id="modalDetalhesTurma">
+                Etapa e turno
+            </span>
+        </div>
+
+        <div class="ark-modal-aviso">
+
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+            </svg>
+
+            <div>
+                <strong>Atenção:</strong>
+                esta ação não poderá ser desfeita.
+                A exclusão será bloqueada caso existam alunos
+                ou avaliações vinculados à turma.
+            </div>
+
+        </div>
+
+        <div class="ark-modal-acoes">
+
+            <button
+                type="button"
+                class="ark-btn-cancelar"
+                id="btnCancelarExclusao"
+            >
+                Cancelar
+            </button>
+
+            <button
+                type="button"
+                class="ark-btn-confirmar"
+                id="btnConfirmarExclusao"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                </svg>
+
+                Excluir turma
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+
 <script>
-function toggleMenu(botao) {
+document.addEventListener("DOMContentLoaded", function () {
 
-    const menuAtual = botao.nextElementSibling;
+    const campoEtapa = document.getElementById("etapa");
+    const campoAno = document.getElementById("ano");
 
-    document.querySelectorAll(".dropdown").forEach(function (menu) {
-        if (menu !== menuAtual) {
-            menu.classList.remove("ativo");
+    const campoEscola = document.getElementById("escola_id");
+    const boxAnoLetivoInstituicao =
+        document.getElementById("boxAnoLetivoInstituicao");
+    const textoAnoLetivoInstituicao =
+        document.getElementById("textoAnoLetivoInstituicao");
+    const badgeAnoLetivoInstituicao =
+        document.getElementById("badgeAnoLetivoInstituicao");
+
+    function atualizarAnoLetivoInstituicao() {
+
+        if (
+            !campoEscola ||
+            !boxAnoLetivoInstituicao ||
+            !textoAnoLetivoInstituicao ||
+            !badgeAnoLetivoInstituicao
+        ) {
+            return;
         }
-    });
 
-    document.querySelectorAll(".btn-menu").forEach(function (btn) {
-        if (btn !== botao) {
-            btn.classList.remove("ativo");
+        const opcaoSelecionada =
+            campoEscola.options[campoEscola.selectedIndex];
+
+        const anoLetivo =
+            opcaoSelecionada
+                ? String(
+                    opcaoSelecionada.dataset.anoLetivo || ""
+                ).trim()
+                : "";
+
+        if (!campoEscola.value) {
+            boxAnoLetivoInstituicao.classList.add("oculto");
+            textoAnoLetivoInstituicao.textContent =
+                "Selecione uma instituição";
+            badgeAnoLetivoInstituicao.textContent = "—";
+            return;
         }
-    });
 
-    menuAtual.classList.toggle("ativo");
-    botao.classList.toggle("ativo");
-}
+        boxAnoLetivoInstituicao.classList.remove("oculto");
 
-document.addEventListener("click", function (event) {
+        if (anoLetivo) {
+            textoAnoLetivoInstituicao.textContent =
+                "As novas turmas serão cadastradas neste ano.";
+            badgeAnoLetivoInstituicao.textContent = anoLetivo;
+        } else {
+            textoAnoLetivoInstituicao.textContent =
+                "Esta instituição ainda não possui ano letivo ativo.";
+            badgeAnoLetivoInstituicao.textContent = "Indefinido";
+        }
+    }
 
-    if (!event.target.closest(".menu-acoes")) {
+    if (campoEscola) {
+        campoEscola.addEventListener(
+            "change",
+            atualizarAnoLetivoInstituicao
+        );
 
-        document.querySelectorAll(".dropdown").forEach(function (menu) {
-            menu.classList.remove("ativo");
-        });
+        atualizarAnoLetivoInstituicao();
+    }
 
-        document.querySelectorAll(".btn-menu").forEach(function (btn) {
-            btn.classList.remove("ativo");
+    if (!campoEtapa || !campoAno) {
+        return;
+    }
+
+    const seriesPorEtapa = {
+
+        "Educação Infantil": [
+            "Berçário I",
+            "Berçário II",
+            "Maternal I",
+            "Maternal II",
+            "Pré I",
+            "Pré II"
+        ],
+
+        "Ensino Fundamental - Anos Iniciais": [
+            "1º Ano",
+            "2º Ano",
+            "3º Ano",
+            "4º Ano",
+            "5º Ano"
+        ],
+
+        "Ensino Fundamental - Anos Finais": [
+            "6º Ano",
+            "7º Ano",
+            "8º Ano",
+            "9º Ano"
+        ],
+
+        "Ensino Médio": [
+            "1ª Série",
+            "2ª Série",
+            "3ª Série"
+        ],
+
+        "Educação de Jovens e Adultos": [
+            "EJA — 1º Segmento",
+            "EJA — 2º Segmento",
+            "EJA — Ensino Médio"
+        ]
+    };
+
+    function atualizarSeries() {
+
+        const etapaSelecionada = campoEtapa.value;
+        const series = seriesPorEtapa[etapaSelecionada] || [];
+
+        campoAno.innerHTML = "";
+
+        if (series.length === 0) {
+
+            campoAno.disabled = true;
+
+            const opcao = document.createElement("option");
+            opcao.value = "";
+            opcao.textContent = "Primeiro selecione a etapa";
+
+            campoAno.appendChild(opcao);
+
+            return;
+        }
+
+        campoAno.disabled = false;
+
+        const opcaoInicial = document.createElement("option");
+        opcaoInicial.value = "";
+        opcaoInicial.textContent = "Selecione o ano/série";
+
+        campoAno.appendChild(opcaoInicial);
+
+        series.forEach(function (serie) {
+
+            const opcao = document.createElement("option");
+
+            opcao.value = serie;
+            opcao.textContent = serie;
+
+            campoAno.appendChild(opcao);
         });
     }
+
+    campoEtapa.addEventListener(
+        "change",
+        atualizarSeries
+    );
+
+    atualizarSeries();
 });
+
+
+const modalExcluirTurma = document.getElementById("modalExcluirTurma");
+const modalNomeTurma = document.getElementById("modalNomeTurma");
+const modalDetalhesTurma = document.getElementById("modalDetalhesTurma");
+const btnCancelarExclusao = document.getElementById("btnCancelarExclusao");
+const btnConfirmarExclusao = document.getElementById("btnConfirmarExclusao");
+
+let formularioExclusaoAtual = null;
+
+document.querySelectorAll(".form-excluir-turma").forEach(function (formulario) {
+
+    formulario.addEventListener("submit", function (evento) {
+
+        evento.preventDefault();
+
+        formularioExclusaoAtual = formulario;
+
+        const nomeTurma =
+            formulario.dataset.nomeTurma || "Turma";
+
+        const etapaTurma =
+            formulario.dataset.etapaTurma || "Etapa não informada";
+
+        const turnoTurma =
+            formulario.dataset.turnoTurma || "Turno não informado";
+
+        modalNomeTurma.textContent = nomeTurma;
+
+        modalDetalhesTurma.textContent =
+            etapaTurma + " • " + turnoTurma;
+
+        modalExcluirTurma.classList.add("ativo");
+        modalExcluirTurma.setAttribute("aria-hidden", "false");
+
+        document.body.classList.add("modal-aberto");
+
+        setTimeout(function () {
+            btnCancelarExclusao.focus();
+        }, 50);
+    });
+});
+
+function fecharModalExclusao() {
+
+    modalExcluirTurma.classList.remove("ativo");
+    modalExcluirTurma.setAttribute("aria-hidden", "true");
+
+    document.body.classList.remove("modal-aberto");
+
+    formularioExclusaoAtual = null;
+}
+
+btnCancelarExclusao.addEventListener(
+    "click",
+    fecharModalExclusao
+);
+
+btnConfirmarExclusao.addEventListener("click", function () {
+
+    if (!formularioExclusaoAtual) {
+        return;
+    }
+
+    const formularioParaEnviar = formularioExclusaoAtual;
+
+    fecharModalExclusao();
+
+    formularioParaEnviar.submit();
+});
+
+modalExcluirTurma.addEventListener("click", function (evento) {
+
+    if (evento.target === modalExcluirTurma) {
+        fecharModalExclusao();
+    }
+});
+
+document.addEventListener("keydown", function (evento) {
+
+    if (
+        evento.key === "Escape" &&
+        modalExcluirTurma.classList.contains("ativo")
+    ) {
+        fecharModalExclusao();
+    }
+});
+
+
+/* =====================================================
+   FILTROS DA LISTAGEM DE TURMAS
+===================================================== */
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const tabelaTurmas =
+        document.getElementById("tabelaTurmas");
+
+    if (!tabelaTurmas) {
+        return;
+    }
+
+    const linhasTurmas = Array.from(
+        tabelaTurmas.querySelectorAll(
+            "tbody .linha-turma"
+        )
+    );
+
+    const campoBusca =
+        document.getElementById("filtroBuscaTurma");
+
+    const filtroInstituicao =
+        document.getElementById("filtroInstituicaoTurma");
+
+    const filtroAnoLetivo =
+        document.getElementById("filtroAnoLetivoTurma");
+
+    const filtroEtapa =
+        document.getElementById("filtroEtapaTurma");
+
+    const filtroAno =
+        document.getElementById("filtroAnoTurma");
+
+    const btnLimpar =
+        document.getElementById("btnLimparFiltrosTurma");
+
+    const contador =
+        document.getElementById("contadorTurmas");
+
+    const linhaSemResultado =
+        document.getElementById("linhaSemResultadoFiltro");
+
+    if (
+        !campoBusca ||
+        !filtroAnoLetivo ||
+        !filtroEtapa ||
+        !filtroAno ||
+        !btnLimpar ||
+        !contador
+    ) {
+        return;
+    }
+
+    function normalizarTexto(valor) {
+
+        return String(valor || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+    }
+
+    function adicionarOpcoesUnicas(
+        select,
+        atributo
+    ) {
+
+        if (!select) {
+            return;
+        }
+
+        const valores = linhasTurmas
+            .map(function (linha) {
+
+                return String(
+                    linha.dataset[atributo] || ""
+                ).trim();
+            })
+            .filter(function (valor) {
+
+                return valor !== "";
+            });
+
+        const valoresUnicos =
+            Array.from(new Set(valores));
+
+        valoresUnicos.sort(function (a, b) {
+
+            return a.localeCompare(
+                b,
+                "pt-BR",
+                {
+                    numeric: true,
+                    sensitivity: "base"
+                }
+            );
+        });
+
+        valoresUnicos.forEach(function (valor) {
+
+            const opcao =
+                document.createElement("option");
+
+            opcao.value = valor;
+            opcao.textContent = valor;
+
+            select.appendChild(opcao);
+        });
+    }
+
+    adicionarOpcoesUnicas(
+        filtroInstituicao,
+        "instituicao"
+    );
+
+    adicionarOpcoesUnicas(
+        filtroAnoLetivo,
+        "anoLetivo"
+    );
+
+    adicionarOpcoesUnicas(
+        filtroEtapa,
+        "etapa"
+    );
+
+    adicionarOpcoesUnicas(
+        filtroAno,
+        "ano"
+    );
+
+    function atualizarContador(totalVisivel) {
+
+        const totalGeral =
+            linhasTurmas.length;
+
+        if (totalGeral === 0) {
+
+            contador.textContent =
+                "Nenhuma turma disponível para consulta.";
+
+            return;
+        }
+
+        if (totalVisivel === totalGeral) {
+
+            contador.innerHTML =
+                "Exibindo <strong>" +
+                totalGeral +
+                "</strong> " +
+                (
+                    totalGeral === 1
+                        ? "turma."
+                        : "turmas."
+                );
+
+            return;
+        }
+
+        contador.innerHTML =
+            "Exibindo <strong>" +
+            totalVisivel +
+            "</strong> de <strong>" +
+            totalGeral +
+            "</strong> " +
+            (
+                totalGeral === 1
+                    ? "turma."
+                    : "turmas."
+            );
+    }
+
+    function aplicarFiltros() {
+
+        const busca =
+            normalizarTexto(campoBusca.value);
+
+        const instituicaoSelecionada =
+            filtroInstituicao
+                ? normalizarTexto(
+                    filtroInstituicao.value
+                )
+                : "";
+
+        const anoLetivoSelecionado =
+            normalizarTexto(
+                filtroAnoLetivo.value
+            );
+
+        const etapaSelecionada =
+            normalizarTexto(
+                filtroEtapa.value
+            );
+
+        const anoSelecionado =
+            normalizarTexto(
+                filtroAno.value
+            );
+
+        let totalVisivel = 0;
+
+        linhasTurmas.forEach(function (linha) {
+
+            const id =
+                normalizarTexto(
+                    linha.dataset.id
+                );
+
+            const instituicao =
+                normalizarTexto(
+                    linha.dataset.instituicao
+                );
+
+            const anoLetivo =
+                normalizarTexto(
+                    linha.dataset.anoLetivo
+                );
+
+            const etapa =
+                normalizarTexto(
+                    linha.dataset.etapa
+                );
+
+            const turma =
+                normalizarTexto(
+                    linha.dataset.turma
+                );
+
+            const ano =
+                normalizarTexto(
+                    linha.dataset.ano
+                );
+
+            const turno =
+                normalizarTexto(
+                    linha.dataset.turno
+                );
+
+            const textoCompleto = [
+                id,
+                instituicao,
+                anoLetivo,
+                etapa,
+                turma,
+                ano,
+                turno
+            ].join(" ");
+
+            const correspondeBusca =
+                !busca ||
+                textoCompleto.includes(busca);
+
+            const correspondeInstituicao =
+                !instituicaoSelecionada ||
+                instituicao ===
+                instituicaoSelecionada;
+
+            const correspondeAnoLetivo =
+                !anoLetivoSelecionado ||
+                anoLetivo === anoLetivoSelecionado;
+
+            const correspondeEtapa =
+                !etapaSelecionada ||
+                etapa === etapaSelecionada;
+
+            const correspondeAno =
+                !anoSelecionado ||
+                ano === anoSelecionado;
+
+            const exibir =
+                correspondeBusca &&
+                correspondeInstituicao &&
+                correspondeAnoLetivo &&
+                correspondeEtapa &&
+                correspondeAno;
+
+            linha.style.display =
+                exibir ? "" : "none";
+
+            if (exibir) {
+                totalVisivel += 1;
+            }
+        });
+
+        if (linhaSemResultado) {
+
+            linhaSemResultado.style.display =
+                linhasTurmas.length > 0 &&
+                totalVisivel === 0
+                    ? "table-row"
+                    : "none";
+        }
+
+        atualizarContador(totalVisivel);
+    }
+
+    campoBusca.addEventListener(
+        "input",
+        aplicarFiltros
+    );
+
+    filtroAnoLetivo.addEventListener(
+        "change",
+        aplicarFiltros
+    );
+
+    filtroEtapa.addEventListener(
+        "change",
+        aplicarFiltros
+    );
+
+    filtroAno.addEventListener(
+        "change",
+        aplicarFiltros
+    );
+
+    if (filtroInstituicao) {
+
+        filtroInstituicao.addEventListener(
+            "change",
+            aplicarFiltros
+        );
+    }
+
+    btnLimpar.addEventListener(
+        "click",
+        function () {
+
+            campoBusca.value = "";
+            filtroAnoLetivo.value = "";
+            filtroEtapa.value = "";
+            filtroAno.value = "";
+
+            if (filtroInstituicao) {
+                filtroInstituicao.value = "";
+            }
+
+            aplicarFiltros();
+            campoBusca.focus();
+        }
+    );
+
+    aplicarFiltros();
+});
+
 </script>
 
 {% endblock %}
