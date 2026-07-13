@@ -1,46 +1,54 @@
-import os
+import base64
 import json
+import os
 import sqlite3
 import uuid
-
 from datetime import datetime
+from io import BytesIO
+
+import cv2
+import qrcode
+from PIL import Image
+from flask import Flask, flash, redirect, render_template, request, session
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.security import generate_password_hash
-from flask import Flask, render_template, request, redirect, session, flash
-import sqlite3
-import os
-import qrcode
-import base64
-from io import BytesIO
-from datetime import datetime
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-# import cv2
-# from pyzbar.pyzbar import decode
-from PIL import Image
-# import numpy as np
-import cv2
 
-app = Flask(__name__)
-app.secret_key = "chave_secreta_plataforma_avaliacao"
-
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 587
-app.config["MAIL_USE_TLS"] = True
-app.config["MAIL_USERNAME"] = "arkedu.plataforma@gmail.com"
-app.config["MAIL_PASSWORD"] = "fhvc wvqq itom pgee"
-app.config["MAIL_DEFAULT_SENDER"] = "arkedu.plataforma@gmail.com"
-
-mail = Mail(app)
-
-serializer = URLSafeTimedSerializer(app.secret_key)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "plataforma.db")
+DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(BASE_DIR, "plataforma.db")
+)
+UPLOAD_FOLDER = os.environ.get(
+    "UPLOAD_FOLDER",
+    os.path.join(BASE_DIR, "static", "uploads")
+)
 
-UPLOAD_FOLDER = "static/uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app = Flask(__name__)
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "chave-temporaria-local-altere-no-render"
+)
+
+app.config.update(
+    MAIL_SERVER=os.environ.get("MAIL_SERVER", "smtp.gmail.com"),
+    MAIL_PORT=int(os.environ.get("MAIL_PORT", "587")),
+    MAIL_USE_TLS=os.environ.get("MAIL_USE_TLS", "true").lower() == "true",
+    MAIL_USE_SSL=os.environ.get("MAIL_USE_SSL", "false").lower() == "true",
+    MAIL_USERNAME=os.environ.get("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD"),
+    MAIL_DEFAULT_SENDER=os.environ.get("MAIL_DEFAULT_SENDER")
+    or os.environ.get("MAIL_USERNAME"),
+    UPLOAD_FOLDER=UPLOAD_FOLDER,
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+)
+
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 
 def conectar_banco():
@@ -336,6 +344,21 @@ def criar_tabelas():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS anos_letivos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER NOT NULL,
+            ano INTEGER NOT NULL,
+            data_inicio TEXT,
+            data_fim TEXT,
+            ativo INTEGER NOT NULL DEFAULT 0,
+            encerrado INTEGER NOT NULL DEFAULT 0,
+            criado_em TEXT,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            UNIQUE (escola_id, ano)
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cargos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT UNIQUE NOT NULL
@@ -552,15 +575,20 @@ def criar_tabelas():
     garantir_coluna("escolas", "tipo_instituicao", "TEXT")
     garantir_coluna("usuarios", "escola_id", "INTEGER")
     garantir_coluna("usuarios", "cpf", "TEXT")
+    garantir_coluna("usuarios", "foto", "TEXT")
     garantir_coluna("turmas", "escola_id", "INTEGER")
     garantir_coluna("turmas", "etapa", "TEXT")
+    garantir_coluna("turmas", "ano_letivo", "TEXT")
+    garantir_coluna("turmas", "ano_letivo_id", "INTEGER")
     garantir_coluna("alunos", "escola_id", "INTEGER")
+    garantir_coluna("alunos", "ano_letivo_id", "INTEGER")
     garantir_coluna("professores", "escola_id", "INTEGER")
     garantir_coluna("questoes", "escola_id", "INTEGER")
     garantir_coluna("provas", "professor_id", "INTEGER")
     garantir_coluna("provas", "data_geracao", "TEXT")
     garantir_coluna("provas", "data_aplicacao", "TEXT")
     garantir_coluna("provas", "escola_id", "INTEGER")
+    garantir_coluna("provas", "ano_letivo_id", "INTEGER")
     garantir_coluna("instituicao", "logo", "TEXT")
     garantir_coluna("permissoes", "pode_acessar", "INTEGER DEFAULT 0")
 
@@ -653,7 +681,7 @@ def criar_tabelas():
         """, (
             "Administrador",
             "admin",
-            "admin123",
+            generate_password_hash("admin123"),
             cargo_admin_id
         ))
 
@@ -2777,17 +2805,12 @@ def professores():
         turmas=lista_turmas
     )
 
-    return render_template(
-        "professores.html",
-        professores=lista_professores,
-        turmas=lista_turmas
-    )
-
 @app.route("/cadastrar_professor", methods=["POST"])
 def cadastrar_professor():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador"
     ]):
         return redirect("/login")
@@ -2830,7 +2853,7 @@ def cadastrar_professor():
 @app.route("/questoes")
 def questoes():
 
-    if not permissao_modulo("Questoes"):
+    if not permissao_modulo("Questões"):
         return redirect("/acesso_negado")
 
     banco = conectar_banco()
@@ -2854,7 +2877,8 @@ def questoes():
 def cadastrar_questao():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -2973,7 +2997,8 @@ def provas():
 def gerar_prova():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -3065,7 +3090,8 @@ def gerar_prova():
 def visualizar_prova(prova_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -3213,7 +3239,8 @@ def cartao_resposta(prova_id):
 def instituicao():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
@@ -3241,7 +3268,8 @@ def instituicao():
 def salvar_instituicao():
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
@@ -3353,7 +3381,8 @@ def salvar_instituicao():
 def excluir_prova(prova_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -3431,7 +3460,8 @@ def atualizar_prova(prova_id):
 def excluir_professor(professor_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador"
     ]):
         return redirect("/login")
@@ -3472,7 +3502,8 @@ def excluir_professor(professor_id):
 def editar_professor(professor_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador"
     ]):
         return redirect("/login")
@@ -3575,7 +3606,8 @@ def atualizar_professor(professor_id):
 def excluir_aluno(aluno_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
@@ -3602,7 +3634,8 @@ def excluir_aluno(aluno_id):
 def editar_aluno(aluno_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]):
@@ -4061,7 +4094,8 @@ def ler_respostas_cartao(caminho_imagem, quantidade):
 def corrigir_cartoes(prova_id):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -4325,7 +4359,8 @@ def resultados(prova_id):
 def questao_relatorio(prova_id, numero):
 
     if not cargo_permitido([
-        "Administrador",
+        "Administrador Geral",
+        "Administrador da Instituição",
         "Coordenador",
         "Professor"
     ]):
@@ -5694,15 +5729,6 @@ def cadastrar_usuario():
                 )
                 return redirect("/cadastrar_usuario")
 
-                if (
-                    foto.mimetype
-                    and foto.mimetype not in tipos_permitidos
-                ):
-                    flash(
-                        "O arquivo enviado não é uma imagem válida.",
-                        "erro"
-                    )
-                    return redirect("/cadastrar_usuario")
 
                 foto.stream.seek(0, os.SEEK_END)
                 tamanho_foto = foto.stream.tell()
@@ -6754,36 +6780,77 @@ def ativar_inativar_usuario(id):
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
+    if request.method == "GET" and session.get("usuario_id"):
+        return redirect("/")
+
     if request.method == "POST":
-        email = request.form["email"].strip()
-        senha = request.form["senha"].strip()
+        email = request.form.get("email", "").strip()
+        senha = request.form.get("senha", "").strip()
+
+        if not email or not senha:
+            flash("Informe o usuário/e-mail e a senha.", "erro")
+            return render_template("login.html")
 
         banco = conectar_banco()
         banco.row_factory = sqlite3.Row
         cursor = banco.cursor()
 
-        cursor.execute("""
-            SELECT usuarios.*,
-                   cargos.nome AS cargo
-            FROM usuarios
-            LEFT JOIN cargos
-            ON usuarios.cargo_id = cargos.id
-            WHERE usuarios.email = ?
-            AND usuarios.senha = ?
-            AND usuarios.ativo = 1
-        """, (email, senha))
+        try:
+            cursor.execute("""
+                SELECT
+                    usuarios.*,
+                    cargos.nome AS cargo
+                FROM usuarios
+                LEFT JOIN cargos
+                    ON usuarios.cargo_id = cargos.id
+                WHERE LOWER(TRIM(usuarios.email)) = LOWER(TRIM(?))
+                  AND usuarios.ativo = 1
+                LIMIT 1
+            """, (email,))
 
-        usuario = cursor.fetchone()
-        banco.close()
+            usuario = cursor.fetchone()
 
-        if usuario:
+            senha_valida = False
+
+            if usuario:
+                senha_salva = usuario["senha"] or ""
+
+                try:
+                    senha_valida = check_password_hash(senha_salva, senha)
+                except (ValueError, TypeError):
+                    senha_valida = False
+
+                # Compatibilidade temporária com senhas antigas em texto puro.
+                if not senha_valida and senha_salva == senha:
+                    senha_valida = True
+                    cursor.execute(
+                        "UPDATE usuarios SET senha = ? WHERE id = ?",
+                        (generate_password_hash(senha), usuario["id"])
+                    )
+                    banco.commit()
+
+            if not usuario or not senha_valida:
+                flash("Usuário, senha ou status inválido.", "erro")
+                return render_template("login.html")
+
+            session.clear()
             session["usuario_id"] = usuario["id"]
             session["usuario_nome"] = usuario["nome"]
-            session["usuario_cargo"] = usuario["cargo"]
+            session["usuario_cargo"] = usuario["cargo"] or ""
+            session["escola_id"] = usuario["escola_id"]
+
+            if usuario["escola_id"]:
+                atualizar_ano_letivo_na_sessao(usuario["escola_id"])
 
             return redirect("/")
 
-        return "Usuário, senha ou status inválido."
+        except sqlite3.Error as erro:
+            print("ERRO NO LOGIN:", erro)
+            flash("Não foi possível realizar o login.", "erro")
+            return render_template("login.html")
+
+        finally:
+            banco.close()
 
     return render_template("login.html")
 
@@ -9205,10 +9272,8 @@ def usar_ano_letivo_ativo():
     return redirect("/anos-letivos")
 
 if __name__ == "__main__":
-    criar_tabelas()
-
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=int(os.environ.get("PORT", "5000")),
+        debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     )
