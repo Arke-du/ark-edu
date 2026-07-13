@@ -1,6 +1,9 @@
 Flask
 gunicorn
+Flask-Mail
 qrcode[pil]
-pillow
-werkzeug
-itsdangerous
+Pillow
+pyzbar
+numpy
+opencv-python-headless
+Werkzeug
