@@ -1,18 +1,26 @@
 :root {
-    --azul: #163E8F;
-    --azul-escuro: #0F2F6E;
-    --azul-hover: #214FA8;
-    --azul-claro: #EDF3FF;
+    /* ===========================
+       PALETA OFICIAL ARK EDUS
+    =========================== */
 
-    --fundo: #F4F7FC;
+    --azul: #0D2D62;
+    --azul-escuro: #0D2D62;
+    --azul-hover: #0891B2;
+    --azul-claro: #EAF8FA;
+
+    --ciano: #10B7C7;
+    --ciano-escuro: #0891B2;
+    --ciano-claro: rgba(16, 183, 199, 0.12);
+
+    --fundo: #F6F8FC;
     --branco: #FFFFFF;
-    --borda: #E5EAF4;
+    --borda: #E5E7EB;
 
-    --texto: #132A55;
-    --texto-forte: #0F172A;
+    --texto: #1E293B;
+    --texto-forte: #0D2D62;
     --texto-suave: #64748B;
 
-    --sombra: 0 12px 35px rgba(22, 62, 143, 0.10);
+    --sombra: 0 12px 35px rgba(13, 45, 98, 0.10);
     --radius: 18px;
 
     --largura-sidebar: 280px;
@@ -72,12 +80,13 @@ body {
 
     background: linear-gradient(
         90deg,
-        #0F2F6E 0%,
-        #163E8F 55%,
-        #214FA8 100%
+        #0D2D62 0%,
+        #0D2D62 50%,
+        #0891B2 100%
     );
 
-    color: white;
+    color: var(--branco);
+    box-shadow: 0 6px 20px rgba(13, 45, 98, 0.12);
 }
 
 .topbar-conteudo {
@@ -87,6 +96,7 @@ body {
 .topbar-title {
     font-size: 20px;
     font-weight: 800;
+    color: var(--branco);
 }
 
 .user-box {
@@ -96,7 +106,10 @@ body {
     padding: 12px 18px;
 
     background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
+
+    backdrop-filter: blur(8px);
 }
 
 .user-box strong {
@@ -104,6 +117,7 @@ body {
     overflow: hidden;
 
     font-size: 15px;
+    color: var(--branco);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -116,6 +130,7 @@ body {
     overflow: hidden;
 
     font-size: 13px;
+    color: var(--branco);
     opacity: 0.9;
 
     text-overflow: ellipsis;
@@ -144,7 +159,9 @@ form {
     max-width: 100%;
 }
 
-/* Impede imagens e elementos largos de ultrapassarem a tela */
+/* ===========================
+   ELEMENTOS GERAIS
+=========================== */
 
 img {
     max-width: 100%;
@@ -152,6 +169,42 @@ img {
 
 table {
     max-width: 100%;
+}
+
+a {
+    color: var(--ciano-escuro);
+}
+
+a:hover {
+    color: var(--azul);
+}
+
+::selection {
+    background: rgba(16, 183, 199, 0.22);
+    color: var(--azul);
+}
+
+/* ===========================
+   BARRA DE ROLAGEM
+=========================== */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #EEF2F7;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #B7C4D4;
+    border-radius: 999px;
+    border: 2px solid #EEF2F7;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ciano-escuro);
 }
 
 /* ===========================

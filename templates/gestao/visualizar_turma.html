@@ -61,10 +61,19 @@
 }
 
 .vt-topo h1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
     margin: 0 0 8px;
     color: #123b82;
     font-size: clamp(26px, 4vw, 38px);
     line-height: 1.15;
+}
+
+.vt-titulo-separador {
+    color: #94a3b8;
+    font-weight: 500;
 }
 
 .vt-subtitulo {
@@ -85,7 +94,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding-top: 38px;
+    padding-top: 34px;
     flex-shrink: 0;
 }
 
@@ -172,7 +181,7 @@
 .vt-card {
     overflow: hidden;
     border: 1px solid #e2e8f0;
-    border-radius: 17px;
+    border-radius: 18px;
     background: #fff;
     box-shadow: 0 10px 30px rgba(15, 23, 42, .05);
 }
@@ -181,7 +190,9 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    overflow-x: auto;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    flex-wrap: wrap;
     padding: 10px 12px 0;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
@@ -225,10 +236,12 @@
 .vt-painel {
     display: none;
     padding: 24px;
+    background: #fff;
 }
 
 .vt-painel.ativo {
     display: block;
+    background: #fff;
 }
 
 .vt-painel-topo {
@@ -283,35 +296,52 @@
 .vt-tabela-wrap {
     width: 100%;
     overflow-x: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 13px;
+    overflow-y: hidden;
+    border: 1px solid #dbe4f0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, .04);
 }
 
 .vt-tabela {
     width: 100%;
     min-width: 760px;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
 }
 
 .vt-tabela th,
 .vt-tabela td {
-    padding: 14px 15px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 18px 20px;
     text-align: left;
     vertical-align: middle;
 }
 
 .vt-tabela th {
-    background: #f8fafc;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 900;
-    letter-spacing: .04em;
-    text-transform: uppercase;
+    border: 0;
+    background: #1f4698;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.vt-tabela th:first-child {
+    border-top-left-radius: 15px;
+}
+
+.vt-tabela th:last-child {
+    border-top-right-radius: 15px;
 }
 
 .vt-tabela td {
-    color: #334155;
+    border: 0;
+    border-bottom: 1px solid #e7edf5;
+    background: #fff;
+    color: #0f2f68;
     font-size: 14px;
 }
 
@@ -319,8 +349,16 @@
     border-bottom: 0;
 }
 
-.vt-tabela tbody tr:hover {
-    background: #f8fbff;
+.vt-tabela tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 15px;
+}
+
+.vt-tabela tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 15px;
+}
+
+.vt-tabela tbody tr:hover td {
+    background: #f7faff;
 }
 
 .vt-pessoa {
@@ -375,8 +413,8 @@
     min-height: 27px;
     padding: 4px 9px;
     border-radius: 999px;
-    background: #ecfdf5;
-    color: #047857;
+    background: #eef4ff;
+    color: #1d4ed8;
     font-size: 12px;
     font-weight: 800;
 }
@@ -390,20 +428,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
-    padding: 0 12px;
-    border: 1px solid #bfdbfe;
-    border-radius: 9px;
-    background: #eff6ff;
-    color: #1d4ed8;
-    font-size: 12px;
+    min-height: 38px;
+    padding: 0 15px;
+    border: 1px solid #2563eb;
+    border-radius: 10px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 13px;
     font-weight: 800;
     text-decoration: none;
+    box-shadow: 0 5px 12px rgba(37, 99, 235, .18);
+    transition: .2s ease;
 }
 
 .vt-btn-linha:hover {
-    border-color: #93c5fd;
-    background: #dbeafe;
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+    transform: translateY(-1px);
 }
 
 .vt-vazio {
@@ -446,6 +487,281 @@
     line-height: 1.6;
 }
 
+
+/* =====================================================
+   GERENCIAMENTO DE VÍNCULOS DE PROFESSORES
+===================================================== */
+.vt-btn-adicionar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid #1d4ed8;
+    border-radius: 10px;
+    background: #1d4ed8;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.vt-btn-adicionar:hover {
+    background: #1e40af;
+    border-color: #1e40af;
+    transform: translateY(-1px);
+}
+
+.vt-btn-adicionar svg,
+.vt-acao-icone svg,
+.vt-modal-fechar svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.vt-componente {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border: 1px solid #c7d7fe;
+    border-radius: 999px;
+    background: #eef4ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.vt-acoes-linha {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.vt-acao-icone {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid #dbeafe;
+    border-radius: 9px;
+    background: #fff;
+    color: #1d4ed8;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.vt-acao-icone:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.vt-acao-excluir {
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.vt-acao-excluir:hover {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+.vt-modal-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, .55);
+    backdrop-filter: blur(3px);
+}
+
+.vt-modal-fundo.aberto {
+    display: flex;
+}
+
+.vt-modal {
+    width: min(100%, 540px);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .24);
+    animation: vtModalEntrada .18s ease-out;
+}
+
+@keyframes vtModalEntrada {
+    from { opacity: 0; transform: translateY(10px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vt-modal-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.vt-modal-topo h3 {
+    margin: 0 0 5px;
+    color: #123b82;
+    font-size: 20px;
+}
+
+.vt-modal-topo p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.vt-modal-fechar {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 36px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.vt-modal-fechar:hover {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.vt-modal-corpo {
+    display: grid;
+    gap: 16px;
+    padding: 22px 24px;
+}
+
+.vt-campo label {
+    display: block;
+    margin-bottom: 7px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.vt-campo select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 40px 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+
+.vt-campo select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.vt-modal-acoes {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px 22px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.vt-btn-cancelar,
+.vt-btn-salvar,
+.vt-btn-confirmar-exclusao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.vt-btn-cancelar {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+}
+
+.vt-btn-cancelar:hover {
+    background: #f1f5f9;
+}
+
+.vt-btn-salvar {
+    border: 1px solid #1d4ed8;
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.vt-btn-salvar:hover {
+    background: #1e40af;
+}
+
+.vt-btn-confirmar-exclusao {
+    border: 1px solid #dc2626;
+    background: #dc2626;
+    color: #fff;
+}
+
+.vt-btn-confirmar-exclusao:hover {
+    background: #b91c1c;
+}
+
+.vt-alerta-exclusao {
+    display: flex;
+    gap: 13px;
+    padding: 15px;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+    background: #fef2f2;
+}
+
+.vt-alerta-exclusao strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #991b1b;
+    font-size: 14px;
+}
+
+.vt-alerta-exclusao p {
+    margin: 0;
+    color: #7f1d1d;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+body.vt-modal-aberto {
+    overflow: hidden;
+}
+
 @media (max-width: 900px) {
     .vt-topo {
         flex-direction: column;
@@ -460,6 +776,13 @@
     }
 }
 
+@media (max-width: 900px) {
+    .vt-tabela th,
+    .vt-tabela td {
+        padding: 15px 16px;
+    }
+}
+
 @media (max-width: 680px) {
     .vt-painel {
         padding: 18px 14px;
@@ -470,6 +793,7 @@
     }
 
     .vt-topo h1 {
+        gap: 7px;
         font-size: 27px;
     }
 
@@ -501,7 +825,9 @@
             </div>
 
             <h1>
-                {{ turma["ano"] }} {{ turma["nome"] }}
+                <span>{{ turma["ano"] }}</span>
+                <span class="vt-titulo-separador">/</span>
+                <span>{{ turma["nome"] }}</span>
             </h1>
 
             <p class="vt-subtitulo">
@@ -535,7 +861,7 @@
             <div class="vt-acoes-topo">
 
                 <a
-                    href="{{ url_for('editar_turma', turma_id=turma['id']) }}"
+                    href="/turmas/{{ turma['id'] }}/editar"
                     class="vt-btn-editar"
                 >
                     Editar turma
@@ -580,7 +906,7 @@
 
             <div class="vt-stat-conteudo">
                 <span>Professores</span>
-                <strong>{{ professores|length }}</strong>
+                <strong>{{ professores|map(attribute="professor_id")|unique|list|length }}</strong>
             </div>
 
         </div>
@@ -862,11 +1188,25 @@
             <div class="vt-painel-topo">
 
                 <div>
-                    <h2>Professores</h2>
+                    <h2>Professores vinculados</h2>
                     <p>
-                        Professores vinculados a esta turma.
+                        Gerencie os professores e os componentes curriculares desta turma.
                     </p>
                 </div>
+
+                {% if pode_gerenciar_professores %}
+                    <button
+                        type="button"
+                        class="vt-btn-adicionar"
+                        data-abrir-modal="modal-adicionar-vinculo"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14"></path>
+                            <path d="M5 12h14"></path>
+                        </svg>
+                        Adicionar vínculo
+                    </button>
+                {% endif %}
 
             </div>
 
@@ -879,8 +1219,11 @@
                         <thead>
                             <tr>
                                 <th>Professor</th>
-                                <th>E-mail</th>
-                                <th>Cargo</th>
+                                <th>Componente curricular</th>
+                                <th>Etapa</th>
+                                {% if pode_gerenciar_professores %}
+                                    <th style="text-align: right;">Ações</th>
+                                {% endif %}
                             </tr>
                         </thead>
 
@@ -891,36 +1234,71 @@
                                 <tr>
 
                                     <td>
-
                                         <div class="vt-pessoa">
-
                                             <div class="vt-avatar">
                                                 {{ professor["nome"][:2]|upper }}
                                             </div>
 
                                             <div class="vt-pessoa-dados">
-                                                <strong>
-                                                    {{ professor["nome"] }}
-                                                </strong>
-
-                                                <span>
-                                                    Professor vinculado
-                                                </span>
+                                                <strong>{{ professor["nome"] }}</strong>
+                                                <span>{{ professor["email"] or "E-mail não informado" }}</span>
                                             </div>
-
                                         </div>
-
                                     </td>
 
                                     <td>
-                                        {{ professor["email"] or "Não informado" }}
+                                        <span class="vt-componente">
+                                            {{ professor["componente_nome"] or "Não informado" }}
+                                        </span>
                                     </td>
 
                                     <td>
                                         <span class="vt-badge vt-badge-neutro">
-                                            {{ professor["cargo"] or "Professor" }}
+                                            {{ professor["componente_etapa"] or turma["etapa"] or "Não informada" }}
                                         </span>
                                     </td>
+
+                                    {% if pode_gerenciar_professores %}
+                                        <td>
+                                            <div class="vt-acoes-linha">
+                                                <button
+                                                    type="button"
+                                                    class="vt-acao-icone"
+                                                    title="Editar vínculo"
+                                                    aria-label="Editar vínculo de {{ professor['nome'] }}"
+                                                    data-editar-vinculo
+                                                    data-vinculo-id="{{ professor['vinculo_id'] }}"
+                                                    data-professor-id="{{ professor['professor_id'] }}"
+                                                    data-componente-id="{{ professor['componente_id'] }}"
+                                                    data-professor-nome="{{ professor['nome']|e }}"
+                                                >
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M12 20h9"></path>
+                                                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4z"></path>
+                                                    </svg>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    class="vt-acao-icone vt-acao-excluir"
+                                                    title="Excluir vínculo"
+                                                    aria-label="Excluir vínculo de {{ professor['nome'] }}"
+                                                    data-excluir-vinculo
+                                                    data-vinculo-id="{{ professor['vinculo_id'] }}"
+                                                    data-professor-nome="{{ professor['nome']|e }}"
+                                                    data-componente-nome="{{ professor['componente_nome']|e }}"
+                                                >
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M3 6h18"></path>
+                                                        <path d="M8 6V4h8v2"></path>
+                                                        <path d="M19 6l-1 14H6L5 6"></path>
+                                                        <path d="M10 11v5"></path>
+                                                        <path d="M14 11v5"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    {% endif %}
 
                                 </tr>
 
@@ -946,8 +1324,19 @@
                     <h3>Nenhum professor vinculado</h3>
 
                     <p>
-                        Esta turma ainda não possui professores vinculados.
+                        Esta turma ainda não possui professores vinculados a componentes curriculares.
                     </p>
+
+                    {% if pode_gerenciar_professores %}
+                        <button
+                            type="button"
+                            class="vt-btn-adicionar"
+                            style="margin-top: 18px;"
+                            data-abrir-modal="modal-adicionar-vinculo"
+                        >
+                            Adicionar primeiro vínculo
+                        </button>
+                    {% endif %}
 
                 </div>
 
@@ -1074,6 +1463,158 @@
 </div>
 
 
+{% if pode_gerenciar_professores %}
+
+<!-- MODAL: ADICIONAR VÍNCULO -->
+<div class="vt-modal-fundo" id="modal-adicionar-vinculo" aria-hidden="true">
+    <div class="vt-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-adicionar-vinculo">
+        <form method="POST" action="{{ url_for('adicionar_professor_turma', turma_id=turma['id']) }}">
+
+            <div class="vt-modal-topo">
+                <div>
+                    <h3 id="titulo-adicionar-vinculo">Adicionar vínculo</h3>
+                    <p>Selecione o professor e o componente curricular da turma.</p>
+                </div>
+
+                <button type="button" class="vt-modal-fechar" data-fechar-modal aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="vt-modal-corpo">
+                <div class="vt-campo">
+                    <label for="adicionar-professor-id">Professor</label>
+                    <select id="adicionar-professor-id" name="professor_id" required>
+                        <option value="">Selecione um professor</option>
+                        {% for item in professores_disponiveis %}
+                            <option value="{{ item['id'] }}">
+                                {{ item['nome'] }}{% if item['email'] %} — {{ item['email'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vt-campo">
+                    <label for="adicionar-componente-id">Componente curricular</label>
+                    <select id="adicionar-componente-id" name="componente_id" required>
+                        <option value="">Selecione um componente</option>
+                        {% for item in componentes_disponiveis %}
+                            <option value="{{ item['id'] }}">
+                                {{ item['nome'] }}{% if item['etapa_ensino'] %} — {{ item['etapa_ensino'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="vt-modal-acoes">
+                <button type="button" class="vt-btn-cancelar" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="vt-btn-salvar">Salvar vínculo</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- MODAL: EDITAR VÍNCULO -->
+<div class="vt-modal-fundo" id="modal-editar-vinculo" aria-hidden="true">
+    <div class="vt-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-editar-vinculo">
+        <form method="POST" id="form-editar-vinculo">
+
+            <div class="vt-modal-topo">
+                <div>
+                    <h3 id="titulo-editar-vinculo">Editar vínculo</h3>
+                    <p id="descricao-editar-vinculo">Atualize o professor ou o componente curricular.</p>
+                </div>
+
+                <button type="button" class="vt-modal-fechar" data-fechar-modal aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="vt-modal-corpo">
+                <div class="vt-campo">
+                    <label for="editar-professor-id">Professor</label>
+                    <select id="editar-professor-id" name="professor_id" required>
+                        <option value="">Selecione um professor</option>
+                        {% for item in professores_disponiveis %}
+                            <option value="{{ item['id'] }}">
+                                {{ item['nome'] }}{% if item['email'] %} — {{ item['email'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vt-campo">
+                    <label for="editar-componente-id">Componente curricular</label>
+                    <select id="editar-componente-id" name="componente_id" required>
+                        <option value="">Selecione um componente</option>
+                        {% for item in componentes_disponiveis %}
+                            <option value="{{ item['id'] }}">
+                                {{ item['nome'] }}{% if item['etapa_ensino'] %} — {{ item['etapa_ensino'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="vt-modal-acoes">
+                <button type="button" class="vt-btn-cancelar" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="vt-btn-salvar">Salvar alterações</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- MODAL: EXCLUIR VÍNCULO -->
+<div class="vt-modal-fundo" id="modal-excluir-vinculo" aria-hidden="true">
+    <div class="vt-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-excluir-vinculo">
+        <form method="POST" id="form-excluir-vinculo">
+
+            <div class="vt-modal-topo">
+                <div>
+                    <h3 id="titulo-excluir-vinculo">Excluir vínculo</h3>
+                    <p>Confirme a remoção do professor deste componente.</p>
+                </div>
+
+                <button type="button" class="vt-modal-fechar" data-fechar-modal aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="vt-modal-corpo">
+                <div class="vt-alerta-exclusao">
+                    <div>
+                        <strong>Esta ação removerá somente este vínculo.</strong>
+                        <p id="texto-excluir-vinculo"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vt-modal-acoes">
+                <button type="button" class="vt-btn-cancelar" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="vt-btn-confirmar-exclusao">Excluir vínculo</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endif %}
+
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -1123,6 +1664,98 @@ document.addEventListener("DOMContentLoaded", function () {
     ) {
         abrirPainel(painelDaUrl);
     }
+
+
+    function abrirModal(modal) {
+        if (!modal) return;
+        modal.classList.add("aberto");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("vt-modal-aberto");
+
+        const primeiroCampo = modal.querySelector("select, input, button");
+        if (primeiroCampo) {
+            setTimeout(function () {
+                primeiroCampo.focus();
+            }, 50);
+        }
+    }
+
+    function fecharModal(modal) {
+        if (!modal) return;
+        modal.classList.remove("aberto");
+        modal.setAttribute("aria-hidden", "true");
+
+        if (!document.querySelector(".vt-modal-fundo.aberto")) {
+            document.body.classList.remove("vt-modal-aberto");
+        }
+    }
+
+    document.querySelectorAll("[data-abrir-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            abrirModal(document.getElementById(botao.dataset.abrirModal));
+        });
+    });
+
+    document.querySelectorAll("[data-fechar-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            fecharModal(botao.closest(".vt-modal-fundo"));
+        });
+    });
+
+    document.querySelectorAll(".vt-modal-fundo").forEach(function (fundo) {
+        fundo.addEventListener("click", function (evento) {
+            if (evento.target === fundo) {
+                fecharModal(fundo);
+            }
+        });
+    });
+
+    document.addEventListener("keydown", function (evento) {
+        if (evento.key === "Escape") {
+            fecharModal(document.querySelector(".vt-modal-fundo.aberto"));
+        }
+    });
+
+    const modalEditar = document.getElementById("modal-editar-vinculo");
+    const formEditar = document.getElementById("form-editar-vinculo");
+    const editarProfessor = document.getElementById("editar-professor-id");
+    const editarComponente = document.getElementById("editar-componente-id");
+    const descricaoEditar = document.getElementById("descricao-editar-vinculo");
+
+    document.querySelectorAll("[data-editar-vinculo]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            if (!formEditar) return;
+
+            formEditar.action = "/turmas/{{ turma['id'] }}/professores/" +
+                botao.dataset.vinculoId + "/editar";
+
+            editarProfessor.value = botao.dataset.professorId;
+            editarComponente.value = botao.dataset.componenteId;
+            descricaoEditar.textContent =
+                "Atualize o vínculo de " + botao.dataset.professorNome + ".";
+
+            abrirModal(modalEditar);
+        });
+    });
+
+    const modalExcluir = document.getElementById("modal-excluir-vinculo");
+    const formExcluir = document.getElementById("form-excluir-vinculo");
+    const textoExcluir = document.getElementById("texto-excluir-vinculo");
+
+    document.querySelectorAll("[data-excluir-vinculo]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            if (!formExcluir) return;
+
+            formExcluir.action = "/turmas/{{ turma['id'] }}/professores/" +
+                botao.dataset.vinculoId + "/excluir";
+
+            textoExcluir.textContent =
+                botao.dataset.professorNome + " deixará de estar vinculado(a) ao componente " +
+                botao.dataset.componenteNome + " nesta turma.";
+
+            abrirModal(modalExcluir);
+        });
+    });
 });
 </script>
 

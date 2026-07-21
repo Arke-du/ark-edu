@@ -3,13 +3,15 @@ import json
 import os
 import sqlite3
 import uuid
+import re
+
 from datetime import datetime
 from io import BytesIO
 
 import cv2
 import qrcode
 from PIL import Image
-from flask import Flask, flash, redirect, render_template, request, session
+from flask import Flask, flash, redirect, render_template, request, session, jsonify
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -53,6 +55,108 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 
 def conectar_banco():
     return sqlite3.connect(DB_PATH)
+
+
+def sincronizar_ano_letivo_instituicao(cursor, escola_id, ano, tornar_ativo=True):
+    """Cria ou atualiza o ano letivo oficial de uma instituição.
+
+    A tabela anos_letivos é a fonte oficial. O campo escolas.ano_letivo
+    permanece sincronizado apenas por compatibilidade com telas antigas.
+    """
+    if not escola_id or ano in (None, ""):
+        return None
+
+    try:
+        ano = int(ano)
+    except (TypeError, ValueError):
+        raise ValueError("O ano letivo informado é inválido.")
+
+    cursor.execute("""
+        SELECT id, ativo, encerrado
+        FROM anos_letivos
+        WHERE escola_id = ?
+          AND ano = ?
+        LIMIT 1
+    """, (escola_id, ano))
+
+    registro = cursor.fetchone()
+
+    if tornar_ativo:
+        cursor.execute("""
+            UPDATE anos_letivos
+            SET ativo = 0
+            WHERE escola_id = ?
+              AND ativo = 1
+        """, (escola_id,))
+
+    if registro:
+        cursor.execute("""
+            UPDATE anos_letivos
+            SET ativo = ?,
+                encerrado = 0
+            WHERE id = ?
+        """, (1 if tornar_ativo else registro["ativo"], registro["id"]))
+        ano_letivo_id = registro["id"]
+    else:
+        cursor.execute("""
+            INSERT INTO anos_letivos (
+                escola_id,
+                ano,
+                ativo,
+                encerrado
+            )
+            VALUES (?, ?, ?, 0)
+        """, (escola_id, ano, 1 if tornar_ativo else 0))
+        ano_letivo_id = cursor.lastrowid
+
+    cursor.execute("""
+        UPDATE escolas
+        SET ano_letivo = ?
+        WHERE id = ?
+    """, (str(ano), escola_id))
+
+    return ano_letivo_id
+
+
+def sincronizar_anos_letivos_legados():
+    """Migra automaticamente instituições antigas que só têm escolas.ano_letivo."""
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, ano_letivo
+            FROM escolas
+            WHERE TRIM(COALESCE(ano_letivo, '')) <> ''
+        """)
+
+        for escola in cursor.fetchall():
+            cursor.execute("""
+                SELECT id
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                  AND encerrado = 0
+                LIMIT 1
+            """, (escola["id"],))
+
+            if cursor.fetchone() is None:
+                sincronizar_ano_letivo_instituicao(
+                    cursor,
+                    escola["id"],
+                    escola["ano_letivo"],
+                    tornar_ativo=True
+                )
+
+        banco.commit()
+
+    except (sqlite3.Error, ValueError) as erro:
+        banco.rollback()
+        print("ERRO AO SINCRONIZAR ANOS LETIVOS LEGADOS:", erro)
+
+    finally:
+        banco.close()
 
 def obter_escola_usuario(usuario_id=None):
     """
@@ -292,6 +396,339 @@ def atualizar_ano_letivo_na_sessao(escola_id):
 
     return ano_letivo
 
+
+# =========================================================
+# GERENCIADOR GLOBAL DO ANO LETIVO
+# =========================================================
+
+def garantir_ano_atual_para_escola(escola_id):
+    """
+    Garante que o ano civil atual exista na tabela anos_letivos.
+
+    A criação automática NÃO encerra nem troca o ano ativo existente.
+    Quando a instituição ainda não possui nenhum ano letivo, o ano
+    atual é criado como ativo. Caso já exista outro ano ativo, o novo
+    ano é criado apenas como preparado, aguardando migração/ativação.
+    """
+
+    if not escola_id:
+        return None
+
+    ano_atual = datetime.now().year
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, escola_id, ano, ativo, encerrado
+            FROM anos_letivos
+            WHERE escola_id = ? AND ano = ?
+            LIMIT 1
+        """, (escola_id, ano_atual))
+
+        existente = cursor.fetchone()
+        if existente:
+            return existente
+
+        cursor.execute("""
+            SELECT id
+            FROM anos_letivos
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND encerrado = 0
+            LIMIT 1
+        """, (escola_id,))
+
+        possui_ativo = cursor.fetchone() is not None
+
+        cursor.execute("""
+            INSERT INTO anos_letivos (
+                escola_id,
+                ano,
+                ativo,
+                encerrado
+            )
+            VALUES (?, ?, ?, 0)
+        """, (
+            escola_id,
+            ano_atual,
+            0 if possui_ativo else 1
+        ))
+
+        novo_id = cursor.lastrowid
+        banco.commit()
+
+        cursor.execute("""
+            SELECT id, escola_id, ano, ativo, encerrado
+            FROM anos_letivos
+            WHERE id = ?
+        """, (novo_id,))
+
+        return cursor.fetchone()
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO AO GARANTIR ANO ATUAL:", erro)
+        return None
+
+    finally:
+        banco.close()
+
+
+def obter_ano_global_administrador():
+    """Retorna o número do ano visualizado pelo Administrador Geral."""
+
+    ano_sessao = session.get("ano_letivo_visualizado")
+
+    if ano_sessao:
+        try:
+            return int(ano_sessao)
+        except (TypeError, ValueError):
+            session.pop("ano_letivo_visualizado", None)
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        ano_atual = datetime.now().year
+
+        cursor.execute("""
+            SELECT ano
+            FROM anos_letivos
+            WHERE ano = ?
+            LIMIT 1
+        """, (ano_atual,))
+
+        registro = cursor.fetchone()
+
+        if not registro:
+            cursor.execute("""
+                SELECT ano
+                FROM anos_letivos
+                WHERE ativo = 1
+                  AND encerrado = 0
+                ORDER BY ano DESC
+                LIMIT 1
+            """)
+            registro = cursor.fetchone()
+
+        if not registro:
+            cursor.execute("""
+                SELECT ano
+                FROM anos_letivos
+                ORDER BY ano DESC
+                LIMIT 1
+            """)
+            registro = cursor.fetchone()
+
+        if not registro:
+            return None
+
+        ano = int(registro["ano"])
+        session["ano_letivo_visualizado"] = ano
+        session["ano_letivo"] = ano
+        return ano
+
+    except sqlite3.Error as erro:
+        print("ERRO AO OBTER ANO GLOBAL DO ADMINISTRADOR:", erro)
+        return None
+
+    finally:
+        banco.close()
+
+
+def obter_contexto_plataforma():
+    """
+    Retorna o contexto único usado pelas páginas da plataforma.
+
+    Para usuários de uma instituição, ano_letivo_id identifica o
+    registro exato da escola. Para o Administrador Geral, o filtro
+    global usa o número do ano, porque cada escola possui seu próprio
+    ID para o mesmo período.
+    """
+
+    usuario_id = session.get("usuario_id")
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = obter_escola_usuario() if cargo != "Administrador Geral" else None
+
+    contexto = {
+        "usuario_id": usuario_id,
+        "cargo": cargo,
+        "escola_id": escola_id,
+        "ano_letivo_id": None,
+        "ano": None,
+        "ano_ativo": None,
+        "ano_ativo_id": None,
+        "consultando_historico": False
+    }
+
+    if not usuario_id:
+        return contexto
+
+    if cargo == "Administrador Geral":
+        contexto["ano"] = obter_ano_global_administrador()
+        return contexto
+
+    if not escola_id:
+        return contexto
+
+    garantir_ano_atual_para_escola(escola_id)
+
+    ano_ativo = obter_ano_letivo_ativo(escola_id)
+    ano_visualizado = atualizar_ano_letivo_na_sessao(escola_id)
+
+    if ano_ativo:
+        contexto["ano_ativo"] = ano_ativo["ano"]
+        contexto["ano_ativo_id"] = ano_ativo["id"]
+
+    if ano_visualizado:
+        contexto["ano"] = ano_visualizado["ano"]
+        contexto["ano_letivo_id"] = ano_visualizado["id"]
+        contexto["consultando_historico"] = not (
+            ano_visualizado["ativo"] == 1
+            and ano_visualizado["encerrado"] == 0
+        )
+
+    return contexto
+
+
+@app.context_processor
+def contexto_global_ano_letivo():
+    """Disponibiliza o seletor de ano letivo em todos os templates."""
+
+    if "usuario_id" not in session:
+        return {
+            "ano_contexto": None,
+            "ano_ativo_contexto": None,
+            "anos_disponiveis": [],
+            "consultando_ano_antigo": False
+        }
+
+    contexto = obter_contexto_plataforma()
+    cargo = contexto["cargo"]
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if cargo == "Administrador Geral":
+            cursor.execute("""
+                SELECT DISTINCT ano
+                FROM anos_letivos
+                ORDER BY ano DESC
+            """)
+        elif contexto["escola_id"]:
+            cursor.execute("""
+                SELECT id, ano, ativo, encerrado
+                FROM anos_letivos
+                WHERE escola_id = ?
+                ORDER BY ano DESC
+            """, (contexto["escola_id"],))
+        else:
+            return {
+                "ano_contexto": None,
+                "ano_ativo_contexto": None,
+                "anos_disponiveis": [],
+                "consultando_ano_antigo": False
+            }
+
+        return {
+            "ano_contexto": contexto["ano"],
+            "ano_ativo_contexto": contexto["ano_ativo"],
+            "anos_disponiveis": cursor.fetchall(),
+            "consultando_ano_antigo": contexto["consultando_historico"]
+        }
+
+    except sqlite3.Error as erro:
+        print("ERRO NO CONTEXTO GLOBAL DO ANO LETIVO:", erro)
+        return {
+            "ano_contexto": contexto.get("ano"),
+            "ano_ativo_contexto": contexto.get("ano_ativo"),
+            "anos_disponiveis": [],
+            "consultando_ano_antigo": False
+        }
+
+    finally:
+        banco.close()
+
+
+@app.route("/trocar-ano-letivo/<int:ano>", methods=["POST"])
+def trocar_ano_letivo(ano):
+    """Troca apenas o ano visualizado, sem alterar o ano ativo."""
+
+    if "usuario_id" not in session:
+        return redirect("/login")
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id = obter_escola_usuario()
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if cargo == "Administrador Geral":
+            cursor.execute("""
+                SELECT ano
+                FROM anos_letivos
+                WHERE ano = ?
+                LIMIT 1
+            """, (ano,))
+
+            registro = cursor.fetchone()
+
+            if not registro:
+                flash("Ano letivo não encontrado.", "erro")
+                return redirect(request.referrer or "/")
+
+            session["ano_letivo_visualizado"] = ano
+            session["ano_letivo"] = ano
+            session.pop("ano_letivo_id", None)
+            session.pop("ano_letivo_selecionado_id", None)
+
+        else:
+            if not escola_id:
+                flash("Não foi possível identificar sua instituição.", "erro")
+                return redirect(request.referrer or "/")
+
+            cursor.execute("""
+                SELECT id, ano, ativo, encerrado
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ano = ?
+                LIMIT 1
+            """, (escola_id, ano))
+
+            registro = cursor.fetchone()
+
+            if not registro:
+                flash(
+                    "O ano letivo selecionado não pertence à sua instituição.",
+                    "erro"
+                )
+                return redirect(request.referrer or "/")
+
+            session["ano_letivo_selecionado_id"] = registro["id"]
+            session["ano_letivo_id"] = registro["id"]
+            session["ano_letivo"] = registro["ano"]
+            session["ano_letivo_visualizado"] = registro["ano"]
+
+        flash(f"Visualizando o ano letivo {ano}.", "success")
+        return redirect(request.referrer or "/")
+
+    except sqlite3.Error as erro:
+        print("ERRO AO TROCAR ANO LETIVO:", erro)
+        flash(f"Erro ao trocar o ano letivo: {erro}", "erro")
+        return redirect(request.referrer or "/")
+
+    finally:
+        banco.close()
+
+
 def cargo_permitido(cargos_permitidos):
 
     if "usuario_id" not in session:
@@ -405,6 +842,26 @@ def criar_tabelas():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS aluno_matriculas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aluno_id INTEGER NOT NULL,
+            escola_id INTEGER NOT NULL,
+            ano_letivo_id INTEGER NOT NULL,
+            turma_id INTEGER NOT NULL,
+            situacao TEXT NOT NULL DEFAULT 'Cursando',
+            data_matricula TEXT DEFAULT CURRENT_TIMESTAMP,
+            data_encerramento TEXT,
+            observacao TEXT,
+            criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            FOREIGN KEY (ano_letivo_id) REFERENCES anos_letivos(id) ON DELETE CASCADE,
+            FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+            UNIQUE (aluno_id, ano_letivo_id)
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS professores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
@@ -463,20 +920,56 @@ def criar_tabelas():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS assuntos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER,
+            disciplina TEXT NOT NULL,
+            etapa_ensino TEXT NOT NULL,
+            ano_serie TEXT NOT NULL,
+            nome TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_assuntos_filtro
+        ON assuntos (
+            escola_id,
+            disciplina,
+            etapa_ensino,
+            ano_serie,
+            ativo
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS questoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             disciplina TEXT NOT NULL,
+            assunto TEXT,
+            tipo_questao TEXT NOT NULL DEFAULT 'multipla_escolha',
             enunciado TEXT NOT NULL,
             imagem TEXT,
-            alternativa_a TEXT NOT NULL,
-            alternativa_b TEXT NOT NULL,
-            alternativa_c TEXT NOT NULL,
-            alternativa_d TEXT NOT NULL,
-            correta TEXT NOT NULL,
+            alternativa_a TEXT NOT NULL DEFAULT '',
+            alternativa_b TEXT NOT NULL DEFAULT '',
+            alternativa_c TEXT NOT NULL DEFAULT '',
+            alternativa_d TEXT NOT NULL DEFAULT '',
+            correta TEXT NOT NULL DEFAULT '',
+            alternativas_json TEXT,
+            respostas_corretas TEXT,
+            resposta_esperada TEXT,
+            criterios_correcao TEXT,
             habilidade TEXT,
             dificuldade TEXT NOT NULL,
+            observacoes TEXT,
             escola_id INTEGER,
-            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
+            criado_por INTEGER,
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TEXT,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            FOREIGN KEY (criado_por) REFERENCES usuarios(id) ON DELETE SET NULL
         )
     """)
 
@@ -572,6 +1065,1037 @@ def criar_tabelas():
         )
     """)
 
+    # Catálogo pedagógico inicial. Os registros com escola_id NULL
+    # ficam disponíveis para todas as instituições. Assuntos temporários
+    # digitados durante a criação de uma questão não entram nesta tabela.
+    assuntos_padrao = {
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Leitura e interpretação de texto", "Gêneros textuais",
+            "Substantivos", "Adjetivos", "Artigos e numerais",
+            "Pronomes", "Verbos", "Ortografia", "Pontuação",
+            "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Leitura e interpretação de texto", "Gêneros textuais",
+            "Verbos e locuções verbais", "Advérbios", "Preposições",
+            "Conjunções", "Sujeito e predicado", "Ortografia",
+            "Pontuação", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Leitura e interpretação de texto", "Gêneros textuais",
+            "Termos essenciais da oração", "Complementos verbais",
+            "Adjunto adnominal e adjunto adverbial", "Vozes verbais",
+            "Período simples e composto", "Figuras de linguagem",
+            "Pontuação", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Leitura e interpretação de texto", "Gêneros textuais",
+            "Orações coordenadas", "Orações subordinadas",
+            "Concordância verbal e nominal", "Regência verbal e nominal",
+            "Crase", "Figuras de linguagem", "Variação linguística",
+            "Produção textual"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Números naturais", "Operações fundamentais", "Múltiplos e divisores",
+            "Frações", "Números decimais", "Porcentagem", "Razão e proporção",
+            "Regra de três", "Geometria plana", "Grandezas e medidas"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Números inteiros", "Números racionais", "Expressões algébricas",
+            "Equações do primeiro grau", "Razão e proporção", "Regra de três",
+            "Porcentagem", "Ângulos", "Triângulos", "Probabilidade"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Produtos notáveis", "Fatoração", "Sistemas de equações",
+            "Potenciação e radiciação", "Porcentagem e juros",
+            "Teorema de Pitágoras", "Polígonos", "Área e volume",
+            "Estatística", "Probabilidade"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Números reais", "Equações do segundo grau", "Funções",
+            "Semelhança de triângulos", "Teorema de Tales",
+            "Trigonometria no triângulo retângulo", "Circunferência",
+            "Área e volume", "Estatística", "Probabilidade"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Introdução aos estudos históricos", "Pré-História",
+            "Mesopotâmia", "Egito Antigo", "Povos Hebreus",
+            "Fenícios e Persas", "Grécia Antiga", "Roma Antiga",
+            "África Antiga", "Povos originários da América"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Feudalismo", "Mundo islâmico", "Renascimento cultural",
+            "Reformas religiosas", "Expansão marítima europeia",
+            "Povos pré-colombianos", "Colonização espanhola",
+            "Colonização portuguesa", "Brasil Colonial",
+            "Escravidão e resistência"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Iluminismo", "Revolução Industrial", "Independência dos Estados Unidos",
+            "Revolução Francesa", "Era Napoleônica", "Independências na América",
+            "Primeiro Reinado", "Período Regencial", "Segundo Reinado",
+            "Abolição da escravidão"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Primeira República", "Primeira Guerra Mundial",
+            "Revolução Russa", "Crise de 1929", "Nazifascismo",
+            "Era Vargas", "Segunda Guerra Mundial", "Guerra Fria",
+            "Ditadura Militar no Brasil", "Nova República"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Paisagem e espaço geográfico", "Cartografia",
+            "Orientação e coordenadas geográficas", "Relevo",
+            "Clima", "Hidrografia", "Vegetação", "População",
+            "Espaço urbano e rural", "Questões ambientais"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Matéria e energia", "Misturas e separação de materiais",
+            "Transformações químicas", "Célula", "Tecidos e órgãos",
+            "Sistema locomotor", "Sistema nervoso", "Visão e audição",
+            "Terra e Universo", "Camadas da Terra"
+        ],
+        ("Língua Portuguesa", "Ensino Médio", "1ª série"): [
+            "Leitura e interpretação", "Gêneros discursivos",
+            "Literatura medieval", "Renascimento e Classicismo",
+            "Barroco", "Arcadismo", "Funções da linguagem",
+            "Variação linguística", "Morfologia", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Médio", "2ª série"): [
+            "Leitura e interpretação", "Romantismo", "Realismo",
+            "Naturalismo", "Parnasianismo", "Simbolismo",
+            "Sintaxe do período simples", "Sintaxe do período composto",
+            "Semântica", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Médio", "3ª série"): [
+            "Leitura e interpretação", "Pré-Modernismo", "Modernismo",
+            "Literatura contemporânea", "Concordância", "Regência",
+            "Crase", "Coesão e coerência", "Redação do ENEM",
+            "Revisão gramatical"
+        ]
+    }
+
+    for (disciplina_assunto, etapa_assunto, serie_assunto), nomes_assuntos in assuntos_padrao.items():
+        for nome_assunto in nomes_assuntos:
+            cursor.execute("""
+                INSERT INTO assuntos (
+                    escola_id,
+                    disciplina,
+                    etapa_ensino,
+                    ano_serie,
+                    nome,
+                    ativo
+                )
+                SELECT NULL, ?, ?, ?, ?, 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM assuntos
+                    WHERE escola_id IS NULL
+                      AND disciplina = ?
+                      AND etapa_ensino = ?
+                      AND ano_serie = ?
+                      AND nome = ?
+                )
+            """, (
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto,
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto
+            ))
+
+    # Catálogo ampliado para o Ensino Fundamental - Anos Finais e Ensino Médio.
+    # Apenas assuntos ainda inexistentes são incluídos.
+    assuntos_ampliados = {
+        # =====================================================
+        # ENSINO FUNDAMENTAL - ANOS FINAIS
+        # =====================================================
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Tipos de linguagem", "Elementos da comunicação", "Sentido literal e figurado",
+            "Sinônimos e antônimos", "Parônimos e homônimos", "Estrutura das palavras",
+            "Formação de palavras", "Sílaba tônica", "Acentuação gráfica",
+            "Frase, oração e período", "Tipos de frase", "Discurso direto e indireto",
+            "Coesão textual", "Coerência textual", "Texto narrativo", "Texto descritivo",
+            "Texto injuntivo", "Notícia", "Conto", "Fábula", "Poema",
+            "História em quadrinhos", "Bilhete", "Carta pessoal"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Derivação e composição", "Modo indicativo", "Modo subjuntivo",
+            "Modo imperativo", "Verbos regulares e irregulares", "Transitividade verbal",
+            "Predicação verbal", "Tipos de sujeito", "Tipos de predicado",
+            "Complemento nominal", "Aposto e vocativo", "Adjunto adnominal",
+            "Adjunto adverbial", "Concordância verbal", "Concordância nominal",
+            "Crônica", "Entrevista", "Reportagem", "Carta do leitor",
+            "Resumo", "Relato pessoal", "Biografia", "Autobiografia"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Predicativo do sujeito", "Predicativo do objeto", "Objeto direto",
+            "Objeto indireto", "Agente da passiva", "Voz ativa", "Voz passiva",
+            "Voz reflexiva", "Orações coordenadas", "Orações subordinadas",
+            "Conjunções coordenativas", "Conjunções subordinativas",
+            "Regência verbal", "Regência nominal", "Crase",
+            "Artigo de opinião", "Editorial", "Resenha crítica",
+            "Texto publicitário", "Charge", "Cartum", "Infográfico"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Orações subordinadas substantivas", "Orações subordinadas adjetivas",
+            "Orações subordinadas adverbiais", "Colocação pronominal",
+            "Próclise", "Ênclise", "Mesóclise", "Pontuação no período composto",
+            "Denotação e conotação", "Ambiguidade", "Intertextualidade",
+            "Ironia", "Humor", "Tese e argumentação", "Estratégias argumentativas",
+            "Dissertação argumentativa", "Manifesto", "Debate", "Seminário",
+            "Podcast", "Editorial", "Carta aberta"
+        ],
+
+        ("Matemática", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Sistema de numeração decimal", "Expressões numéricas",
+            "Critérios de divisibilidade", "Números primos", "MMC", "MDC",
+            "Frações equivalentes", "Comparação de frações",
+            "Adição e subtração de frações", "Multiplicação e divisão de frações",
+            "Operações com números decimais", "Plano cartesiano", "Ângulos",
+            "Retas e segmentos", "Polígonos", "Perímetro", "Área de figuras planas",
+            "Sistema métrico decimal", "Leitura de tabelas", "Leitura de gráficos"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Operações com números inteiros", "Expressões com números inteiros",
+            "Operações com números racionais", "Proporcionalidade direta",
+            "Proporcionalidade inversa", "Escala", "Equações com uma incógnita",
+            "Inequações", "Sequências numéricas", "Linguagem algébrica",
+            "Retas paralelas e transversais", "Congruência de triângulos",
+            "Quadriláteros", "Circunferência", "Área de polígonos",
+            "Volume de blocos retangulares", "Média aritmética",
+            "Gráficos estatísticos", "Princípio multiplicativo"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Monômios", "Polinômios", "Operações com polinômios",
+            "Equações fracionárias", "Sistemas lineares", "Função afim",
+            "Sequências", "Notação científica", "Radicais", "Razões notáveis",
+            "Semelhança de figuras", "Construções geométricas",
+            "Mediatriz e bissetriz", "Prismas", "Cilindros",
+            "Área total", "Volume", "Medidas de tendência central",
+            "Gráficos e tabelas", "Probabilidade experimental"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Potências e raízes", "Notação científica", "Produtos notáveis",
+            "Fatoração algébrica", "Equações biquadradas", "Sistemas quadráticos",
+            "Função afim", "Função quadrática", "Gráficos de funções",
+            "Razões trigonométricas", "Relações métricas no triângulo retângulo",
+            "Polígonos regulares", "Comprimento da circunferência",
+            "Área do círculo", "Prismas e cilindros", "Volume de sólidos",
+            "Análise combinatória", "Probabilidade composta",
+            "Média, moda e mediana", "Gráficos estatísticos"
+        ],
+
+        ("História", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Fontes históricas", "Tempo histórico", "Periodização da História",
+            "Evolução humana", "Paleolítico", "Neolítico", "Idade dos Metais",
+            "Revolução Agrícola", "Civilizações hidráulicas", "Código de Hamurábi",
+            "Religião no Egito", "Sociedade egípcia", "Democracia ateniense",
+            "Esparta", "Guerras Médicas", "Guerra do Peloponeso",
+            "República Romana", "Império Romano", "Cristianismo",
+            "Queda do Império Romano", "Reinos africanos antigos",
+            "Povos indígenas do Brasil"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Império Bizantino", "Império Carolíngio", "Sociedade feudal",
+            "Cruzadas", "Renascimento comercial e urbano", "Peste Negra",
+            "Formação das monarquias nacionais", "Mercantilismo", "Humanismo",
+            "Contrarreforma", "Grandes Navegações", "Conquista da América",
+            "Astecas", "Maias", "Incas", "Capitanias hereditárias",
+            "Governo-geral", "Economia açucareira", "União Ibérica",
+            "Invasões holandesas", "Quilombos"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Liberalismo", "Despotismo esclarecido", "Independência do Haiti",
+            "Congresso de Viena", "Revoluções liberais", "Nacionalismo",
+            "Unificação italiana", "Unificação alemã", "Imperialismo",
+            "Partilha da África", "Vinda da família real", "Independência do Brasil",
+            "Constituição de 1824", "Confederação do Equador",
+            "Revoltas Regenciais", "Golpe da Maioridade", "Guerra do Paraguai",
+            "Café e industrialização", "Movimento abolicionista",
+            "Proclamação da República"
+        ],
+        ("História", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "República da Espada", "República Oligárquica", "Coronelismo",
+            "Revolta da Vacina", "Guerra de Canudos", "Guerra do Contestado",
+            "Revolução de 1930", "Estado Novo", "Holocausto",
+            "Descolonização da África", "Descolonização da Ásia",
+            "Revolução Chinesa", "Revolução Cubana", "Populismo no Brasil",
+            "Golpe de 1964", "Regime Militar", "Redemocratização",
+            "Constituição de 1988", "Globalização", "Conflitos contemporâneos"
+        ],
+
+        ("Geografia", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Lugar, território e região", "Escalas cartográficas", "Fusos horários",
+            "Movimentos da Terra", "Estações do ano", "Estrutura interna da Terra",
+            "Tectonismo", "Vulcanismo", "Abalos sísmicos", "Tipos de rocha",
+            "Formação do solo", "Agentes do relevo", "Elementos do clima",
+            "Fatores climáticos", "Bacias hidrográficas", "Biomas brasileiros",
+            "Recursos naturais", "Impactos ambientais", "Urbanização",
+            "Atividades econômicas"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Formação territorial do Brasil", "Regiões brasileiras",
+            "Regionalização do IBGE", "População brasileira", "Migrações internas",
+            "Urbanização brasileira", "Industrialização brasileira",
+            "Agropecuária", "Extrativismo", "Fontes de energia",
+            "Transportes e comunicação", "Região Norte", "Região Nordeste",
+            "Região Centro-Oeste", "Região Sudeste", "Região Sul",
+            "Amazônia", "Cerrado", "Semiárido", "Desigualdades regionais"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "População mundial", "Indicadores demográficos", "Fluxos migratórios",
+            "Globalização", "Blocos econômicos", "América Anglo-Saxônica",
+            "América Latina", "Estados Unidos", "Canadá", "México",
+            "América Central", "América do Sul", "África",
+            "Colonização da África", "Economia africana", "Conflitos africanos",
+            "Ásia Ocidental", "Oriente Médio", "Geopolítica mundial",
+            "Redes e fluxos"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Europa", "União Europeia", "Rússia", "Ásia", "China", "Japão",
+            "Índia", "Tigres Asiáticos", "Oceania", "Austrália",
+            "Nova Zelândia", "Antártida", "Nova ordem mundial",
+            "Organizações internacionais", "Conflitos contemporâneos",
+            "Questões ambientais globais", "Mudanças climáticas",
+            "Economia global", "Revolução técnico-científica",
+            "Desigualdades socioespaciais"
+        ],
+
+        ("Ciências", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Propriedades da matéria", "Estados físicos da matéria",
+            "Mudanças de estado físico", "Substâncias e misturas",
+            "Métodos de separação", "Transformações físicas",
+            "Transformações químicas", "Organização celular", "Microscopia",
+            "Sistema ósseo", "Sistema muscular", "Órgãos dos sentidos",
+            "Sistema nervoso central", "Drogas e sistema nervoso",
+            "Forma e estrutura da Terra", "Fósseis", "Placas tectônicas",
+            "Sistema Solar", "Movimentos da Terra", "Lua"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Máquinas simples", "Calor e temperatura", "Propagação do calor",
+            "Equilíbrio térmico", "Combustíveis", "Efeito estufa",
+            "Camada de ozônio", "Vírus", "Bactérias", "Protozoários",
+            "Fungos", "Vacinas", "Ecossistemas", "Cadeias alimentares",
+            "Teias alimentares", "Biomas brasileiros", "Impactos ambientais",
+            "Atmosfera", "Fenômenos naturais", "Placas tectônicas"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Fontes e tipos de energia", "Energia elétrica", "Circuitos elétricos",
+            "Consumo de energia", "Reprodução humana", "Puberdade",
+            "Sistema reprodutor masculino", "Sistema reprodutor feminino",
+            "Métodos contraceptivos", "Infecções sexualmente transmissíveis",
+            "Hereditariedade", "Genética básica", "Clima e tempo",
+            "Previsão do tempo", "Sistema Sol, Terra e Lua",
+            "Fases da Lua", "Eclipses", "Estações do ano",
+            "Movimentos da Terra", "Saúde e sexualidade"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Átomos e moléculas", "Elementos químicos", "Tabela periódica",
+            "Ligações químicas", "Reações químicas", "Leis ponderais",
+            "Estrutura da matéria", "Ondas", "Som", "Luz",
+            "Espectro eletromagnético", "Genética", "Leis de Mendel",
+            "Evolução", "Seleção natural", "Diversidade biológica",
+            "Sistema Solar", "Estrelas", "Galáxias", "Universo"
+        ],
+
+        ("Língua Inglesa", "Ensino Fundamental - Anos Finais", "6º ano"): [
+            "Greetings", "Personal information", "Alphabet", "Numbers",
+            "Colors", "School objects", "Family", "Verb to be",
+            "Personal pronouns", "Possessive adjectives", "Simple present",
+            "Daily routine", "Days and months", "Reading comprehension"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Finais", "7º ano"): [
+            "Simple present", "Present continuous", "There is and there are",
+            "Prepositions of place", "Countable and uncountable nouns",
+            "Some and any", "Can and cannot", "Adverbs of frequency",
+            "Sports and leisure", "Food and drinks", "Reading comprehension",
+            "Text genres"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Finais", "8º ano"): [
+            "Simple past", "Regular and irregular verbs", "Past continuous",
+            "Comparatives", "Superlatives", "Future with will",
+            "Going to", "Modal verbs", "Technology vocabulary",
+            "Environment vocabulary", "Reading comprehension", "Text genres"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Finais", "9º ano"): [
+            "Present perfect", "Past perfect", "Conditional sentences",
+            "Passive voice", "Reported speech", "Relative pronouns",
+            "Modal verbs", "Phrasal verbs", "Global issues",
+            "Media and communication", "Reading comprehension", "Text genres"
+        ],
+
+        # =====================================================
+        # ENSINO MÉDIO
+        # =====================================================
+        ("Língua Portuguesa", "Ensino Médio", "1ª série"): [
+            "Gêneros discursivos", "Funções da linguagem", "Variação linguística",
+            "Fonologia", "Morfologia", "Estrutura e formação de palavras",
+            "Substantivos", "Adjetivos", "Pronomes", "Verbos",
+            "Trovadorismo", "Humanismo", "Classicismo", "Quinhentismo",
+            "Barroco", "Arcadismo", "Interpretação textual",
+            "Coesão e coerência", "Introdução à redação do ENEM"
+        ],
+        ("Língua Portuguesa", "Ensino Médio", "2ª série"): [
+            "Sintaxe do período simples", "Termos da oração",
+            "Coordenação", "Subordinação", "Concordância verbal",
+            "Concordância nominal", "Regência verbal", "Regência nominal",
+            "Crase", "Romantismo", "Realismo", "Naturalismo",
+            "Parnasianismo", "Simbolismo", "Pré-Modernismo",
+            "Interpretação textual", "Argumentação", "Redação do ENEM"
+        ],
+        ("Língua Portuguesa", "Ensino Médio", "3ª série"): [
+            "Modernismo - primeira fase", "Modernismo - segunda fase",
+            "Modernismo - terceira fase", "Literatura contemporânea",
+            "Orações subordinadas", "Pontuação", "Colocação pronominal",
+            "Semântica", "Figuras de linguagem", "Intertextualidade",
+            "Gêneros digitais", "Tese e repertório sociocultural",
+            "Competências da redação do ENEM", "Coesão argumentativa",
+            "Proposta de intervenção", "Revisão gramatical"
+        ],
+
+        ("Matemática", "Ensino Médio", "1ª série"): [
+            "Conjuntos", "Conjuntos numéricos", "Intervalos reais",
+            "Função afim", "Função quadrática", "Função modular",
+            "Função exponencial", "Função logarítmica", "Progressão aritmética",
+            "Progressão geométrica", "Razão e proporção", "Porcentagem",
+            "Trigonometria no triângulo retângulo", "Geometria plana",
+            "Semelhança de triângulos", "Estatística básica"
+        ],
+        ("Matemática", "Ensino Médio", "2ª série"): [
+            "Trigonometria no ciclo", "Funções trigonométricas",
+            "Matrizes", "Determinantes", "Sistemas lineares",
+            "Análise combinatória", "Probabilidade", "Binômio de Newton",
+            "Geometria espacial", "Prismas", "Pirâmides", "Cilindros",
+            "Cones", "Esferas", "Áreas e volumes", "Estatística"
+        ],
+        ("Matemática", "Ensino Médio", "3ª série"): [
+            "Geometria analítica", "Distância entre pontos", "Ponto médio",
+            "Equação da reta", "Circunferência", "Números complexos",
+            "Polinômios", "Equações polinomiais", "Matemática financeira",
+            "Juros simples", "Juros compostos", "Probabilidade",
+            "Estatística", "Funções", "Revisão ENEM"
+        ],
+
+        ("História", "Ensino Médio", "1ª série"): [
+            "Pré-História", "Antiguidade Oriental", "Grécia Antiga",
+            "Roma Antiga", "África Antiga", "Idade Média",
+            "Feudalismo", "Império Bizantino", "Islamismo",
+            "Cruzadas", "Renascimento comercial e urbano",
+            "Renascimento cultural", "Reformas religiosas",
+            "Formação dos Estados Nacionais", "Absolutismo",
+            "Mercantilismo", "Expansão marítima"
+        ],
+        ("História", "Ensino Médio", "2ª série"): [
+            "Colonização da América", "Brasil Colonial", "Escravidão",
+            "Iluminismo", "Revolução Industrial", "Independência dos Estados Unidos",
+            "Revolução Francesa", "Era Napoleônica", "Independências da América",
+            "Primeiro Reinado", "Período Regencial", "Segundo Reinado",
+            "Imperialismo", "Unificações italiana e alemã",
+            "Abolição e Proclamação da República"
+        ],
+        ("História", "Ensino Médio", "3ª série"): [
+            "Primeira República", "Primeira Guerra Mundial",
+            "Revolução Russa", "Crise de 1929", "Nazifascismo",
+            "Era Vargas", "Segunda Guerra Mundial", "Guerra Fria",
+            "Descolonização afro-asiática", "Ditadura Militar no Brasil",
+            "Redemocratização", "Nova República", "Globalização",
+            "Conflitos contemporâneos", "História do Tocantins"
+        ],
+
+        ("Geografia", "Ensino Médio", "1ª série"): [
+            "Cartografia", "Escalas", "Projeções cartográficas",
+            "Geologia", "Relevo", "Solos", "Climatologia",
+            "Hidrografia", "Biomas", "Questões ambientais",
+            "Demografia", "Urbanização", "Espaço rural",
+            "Fontes de energia", "Geografia do Brasil"
+        ],
+        ("Geografia", "Ensino Médio", "2ª série"): [
+            "Industrialização", "Globalização", "Redes e fluxos",
+            "Comércio internacional", "Blocos econômicos", "Geopolítica",
+            "Estados Unidos", "Europa", "Rússia", "África",
+            "América Latina", "Oriente Médio", "Ásia",
+            "China", "Índia", "Japão"
+        ],
+        ("Geografia", "Ensino Médio", "3ª série"): [
+            "Nova ordem mundial", "Conflitos internacionais",
+            "Organizações internacionais", "Migrações internacionais",
+            "Desigualdades socioespaciais", "Mudanças climáticas",
+            "Questões energéticas", "Agronegócio", "Urbanização brasileira",
+            "Industrialização brasileira", "Regiões brasileiras",
+            "Amazônia", "Cerrado", "Geografia do Tocantins",
+            "Revisão ENEM"
+        ],
+
+        ("Biologia", "Ensino Médio", "1ª série"): [
+            "Origem da vida", "Bioquímica celular", "Citologia",
+            "Membrana plasmática", "Organelas celulares", "Metabolismo energético",
+            "Fotossíntese", "Respiração celular", "Divisão celular",
+            "Histologia animal", "Vírus", "Bactérias", "Protozoários",
+            "Fungos", "Botânica"
+        ],
+        ("Biologia", "Ensino Médio", "2ª série"): [
+            "Zoologia", "Fisiologia humana", "Sistema digestório",
+            "Sistema respiratório", "Sistema circulatório", "Sistema excretor",
+            "Sistema nervoso", "Sistema endócrino", "Sistema reprodutor",
+            "Embriologia", "Imunologia", "Doenças infecciosas",
+            "Parasitologia", "Saúde pública"
+        ],
+        ("Biologia", "Ensino Médio", "3ª série"): [
+            "Genética", "Leis de Mendel", "Herança ligada ao sexo",
+            "Biotecnologia", "Evolução", "Seleção natural",
+            "Especiação", "Ecologia", "Cadeias e teias alimentares",
+            "Ciclos biogeoquímicos", "Relações ecológicas",
+            "Sucessão ecológica", "Biomas brasileiros",
+            "Impactos ambientais", "Revisão ENEM"
+        ],
+
+        ("Física", "Ensino Médio", "1ª série"): [
+            "Grandezas físicas", "Vetores", "Cinemática",
+            "Movimento uniforme", "Movimento uniformemente variado",
+            "Queda livre", "Lançamentos", "Dinâmica",
+            "Leis de Newton", "Força de atrito", "Trabalho",
+            "Energia", "Potência", "Impulso", "Quantidade de movimento"
+        ],
+        ("Física", "Ensino Médio", "2ª série"): [
+            "Hidrostática", "Pressão", "Princípio de Pascal",
+            "Princípio de Arquimedes", "Termologia", "Calorimetria",
+            "Dilatação térmica", "Termodinâmica", "Ondulatória",
+            "Som", "Óptica geométrica", "Espelhos", "Lentes",
+            "Refração", "Instrumentos ópticos"
+        ],
+        ("Física", "Ensino Médio", "3ª série"): [
+            "Eletrostática", "Campo elétrico", "Potencial elétrico",
+            "Corrente elétrica", "Resistores", "Circuitos elétricos",
+            "Potência elétrica", "Magnetismo", "Eletromagnetismo",
+            "Indução eletromagnética", "Física moderna", "Relatividade",
+            "Física quântica", "Radioatividade", "Revisão ENEM"
+        ],
+
+        ("Química", "Ensino Médio", "1ª série"): [
+            "Matéria e energia", "Estados físicos", "Misturas",
+            "Separação de misturas", "Modelos atômicos", "Estrutura atômica",
+            "Tabela periódica", "Propriedades periódicas", "Ligações químicas",
+            "Geometria molecular", "Forças intermoleculares",
+            "Funções inorgânicas", "Reações químicas", "Balanceamento"
+        ],
+        ("Química", "Ensino Médio", "2ª série"): [
+            "Mol", "Massa molar", "Estequiometria", "Soluções",
+            "Concentração", "Diluição", "Mistura de soluções",
+            "Termoquímica", "Cinética química", "Equilíbrio químico",
+            "Equilíbrio iônico", "pH e pOH", "Hidrólise salina",
+            "Eletroquímica"
+        ],
+        ("Química", "Ensino Médio", "3ª série"): [
+            "Química orgânica", "Cadeias carbônicas", "Funções orgânicas",
+            "Isomeria", "Reações orgânicas", "Polímeros",
+            "Petróleo", "Bioquímica", "Radioatividade",
+            "Química ambiental", "Química dos alimentos",
+            "Combustíveis", "Pilhas e eletrólise", "Revisão ENEM"
+        ],
+
+        ("Filosofia", "Ensino Médio", "1ª série"): [
+            "Origem da Filosofia", "Mito e razão", "Pré-socráticos",
+            "Sócrates", "Platão", "Aristóteles", "Filosofia helenística",
+            "Ética antiga", "Política na Antiguidade", "Conhecimento e verdade"
+        ],
+        ("Filosofia", "Ensino Médio", "2ª série"): [
+            "Filosofia medieval", "Patrística", "Escolástica",
+            "Racionalismo", "Empirismo", "Iluminismo", "Kant",
+            "Filosofia política moderna", "Contrato social", "Ética moderna"
+        ],
+        ("Filosofia", "Ensino Médio", "3ª série"): [
+            "Idealismo", "Marxismo", "Nietzsche", "Fenomenologia",
+            "Existencialismo", "Escola de Frankfurt", "Filosofia da ciência",
+            "Bioética", "Filosofia contemporânea", "Cidadania e democracia"
+        ],
+
+        ("Sociologia", "Ensino Médio", "1ª série"): [
+            "Introdução à Sociologia", "Socialização", "Cultura",
+            "Identidade", "Etnocentrismo", "Relativismo cultural",
+            "Instituições sociais", "Grupos sociais", "Estratificação social",
+            "Desigualdade social"
+        ],
+        ("Sociologia", "Ensino Médio", "2ª série"): [
+            "Trabalho e sociedade", "Capitalismo", "Classes sociais",
+            "Karl Marx", "Émile Durkheim", "Max Weber",
+            "Poder e política", "Estado", "Democracia",
+            "Movimentos sociais", "Cidadania"
+        ],
+        ("Sociologia", "Ensino Médio", "3ª série"): [
+            "Globalização", "Indústria cultural", "Mídia e sociedade",
+            "Consumo", "Gênero e sociedade", "Relações étnico-raciais",
+            "Violência", "Urbanização", "Meio ambiente",
+            "Direitos humanos", "Juventude e participação social"
+        ],
+
+        ("Língua Inglesa", "Ensino Médio", "1ª série"): [
+            "Reading strategies", "Cognates and false cognates",
+            "Simple present", "Present continuous", "Simple past",
+            "Pronouns", "Articles", "Prepositions", "Text genres",
+            "Vocabulary in context", "Interpretação de textos"
+        ],
+        ("Língua Inglesa", "Ensino Médio", "2ª série"): [
+            "Present perfect", "Past continuous", "Future forms",
+            "Modal verbs", "Comparatives and superlatives",
+            "Passive voice", "Relative pronouns", "Conditionals",
+            "Text genres", "Interpretação de textos"
+        ],
+        ("Língua Inglesa", "Ensino Médio", "3ª série"): [
+            "Reported speech", "Passive voice", "Conditionals",
+            "Phrasal verbs", "Linking words", "Argumentative texts",
+            "Scientific texts", "Media texts", "ENEM reading strategies",
+            "Interpretação de textos"
+        ]
+    }
+
+    for (disciplina_assunto, etapa_assunto, serie_assunto), nomes_assuntos in assuntos_ampliados.items():
+        for nome_assunto in nomes_assuntos:
+            cursor.execute("""
+                INSERT INTO assuntos (
+                    escola_id,
+                    disciplina,
+                    etapa_ensino,
+                    ano_serie,
+                    nome,
+                    ativo
+                )
+                SELECT NULL, ?, ?, ?, ?, 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM assuntos
+                    WHERE escola_id IS NULL
+                      AND disciplina = ?
+                      AND etapa_ensino = ?
+                      AND ano_serie = ?
+                      AND nome = ?
+                )
+            """, (
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto,
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto
+            ))
+
+    # Catálogo completo do Ensino Fundamental - Anos Iniciais.
+    # Abrange do 1º ao 5º ano e os componentes curriculares mais comuns.
+    assuntos_anos_iniciais = {
+        # =====================================================
+        # LÍNGUA PORTUGUESA
+        # =====================================================
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Alfabeto", "Ordem alfabética", "Vogais e consoantes",
+            "Consciência fonológica", "Sílabas", "Formação de palavras",
+            "Palavras e imagens", "Leitura de palavras", "Leitura de frases",
+            "Escrita do nome", "Letra maiúscula e minúscula",
+            "Segmentação de palavras", "Rimas", "Parlendas", "Cantigas",
+            "Trava-línguas", "Adivinhas", "Listas", "Bilhetes",
+            "Contos infantis", "Interpretação de texto", "Produção de frases"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Ordem alfabética", "Sílabas simples e complexas",
+            "Separação silábica", "Classificação quanto ao número de sílabas",
+            "Substantivos", "Nomes próprios e comuns", "Gênero do substantivo",
+            "Número do substantivo", "Adjetivos", "Artigos",
+            "Sinônimos e antônimos", "Ortografia", "Pontuação",
+            "Frase e parágrafo", "Leitura e interpretação",
+            "Fábulas", "Contos", "Poemas", "Bilhetes", "Convites",
+            "Receitas", "Histórias em quadrinhos", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Substantivos próprios e comuns", "Substantivos coletivos",
+            "Adjetivos", "Artigos", "Pronomes pessoais", "Verbos",
+            "Tempos verbais", "Sílaba tônica", "Acentuação gráfica",
+            "Uso de M e N", "Uso de R e RR", "Uso de S, SS, C e Ç",
+            "Pontuação", "Frase, oração e parágrafo",
+            "Leitura e interpretação", "Contos", "Fábulas", "Lendas",
+            "Notícias", "Cartas", "Receitas", "Poemas",
+            "Histórias em quadrinhos", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Substantivos", "Adjetivos", "Artigos", "Pronomes",
+            "Verbos e tempos verbais", "Advérbios", "Preposições",
+            "Concordância nominal", "Concordância verbal",
+            "Sílaba tônica", "Acentuação", "Encontro vocálico",
+            "Encontro consonantal", "Dígrafos", "Ortografia",
+            "Pontuação", "Discurso direto e indireto",
+            "Leitura e interpretação", "Conto", "Crônica", "Notícia",
+            "Reportagem", "Poema", "Carta", "Resumo", "Produção textual"
+        ],
+        ("Língua Portuguesa", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Classes gramaticais", "Substantivos e classificações",
+            "Adjetivos e locuções adjetivas", "Pronomes", "Numerais",
+            "Verbos e conjugações", "Tempos e modos verbais",
+            "Advérbios", "Preposições", "Conjunções",
+            "Sujeito e predicado", "Tipos de sujeito", "Concordância verbal",
+            "Concordância nominal", "Acentuação gráfica", "Crase",
+            "Pontuação", "Figuras de linguagem", "Denotação e conotação",
+            "Leitura e interpretação", "Gêneros textuais",
+            "Artigo de opinião", "Notícia", "Reportagem", "Crônica",
+            "Poema", "Biografia", "Produção textual"
+        ],
+
+        # =====================================================
+        # MATEMÁTICA
+        # =====================================================
+        ("Matemática", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Números até 10", "Números até 20", "Números até 100",
+            "Contagem", "Sequência numérica", "Antecessor e sucessor",
+            "Comparação de quantidades", "Maior, menor e igual",
+            "Adição", "Subtração", "Situações-problema",
+            "Dezenas e unidades", "Formas geométricas planas",
+            "Localização e posição", "Noções de comprimento",
+            "Noções de massa", "Noções de capacidade", "Calendário",
+            "Dias da semana", "Horas", "Sistema monetário",
+            "Tabelas e gráficos simples"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Números até 100", "Números até 1000", "Valor posicional",
+            "Centenas, dezenas e unidades", "Composição e decomposição",
+            "Adição com e sem reagrupamento", "Subtração com e sem reagrupamento",
+            "Multiplicação como adição de parcelas iguais",
+            "Divisão como repartição", "Dobro", "Triplo", "Metade",
+            "Situações-problema", "Sequências", "Figuras geométricas",
+            "Sólidos geométricos", "Comprimento", "Massa", "Capacidade",
+            "Tempo", "Calendário", "Sistema monetário", "Tabelas e gráficos"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Números naturais", "Sistema de numeração decimal",
+            "Valor posicional", "Composição e decomposição",
+            "Adição", "Subtração", "Multiplicação", "Divisão",
+            "Tabuada", "Problemas com as quatro operações",
+            "Frações simples", "Metade, terça parte e quarta parte",
+            "Sequências numéricas", "Par e ímpar", "Figuras planas",
+            "Sólidos geométricos", "Perímetro", "Comprimento",
+            "Massa", "Capacidade", "Tempo", "Sistema monetário",
+            "Leitura de tabelas", "Leitura de gráficos"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Números naturais", "Ordens e classes", "Valor posicional",
+            "Composição e decomposição", "Adição", "Subtração",
+            "Multiplicação", "Divisão", "Expressões numéricas",
+            "Múltiplos e divisores", "Frações", "Frações equivalentes",
+            "Números decimais", "Problemas com as quatro operações",
+            "Ângulos", "Retas", "Polígonos", "Perímetro", "Área",
+            "Medidas de comprimento", "Massa", "Capacidade", "Tempo",
+            "Sistema monetário", "Tabelas e gráficos"
+        ],
+        ("Matemática", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Sistema de numeração decimal", "Ordens e classes",
+            "Números naturais", "Números decimais", "Adição e subtração",
+            "Multiplicação e divisão", "Expressões numéricas",
+            "Múltiplos e divisores", "Números primos", "MMC e MDC",
+            "Frações", "Operações com frações", "Porcentagem",
+            "Razão e proporção", "Regra de três simples",
+            "Plano cartesiano", "Ângulos", "Polígonos", "Triângulos",
+            "Quadriláteros", "Perímetro", "Área", "Volume",
+            "Grandezas e medidas", "Média aritmética",
+            "Tabelas, gráficos e probabilidade"
+        ],
+
+        # =====================================================
+        # CIÊNCIAS
+        # =====================================================
+        ("Ciências", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Corpo humano", "Partes do corpo", "Órgãos dos sentidos",
+            "Hábitos de higiene", "Alimentação saudável", "Saúde",
+            "Seres vivos e não vivos", "Animais", "Plantas",
+            "Ambientes", "Dia e noite", "Sol", "Lua",
+            "Água", "Ar", "Solo", "Materiais do cotidiano",
+            "Cuidados com o ambiente", "Lixo e reciclagem"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Seres vivos", "Ciclo de vida", "Animais vertebrados e invertebrados",
+            "Habitat dos animais", "Plantas e suas partes",
+            "Germinação", "Necessidades das plantas", "Corpo humano",
+            "Higiene e saúde", "Alimentação", "Água", "Ar", "Solo",
+            "Luz e sombra", "Dia e noite", "Materiais e objetos",
+            "Reutilização e reciclagem", "Preservação ambiental"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Características dos animais", "Classificação dos animais",
+            "Alimentação dos animais", "Reprodução dos animais",
+            "Plantas", "Fotossíntese", "Cadeia alimentar",
+            "Corpo humano", "Sistema locomotor", "Órgãos dos sentidos",
+            "Saúde e prevenção", "Estados físicos da água",
+            "Ciclo da água", "Ar e atmosfera", "Solo",
+            "Som", "Luz", "Terra", "Lua", "Sistema Solar",
+            "Impactos ambientais"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Célula", "Seres unicelulares e pluricelulares",
+            "Microrganismos", "Cadeias alimentares", "Relações ecológicas",
+            "Ecossistemas", "Corpo humano", "Sistema digestório",
+            "Sistema respiratório", "Sistema circulatório",
+            "Hábitos saudáveis", "Misturas", "Transformações da matéria",
+            "Água e saneamento", "Solo", "Rochas e minerais",
+            "Pontos cardeais", "Movimentos da Terra", "Fases da Lua",
+            "Preservação ambiental"
+        ],
+        ("Ciências", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Matéria e energia", "Propriedades da matéria",
+            "Misturas e separação", "Transformações físicas e químicas",
+            "Ciclo da água", "Uso sustentável da água",
+            "Nutrição", "Sistema digestório", "Sistema respiratório",
+            "Sistema circulatório", "Sistema excretor",
+            "Alimentação saudável", "Reprodução humana",
+            "Puberdade", "Sistema Solar", "Movimentos da Terra",
+            "Fases da Lua", "Constelações", "Fontes de energia",
+            "Consumo consciente", "Reciclagem e sustentabilidade"
+        ],
+
+        # =====================================================
+        # HISTÓRIA
+        # =====================================================
+        ("História", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Identidade", "História pessoal", "Nome e sobrenome",
+            "Família", "Diferentes tipos de família", "Linha do tempo",
+            "Memórias", "Brinquedos e brincadeiras", "Escola",
+            "Regras de convivência", "Casa e moradia", "Bairro",
+            "Datas comemorativas", "Direitos das crianças"
+        ],
+        ("História", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "História pessoal e familiar", "Documentos pessoais",
+            "Fontes históricas", "Memórias familiares", "Comunidade",
+            "Bairro", "Profissões", "Trabalho no passado e no presente",
+            "Meios de transporte", "Meios de comunicação",
+            "Brincadeiras antigas e atuais", "Mudanças e permanências",
+            "Patrimônio cultural", "Direitos e deveres"
+        ],
+        ("História", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Município", "História da cidade", "Formação da comunidade",
+            "Grupos sociais", "Povos indígenas", "Povos africanos",
+            "Imigração", "Trabalho e profissões", "Espaços públicos",
+            "Patrimônio histórico", "Patrimônio cultural",
+            "Festas e tradições", "Mudanças na cidade",
+            "Poder público municipal", "Cidadania"
+        ],
+        ("História", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Nomadismo e sedentarização", "Primeiros grupos humanos",
+            "Povos indígenas do Brasil", "Grandes navegações",
+            "Chegada dos portugueses", "Colonização do Brasil",
+            "Escravidão indígena", "Escravidão africana",
+            "Economia açucareira", "Bandeirantes", "Mineração",
+            "Formação do território brasileiro", "Migrações",
+            "Patrimônio histórico", "Diversidade cultural"
+        ],
+        ("História", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Povos e culturas antigas", "Formação das primeiras cidades",
+            "Cidadania na Antiguidade", "Grécia Antiga", "Roma Antiga",
+            "Democracia", "Direitos humanos", "Constituição",
+            "Formação do povo brasileiro", "Povos indígenas",
+            "Povos africanos", "Imigração no Brasil",
+            "Abolição da escravidão", "Proclamação da República",
+            "Patrimônio material e imaterial", "Diversidade religiosa",
+            "Cidadania e participação social"
+        ],
+
+        # =====================================================
+        # GEOGRAFIA
+        # =====================================================
+        ("Geografia", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Lugar de vivência", "Casa", "Escola", "Bairro",
+            "Paisagem", "Elementos naturais e culturais",
+            "Localização", "Direita e esquerda", "Frente e atrás",
+            "Perto e longe", "Trajetos", "Meios de transporte",
+            "Meios de comunicação", "Campo e cidade",
+            "Tempo atmosférico", "Cuidados com o ambiente"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Lugar e paisagem", "Bairro", "Zona urbana e rural",
+            "Tipos de moradia", "Trabalho no campo e na cidade",
+            "Meios de transporte", "Meios de comunicação",
+            "Representação dos lugares", "Mapas simples",
+            "Pontos de referência", "Orientação", "Recursos naturais",
+            "Água", "Solo", "Vegetação", "Impactos ambientais"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Município", "Cidade e campo", "Paisagens urbanas e rurais",
+            "Atividades econômicas", "Agricultura", "Pecuária",
+            "Indústria", "Comércio e serviços", "Trabalho",
+            "Representação cartográfica", "Mapas", "Legendas",
+            "Pontos cardeais", "Relevo", "Hidrografia",
+            "Vegetação", "Clima", "Problemas ambientais"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Território brasileiro", "Divisão política do Brasil",
+            "Estados e capitais", "Regiões brasileiras",
+            "Município e estado", "População brasileira",
+            "Migrações", "Diversidade cultural", "Campo e cidade",
+            "Urbanização", "Atividades econômicas", "Agropecuária",
+            "Indústria", "Comércio", "Relevo brasileiro",
+            "Clima", "Hidrografia", "Biomas brasileiros",
+            "Questões ambientais"
+        ],
+        ("Geografia", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Território e fronteiras", "Regiões brasileiras",
+            "População brasileira", "Distribuição da população",
+            "Migrações internas", "Urbanização", "Rede urbana",
+            "Industrialização", "Agropecuária", "Fontes de energia",
+            "Transportes e comunicação", "Cartografia",
+            "Escala", "Coordenadas geográficas", "Relevo",
+            "Clima", "Hidrografia", "Biomas",
+            "Desigualdades regionais", "Sustentabilidade"
+        ],
+
+        # =====================================================
+        # ARTE
+        # =====================================================
+        ("Arte", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Cores primárias", "Formas", "Linhas", "Texturas",
+            "Desenho", "Pintura", "Colagem", "Modelagem",
+            "Música e sons", "Expressão corporal", "Teatro",
+            "Brincadeiras cantadas", "Arte e identidade"
+        ],
+        ("Arte", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Cores primárias e secundárias", "Mistura de cores",
+            "Formas geométricas na arte", "Texturas", "Desenho",
+            "Pintura", "Colagem", "Escultura", "Música",
+            "Ritmo", "Dança", "Teatro", "Arte popular"
+        ],
+        ("Arte", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Elementos visuais", "Linha, forma e cor", "Luz e sombra",
+            "Desenho de observação", "Pintura", "Gravura",
+            "Escultura", "Fotografia", "Música", "Ritmo e melodia",
+            "Dança", "Teatro", "Cultura popular", "Arte indígena"
+        ],
+        ("Arte", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Artes visuais", "Composição visual", "Perspectiva",
+            "Pintura", "Escultura", "Gravura", "Fotografia",
+            "Música brasileira", "Instrumentos musicais", "Dança",
+            "Teatro", "Arte indígena", "Arte africana",
+            "Patrimônio cultural"
+        ],
+        ("Arte", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Elementos da linguagem visual", "História da arte",
+            "Arte brasileira", "Arte indígena", "Arte afro-brasileira",
+            "Arte popular", "Pintura", "Escultura", "Fotografia",
+            "Cinema", "Música", "Dança", "Teatro",
+            "Cultura e patrimônio", "Produção artística"
+        ],
+
+        # =====================================================
+        # EDUCAÇÃO FÍSICA
+        # =====================================================
+        ("Educação Física", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Brincadeiras e jogos", "Coordenação motora", "Equilíbrio",
+            "Lateralidade", "Esquema corporal", "Movimentos básicos",
+            "Jogos cooperativos", "Ritmo", "Expressão corporal"
+        ],
+        ("Educação Física", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Brincadeiras populares", "Jogos de regras simples",
+            "Coordenação motora", "Agilidade", "Equilíbrio",
+            "Lateralidade", "Ginástica geral", "Dança",
+            "Jogos cooperativos", "Hábitos saudáveis"
+        ],
+        ("Educação Física", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Jogos populares", "Jogos cooperativos", "Esportes de marca",
+            "Esportes de precisão", "Ginástica", "Dança",
+            "Lutas de contexto comunitário", "Coordenação motora",
+            "Capacidades físicas", "Saúde e movimento"
+        ],
+        ("Educação Física", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Jogos e brincadeiras tradicionais", "Esportes de invasão",
+            "Esportes de rede e parede", "Esportes de campo e taco",
+            "Ginástica geral", "Danças populares", "Lutas",
+            "Capacidades físicas", "Regras esportivas",
+            "Saúde e qualidade de vida"
+        ],
+        ("Educação Física", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Jogos eletrônicos", "Esportes de invasão", "Esportes de rede",
+            "Esportes de marca", "Esportes de precisão",
+            "Ginástica geral", "Danças do Brasil", "Lutas do Brasil",
+            "Capacidades físicas", "Fair play", "Regras e arbitragem",
+            "Saúde, exercício e qualidade de vida"
+        ],
+
+        # =====================================================
+        # ENSINO RELIGIOSO
+        # =====================================================
+        ("Ensino Religioso", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Identidade", "Respeito", "Convivência", "Família",
+            "Amizade", "Diferenças", "Valores", "Solidariedade",
+            "Símbolos religiosos", "Festas e celebrações"
+        ],
+        ("Ensino Religioso", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Identidade e alteridade", "Respeito às diferenças",
+            "Família e comunidade", "Valores humanos", "Solidariedade",
+            "Símbolos religiosos", "Espaços sagrados",
+            "Festas religiosas", "Tradições culturais"
+        ],
+        ("Ensino Religioso", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Diversidade religiosa", "Tradições religiosas",
+            "Espaços sagrados", "Práticas religiosas", "Orações",
+            "Festas e celebrações", "Valores éticos",
+            "Respeito e tolerância", "Cultura de paz"
+        ],
+        ("Ensino Religioso", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Religiões do mundo", "Textos sagrados", "Símbolos religiosos",
+            "Ritos e celebrações", "Lideranças religiosas",
+            "Tradições indígenas", "Tradições afro-brasileiras",
+            "Ética", "Direitos humanos", "Cultura de paz"
+        ],
+        ("Ensino Religioso", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Diversidade de crenças", "Religiões monoteístas",
+            "Religiões orientais", "Matrizes indígenas",
+            "Matrizes africanas", "Textos sagrados",
+            "Mitos e narrativas religiosas", "Ética e cidadania",
+            "Liberdade religiosa", "Diálogo inter-religioso"
+        ],
+
+        # =====================================================
+        # LÍNGUA INGLESA
+        # =====================================================
+        ("Língua Inglesa", "Ensino Fundamental - Anos Iniciais", "1º ano"): [
+            "Greetings", "Colors", "Numbers 1 to 10", "School objects",
+            "Family", "Body parts", "Animals", "Songs and games"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Iniciais", "2º ano"): [
+            "Greetings", "Alphabet", "Numbers", "Colors",
+            "Family members", "School objects", "Toys",
+            "Animals", "Food", "Days of the week"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Iniciais", "3º ano"): [
+            "Personal information", "Numbers", "Colors",
+            "Family", "Parts of the house", "School subjects",
+            "Food and drinks", "Animals", "Clothes",
+            "Days and months", "Verb to be"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Iniciais", "4º ano"): [
+            "Personal information", "Daily routine", "Simple present",
+            "Family", "House", "School", "Food",
+            "Clothes", "Weather", "Places in town",
+            "Prepositions of place", "Can and cannot"
+        ],
+        ("Língua Inglesa", "Ensino Fundamental - Anos Iniciais", "5º ano"): [
+            "Simple present", "Daily routine", "Adverbs of frequency",
+            "Personal pronouns", "Possessive adjectives",
+            "There is and there are", "Places in town",
+            "Food and drinks", "Sports", "Weather",
+            "Dates and time", "Reading comprehension"
+        ]
+    }
+
+    for (disciplina_assunto, etapa_assunto, serie_assunto), nomes_assuntos in assuntos_anos_iniciais.items():
+        for nome_assunto in nomes_assuntos:
+            cursor.execute("""
+                INSERT INTO assuntos (
+                    escola_id,
+                    disciplina,
+                    etapa_ensino,
+                    ano_serie,
+                    nome,
+                    ativo
+                )
+                SELECT NULL, ?, ?, ?, ?, 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM assuntos
+                    WHERE escola_id IS NULL
+                      AND disciplina = ?
+                      AND etapa_ensino = ?
+                      AND ano_serie = ?
+                      AND nome = ?
+                )
+            """, (
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto,
+                disciplina_assunto, etapa_assunto, serie_assunto, nome_assunto
+            ))
+
     garantir_coluna("escolas", "tipo_instituicao", "TEXT")
     garantir_coluna("usuarios", "escola_id", "INTEGER")
     garantir_coluna("usuarios", "cpf", "TEXT")
@@ -584,11 +2108,45 @@ def criar_tabelas():
     garantir_coluna("alunos", "ano_letivo_id", "INTEGER")
     garantir_coluna("professores", "escola_id", "INTEGER")
     garantir_coluna("questoes", "escola_id", "INTEGER")
+    garantir_coluna("questoes", "assunto", "TEXT")
+    garantir_coluna("questoes", "assunto_temporario", "INTEGER DEFAULT 0")
+    garantir_coluna("questoes", "tipo_questao", "TEXT DEFAULT 'multipla_escolha'")
+    garantir_coluna("questoes", "enunciado_html", "TEXT")
+    garantir_coluna("questoes", "alternativas_json", "TEXT")
+    garantir_coluna("questoes", "respostas_corretas", "TEXT")
+    garantir_coluna("questoes", "resposta_esperada", "TEXT")
+    garantir_coluna("questoes", "criterios_correcao", "TEXT")
+    garantir_coluna("questoes", "observacoes", "TEXT")
+    garantir_coluna("questoes", "criado_por", "INTEGER")
+    garantir_coluna("questoes", "criado_em", "TEXT")
+    garantir_coluna("questoes", "atualizado_em", "TEXT")
+    garantir_coluna("questoes", "etapa_ensino", "TEXT")
+    garantir_coluna("questoes", "ano_serie", "TEXT")
+    garantir_coluna("questoes", "subassunto", "TEXT")
+    garantir_coluna("questoes", "unidade_tematica", "TEXT")
+    garantir_coluna("questoes", "objeto_conhecimento", "TEXT")
+    garantir_coluna("questoes", "habilidade_bncc", "TEXT")
+    garantir_coluna("questoes", "matriz_referencia", "TEXT")
+    garantir_coluna("questoes", "descritor_saeb", "TEXT")
+    garantir_coluna("questoes", "taxonomia_bloom", "TEXT")
+    garantir_coluna("questoes", "fonte", "TEXT")
+    garantir_coluna("questoes", "ano_fonte", "INTEGER")
+    garantir_coluna("questoes", "tags", "TEXT")
+    garantir_coluna("questoes", "tempo_estimado", "INTEGER")
+    garantir_coluna("questoes", "linhas_resposta", "INTEGER DEFAULT 5")
     garantir_coluna("provas", "professor_id", "INTEGER")
     garantir_coluna("provas", "data_geracao", "TEXT")
     garantir_coluna("provas", "data_aplicacao", "TEXT")
     garantir_coluna("provas", "escola_id", "INTEGER")
     garantir_coluna("provas", "ano_letivo_id", "INTEGER")
+    garantir_coluna("provas", "status", "TEXT DEFAULT 'rascunho'")
+    garantir_coluna("provas", "atualizado_em", "TEXT")
+    garantir_coluna("provas", "media_ativa", "INTEGER DEFAULT 0")
+    garantir_coluna("provas", "media_aprovacao", "REAL")
+    garantir_coluna("provas", "peso_total", "REAL DEFAULT 10")
+    garantir_coluna("provas", "tipo_peso", "TEXT DEFAULT 'automatico'")
+    garantir_coluna("prova_questoes", "peso", "REAL DEFAULT 0")
+    garantir_coluna("prova_questoes", "ordem", "INTEGER DEFAULT 0")
     garantir_coluna("instituicao", "logo", "TEXT")
     garantir_coluna("permissoes", "pode_acessar", "INTEGER DEFAULT 0")
 
@@ -644,6 +2202,21 @@ def criar_tabelas():
         ON turmas (escola_id)
     """)
 
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_aluno_matriculas_aluno
+        ON aluno_matriculas (aluno_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_aluno_matriculas_ano
+        ON aluno_matriculas (ano_letivo_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_aluno_matriculas_turma
+        ON aluno_matriculas (turma_id)
+    """)
+
     cargos = [
         "Administrador Geral",
         "Administrador da Instituição",
@@ -685,6 +2258,72 @@ def criar_tabelas():
             cargo_admin_id
         ))
 
+    # =====================================================
+    # CONFIGURAÇÕES E AUDITORIA DO ANO LETIVO
+    # =====================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS configuracao_ano_letivo_global (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            ativo INTEGER NOT NULL DEFAULT 0,
+            ano INTEGER,
+            data_execucao TEXT,
+            data_inicio TEXT,
+            data_fim TEXT,
+            copiar_turmas INTEGER NOT NULL DEFAULT 1,
+            copiar_vinculos INTEGER NOT NULL DEFAULT 1,
+            encerrar_anterior INTEGER NOT NULL DEFAULT 1,
+            executado INTEGER NOT NULL DEFAULT 0,
+            atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO configuracao_ano_letivo_global (
+            id,
+            ativo,
+            copiar_turmas,
+            copiar_vinculos,
+            encerrar_anterior,
+            executado
+        )
+        VALUES (1, 0, 1, 1, 1, 0)
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS configuracao_ano_letivo_instituicao (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER NOT NULL UNIQUE,
+            modo TEXT NOT NULL DEFAULT 'global',
+            ativo INTEGER NOT NULL DEFAULT 0,
+            ano INTEGER,
+            data_execucao TEXT,
+            data_inicio TEXT,
+            data_fim TEXT,
+            copiar_turmas INTEGER NOT NULL DEFAULT 1,
+            copiar_vinculos INTEGER NOT NULL DEFAULT 1,
+            encerrar_anterior INTEGER NOT NULL DEFAULT 1,
+            executado INTEGER NOT NULL DEFAULT 0,
+            atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ano_letivo_auditoria (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER,
+            ano_letivo_id INTEGER,
+            usuario_id INTEGER,
+            acao TEXT NOT NULL,
+            detalhes TEXT,
+            criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE SET NULL,
+            FOREIGN KEY (ano_letivo_id) REFERENCES anos_letivos(id) ON DELETE SET NULL,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+        )
+    """)
+
     banco.commit()
     banco.close()
 
@@ -694,6 +2333,13 @@ def criar_tabelas():
 
 @app.route("/")
 def index():
+    """
+    Dashboard global da plataforma.
+
+    Os totais acadêmicos (turmas, alunos e provas) obedecem ao ano
+    selecionado na barra superior. Cadastros permanentes, como usuários,
+    instituições, professores e questões, não são zerados ao trocar o ano.
+    """
 
     if "usuario_id" not in session:
         return redirect("/login")
@@ -702,13 +2348,15 @@ def index():
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    usuario_id = session.get("usuario_id")
-    usuario_cargo = session.get(
-        "usuario_cargo",
-        ""
-    ).strip()
+    contexto = obter_contexto_plataforma()
 
-    escola_id = session.get("escola_id")
+    usuario_id = contexto["usuario_id"]
+    usuario_cargo = contexto["cargo"]
+    escola_id = contexto["escola_id"]
+    ano_letivo_id = contexto["ano_letivo_id"]
+    ano_visualizado = contexto["ano"]
+    ano_letivo_id_ativo = contexto["ano_ativo_id"]
+    ano_letivo_ativo = contexto["ano_ativo"]
 
     total_instituicoes = 0
     total_usuarios = 0
@@ -719,48 +2367,14 @@ def index():
     total_provas = 0
 
     nome_instituicao = None
-
-    ano_letivo_id_ativo = None
-    ano_letivo_ativo = None
-
     permissoes_usuario = []
 
     try:
-
-        # =====================================================
-        # RECUPERAR A INSTITUIÇÃO DO USUÁRIO
-        # =====================================================
-
-        if (
-            usuario_cargo != "Administrador Geral"
-            and not escola_id
-            and usuario_id
-        ):
-
-            cursor.execute("""
-                SELECT escola_id
-                FROM usuarios
-                WHERE id = ?
-                LIMIT 1
-            """, (
-                usuario_id,
-            ))
-
-            usuario_banco = cursor.fetchone()
-
-            if (
-                usuario_banco
-                and usuario_banco["escola_id"]
-            ):
-                escola_id = usuario_banco["escola_id"]
-                session["escola_id"] = escola_id
-
         # =====================================================
         # PERMISSÕES DO USUÁRIO
         # =====================================================
 
         if usuario_cargo == "Administrador Geral":
-
             permissoes_usuario = [
                 "Dashboard",
                 "Instituições",
@@ -773,25 +2387,19 @@ def index():
                 "Provas",
                 "Relatórios"
             ]
-
         else:
-
             cursor.execute("""
                 SELECT modulo
                 FROM usuario_permissoes
                 WHERE usuario_id = ?
                   AND pode_acessar = 1
-            """, (
-                usuario_id,
-            ))
+            """, (usuario_id,))
 
             permissoes_usuario = [
                 linha["modulo"]
                 for linha in cursor.fetchall()
             ]
 
-            # Administrador da Instituição sempre poderá
-            # acessar a gestão de anos letivos.
             if (
                 usuario_cargo == "Administrador da Instituição"
                 and "Anos Letivos" not in permissoes_usuario
@@ -800,336 +2408,174 @@ def index():
 
         # =====================================================
         # ADMINISTRADOR GERAL
-        #
-        # Alunos, turmas e provas são contados somente nos
-        # anos letivos ativos de cada instituição.
+        # Usa o número do ano, porque cada instituição possui
+        # um ID próprio para o mesmo ano letivo.
         # =====================================================
 
         if usuario_cargo == "Administrador Geral":
-
-            # Instituições ativas
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM escolas
                 WHERE COALESCE(status, 1) = 1
             """)
+            total_instituicoes = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
-
-            total_instituicoes = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # Usuários ativos de todas as instituições
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM usuarios
                 WHERE ativo = 1
             """)
+            total_usuarios = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
-
-            total_usuarios = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # Professores cadastrados
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM professores
             """)
+            total_professores = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
-
-            total_professores = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # Alunos dos anos ativos
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM alunos AS a
-
-                INNER JOIN anos_letivos AS al
-                    ON al.id = a.ano_letivo_id
-                   AND al.escola_id = a.escola_id
-                   AND al.ativo = 1
-                   AND al.encerrado = 0
-            """)
-
-            resultado = cursor.fetchone()
-
-            total_alunos = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # Turmas dos anos ativos
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM turmas AS t
-
-                INNER JOIN anos_letivos AS al
-                    ON al.id = t.ano_letivo_id
-                   AND al.escola_id = t.escola_id
-                   AND al.ativo = 1
-                   AND al.encerrado = 0
-            """)
-
-            resultado = cursor.fetchone()
-
-            total_turmas = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # Banco de questões não depende de ano letivo
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM questoes
             """)
+            total_questoes = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
+            if ano_visualizado is not None:
+                # Turmas do ano selecionado em todas as instituições.
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM turmas AS t
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = t.ano_letivo_id
+                       AND al.escola_id = t.escola_id
+                    WHERE al.ano = ?
+                """, (ano_visualizado,))
+                total_turmas = cursor.fetchone()["total"]
 
-            total_questoes = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
+                # Alunos do ano selecionado. O UNION mantém compatibilidade
+                # com os registros antigos da tabela alunos e com a nova
+                # tabela de histórico aluno_matriculas.
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM (
+                        SELECT
+                            am.aluno_id AS aluno_id,
+                            am.escola_id AS escola_id
+                        FROM aluno_matriculas AS am
+                        INNER JOIN anos_letivos AS al
+                            ON al.id = am.ano_letivo_id
+                           AND al.escola_id = am.escola_id
+                        WHERE al.ano = ?
 
-            # Provas dos anos ativos
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM provas AS p
+                        UNION
 
-                INNER JOIN anos_letivos AS al
-                    ON al.id = p.ano_letivo_id
-                   AND al.escola_id = p.escola_id
-                   AND al.ativo = 1
-                   AND al.encerrado = 0
-            """)
+                        SELECT
+                            a.id AS aluno_id,
+                            a.escola_id AS escola_id
+                        FROM alunos AS a
+                        INNER JOIN anos_letivos AS al
+                            ON al.id = a.ano_letivo_id
+                           AND al.escola_id = a.escola_id
+                        WHERE al.ano = ?
+                    ) AS alunos_do_ano
+                """, (ano_visualizado, ano_visualizado))
+                total_alunos = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
-
-            total_provas = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM provas AS p
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = p.ano_letivo_id
+                       AND al.escola_id = p.escola_id
+                    WHERE al.ano = ?
+                """, (ano_visualizado,))
+                total_provas = cursor.fetchone()["total"]
 
         # =====================================================
         # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
+        # Usa o ID exato do ano selecionado para aquela escola.
         # =====================================================
 
         elif escola_id:
-
-            # =================================================
-            # DADOS DA INSTITUIÇÃO
-            # =================================================
-
             cursor.execute("""
-                SELECT
-                    id,
-                    nome_instituicao
+                SELECT nome_instituicao
                 FROM escolas
                 WHERE id = ?
                 LIMIT 1
-            """, (
-                escola_id,
-            ))
+            """, (escola_id,))
 
             escola = cursor.fetchone()
-
             if escola:
                 nome_instituicao = escola["nome_instituicao"]
 
-            # =================================================
-            # ANO LETIVO ATIVO DA INSTITUIÇÃO
-            # =================================================
-
-            cursor.execute("""
-                SELECT
-                    id,
-                    ano
-                FROM anos_letivos
-                WHERE escola_id = ?
-                  AND ativo = 1
-                  AND encerrado = 0
-                ORDER BY ano DESC
-                LIMIT 1
-            """, (
-                escola_id,
-            ))
-
-            ano_ativo = cursor.fetchone()
-
-            if ano_ativo:
-                ano_letivo_id_ativo = ano_ativo["id"]
-                ano_letivo_ativo = ano_ativo["ano"]
-
-                # Guarda o ano ativo na sessão para ser
-                # utilizado futuramente por outras páginas.
-                session["ano_letivo_id"] = ano_letivo_id_ativo
-                session["ano_letivo"] = ano_letivo_ativo
-
-            else:
-                session.pop("ano_letivo_id", None)
-                session.pop("ano_letivo", None)
-
-            # Instituição do usuário
             total_instituicoes = 1
-
-            # =================================================
-            # USUÁRIOS DA INSTITUIÇÃO
-            # =================================================
 
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM usuarios
                 WHERE escola_id = ?
                   AND ativo = 1
-            """, (
-                escola_id,
-            ))
-
-            resultado = cursor.fetchone()
-
-            total_usuarios = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # =================================================
-            # PROFESSORES DA INSTITUIÇÃO
-            # =================================================
+            """, (escola_id,))
+            total_usuarios = cursor.fetchone()["total"]
 
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM professores
                 WHERE escola_id = ?
-            """, (
-                escola_id,
-            ))
-
-            resultado = cursor.fetchone()
-
-            total_professores = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
-
-            # =================================================
-            # DADOS DO ANO LETIVO ATIVO
-            # =================================================
-
-            if ano_letivo_id_ativo:
-
-                # Alunos do ano ativo
-                cursor.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM alunos
-                    WHERE escola_id = ?
-                      AND ano_letivo_id = ?
-                """, (
-                    escola_id,
-                    ano_letivo_id_ativo
-                ))
-
-                resultado = cursor.fetchone()
-
-                total_alunos = (
-                    resultado["total"]
-                    if resultado
-                    else 0
-                )
-
-                # Turmas do ano ativo
-                cursor.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM turmas
-                    WHERE escola_id = ?
-                      AND ano_letivo_id = ?
-                """, (
-                    escola_id,
-                    ano_letivo_id_ativo
-                ))
-
-                resultado = cursor.fetchone()
-
-                total_turmas = (
-                    resultado["total"]
-                    if resultado
-                    else 0
-                )
-
-                # Provas do ano ativo
-                cursor.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM provas
-                    WHERE escola_id = ?
-                      AND ano_letivo_id = ?
-                """, (
-                    escola_id,
-                    ano_letivo_id_ativo
-                ))
-
-                resultado = cursor.fetchone()
-
-                total_provas = (
-                    resultado["total"]
-                    if resultado
-                    else 0
-                )
-
-            # =================================================
-            # QUESTÕES DA INSTITUIÇÃO
-            #
-            # O banco de questões não é zerado na troca de ano.
-            # =================================================
+            """, (escola_id,))
+            total_professores = cursor.fetchone()["total"]
 
             cursor.execute("""
                 SELECT COUNT(*) AS total
                 FROM questoes
                 WHERE escola_id = ?
-            """, (
-                escola_id,
-            ))
+            """, (escola_id,))
+            total_questoes = cursor.fetchone()["total"]
 
-            resultado = cursor.fetchone()
+            if ano_letivo_id:
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM turmas
+                    WHERE escola_id = ?
+                      AND ano_letivo_id = ?
+                """, (escola_id, ano_letivo_id))
+                total_turmas = cursor.fetchone()["total"]
 
-            total_questoes = (
-                resultado["total"]
-                if resultado
-                else 0
-            )
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM (
+                        SELECT aluno_id
+                        FROM aluno_matriculas
+                        WHERE escola_id = ?
+                          AND ano_letivo_id = ?
 
-        # =====================================================
-        # USUÁRIO SEM INSTITUIÇÃO
-        # =====================================================
+                        UNION
+
+                        SELECT id AS aluno_id
+                        FROM alunos
+                        WHERE escola_id = ?
+                          AND ano_letivo_id = ?
+                    ) AS alunos_do_ano
+                """, (
+                    escola_id,
+                    ano_letivo_id,
+                    escola_id,
+                    ano_letivo_id
+                ))
+                total_alunos = cursor.fetchone()["total"]
+
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM provas
+                    WHERE escola_id = ?
+                      AND ano_letivo_id = ?
+                """, (escola_id, ano_letivo_id))
+                total_provas = cursor.fetchone()["total"]
 
         else:
-
-            nome_instituicao = (
-                "Usuário sem instituição vinculada"
-            )
-
-        # =====================================================
-        # CARREGAR O DASHBOARD
-        # =====================================================
+            nome_instituicao = "Usuário sem instituição vinculada"
 
         return render_template(
             "dashboard/index.html",
-
             total_instituicoes=total_instituicoes,
             total_usuarios=total_usuarios,
             total_professores=total_professores,
@@ -1137,25 +2583,20 @@ def index():
             total_turmas=total_turmas,
             total_questoes=total_questoes,
             total_provas=total_provas,
-
             nome_instituicao=nome_instituicao,
-
             ano_letivo_id_ativo=ano_letivo_id_ativo,
             ano_letivo_ativo=ano_letivo_ativo,
-
+            ano_letivo_id_visualizado=ano_letivo_id,
+            ano_letivo_visualizado=ano_visualizado,
+            consultando_historico=contexto["consultando_historico"],
             permissoes_usuario=permissoes_usuario
         )
 
     except sqlite3.Error as erro:
-
         import traceback
         traceback.print_exc()
 
-        print(
-            "ERRO AO CARREGAR O DASHBOARD:",
-            erro
-        )
-
+        print("ERRO AO CARREGAR O DASHBOARD:", erro)
         flash(
             f"Erro ao carregar os dados do dashboard: {erro}",
             "erro"
@@ -1163,7 +2604,6 @@ def index():
 
         return render_template(
             "dashboard/index.html",
-
             total_instituicoes=0,
             total_usuarios=0,
             total_professores=0,
@@ -1171,24 +2611,25 @@ def index():
             total_turmas=0,
             total_questoes=0,
             total_provas=0,
-
             nome_instituicao=nome_instituicao,
-
-            ano_letivo_id_ativo=None,
-            ano_letivo_ativo=None,
-
+            ano_letivo_id_ativo=ano_letivo_id_ativo,
+            ano_letivo_ativo=ano_letivo_ativo,
+            ano_letivo_id_visualizado=ano_letivo_id,
+            ano_letivo_visualizado=ano_visualizado,
+            consultando_historico=contexto["consultando_historico"],
             permissoes_usuario=permissoes_usuario
         )
 
     finally:
         banco.close()
 
+
 @app.route("/esqueci_senha")
 def esqueci_senha():
     return render_template("esqueci_senha.html")
 
 # =========================================================
-# LISTAR TURMAS
+# LISTAR TURMAS PELO ANO LETIVO SELECIONADO
 # =========================================================
 
 @app.route("/turmas")
@@ -1203,265 +2644,330 @@ def turmas():
 
     cargo = session.get("usuario_cargo", "").strip()
     usuario_id = session.get("usuario_id")
-    escola_id = session.get("escola_id")
+    escola_id = obter_escola_usuario()
 
-    cargos_que_gerenciam = [
+    pode_gerenciar = cargo in [
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
         "Secretaria"
     ]
 
-    pode_gerenciar = cargo in cargos_que_gerenciam
-
     escolas = []
     lista_turmas = []
-    ano_letivo_ativo = None
+
+    ano_letivo_visualizado = session.get("ano_letivo_visualizado")
+    ano_letivo_id = session.get("ano_letivo_id")
+    consultando_ano_antigo = False
 
     try:
 
         # =====================================================
         # ADMINISTRADOR GERAL
-        # Visualiza apenas o ano ativo de cada instituição
+        #
+        # Para ele, o mesmo número de ano é aplicado a todas
+        # as instituições. Cada escola possui um ID diferente
+        # para o seu próprio registro em anos_letivos.
         # =====================================================
 
         if cargo == "Administrador Geral":
 
+            if not ano_letivo_visualizado:
+                ano_letivo_visualizado = datetime.now().year
+                session["ano_letivo_visualizado"] = ano_letivo_visualizado
+                session["ano_letivo"] = ano_letivo_visualizado
+
+            try:
+                ano_letivo_visualizado = int(ano_letivo_visualizado)
+            except (TypeError, ValueError):
+                ano_letivo_visualizado = datetime.now().year
+                session["ano_letivo_visualizado"] = ano_letivo_visualizado
+                session["ano_letivo"] = ano_letivo_visualizado
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM anos_letivos
+                WHERE ano = ?
+                  AND ativo = 1
+                  AND encerrado = 0
+            """, (
+                ano_letivo_visualizado,
+            ))
+
+            resultado_ativo = cursor.fetchone()
+
+            consultando_ano_antigo = (
+                not resultado_ativo
+                or resultado_ativo["total"] == 0
+            )
+
             cursor.execute("""
                 SELECT
-                    turmas.*,
-                    escolas.nome_instituicao,
+                    t.*,
+                    e.nome_instituicao,
 
-                    anos_letivos.id AS ano_letivo_id_atual,
-                    anos_letivos.ano AS ano_letivo_atual,
+                    al.id AS ano_letivo_id_atual,
+                    al.ano AS ano_letivo_atual,
+                    al.ativo AS ano_letivo_ativo,
+                    al.encerrado AS ano_letivo_encerrado,
 
-                    (
-                        SELECT COUNT(*)
-                        FROM alunos
-                        WHERE alunos.turma_id = turmas.id
-                    ) AS total_alunos,
+                    CASE
+                        WHEN (
+                            SELECT COUNT(*)
+                            FROM aluno_matriculas AS am
+                            WHERE am.turma_id = t.id
+                              AND am.ano_letivo_id = t.ano_letivo_id
+                        ) > 0
+                        THEN (
+                            SELECT COUNT(*)
+                            FROM aluno_matriculas AS am
+                            WHERE am.turma_id = t.id
+                              AND am.ano_letivo_id = t.ano_letivo_id
+                        )
+                        ELSE (
+                            SELECT COUNT(*)
+                            FROM alunos AS a
+                            WHERE a.turma_id = t.id
+                              AND a.ano_letivo_id = t.ano_letivo_id
+                        )
+                    END AS total_alunos,
 
                     (
                         SELECT COUNT(DISTINCT pv.professor_id)
                         FROM professor_vinculos AS pv
-                        WHERE pv.turma_id = turmas.id
+                        WHERE pv.turma_id = t.id
                     ) AS total_professores
 
-                FROM turmas
+                FROM turmas AS t
 
-                INNER JOIN anos_letivos
-                    ON anos_letivos.id = turmas.ano_letivo_id
-                   AND anos_letivos.escola_id = turmas.escola_id
-                   AND anos_letivos.ativo = 1
+                INNER JOIN anos_letivos AS al
+                    ON al.id = t.ano_letivo_id
+                   AND al.escola_id = t.escola_id
 
-                LEFT JOIN escolas
-                    ON escolas.id = turmas.escola_id
+                INNER JOIN escolas AS e
+                    ON e.id = t.escola_id
+
+                WHERE al.ano = ?
 
                 ORDER BY
-                    escolas.nome_instituicao COLLATE NOCASE ASC,
-                    anos_letivos.ano DESC,
-                    turmas.etapa COLLATE NOCASE ASC,
-                    turmas.ano COLLATE NOCASE ASC,
-                    turmas.nome COLLATE NOCASE ASC,
-                    turmas.turno COLLATE NOCASE ASC
-            """)
+                    e.nome_instituicao COLLATE NOCASE ASC,
+                    t.etapa COLLATE NOCASE ASC,
+                    t.ano COLLATE NOCASE ASC,
+                    t.nome COLLATE NOCASE ASC,
+                    t.turno COLLATE NOCASE ASC
+            """, (
+                ano_letivo_visualizado,
+            ))
 
             lista_turmas = cursor.fetchall()
 
+            # Todas as instituições ativas devem aparecer no cadastro.
+            # O LEFT JOIN mantém também as instituições que ainda não
+            # possuem ano letivo ativo configurado.
             cursor.execute("""
                 SELECT
-                    escolas.id,
-                    escolas.nome_instituicao,
-                    anos_letivos.id AS ano_letivo_id,
-                    anos_letivos.ano AS ano_letivo_ativo
+                    e.id,
+                    e.nome_instituicao,
+                    al.id AS ano_letivo_id,
+                    al.ano AS ano_letivo_ativo
 
-                FROM escolas
+                FROM escolas AS e
 
-                LEFT JOIN anos_letivos
-                    ON anos_letivos.escola_id = escolas.id
-                   AND anos_letivos.ativo = 1
+                LEFT JOIN anos_letivos AS al
+                    ON al.escola_id = e.id
+                   AND al.ativo = 1
+                   AND al.encerrado = 0
 
-                WHERE COALESCE(escolas.status, 1) = 1
+                WHERE COALESCE(e.status, 1) = 1
 
                 ORDER BY
-                    escolas.nome_instituicao COLLATE NOCASE ASC
+                    e.nome_instituicao COLLATE NOCASE ASC
             """)
 
             escolas = cursor.fetchall()
 
         # =====================================================
-        # PROFESSOR
-        # Somente turmas em que possui vínculo no ano ativo
-        # =====================================================
-
-        elif cargo == "Professor":
-
-            if not escola_id and usuario_id:
-
-                cursor.execute("""
-                    SELECT escola_id
-                    FROM usuarios
-                    WHERE id = ?
-                    LIMIT 1
-                """, (
-                    usuario_id,
-                ))
-
-                usuario = cursor.fetchone()
-
-                if usuario and usuario["escola_id"]:
-                    escola_id = usuario["escola_id"]
-                    session["escola_id"] = escola_id
-
-            cursor.execute("""
-                SELECT
-                    ano,
-                    id
-                FROM anos_letivos
-                WHERE escola_id = ?
-                  AND ativo = 1
-                LIMIT 1
-            """, (
-                escola_id,
-            ))
-
-            ano_ativo = cursor.fetchone()
-
-            if ano_ativo:
-                ano_letivo_ativo = ano_ativo["ano"]
-
-            cursor.execute("""
-                SELECT DISTINCT
-                    turmas.*,
-                    escolas.nome_instituicao,
-
-                    anos_letivos.id AS ano_letivo_id_atual,
-                    anos_letivos.ano AS ano_letivo_atual,
-
-                    (
-                        SELECT COUNT(*)
-                        FROM alunos
-                        WHERE alunos.turma_id = turmas.id
-                    ) AS total_alunos,
-
-                    (
-                        SELECT COUNT(DISTINCT pv_total.professor_id)
-                        FROM professor_vinculos AS pv_total
-                        WHERE pv_total.turma_id = turmas.id
-                    ) AS total_professores
-
-                FROM turmas
-
-                INNER JOIN professor_vinculos AS pv
-                    ON pv.turma_id = turmas.id
-
-                INNER JOIN anos_letivos
-                    ON anos_letivos.id = turmas.ano_letivo_id
-                   AND anos_letivos.escola_id = turmas.escola_id
-                   AND anos_letivos.ativo = 1
-
-                LEFT JOIN escolas
-                    ON escolas.id = turmas.escola_id
-
-                WHERE pv.professor_id = ?
-                  AND turmas.escola_id = ?
-
-                ORDER BY
-                    turmas.etapa COLLATE NOCASE ASC,
-                    turmas.ano COLLATE NOCASE ASC,
-                    turmas.nome COLLATE NOCASE ASC,
-                    turmas.turno COLLATE NOCASE ASC
-            """, (
-                usuario_id,
-                escola_id
-            ))
-
-            lista_turmas = cursor.fetchall()
-
-        # =====================================================
-        # ADMINISTRADOR DA INSTITUIÇÃO,
-        # COORDENADOR E SECRETARIA
+        # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
         # =====================================================
 
         else:
 
-            # Recupera a instituição diretamente do usuário,
-            # caso ela não esteja registrada na sessão.
-            if not escola_id and usuario_id:
+            if not escola_id:
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
+
+                return render_template(
+                    "gestao/turmas.html",
+                    turmas=[],
+                    escolas=[],
+                    cargo=cargo,
+                    pode_gerenciar=pode_gerenciar,
+                    ano_letivo_ativo=None,
+                    ano_letivo_visualizado=None,
+                    consultando_ano_antigo=False
+                )
+
+            # Recupera o ano selecionado ou, por padrão, o ativo.
+            ano_selecionado = atualizar_ano_letivo_na_sessao(escola_id)
+
+            if not ano_selecionado:
+                flash(
+                    "A instituição não possui um ano letivo disponível.",
+                    "erro"
+                )
+
+                return render_template(
+                    "gestao/turmas.html",
+                    turmas=[],
+                    escolas=[],
+                    cargo=cargo,
+                    pode_gerenciar=pode_gerenciar,
+                    ano_letivo_ativo=None,
+                    ano_letivo_visualizado=None,
+                    consultando_ano_antigo=False
+                )
+
+            ano_letivo_id = ano_selecionado["id"]
+            ano_letivo_visualizado = ano_selecionado["ano"]
+
+            session["ano_letivo_id"] = ano_letivo_id
+            session["ano_letivo"] = ano_letivo_visualizado
+            session["ano_letivo_visualizado"] = ano_letivo_visualizado
+
+            consultando_ano_antigo = not (
+                ano_selecionado["ativo"] == 1
+                and ano_selecionado["encerrado"] == 0
+            )
+
+            # Professor vê apenas turmas em que possui vínculo.
+            if cargo == "Professor":
 
                 cursor.execute("""
-                    SELECT escola_id
-                    FROM usuarios
-                    WHERE id = ?
-                    LIMIT 1
+                    SELECT DISTINCT
+                        t.*,
+                        e.nome_instituicao,
+
+                        al.id AS ano_letivo_id_atual,
+                        al.ano AS ano_letivo_atual,
+                        al.ativo AS ano_letivo_ativo,
+                        al.encerrado AS ano_letivo_encerrado,
+
+                        CASE
+                            WHEN (
+                                SELECT COUNT(*)
+                                FROM aluno_matriculas AS am
+                                WHERE am.turma_id = t.id
+                                  AND am.ano_letivo_id = t.ano_letivo_id
+                            ) > 0
+                            THEN (
+                                SELECT COUNT(*)
+                                FROM aluno_matriculas AS am
+                                WHERE am.turma_id = t.id
+                                  AND am.ano_letivo_id = t.ano_letivo_id
+                            )
+                            ELSE (
+                                SELECT COUNT(*)
+                                FROM alunos AS a
+                                WHERE a.turma_id = t.id
+                                  AND a.ano_letivo_id = t.ano_letivo_id
+                            )
+                        END AS total_alunos,
+
+                        (
+                            SELECT COUNT(DISTINCT pv_total.professor_id)
+                            FROM professor_vinculos AS pv_total
+                            WHERE pv_total.turma_id = t.id
+                        ) AS total_professores
+
+                    FROM turmas AS t
+
+                    INNER JOIN professor_vinculos AS pv
+                        ON pv.turma_id = t.id
+
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = t.ano_letivo_id
+                       AND al.escola_id = t.escola_id
+
+                    INNER JOIN escolas AS e
+                        ON e.id = t.escola_id
+
+                    WHERE pv.professor_id = ?
+                      AND t.escola_id = ?
+                      AND t.ano_letivo_id = ?
+
+                    ORDER BY
+                        t.etapa COLLATE NOCASE ASC,
+                        t.ano COLLATE NOCASE ASC,
+                        t.nome COLLATE NOCASE ASC,
+                        t.turno COLLATE NOCASE ASC
                 """, (
                     usuario_id,
+                    escola_id,
+                    ano_letivo_id
                 ))
 
-                usuario = cursor.fetchone()
+            else:
 
-                if usuario and usuario["escola_id"]:
-                    escola_id = usuario["escola_id"]
-                    session["escola_id"] = escola_id
+                cursor.execute("""
+                    SELECT
+                        t.*,
+                        e.nome_instituicao,
 
-            # Busca o ano ativo da instituição.
-            cursor.execute("""
-                SELECT
-                    id,
-                    ano
-                FROM anos_letivos
-                WHERE escola_id = ?
-                  AND ativo = 1
-                LIMIT 1
-            """, (
-                escola_id,
-            ))
+                        al.id AS ano_letivo_id_atual,
+                        al.ano AS ano_letivo_atual,
+                        al.ativo AS ano_letivo_ativo,
+                        al.encerrado AS ano_letivo_encerrado,
 
-            ano_ativo = cursor.fetchone()
+                        CASE
+                            WHEN (
+                                SELECT COUNT(*)
+                                FROM aluno_matriculas AS am
+                                WHERE am.turma_id = t.id
+                                  AND am.ano_letivo_id = t.ano_letivo_id
+                            ) > 0
+                            THEN (
+                                SELECT COUNT(*)
+                                FROM aluno_matriculas AS am
+                                WHERE am.turma_id = t.id
+                                  AND am.ano_letivo_id = t.ano_letivo_id
+                            )
+                            ELSE (
+                                SELECT COUNT(*)
+                                FROM alunos AS a
+                                WHERE a.turma_id = t.id
+                                  AND a.ano_letivo_id = t.ano_letivo_id
+                            )
+                        END AS total_alunos,
 
-            if ano_ativo:
-                ano_letivo_ativo = ano_ativo["ano"]
+                        (
+                            SELECT COUNT(DISTINCT pv.professor_id)
+                            FROM professor_vinculos AS pv
+                            WHERE pv.turma_id = t.id
+                        ) AS total_professores
 
-            cursor.execute("""
-                SELECT
-                    turmas.*,
-                    escolas.nome_instituicao,
+                    FROM turmas AS t
 
-                    anos_letivos.id AS ano_letivo_id_atual,
-                    anos_letivos.ano AS ano_letivo_atual,
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = t.ano_letivo_id
+                       AND al.escola_id = t.escola_id
 
-                    (
-                        SELECT COUNT(*)
-                        FROM alunos
-                        WHERE alunos.turma_id = turmas.id
-                    ) AS total_alunos,
+                    INNER JOIN escolas AS e
+                        ON e.id = t.escola_id
 
-                    (
-                        SELECT COUNT(DISTINCT pv.professor_id)
-                        FROM professor_vinculos AS pv
-                        WHERE pv.turma_id = turmas.id
-                    ) AS total_professores
+                    WHERE t.escola_id = ?
+                      AND t.ano_letivo_id = ?
 
-                FROM turmas
-
-                INNER JOIN anos_letivos
-                    ON anos_letivos.id = turmas.ano_letivo_id
-                   AND anos_letivos.escola_id = turmas.escola_id
-                   AND anos_letivos.ativo = 1
-
-                LEFT JOIN escolas
-                    ON escolas.id = turmas.escola_id
-
-                WHERE turmas.escola_id = ?
-
-                ORDER BY
-                    turmas.etapa COLLATE NOCASE ASC,
-                    turmas.ano COLLATE NOCASE ASC,
-                    turmas.nome COLLATE NOCASE ASC,
-                    turmas.turno COLLATE NOCASE ASC
-            """, (
-                escola_id,
-            ))
+                    ORDER BY
+                        t.etapa COLLATE NOCASE ASC,
+                        t.ano COLLATE NOCASE ASC,
+                        t.nome COLLATE NOCASE ASC,
+                        t.turno COLLATE NOCASE ASC
+                """, (
+                    escola_id,
+                    ano_letivo_id
+                ))
 
             lista_turmas = cursor.fetchall()
 
@@ -1471,7 +2977,13 @@ def turmas():
             escolas=escolas,
             cargo=cargo,
             pode_gerenciar=pode_gerenciar,
-            ano_letivo_ativo=ano_letivo_ativo
+
+            # Mantido para compatibilidade com seu HTML atual.
+            ano_letivo_ativo=ano_letivo_visualizado,
+
+            # Novos nomes.
+            ano_letivo_visualizado=ano_letivo_visualizado,
+            consultando_ano_antigo=consultando_ano_antigo
         )
 
     except sqlite3.Error as erro:
@@ -1492,7 +3004,9 @@ def turmas():
             escolas=[],
             cargo=cargo,
             pode_gerenciar=pode_gerenciar,
-            ano_letivo_ativo=None
+            ano_letivo_ativo=None,
+            ano_letivo_visualizado=None,
+            consultando_ano_antigo=False
         )
 
     finally:
@@ -1500,7 +3014,7 @@ def turmas():
 
 
 # =========================================================
-# CADASTRAR TURMA
+# CADASTRAR TURMA NO ANO LETIVO VISUALIZADO
 # =========================================================
 
 @app.route("/cadastrar_turma", methods=["POST"])
@@ -1521,19 +3035,18 @@ def cadastrar_turma():
         return redirect("/acesso_negado")
 
     etapa = request.form.get("etapa", "").strip()
-    ano = request.form.get("ano", "").strip()
+    ano_serie = request.form.get("ano", "").strip()
     identificacao = request.form.get("nome", "").strip()
     turno = request.form.get("turno", "").strip()
 
-    usuario_id = session.get("usuario_id")
     cargo = session.get("usuario_cargo", "").strip()
-    escola_id = session.get("escola_id")
+    escola_id = obter_escola_usuario()
 
     if not etapa:
         flash("Selecione a etapa de ensino.", "erro")
         return redirect("/turmas")
 
-    if not ano:
+    if not ano_serie:
         flash("Selecione o ano ou série.", "erro")
         return redirect("/turmas")
 
@@ -1555,28 +3068,6 @@ def cadastrar_turma():
         # DESCOBRIR A INSTITUIÇÃO
         # =====================================================
 
-        if (
-            cargo != "Administrador Geral"
-            and not escola_id
-            and usuario_id
-        ):
-
-            cursor.execute("""
-                SELECT escola_id
-                FROM usuarios
-                WHERE id = ?
-                LIMIT 1
-            """, (
-                usuario_id,
-            ))
-
-            usuario = cursor.fetchone()
-
-            if usuario and usuario["escola_id"]:
-                escola_id = usuario["escola_id"]
-                session["escola_id"] = escola_id
-
-        # Administrador Geral seleciona a instituição.
         if cargo == "Administrador Geral":
 
             escola_formulario = request.form.get(
@@ -1584,25 +3075,23 @@ def cadastrar_turma():
                 ""
             ).strip()
 
-            if escola_formulario:
-                escola_id = escola_formulario
+            if not escola_formulario:
+                flash("Selecione uma instituição.", "erro")
+                return redirect("/turmas")
 
-        if not escola_id:
+            try:
+                escola_id = int(escola_formulario)
+            except (TypeError, ValueError):
+                flash(
+                    "A instituição selecionada é inválida.",
+                    "erro"
+                )
+                return redirect("/turmas")
+
+        elif not escola_id:
 
             flash(
                 "Não foi possível identificar a instituição da turma.",
-                "erro"
-            )
-
-            return redirect("/turmas")
-
-        try:
-            escola_id = int(escola_id)
-
-        except (TypeError, ValueError):
-
-            flash(
-                "A instituição selecionada é inválida.",
                 "erro"
             )
 
@@ -1636,29 +3125,57 @@ def cadastrar_turma():
             return redirect("/turmas")
 
         # =====================================================
-        # BUSCAR ANO LETIVO ATIVO DA INSTITUIÇÃO
+        # DEFINIR O ANO EM QUE A TURMA SERÁ CRIADA
         # =====================================================
 
-        cursor.execute("""
-            SELECT
-                id,
-                ano
-            FROM anos_letivos
-            WHERE escola_id = ?
-              AND ativo = 1
-              AND encerrado = 0
-            LIMIT 1
-        """, (
-            escola_id,
-        ))
+        if cargo == "Administrador Geral":
 
-        ano_letivo = cursor.fetchone()
+            numero_ano_letivo = session.get(
+                "ano_letivo_visualizado"
+            ) or session.get("ano_letivo")
+
+            if not numero_ano_letivo:
+                flash(
+                    "Selecione um ano letivo no topo da plataforma.",
+                    "erro"
+                )
+                return redirect("/turmas")
+
+            try:
+                numero_ano_letivo = int(numero_ano_letivo)
+            except (TypeError, ValueError):
+                flash("O ano letivo selecionado é inválido.", "erro")
+                return redirect("/turmas")
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    ano,
+                    ativo,
+                    encerrado
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ano = ?
+                LIMIT 1
+            """, (
+                escola_id,
+                numero_ano_letivo
+            ))
+
+            ano_letivo = cursor.fetchone()
+
+        else:
+
+            ano_letivo = atualizar_ano_letivo_na_sessao(
+                escola_id
+            )
 
         if ano_letivo is None:
 
             flash(
-                "A instituição não possui um ano letivo ativo. "
-                "Abra um ano letivo antes de cadastrar a turma.",
+                "A instituição não possui o ano letivo "
+                "selecionado. Cadastre ou prepare esse ano antes "
+                "de criar uma turma.",
                 "erro"
             )
 
@@ -1666,6 +3183,20 @@ def cadastrar_turma():
 
         ano_letivo_id = ano_letivo["id"]
         numero_ano_letivo = ano_letivo["ano"]
+
+        # Impede alterações acidentais em anos encerrados.
+        if (
+            ano_letivo["encerrado"] == 1
+            or ano_letivo["ativo"] != 1
+        ):
+
+            flash(
+                f"O ano letivo {numero_ano_letivo} está em modo "
+                "de consulta. Volte ao ano ativo para cadastrar turmas.",
+                "erro"
+            )
+
+            return redirect("/turmas")
 
         # =====================================================
         # VERIFICAR TURMA DUPLICADA NO MESMO ANO
@@ -1684,7 +3215,7 @@ def cadastrar_turma():
         """, (
             identificacao,
             etapa,
-            ano,
+            ano_serie,
             turno,
             escola_id,
             ano_letivo_id
@@ -1702,12 +3233,6 @@ def cadastrar_turma():
 
         # =====================================================
         # CADASTRAR TURMA
-        #
-        # ano_letivo:
-        # campo antigo mantido temporariamente por compatibilidade
-        #
-        # ano_letivo_id:
-        # novo vínculo oficial com a tabela anos_letivos
         # =====================================================
 
         cursor.execute("""
@@ -1724,7 +3249,7 @@ def cadastrar_turma():
         """, (
             identificacao,
             etapa,
-            ano,
+            ano_serie,
             turno,
             escola_id,
             numero_ano_letivo,
@@ -2252,11 +3777,12 @@ def excluir_turma(turma_id):
         banco.close()
 
 # =========================================================
-# LISTAR ALUNOS
+# LISTAR ALUNOS E MATRÍCULAS PELO ANO SELECIONADO
 # =========================================================
 
 @app.route("/alunos")
 def alunos():
+    """Lista alunos e prepara o formulário de matrícula por instituição."""
 
     if not permissao_modulo("Alunos"):
         return redirect("/acesso_negado")
@@ -2265,308 +3791,332 @@ def alunos():
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    usuario_id = session.get("usuario_id")
-    cargo = session.get("usuario_cargo", "").strip()
-    escola_id = session.get("escola_id")
+    contexto = obter_contexto_plataforma()
+    cargo = contexto["cargo"]
+    escola_id = contexto["escola_id"]
+    ano_letivo_id = contexto["ano_letivo_id"]
+    ano_visualizado = contexto["ano"]
+    consultando_historico = contexto["consultando_historico"]
 
+    lista_escolas = []
     lista_turmas = []
     lista_alunos = []
 
-    ano_letivo_id_ativo = None
-    ano_letivo_ativo = None
+    def renderizar(**extras):
+        dados = {
+            "alunos": lista_alunos,
+            "turmas": lista_turmas,
+            "escolas": lista_escolas,
+            "cargo": cargo,
+            "escola_id_usuario": escola_id,
+            "ano_letivo_ativo": ano_visualizado,
+            "ano_letivo_visualizado": ano_visualizado,
+            "consultando_ano_antigo": consultando_historico,
+        }
+        dados.update(extras)
+        return render_template("alunos.html", **dados)
 
     try:
+        if cargo == "Administrador Geral":
+            if ano_visualizado is None:
+                ano_visualizado = obter_ano_global_administrador()
 
-        # =====================================================
-        # RECUPERAR A INSTITUIÇÃO DO USUÁRIO
-        # =====================================================
-
-        if (
-            cargo != "Administrador Geral"
-            and not escola_id
-            and usuario_id
-        ):
+            if ano_visualizado is None:
+                return renderizar(
+                    ano_letivo_ativo=None,
+                    ano_letivo_visualizado=None,
+                    consultando_ano_antigo=False,
+                )
 
             cursor.execute("""
-                SELECT escola_id
-                FROM usuarios
-                WHERE id = ?
-                LIMIT 1
-            """, (
-                usuario_id,
-            ))
+                SELECT COUNT(*) AS total
+                FROM anos_letivos
+                WHERE ano = ? AND ativo = 1 AND encerrado = 0
+            """, (ano_visualizado,))
+            resultado_ativo = cursor.fetchone()
+            consultando_historico = not resultado_ativo or resultado_ativo["total"] == 0
 
-            usuario = cursor.fetchone()
+            # Instituições disponíveis no ano selecionado.
+            cursor.execute("""
+                SELECT DISTINCT e.id, e.nome_instituicao
+                FROM escolas AS e
+                INNER JOIN anos_letivos AS al
+                    ON al.escola_id = e.id
+                   AND al.ano = ?
+                WHERE COALESCE(e.status, 1) = 1
+                ORDER BY e.nome_instituicao COLLATE NOCASE ASC
+            """, (ano_visualizado,))
+            lista_escolas = cursor.fetchall()
 
-            if usuario and usuario["escola_id"]:
-                escola_id = usuario["escola_id"]
-                session["escola_id"] = escola_id
-
-        # =====================================================
-        # ADMINISTRADOR GERAL
-        #
-        # Visualiza alunos dos anos ativos de todas as escolas.
-        # =====================================================
-
-        if cargo == "Administrador Geral":
-
+            # Todas as turmas são enviadas ao template com escola_id.
+            # O JavaScript da página exibe somente as da instituição escolhida.
             cursor.execute("""
                 SELECT
-                    t.id,
-                    t.nome,
-                    t.etapa,
-                    t.ano,
-                    t.turno,
-                    t.escola_id,
-                    t.ano_letivo_id,
-
+                    t.id, t.nome, t.etapa, t.ano, t.turno,
+                    t.escola_id, t.ano_letivo_id,
                     e.nome_instituicao,
-
                     al.ano AS ano_letivo
-
                 FROM turmas AS t
-
                 INNER JOIN anos_letivos AS al
                     ON al.id = t.ano_letivo_id
                    AND al.escola_id = t.escola_id
-                   AND al.ativo = 1
-                   AND al.encerrado = 0
-
-                INNER JOIN escolas AS e
-                    ON e.id = t.escola_id
-
+                INNER JOIN escolas AS e ON e.id = t.escola_id
+                WHERE al.ano = ?
                 ORDER BY
                     e.nome_instituicao COLLATE NOCASE ASC,
                     t.etapa COLLATE NOCASE ASC,
                     t.ano COLLATE NOCASE ASC,
                     t.nome COLLATE NOCASE ASC,
                     t.turno COLLATE NOCASE ASC
-            """)
-
+            """, (ano_visualizado,))
             lista_turmas = cursor.fetchall()
 
             cursor.execute("""
-                SELECT
-                    a.id,
-                    a.nome,
-                    a.matricula,
-                    a.turma_id,
-                    a.escola_id,
-                    a.ano_letivo_id,
+                SELECT * FROM (
+                    SELECT
+                        a.id, a.nome, a.matricula,
+                        am.turma_id, am.escola_id, am.ano_letivo_id,
+                        am.id AS matricula_id, am.situacao,
+                        t.nome AS nome_turma, t.ano AS ano_turma,
+                        t.etapa, t.turno,
+                        e.nome_instituicao, al.ano AS ano_letivo
+                    FROM aluno_matriculas AS am
+                    INNER JOIN alunos AS a ON a.id = am.aluno_id
+                    INNER JOIN turmas AS t
+                        ON t.id = am.turma_id
+                       AND t.escola_id = am.escola_id
+                       AND t.ano_letivo_id = am.ano_letivo_id
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = am.ano_letivo_id
+                       AND al.escola_id = am.escola_id
+                    INNER JOIN escolas AS e ON e.id = am.escola_id
+                    WHERE al.ano = ?
 
-                    t.nome AS nome_turma,
-                    t.ano AS ano_turma,
-                    t.etapa,
-                    t.turno,
+                    UNION ALL
 
-                    e.nome_instituicao,
-
-                    al.ano AS ano_letivo
-
-                FROM alunos AS a
-
-                INNER JOIN turmas AS t
-                    ON t.id = a.turma_id
-                   AND t.escola_id = a.escola_id
-                   AND t.ano_letivo_id = a.ano_letivo_id
-
-                INNER JOIN anos_letivos AS al
-                    ON al.id = a.ano_letivo_id
-                   AND al.escola_id = a.escola_id
-                   AND al.ativo = 1
-                   AND al.encerrado = 0
-
-                INNER JOIN escolas AS e
-                    ON e.id = a.escola_id
-
-                ORDER BY
-                    e.nome_instituicao COLLATE NOCASE ASC,
-                    a.nome COLLATE NOCASE ASC
-            """)
-
+                    SELECT
+                        a.id, a.nome, a.matricula,
+                        a.turma_id, a.escola_id, a.ano_letivo_id,
+                        NULL AS matricula_id, 'Cursando' AS situacao,
+                        t.nome AS nome_turma, t.ano AS ano_turma,
+                        t.etapa, t.turno,
+                        e.nome_instituicao, al.ano AS ano_letivo
+                    FROM alunos AS a
+                    INNER JOIN turmas AS t
+                        ON t.id = a.turma_id
+                       AND t.escola_id = a.escola_id
+                       AND t.ano_letivo_id = a.ano_letivo_id
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = a.ano_letivo_id
+                       AND al.escola_id = a.escola_id
+                    INNER JOIN escolas AS e ON e.id = a.escola_id
+                    WHERE al.ano = ?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM aluno_matriculas AS am
+                          WHERE am.aluno_id = a.id
+                            AND am.ano_letivo_id = a.ano_letivo_id
+                      )
+                ) AS alunos_ano
+                ORDER BY nome_instituicao COLLATE NOCASE ASC, nome COLLATE NOCASE ASC
+            """, (ano_visualizado, ano_visualizado))
             lista_alunos = cursor.fetchall()
-
-        # =====================================================
-        # USUÁRIOS VINCULADOS A UMA INSTITUIÇÃO
-        # =====================================================
 
         else:
-
             if not escola_id:
-
-                flash(
-                    "Não foi possível identificar sua instituição.",
-                    "erro"
+                flash("Não foi possível identificar sua instituição.", "erro")
+                return renderizar(
+                    ano_letivo_ativo=None,
+                    ano_letivo_visualizado=None,
+                    consultando_ano_antigo=False,
                 )
 
-                return render_template(
-                    "alunos.html",
-                    alunos=[],
-                    turmas=[],
-                    ano_letivo_ativo=None
+            ano_selecionado = atualizar_ano_letivo_na_sessao(escola_id)
+            if not ano_selecionado:
+                flash("A instituição não possui um ano letivo disponível.", "erro")
+                return renderizar(
+                    ano_letivo_ativo=None,
+                    ano_letivo_visualizado=None,
+                    consultando_ano_antigo=False,
                 )
 
-            # =================================================
-            # BUSCAR O ANO LETIVO ATIVO
-            # =================================================
+            ano_letivo_id = ano_selecionado["id"]
+            ano_visualizado = ano_selecionado["ano"]
+            consultando_historico = not (
+                ano_selecionado["ativo"] == 1 and ano_selecionado["encerrado"] == 0
+            )
 
+            session["ano_letivo_id"] = ano_letivo_id
+            session["ano_letivo"] = ano_visualizado
+            session["ano_letivo_visualizado"] = ano_visualizado
+
+            # Para usuários institucionais, somente a própria instituição.
             cursor.execute("""
-                SELECT
-                    id,
-                    ano
-                FROM anos_letivos
-                WHERE escola_id = ?
-                  AND ativo = 1
-                  AND encerrado = 0
-                ORDER BY ano DESC
+                SELECT id, nome_instituicao
+                FROM escolas
+                WHERE id = ? AND COALESCE(status, 1) = 1
                 LIMIT 1
-            """, (
-                escola_id,
-            ))
-
-            ano_ativo = cursor.fetchone()
-
-            if ano_ativo:
-
-                ano_letivo_id_ativo = ano_ativo["id"]
-                ano_letivo_ativo = ano_ativo["ano"]
-
-                session["ano_letivo_id"] = ano_letivo_id_ativo
-                session["ano_letivo"] = ano_letivo_ativo
-
-            else:
-
-                session.pop("ano_letivo_id", None)
-                session.pop("ano_letivo", None)
-
-                flash(
-                    "A instituição não possui um ano letivo ativo.",
-                    "erro"
-                )
-
-                return render_template(
-                    "alunos.html",
-                    alunos=[],
-                    turmas=[],
-                    ano_letivo_ativo=None
-                )
-
-            # =================================================
-            # TURMAS DO ANO ATIVO
-            # =================================================
+            """, (escola_id,))
+            escola_usuario = cursor.fetchone()
+            lista_escolas = [escola_usuario] if escola_usuario else []
 
             cursor.execute("""
                 SELECT
-                    t.id,
-                    t.nome,
-                    t.etapa,
-                    t.ano,
-                    t.turno,
-                    t.escola_id,
-                    t.ano_letivo_id,
-
+                    t.id, t.nome, t.etapa, t.ano, t.turno,
+                    t.escola_id, t.ano_letivo_id,
+                    e.nome_instituicao,
                     al.ano AS ano_letivo
-
                 FROM turmas AS t
-
                 INNER JOIN anos_letivos AS al
                     ON al.id = t.ano_letivo_id
                    AND al.escola_id = t.escola_id
-
-                WHERE t.escola_id = ?
-                  AND t.ano_letivo_id = ?
-
+                INNER JOIN escolas AS e ON e.id = t.escola_id
+                WHERE t.escola_id = ? AND t.ano_letivo_id = ?
                 ORDER BY
                     t.etapa COLLATE NOCASE ASC,
                     t.ano COLLATE NOCASE ASC,
                     t.nome COLLATE NOCASE ASC,
                     t.turno COLLATE NOCASE ASC
-            """, (
-                escola_id,
-                ano_letivo_id_ativo
-            ))
-
+            """, (escola_id, ano_letivo_id))
             lista_turmas = cursor.fetchall()
 
-            # =================================================
-            # ALUNOS DO ANO ATIVO
-            # =================================================
-
             cursor.execute("""
-                SELECT
-                    a.id,
-                    a.nome,
-                    a.matricula,
-                    a.turma_id,
-                    a.escola_id,
-                    a.ano_letivo_id,
+                SELECT * FROM (
+                    SELECT
+                        a.id, a.nome, a.matricula,
+                        am.turma_id, am.escola_id, am.ano_letivo_id,
+                        am.id AS matricula_id, am.situacao,
+                        t.nome AS nome_turma, t.ano AS ano_turma,
+                        t.etapa, t.turno,
+                        e.nome_instituicao, al.ano AS ano_letivo
+                    FROM aluno_matriculas AS am
+                    INNER JOIN alunos AS a ON a.id = am.aluno_id
+                    INNER JOIN turmas AS t
+                        ON t.id = am.turma_id
+                       AND t.escola_id = am.escola_id
+                       AND t.ano_letivo_id = am.ano_letivo_id
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = am.ano_letivo_id
+                       AND al.escola_id = am.escola_id
+                    INNER JOIN escolas AS e ON e.id = am.escola_id
+                    WHERE am.escola_id = ? AND am.ano_letivo_id = ?
 
-                    t.nome AS nome_turma,
-                    t.ano AS ano_turma,
-                    t.etapa,
-                    t.turno,
+                    UNION ALL
 
-                    al.ano AS ano_letivo
-
-                FROM alunos AS a
-
-                INNER JOIN turmas AS t
-                    ON t.id = a.turma_id
-                   AND t.escola_id = a.escola_id
-                   AND t.ano_letivo_id = a.ano_letivo_id
-
-                INNER JOIN anos_letivos AS al
-                    ON al.id = a.ano_letivo_id
-                   AND al.escola_id = a.escola_id
-
-                WHERE a.escola_id = ?
-                  AND a.ano_letivo_id = ?
-
-                ORDER BY
-                    a.nome COLLATE NOCASE ASC
-            """, (
-                escola_id,
-                ano_letivo_id_ativo
-            ))
-
+                    SELECT
+                        a.id, a.nome, a.matricula,
+                        a.turma_id, a.escola_id, a.ano_letivo_id,
+                        NULL AS matricula_id, 'Cursando' AS situacao,
+                        t.nome AS nome_turma, t.ano AS ano_turma,
+                        t.etapa, t.turno,
+                        e.nome_instituicao, al.ano AS ano_letivo
+                    FROM alunos AS a
+                    INNER JOIN turmas AS t
+                        ON t.id = a.turma_id
+                       AND t.escola_id = a.escola_id
+                       AND t.ano_letivo_id = a.ano_letivo_id
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = a.ano_letivo_id
+                       AND al.escola_id = a.escola_id
+                    INNER JOIN escolas AS e ON e.id = a.escola_id
+                    WHERE a.escola_id = ? AND a.ano_letivo_id = ?
+                      AND NOT EXISTS (
+                          SELECT 1 FROM aluno_matriculas AS am
+                          WHERE am.aluno_id = a.id
+                            AND am.ano_letivo_id = a.ano_letivo_id
+                      )
+                ) AS alunos_ano
+                ORDER BY nome COLLATE NOCASE ASC
+            """, (escola_id, ano_letivo_id, escola_id, ano_letivo_id))
             lista_alunos = cursor.fetchall()
 
-        return render_template(
-            "alunos.html",
-            alunos=lista_alunos,
-            turmas=lista_turmas,
-            ano_letivo_ativo=ano_letivo_ativo,
-            cargo=cargo
+        return renderizar(
+            ano_letivo_ativo=ano_visualizado,
+            ano_letivo_visualizado=ano_visualizado,
+            consultando_ano_antigo=consultando_historico,
         )
 
     except sqlite3.Error as erro:
-
         import traceback
         traceback.print_exc()
-
-        print(
-            "ERRO AO LISTAR ALUNOS:",
-            erro
-        )
-
-        flash(
-            f"Erro ao carregar os alunos: {erro}",
-            "erro"
-        )
-
-        return render_template(
-            "alunos.html",
-            alunos=[],
-            turmas=[],
-            ano_letivo_ativo=None,
-            cargo=cargo
-        )
+        print("ERRO AO LISTAR ALUNOS:", erro)
+        flash(f"Erro ao carregar os alunos: {erro}", "erro")
+        lista_escolas = []
+        lista_turmas = []
+        lista_alunos = []
+        return renderizar()
 
     finally:
         banco.close()
 
+
 # =========================================================
-# CADASTRAR ALUNO
+# GERAR NÚMERO DE MATRÍCULA AUTOMATICAMENTE
+# =========================================================
+
+def gerar_numero_matricula(cursor, escola_id, numero_ano):
+    """
+    Gera uma matrícula no formato AAAA + sequência de 4 dígitos.
+
+    Exemplo:
+        20260001
+        20260002
+
+    A sequência é independente para cada instituição e ano letivo.
+    """
+
+    prefixo = str(numero_ano)
+
+    cursor.execute("""
+        SELECT matricula
+        FROM alunos
+        WHERE escola_id = ?
+          AND matricula LIKE ?
+        ORDER BY id ASC
+    """, (
+        escola_id,
+        f"{prefixo}%"
+    ))
+
+    maior_sequencia = 0
+
+    for registro in cursor.fetchall():
+        matricula_existente = str(registro["matricula"] or "").strip()
+
+        if not matricula_existente.startswith(prefixo):
+            continue
+
+        sufixo = matricula_existente[len(prefixo):]
+
+        if sufixo.isdigit():
+            maior_sequencia = max(
+                maior_sequencia,
+                int(sufixo)
+            )
+
+    proxima_sequencia = maior_sequencia + 1
+
+    while True:
+        matricula = f"{prefixo}{proxima_sequencia:04d}"
+
+        cursor.execute("""
+            SELECT id
+            FROM alunos
+            WHERE escola_id = ?
+              AND matricula = ?
+            LIMIT 1
+        """, (
+            escola_id,
+            matricula
+        ))
+
+        if cursor.fetchone() is None:
+            return matricula
+
+        proxima_sequencia += 1
+
+
+# =========================================================
+# CADASTRAR ALUNO E CRIAR MATRÍCULA ANUAL
 # =========================================================
 
 @app.route("/cadastrar_aluno", methods=["POST"])
@@ -2581,23 +4131,36 @@ def cadastrar_aluno():
         return redirect("/acesso_negado")
 
     nome = request.form.get("nome", "").strip()
+    modo_matricula = request.form.get(
+        "modo_matricula",
+        "automatica"
+    ).strip().lower()
     matricula = request.form.get("matricula", "").strip()
     turma_id = request.form.get("turma_id", "").strip()
+    escola_id_form = request.form.get("escola_id", "").strip()
 
-    usuario_id = session.get("usuario_id")
     cargo = session.get("usuario_cargo", "").strip()
-    escola_id = session.get("escola_id")
+    escola_id_usuario = obter_escola_usuario()
 
     if not nome:
         flash("Informe o nome do aluno.", "erro")
         return redirect("/alunos")
 
-    if not matricula:
-        flash("Informe a matrícula.", "erro")
+    if modo_matricula not in ["automatica", "manual"]:
+        modo_matricula = "automatica"
+
+    if modo_matricula == "manual" and not matricula:
+        flash("Informe o número da matrícula.", "erro")
         return redirect("/alunos")
 
     if not turma_id:
         flash("Selecione uma turma.", "erro")
+        return redirect("/alunos")
+
+    try:
+        turma_id = int(turma_id)
+    except (TypeError, ValueError):
+        flash("A turma selecionada é inválida.", "erro")
         return redirect("/alunos")
 
     banco = conectar_banco()
@@ -2606,137 +4169,200 @@ def cadastrar_aluno():
 
     try:
 
-        # =====================================================
-        # RECUPERAR ESCOLA DO USUÁRIO
-        # =====================================================
-
-        if (
-            cargo != "Administrador Geral"
-            and not escola_id
-            and usuario_id
-        ):
-
-            cursor.execute("""
-                SELECT escola_id
-                FROM usuarios
-                WHERE id = ?
-                LIMIT 1
-            """, (
-                usuario_id,
-            ))
-
-            usuario = cursor.fetchone()
-
-            if usuario:
-                escola_id = usuario["escola_id"]
-                session["escola_id"] = escola_id
-
-        if not escola_id:
-
-            flash(
-                "Não foi possível identificar a instituição.",
-                "erro"
-            )
-
-            return redirect("/alunos")
-
-        # =====================================================
-        # BUSCAR A TURMA
-        # =====================================================
-
         cursor.execute("""
             SELECT
-                id,
-                escola_id,
-                ano_letivo_id
-            FROM turmas
-            WHERE id = ?
+                t.id,
+                t.escola_id,
+                t.ano_letivo_id,
+                al.ano,
+                al.ativo,
+                al.encerrado
+            FROM turmas AS t
+            INNER JOIN anos_letivos AS al
+                ON al.id = t.ano_letivo_id
+               AND al.escola_id = t.escola_id
+            WHERE t.id = ?
             LIMIT 1
-        """, (
-            turma_id,
-        ))
+        """, (turma_id,))
 
         turma = cursor.fetchone()
 
         if turma is None:
-
-            flash(
-                "A turma selecionada não existe.",
-                "erro"
-            )
-
+            flash("A turma selecionada não existe.", "erro")
             return redirect("/alunos")
 
-        # Segurança
-        if cargo != "Administrador Geral":
+        escola_id = turma["escola_id"]
+        ano_letivo_id = turma["ano_letivo_id"]
+        numero_ano = turma["ano"]
 
-            if turma["escola_id"] != escola_id:
-
+        if cargo == "Administrador Geral":
+            if not escola_id_form:
+                flash("Selecione uma instituição.", "erro")
+                return redirect("/alunos")
+            try:
+                escola_id_selecionada = int(escola_id_form)
+            except (TypeError, ValueError):
+                flash("A instituição selecionada é inválida.", "erro")
+                return redirect("/alunos")
+            if escola_id_selecionada != escola_id:
                 flash(
-                    "A turma não pertence à sua instituição.",
+                    "A turma selecionada não pertence à instituição informada.",
                     "erro"
                 )
-
                 return redirect("/alunos")
 
-        ano_letivo_id = turma["ano_letivo_id"]
-
-        # =====================================================
-        # VERIFICAR MATRÍCULA DUPLICADA
-        # =====================================================
-
-        cursor.execute("""
-            SELECT id
-            FROM alunos
-            WHERE matricula = ?
-              AND escola_id = ?
-              AND ano_letivo_id = ?
-            LIMIT 1
-        """, (
-            matricula,
-            escola_id,
-            ano_letivo_id
-        ))
-
-        if cursor.fetchone():
-
+        if (
+            cargo != "Administrador Geral"
+            and escola_id != escola_id_usuario
+        ):
             flash(
-                "Já existe um aluno com essa matrícula neste ano letivo.",
+                "A turma selecionada não pertence à sua instituição.",
                 "erro"
             )
-
             return redirect("/alunos")
 
-        # =====================================================
-        # CADASTRAR ALUNO
-        # =====================================================
+        # Matrículas e novos cadastros só podem ser feitos no ano ativo.
+        if turma["ativo"] != 1 or turma["encerrado"] == 1:
+            flash(
+                f"O ano letivo {numero_ano} está em modo de consulta. "
+                "Volte ao ano ativo para matricular alunos.",
+                "erro"
+            )
+            return redirect("/alunos")
 
+        # Confirma que a turma pertence ao ano exibido no topo.
+        if cargo == "Administrador Geral":
+            ano_topo = session.get("ano_letivo_visualizado")
+            if ano_topo and int(ano_topo) != int(numero_ano):
+                flash(
+                    "A turma não pertence ao ano letivo selecionado.",
+                    "erro"
+                )
+                return redirect("/alunos")
+        else:
+            ano_selecionado = atualizar_ano_letivo_na_sessao(escola_id)
+            if (
+                not ano_selecionado
+                or ano_selecionado["id"] != ano_letivo_id
+            ):
+                flash(
+                    "A turma não pertence ao ano letivo selecionado.",
+                    "erro"
+                )
+                return redirect("/alunos")
+
+        # Gera o número somente depois de identificar corretamente
+        # a instituição e o ano letivo da turma selecionada.
+        if modo_matricula == "automatica":
+            matricula = gerar_numero_matricula(
+                cursor,
+                escola_id,
+                numero_ano
+            )
+
+        # A matrícula identifica o cadastro permanente do estudante
+        # dentro da instituição. Se já existir, apenas criamos o novo
+        # vínculo anual; não duplicamos o aluno.
         cursor.execute("""
-            INSERT INTO alunos (
+            SELECT id, nome
+            FROM alunos
+            WHERE escola_id = ?
+              AND LOWER(TRIM(matricula)) = LOWER(TRIM(?))
+            ORDER BY id ASC
+            LIMIT 1
+        """, (escola_id, matricula))
 
+        aluno_existente = cursor.fetchone()
+
+        if aluno_existente:
+            aluno_id = aluno_existente["id"]
+
+            cursor.execute("""
+                SELECT id
+                FROM aluno_matriculas
+                WHERE aluno_id = ?
+                  AND ano_letivo_id = ?
+                LIMIT 1
+            """, (aluno_id, ano_letivo_id))
+
+            if cursor.fetchone():
+                flash(
+                    "Este aluno já possui matrícula neste ano letivo.",
+                    "erro"
+                )
+                return redirect("/alunos")
+
+            # Mantém o nome atualizado quando o cadastro foi localizado
+            # pela matrícula permanente.
+            cursor.execute("""
+                UPDATE alunos
+                SET
+                    nome = ?,
+                    turma_id = ?,
+                    ano_letivo_id = ?
+                WHERE id = ?
+            """, (
+                nome,
+                turma_id,
+                ano_letivo_id,
+                aluno_id
+            ))
+
+        else:
+            cursor.execute("""
+                INSERT INTO alunos (
+                    nome,
+                    matricula,
+                    turma_id,
+                    escola_id,
+                    ano_letivo_id
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
                 nome,
                 matricula,
-
                 turma_id,
                 escola_id,
                 ano_letivo_id
+            ))
 
+            aluno_id = cursor.lastrowid
+
+        cursor.execute("""
+            INSERT INTO aluno_matriculas (
+                aluno_id,
+                escola_id,
+                ano_letivo_id,
+                turma_id,
+                situacao
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 'Cursando')
         """, (
-            nome,
-            matricula,
-
-            turma_id,
+            aluno_id,
             escola_id,
-            ano_letivo_id
+            ano_letivo_id,
+            turma_id
         ))
 
         banco.commit()
 
         flash(
-            "Aluno cadastrado com sucesso.",
+            f"Aluno matriculado com sucesso. Número da matrícula: "
+            f"{matricula}.",
             "success"
+        )
+
+        return redirect("/alunos")
+
+    except sqlite3.IntegrityError as erro:
+
+        banco.rollback()
+        print("ERRO DE INTEGRIDADE AO MATRICULAR ALUNO:", erro)
+
+        flash(
+            "Não foi possível concluir a matrícula. Verifique se o "
+            "aluno já está matriculado neste ano letivo.",
+            "erro"
         )
 
         return redirect("/alunos")
@@ -2748,13 +4374,10 @@ def cadastrar_aluno():
         import traceback
         traceback.print_exc()
 
-        print(
-            "ERRO AO CADASTRAR ALUNO:",
-            erro
-        )
+        print("ERRO AO MATRICULAR ALUNO:", erro)
 
         flash(
-            f"Erro ao cadastrar aluno: {erro}",
+            f"Erro ao matricular aluno: {erro}",
             "erro"
         )
 
@@ -2762,6 +4385,128 @@ def cadastrar_aluno():
 
     finally:
         banco.close()
+
+
+# =========================================================
+# HISTÓRICO DE MATRÍCULAS DO ALUNO
+# =========================================================
+
+@app.route("/alunos/<int:aluno_id>")
+def historico_aluno(aluno_id):
+
+    if not permissao_modulo("Alunos"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id_usuario = obter_escola_usuario()
+
+    try:
+        cursor.execute("""
+            SELECT
+                a.id,
+                a.nome,
+                a.matricula,
+                a.escola_id,
+                e.nome_instituicao
+            FROM alunos AS a
+            LEFT JOIN escolas AS e
+                ON e.id = a.escola_id
+            WHERE a.id = ?
+            LIMIT 1
+        """, (aluno_id,))
+
+        aluno = cursor.fetchone()
+
+        if aluno is None:
+            flash("Aluno não encontrado.", "erro")
+            return redirect("/alunos")
+
+        if (
+            cargo != "Administrador Geral"
+            and aluno["escola_id"] != escola_id_usuario
+        ):
+            flash("Você não possui acesso a este aluno.", "erro")
+            return redirect("/alunos")
+
+        cursor.execute("""
+            SELECT
+                am.id,
+                am.ano_letivo_id,
+                am.turma_id,
+                am.situacao,
+                am.data_matricula,
+                am.data_encerramento,
+                am.observacao,
+                al.ano AS ano_letivo,
+                al.ativo,
+                al.encerrado,
+                t.nome AS nome_turma,
+                t.ano AS ano_turma,
+                t.etapa,
+                t.turno
+            FROM aluno_matriculas AS am
+            INNER JOIN anos_letivos AS al
+                ON al.id = am.ano_letivo_id
+            INNER JOIN turmas AS t
+                ON t.id = am.turma_id
+            WHERE am.aluno_id = ?
+            ORDER BY al.ano DESC
+        """, (aluno_id,))
+
+        historico = cursor.fetchall()
+
+        # Compatibilidade para um registro antigo que ainda não tenha
+        # sido inserido em aluno_matriculas.
+        if not historico:
+            cursor.execute("""
+                SELECT
+                    NULL AS id,
+                    a.ano_letivo_id,
+                    a.turma_id,
+                    'Cursando' AS situacao,
+                    NULL AS data_matricula,
+                    NULL AS data_encerramento,
+                    NULL AS observacao,
+                    al.ano AS ano_letivo,
+                    al.ativo,
+                    al.encerrado,
+                    t.nome AS nome_turma,
+                    t.ano AS ano_turma,
+                    t.etapa,
+                    t.turno
+                FROM alunos AS a
+                INNER JOIN anos_letivos AS al
+                    ON al.id = a.ano_letivo_id
+                INNER JOIN turmas AS t
+                    ON t.id = a.turma_id
+                WHERE a.id = ?
+                LIMIT 1
+            """, (aluno_id,))
+
+            registro_antigo = cursor.fetchone()
+            historico = [registro_antigo] if registro_antigo else []
+
+        return render_template(
+            "aluno_historico.html",
+            aluno=aluno,
+            historico=historico
+        )
+
+    except sqlite3.Error as erro:
+        import traceback
+        traceback.print_exc()
+
+        print("ERRO AO CARREGAR HISTÓRICO DO ALUNO:", erro)
+        flash(f"Erro ao carregar o histórico do aluno: {erro}", "erro")
+        return redirect("/alunos")
+
+    finally:
+        banco.close()
+
 
 @app.route("/professores")
 def professores():
@@ -2857,21 +4602,435 @@ def questoes():
         return redirect("/acesso_negado")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM questoes
-        ORDER BY id DESC
-    """)
-    lista_questoes = cursor.fetchall()
+    cargo = (session.get("usuario_cargo") or "").strip()
+    usuario_id = session.get("usuario_id")
+    escola_id = obter_escola_usuario()
 
-    banco.close()
+    busca = (request.args.get("busca") or "").strip()
+    disciplina = (request.args.get("disciplina") or "").strip()
+    etapa = (request.args.get("etapa") or "").strip()
+    ano_serie = (request.args.get("ano_serie") or "").strip()
+    assunto = (request.args.get("assunto") or "").strip()
+    tipo = (request.args.get("tipo") or "").strip()
+    dificuldade = (request.args.get("dificuldade") or "").strip()
+    bloom = (request.args.get("bloom") or "").strip()
+    origem = (request.args.get("origem") or "todas").strip()
+
+    pagina = max(request.args.get("pagina", default=1, type=int) or 1, 1)
+    por_pagina = 12
+    deslocamento = (pagina - 1) * por_pagina
+
+    filtros = []
+    parametros = []
+
+    if cargo != "Administrador Geral" and escola_id:
+        filtros.append("q.escola_id = ?")
+        parametros.append(escola_id)
+
+    if origem == "minhas":
+        filtros.append("q.criado_por = ?")
+        parametros.append(usuario_id)
+
+    if busca:
+        termo = f"%{busca}%"
+        filtros.append("(" + " OR ".join([
+            "q.enunciado LIKE ?", "q.assunto LIKE ?", "q.subassunto LIKE ?",
+            "q.habilidade_bncc LIKE ?", "q.descritor_saeb LIKE ?", "q.tags LIKE ?"
+        ]) + ")")
+        parametros.extend([termo] * 6)
+
+    campos = [
+        (disciplina, "q.disciplina = ?"),
+        (etapa, "q.etapa_ensino = ?"),
+        (ano_serie, "q.ano_serie = ?"),
+        (assunto, "q.assunto = ?"),
+        (tipo, "q.tipo_questao = ?"),
+        (dificuldade, "q.dificuldade = ?"),
+        (bloom, "q.taxonomia_bloom = ?")
+    ]
+    for valor, sql in campos:
+        if valor:
+            filtros.append(sql)
+            parametros.append(valor)
+
+    where = "WHERE " + " AND ".join(filtros) if filtros else ""
+
+    try:
+        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q {where}", parametros)
+        total = cursor.fetchone()["total"]
+        total_paginas = max((total + por_pagina - 1) // por_pagina, 1)
+        if pagina > total_paginas:
+            pagina = total_paginas
+            deslocamento = (pagina - 1) * por_pagina
+
+        cursor.execute(f"""
+            SELECT
+                q.*,
+                COALESCE(u.nome, 'ARK EDUS') AS autor_nome,
+                COALESCE(e.nome_instituicao, 'Banco compartilhado') AS instituicao_nome,
+                (SELECT COUNT(*) FROM prova_questoes pq WHERE pq.questao_id = q.id) AS total_usos
+            FROM questoes q
+            LEFT JOIN usuarios u ON u.id = q.criado_por
+            LEFT JOIN escolas e ON e.id = q.escola_id
+            {where}
+            ORDER BY COALESCE(q.atualizado_em, q.criado_em) DESC, q.id DESC
+            LIMIT ? OFFSET ?
+        """, parametros + [por_pagina, deslocamento])
+        lista_questoes = cursor.fetchall()
+
+        def distintos(campo):
+            condicao = ""
+            args = []
+            if cargo != "Administrador Geral" and escola_id:
+                condicao = "WHERE escola_id = ?"
+                args = [escola_id]
+            cursor.execute(f"""
+                SELECT DISTINCT {campo} AS valor
+                FROM questoes
+                {condicao}
+                {'AND' if condicao else 'WHERE'} {campo} IS NOT NULL
+                  AND TRIM({campo}) <> ''
+                ORDER BY {campo} COLLATE NOCASE
+            """, args)
+            return [linha["valor"] for linha in cursor.fetchall()]
+
+        opcoes = {
+            "disciplinas": distintos("disciplina"),
+            "etapas": distintos("etapa_ensino"),
+            "anos": distintos("ano_serie"),
+            "assuntos": distintos("assunto"),
+            "blooms": distintos("taxonomia_bloom")
+        }
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q {('WHERE q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        total_geral = cursor.fetchone()["total"]
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.criado_por = ? {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([usuario_id, escola_id] if cargo != 'Administrador Geral' and escola_id else [usuario_id]))
+        total_minhas = cursor.fetchone()["total"]
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.tipo_questao IN ('multipla_escolha','multiplas_respostas','verdadeiro_falso') {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        total_objetivas = cursor.fetchone()["total"]
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.tipo_questao IN ('discursiva','resposta_curta','numerica') {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        total_discursivas = cursor.fetchone()["total"]
+
+        return render_template(
+            "questoes/index.html",
+            questoes=lista_questoes,
+            opcoes=opcoes,
+            total=total,
+            total_geral=total_geral,
+            total_minhas=total_minhas,
+            total_objetivas=total_objetivas,
+            total_discursivas=total_discursivas,
+            pagina=pagina,
+            total_paginas=total_paginas,
+            filtros_atuais={
+                "busca": busca, "disciplina": disciplina, "etapa": etapa,
+                "ano_serie": ano_serie, "assunto": assunto, "tipo": tipo,
+                "dificuldade": dificuldade, "bloom": bloom, "origem": origem
+            }
+        )
+
+    except sqlite3.Error as erro:
+        print("ERRO AO CARREGAR BANCO DE QUESTÕES:", erro)
+        flash("Não foi possível carregar o banco de questões.", "erro")
+        return render_template(
+            "questoes/index.html", questoes=[], opcoes={}, total=0,
+            total_geral=0, total_minhas=0, total_objetivas=0,
+            total_discursivas=0, pagina=1, total_paginas=1,
+            filtros_atuais={}
+        )
+    finally:
+        banco.close()
+
+
+@app.route("/questoes/<int:questao_id>")
+def visualizar_questao(questao_id):
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                q.*,
+                COALESCE(u.nome, 'ARK EDUS') AS autor_nome,
+                COALESCE(e.nome_instituicao, 'Banco compartilhado') AS instituicao_nome,
+                (
+                    SELECT COUNT(*)
+                    FROM prova_questoes AS pq
+                    WHERE pq.questao_id = q.id
+                ) AS total_usos
+            FROM questoes AS q
+            LEFT JOIN usuarios AS u
+                ON u.id = q.criado_por
+            LEFT JOIN escolas AS e
+                ON e.id = q.escola_id
+            WHERE q.id = ?
+            LIMIT 1
+        """, (questao_id,))
+
+        questao = cursor.fetchone()
+
+        if not questao:
+            flash("Questão não encontrada.", "erro")
+            return redirect("/questoes")
+
+        cargo = (session.get("usuario_cargo") or "").strip()
+        escola_usuario = obter_escola_usuario()
+
+        if (
+            cargo != "Administrador Geral"
+            and questao["escola_id"] is not None
+            and escola_usuario is not None
+            and int(questao["escola_id"]) != int(escola_usuario)
+        ):
+            return redirect("/acesso_negado")
+
+        try:
+            alternativas = json.loads(questao["alternativas_json"] or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            alternativas = []
+
+        if not alternativas:
+            alternativas = []
+            for indice, campo in enumerate(
+                ["alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d"]
+            ):
+                texto = questao[campo] or ""
+                if texto:
+                    alternativas.append({
+                        "letra": chr(65 + indice),
+                        "texto": texto,
+                        "imagem": ""
+                    })
+
+        try:
+            respostas_corretas = json.loads(
+                questao["respostas_corretas"] or "[]"
+            )
+        except (TypeError, ValueError, json.JSONDecodeError):
+            respostas_corretas = []
+
+        if not respostas_corretas and questao["correta"]:
+            respostas_corretas = [questao["correta"]]
+
+        tags = [
+            item.strip()
+            for item in (questao["tags"] or "").split(",")
+            if item.strip()
+        ]
+
+        pode_editar = (
+            cargo in [
+                "Administrador Geral",
+                "Administrador da Instituição",
+                "Coordenador"
+            ]
+            or questao["criado_por"] == session.get("usuario_id")
+        )
+
+        return render_template(
+            "questoes/visualizar.html",
+            questao=questao,
+            alternativas=alternativas,
+            respostas_corretas=respostas_corretas,
+            tags=tags,
+            pode_editar=pode_editar
+        )
+
+    except sqlite3.Error as erro:
+        print("ERRO AO VISUALIZAR QUESTÃO:", erro)
+        flash("Não foi possível abrir a questão.", "erro")
+        return redirect("/questoes")
+
+    finally:
+        banco.close()
+
+
+@app.route("/questoes/nova")
+def nova_questao():
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    componentes = []
+    assuntos = []
+    valores_anteriores = None
+    prova_id = request.args.get("prova_id", type=int)
+    escola_filtro_id = obter_escola_usuario()
+
+    try:
+        # Quando o cadastro foi aberto durante a montagem de uma avaliação,
+        # valida o acesso e utiliza os dados da própria avaliação para
+        # preencher automaticamente componente, etapa e ano/série.
+        if prova_id:
+            if not _pode_gerenciar_prova(
+                cursor,
+                prova_id,
+                exigir_edicao=True
+            ):
+                return _redirecionar_acesso_negado_prova()
+
+            cursor.execute("""
+                SELECT
+                    p.id,
+                    p.disciplina,
+                    COALESCE(p.escola_id, t.escola_id) AS escola_id,
+                    t.etapa,
+                    t.ano AS turma_ano
+                FROM provas AS p
+                INNER JOIN turmas AS t
+                    ON t.id = p.turma_id
+                WHERE p.id = ?
+                LIMIT 1
+            """, (prova_id,))
+            prova_origem = cursor.fetchone()
+
+            if not prova_origem:
+                flash("Avaliação não encontrada.", "erro")
+                return redirect("/provas")
+
+            escola_filtro_id = prova_origem["escola_id"]
+            valores_anteriores = {
+                "disciplina": prova_origem["disciplina"] or "",
+                "etapa_ensino": prova_origem["etapa"] or "",
+                "ano_serie": prova_origem["turma_ano"] or ""
+            }
+
+        elif request.args.get("repetir") == "1":
+            valores_anteriores = session.get("ultima_classificacao_questao")
+
+        if escola_filtro_id:
+            cursor.execute("""
+                SELECT DISTINCT nome
+                FROM componentes_curriculares
+                WHERE ativo = 1
+                  AND escola_id = ?
+                  AND nome IS NOT NULL
+                  AND TRIM(nome) <> ''
+                ORDER BY nome COLLATE NOCASE
+            """, (escola_filtro_id,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT nome
+                FROM componentes_curriculares
+                WHERE ativo = 1
+                  AND nome IS NOT NULL
+                  AND TRIM(nome) <> ''
+                ORDER BY nome COLLATE NOCASE
+            """)
+
+        componentes = [linha["nome"] for linha in cursor.fetchall()]
+
+        # Garante que o componente da avaliação apareça mesmo em cadastros
+        # antigos que ainda não estejam na tabela de componentes curriculares.
+        if valores_anteriores:
+            componente_prova = (valores_anteriores.get("disciplina") or "").strip()
+            if componente_prova and componente_prova not in componentes:
+                componentes.insert(0, componente_prova)
+
+        if escola_filtro_id:
+            cursor.execute("""
+                SELECT DISTINCT
+                    disciplina,
+                    etapa_ensino,
+                    ano_serie,
+                    nome
+                FROM assuntos
+                WHERE ativo = 1
+                  AND (escola_id = ? OR escola_id IS NULL)
+                ORDER BY nome COLLATE NOCASE
+            """, (escola_filtro_id,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT
+                    disciplina,
+                    etapa_ensino,
+                    ano_serie,
+                    nome
+                FROM assuntos
+                WHERE ativo = 1
+                ORDER BY nome COLLATE NOCASE
+            """)
+
+        assuntos = [
+            {
+                "nome": linha["nome"],
+                "disciplina": linha["disciplina"] or "",
+                "etapa_ensino": linha["etapa_ensino"] or "",
+                "ano_serie": linha["ano_serie"] or ""
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    except sqlite3.Error as erro:
+        print("ERRO AO CARREGAR NOVA QUESTÃO:", erro)
+        flash("Não foi possível carregar o cadastro da questão.", "erro")
+
+    finally:
+        banco.close()
 
     return render_template(
-        "questoes.html",
-        questoes=lista_questoes
+        "questoes/nova.html",
+        componentes=componentes,
+        assuntos=assuntos,
+        valores_anteriores=valores_anteriores,
+        prova_id=prova_id
     )
+
+
+@app.route("/questoes/<int:questao_id>/excluir", methods=["POST"])
+def excluir_questao(questao_id):
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    try:
+        cursor.execute("SELECT escola_id, criado_por FROM questoes WHERE id = ?", (questao_id,))
+        questao = cursor.fetchone()
+        if not questao:
+            flash("Questão não encontrada.", "erro")
+            return redirect("/questoes")
+
+        cargo = (session.get("usuario_cargo") or "").strip()
+        escola_id = obter_escola_usuario()
+        usuario_id = session.get("usuario_id")
+        pode_excluir = cargo in ["Administrador Geral", "Administrador da Instituição", "Coordenador"]
+        pode_excluir = pode_excluir or questao["criado_por"] == usuario_id
+
+        if cargo != "Administrador Geral" and questao["escola_id"] not in (None, escola_id):
+            pode_excluir = False
+
+        if not pode_excluir:
+            return redirect("/acesso_negado")
+
+        cursor.execute("DELETE FROM questoes WHERE id = ?", (questao_id,))
+        banco.commit()
+        flash("Questão excluída com sucesso.", "sucesso")
+    except sqlite3.IntegrityError:
+        banco.rollback()
+        flash("Esta questão está vinculada a uma avaliação e não pode ser excluída.", "erro")
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Não foi possível excluir a questão: {erro}", "erro")
+    finally:
+        banco.close()
+
+    return redirect(request.referrer or "/questoes")
+
 
 @app.route("/cadastrar_questao", methods=["POST"])
 def cadastrar_questao():
@@ -2884,268 +5043,2397 @@ def cadastrar_questao():
     ]):
         return redirect("/login")
 
-    disciplina = request.form["disciplina"]
-    enunciado = request.form["enunciado"]
-
-    imagem = request.files.get("imagem")
-    nome_imagem = ""
-
-    if imagem and imagem.filename != "":
-        nome_imagem = secure_filename(imagem.filename)
-        imagem.save(
-            os.path.join(
-                app.config["UPLOAD_FOLDER"],
-                nome_imagem
-            )
-        )
-
-    alternativa_a = request.form["alternativa_a"]
-    alternativa_b = request.form["alternativa_b"]
-    alternativa_c = request.form["alternativa_c"]
-    alternativa_d = request.form["alternativa_d"]
-    correta = request.form["correta"]
-    habilidade = request.form["habilidade"]
-    dificuldade = request.form["dificuldade"]
-
-    banco = conectar_banco()
-    cursor = banco.cursor()
-
-    cursor.execute("""
-        INSERT INTO questoes (
-            disciplina,
-            enunciado,
-            imagem,
-            alternativa_a,
-            alternativa_b,
-            alternativa_c,
-            alternativa_d,
-            correta,
-            habilidade,
-            dificuldade
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        disciplina,
-        enunciado,
-        nome_imagem,
-        alternativa_a,
-        alternativa_b,
-        alternativa_c,
-        alternativa_d,
-        correta,
-        habilidade,
-        dificuldade
-    ))
-
-    banco.commit()
-    banco.close()
-
-    return redirect("/questoes")
-
-@app.route("/provas")
-def provas():
-
-    if not permissao_modulo("Provas"):
+    if not permissao_modulo("Questões"):
         return redirect("/acesso_negado")
 
+    disciplina = (request.form.get("disciplina") or "").strip()
+    etapa_ensino = (request.form.get("etapa_ensino") or "").strip()
+    ano_serie = (request.form.get("ano_serie") or "").strip()
+    assunto = (request.form.get("assunto") or "").strip()
+    assunto_outro = (request.form.get("assunto_outro") or "").strip()
+    assunto_temporario = request.form.get("assunto_temporario") == "1"
+    subassunto = (request.form.get("subassunto") or "").strip()
+    tipo_questao = (request.form.get("tipo_questao") or "multipla_escolha").strip()
+    enunciado = (request.form.get("enunciado") or "").strip()
+    enunciado_html = (request.form.get("enunciado_html") or "").strip()
+    dificuldade = (request.form.get("dificuldade") or "").strip()
+    taxonomia_bloom = (request.form.get("taxonomia_bloom") or "").strip()
+    unidade_tematica = (request.form.get("unidade_tematica") or "").strip()
+    objeto_conhecimento = (request.form.get("objeto_conhecimento") or "").strip()
+    habilidade_bncc = (request.form.get("habilidade_bncc") or "").strip()
+    matriz_referencia = (request.form.get("matriz_referencia") or "").strip()
+    descritor_saeb = (request.form.get("descritor_saeb") or "").strip()
+    fonte = (request.form.get("fonte") or "").strip()
+    tags = (request.form.get("tags") or "").strip()
+    observacoes = (request.form.get("observacoes") or "").strip()
+    resposta_esperada = (request.form.get("resposta_esperada") or "").strip()
+    criterios_correcao = (request.form.get("criterios_correcao") or "").strip()
+    manter_classificacao = request.form.get("manter_classificacao") == "1"
+    prova_id = request.form.get("prova_id", type=int)
+    url_nova_questao = (
+        f"/questoes/nova?prova_id={prova_id}"
+        if prova_id
+        else "/questoes/nova"
+    )
+
+    try:
+        linhas_resposta = int(request.form.get("linhas_resposta") or 5)
+    except (TypeError, ValueError):
+        linhas_resposta = 5
+    linhas_resposta = max(1, min(linhas_resposta, 30))
+
+    try:
+        ano_fonte = int(request.form.get("ano_fonte")) if request.form.get("ano_fonte") else None
+    except (TypeError, ValueError):
+        ano_fonte = None
+
+    try:
+        tempo_estimado = int(request.form.get("tempo_estimado")) if request.form.get("tempo_estimado") else None
+    except (TypeError, ValueError):
+        tempo_estimado = None
+
+    if assunto == "__outro__":
+        assunto = assunto_outro
+        assunto_temporario = True
+
+    # Mantém o campo legado para filtros e telas antigas.
+    habilidade = " | ".join(
+        item for item in [habilidade_bncc, descritor_saeb] if item
+    )
+
+    tipos_validos = {
+        "multipla_escolha", "verdadeiro_falso", "multiplas_respostas",
+        "discursiva", "resposta_curta", "numerica"
+    }
+
+    if tipo_questao not in tipos_validos:
+        flash("Tipo de questão inválido.", "erro")
+        return redirect(url_nova_questao)
+
+    if not disciplina or not assunto or not enunciado or not dificuldade:
+        flash("Preencha o componente, o assunto, o enunciado e a dificuldade.", "erro")
+        return redirect(url_nova_questao)
+
+    extensoes_permitidas = {".png", ".jpg", ".jpeg", ".webp"}
+
+    def salvar_imagem(arquivo, prefixo):
+        if not arquivo or not arquivo.filename:
+            return ""
+        nome_seguro = secure_filename(arquivo.filename)
+        extensao = os.path.splitext(nome_seguro)[1].lower()
+        if extensao not in extensoes_permitidas:
+            raise ValueError("Envie apenas imagens PNG, JPG, JPEG ou WEBP.")
+        nome_arquivo = f"{prefixo}_{uuid.uuid4().hex}{extensao}"
+        arquivo.save(os.path.join(app.config["UPLOAD_FOLDER"], nome_arquivo))
+        return nome_arquivo
+
+    def salvar_imagens_embutidas(conteudo_html):
+        """Converte imagens data URL do editor em arquivos reais no servidor."""
+        if not conteudo_html:
+            return ""
+
+        padrao = re.compile(
+            r'src=["\']data:image/(?P<tipo>png|jpeg|jpg|webp);base64,(?P<dados>[^"\']+)["\']',
+            re.IGNORECASE
+        )
+
+        def substituir(match):
+            tipo = match.group("tipo").lower()
+            extensao = ".jpg" if tipo in {"jpg", "jpeg"} else f".{tipo}"
+            try:
+                dados = base64.b64decode(match.group("dados"), validate=True)
+            except Exception as erro:
+                raise ValueError("Uma das imagens inseridas no enunciado é inválida.") from erro
+
+            if len(dados) > 8 * 1024 * 1024:
+                raise ValueError("Cada imagem do enunciado deve ter no máximo 8 MB.")
+
+            nome_arquivo = f"enunciado_{uuid.uuid4().hex}{extensao}"
+            with open(os.path.join(app.config["UPLOAD_FOLDER"], nome_arquivo), "wb") as destino:
+                destino.write(dados)
+            return f'src="/static/uploads/{nome_arquivo}"'
+
+        conteudo_html = padrao.sub(substituir, conteudo_html)
+        conteudo_html = re.sub(r'<\s*(script|iframe|object|embed)[^>]*>.*?<\s*/\s*\1\s*>', '', conteudo_html, flags=re.I | re.S)
+        conteudo_html = re.sub(r'\son[a-z]+\s*=\s*(["\']).*?\1', '', conteudo_html, flags=re.I | re.S)
+        conteudo_html = re.sub(r'javascript\s*:', '', conteudo_html, flags=re.I)
+        return conteudo_html
+
+    try:
+        enunciado_html = salvar_imagens_embutidas(enunciado_html)
+        nome_imagem = salvar_imagem(request.files.get("imagem"), "questao")
+    except ValueError as erro:
+        flash(str(erro), "erro")
+        return redirect(url_nova_questao)
+
+    alternativas = []
+    respostas_corretas = []
+
+    if tipo_questao in {"multipla_escolha", "multiplas_respostas"}:
+        textos = request.form.getlist("alternativas[]")
+        imagens = request.files.getlist("imagens_alternativas[]")
+        indices_corretos = set(request.form.getlist("corretas[]"))
+        total_linhas = max(len(textos), len(imagens))
+
+        for indice in range(total_linhas):
+            texto = textos[indice].strip() if indice < len(textos) else ""
+            arquivo_imagem = imagens[indice] if indice < len(imagens) else None
+            try:
+                imagem_alternativa = salvar_imagem(arquivo_imagem, "alternativa")
+            except ValueError as erro:
+                flash(f"Alternativa {indice + 1}: {erro}", "erro")
+                return redirect(url_nova_questao)
+
+            if not texto and not imagem_alternativa:
+                continue
+
+            letra = chr(65 + len(alternativas))
+            alternativas.append({"letra": letra, "texto": texto, "imagem": imagem_alternativa})
+            if str(indice) in indices_corretos:
+                respostas_corretas.append(letra)
+
+        if len(alternativas) < 2:
+            flash("Cadastre pelo menos duas alternativas com texto ou imagem.", "erro")
+            return redirect(url_nova_questao)
+        if tipo_questao == "multipla_escolha" and len(respostas_corretas) != 1:
+            flash("Marque exatamente uma alternativa correta.", "erro")
+            return redirect(url_nova_questao)
+        if tipo_questao == "multiplas_respostas" and not respostas_corretas:
+            flash("Marque pelo menos uma alternativa correta.", "erro")
+            return redirect(url_nova_questao)
+
+    elif tipo_questao == "verdadeiro_falso":
+        resposta_vf = (request.form.get("resposta_vf") or "").strip()
+        if resposta_vf not in {"V", "F"}:
+            flash("Selecione Verdadeiro ou Falso.", "erro")
+            return redirect(url_nova_questao)
+        alternativas = [
+            {"letra": "V", "texto": "Verdadeiro", "imagem": ""},
+            {"letra": "F", "texto": "Falso", "imagem": ""}
+        ]
+        respostas_corretas = [resposta_vf]
+
+    elif tipo_questao in {"resposta_curta", "numerica"} and not resposta_esperada:
+        flash("Informe a resposta esperada.", "erro")
+        return redirect(url_nova_questao)
+
+    textos_legados = []
+    for item in alternativas[:4]:
+        texto_legado = item.get("texto") or ""
+        if not texto_legado and item.get("imagem"):
+            texto_legado = "[Alternativa com imagem]"
+        textos_legados.append(texto_legado)
+    textos_legados += [""] * (4 - len(textos_legados))
+    correta_legada = respostas_corretas[0] if respostas_corretas else ""
+
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM turmas
-        ORDER BY nome
-    """)
-    lista_turmas = cursor.fetchall()
+    try:
+        escola_questao_id = obter_escola_usuario()
+        prova_destino = None
 
-    cursor.execute("""
-        SELECT *
-        FROM professores
-        ORDER BY nome
-    """)
-    lista_professores = cursor.fetchall()
+        if prova_id:
+            if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+                return _redirecionar_acesso_negado_prova()
+
+            cursor.execute("""
+                SELECT
+                    p.id,
+                    p.disciplina,
+                    COALESCE(p.escola_id, t.escola_id) AS escola_id
+                FROM provas AS p
+                INNER JOIN turmas AS t
+                    ON t.id = p.turma_id
+                WHERE p.id = ?
+                LIMIT 1
+            """, (prova_id,))
+            prova_destino = cursor.fetchone()
+
+            if not prova_destino:
+                flash("A avaliação de destino não foi encontrada.", "erro")
+                return redirect("/provas")
+
+            if (prova_destino["disciplina"] or "").strip().lower() != disciplina.lower():
+                flash(
+                    "O componente da questão precisa ser o mesmo da avaliação.",
+                    "erro"
+                )
+                return redirect(url_nova_questao)
+
+            escola_questao_id = prova_destino["escola_id"]
+
+        cursor.execute("""
+            INSERT INTO questoes (
+                disciplina, etapa_ensino, ano_serie, assunto,
+                assunto_temporario, subassunto,
+                tipo_questao, enunciado, enunciado_html, imagem,
+                alternativa_a, alternativa_b, alternativa_c, alternativa_d,
+                correta, alternativas_json, respostas_corretas,
+                resposta_esperada, criterios_correcao, habilidade,
+                habilidade_bncc, unidade_tematica, objeto_conhecimento,
+                matriz_referencia, descritor_saeb, taxonomia_bloom,
+                dificuldade, fonte, ano_fonte, tags, tempo_estimado,
+                linhas_resposta, observacoes, escola_id, criado_por, criado_em
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+        """, (
+            disciplina, etapa_ensino, ano_serie, assunto,
+            1 if assunto_temporario else 0, subassunto,
+            tipo_questao, enunciado, enunciado_html, nome_imagem,
+            textos_legados[0], textos_legados[1], textos_legados[2], textos_legados[3],
+            correta_legada, json.dumps(alternativas, ensure_ascii=False),
+            json.dumps(respostas_corretas, ensure_ascii=False), resposta_esperada,
+            criterios_correcao, habilidade, habilidade_bncc, unidade_tematica,
+            objeto_conhecimento, matriz_referencia, descritor_saeb,
+            taxonomia_bloom, dificuldade, fonte, ano_fonte, tags,
+            tempo_estimado, linhas_resposta if tipo_questao == "discursiva" else None,
+            observacoes, escola_questao_id, session.get("usuario_id"),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ))
+
+        questao_id = cursor.lastrowid
+
+        if prova_id:
+            cursor.execute("""
+                SELECT COALESCE(MAX(ordem), 0) + 1 AS proxima_ordem
+                FROM prova_questoes
+                WHERE prova_id = ?
+            """, (prova_id,))
+            proxima_ordem = cursor.fetchone()["proxima_ordem"]
+
+            cursor.execute("""
+                INSERT OR IGNORE INTO prova_questoes (
+                    prova_id,
+                    questao_id,
+                    peso,
+                    ordem
+                )
+                VALUES (?, ?, 0, ?)
+            """, (prova_id, questao_id, proxima_ordem))
+
+            cursor.execute("""
+                UPDATE provas
+                SET quantidade = (
+                    SELECT COUNT(*) FROM prova_questoes WHERE prova_id = ?
+                ), atualizado_em = ?
+                WHERE id = ?
+            """, (
+                prova_id,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                prova_id
+            ))
+
+        banco.commit()
+        flash(
+            "Questão cadastrada e adicionada à avaliação!" if prova_id
+            else "Questão cadastrada com sucesso!",
+            "sucesso"
+        )
+
+        if manter_classificacao:
+            session["ultima_classificacao_questao"] = {
+                "disciplina": disciplina,
+                "etapa_ensino": etapa_ensino,
+                "ano_serie": ano_serie,
+                "assunto": assunto,
+                "subassunto": subassunto,
+                "dificuldade": dificuldade,
+                "taxonomia_bloom": taxonomia_bloom,
+                "unidade_tematica": unidade_tematica,
+                "objeto_conhecimento": objeto_conhecimento,
+                "habilidade_bncc": habilidade_bncc,
+                "matriz_referencia": matriz_referencia,
+                "descritor_saeb": descritor_saeb,
+                "fonte": fonte,
+                "ano_fonte": ano_fonte or "",
+                "tags": tags,
+                "tempo_estimado": tempo_estimado or "",
+                "abrir_avancado": bool(
+                    unidade_tematica or objeto_conhecimento or habilidade_bncc or
+                    matriz_referencia or descritor_saeb or fonte or tags
+                )
+            }
+        else:
+            session.pop("ultima_classificacao_questao", None)
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO AO CADASTRAR QUESTÃO:", erro)
+        flash(f"Não foi possível cadastrar a questão: {erro}", "erro")
+
+    finally:
+        banco.close()
+
+    if prova_id:
+        return redirect(f"/provas/{prova_id}/montar")
+
+    return redirect("/questoes/nova?repetir=1" if manter_classificacao else "/questoes")
+
+
+# =========================================================
+# PROVAS — LISTAGEM, CADASTRO E MONTAGEM
+# =========================================================
+
+def _contexto_provas():
+    """Retorna o contexto acadêmico e de acesso usado no módulo Provas."""
+    contexto = obter_contexto_plataforma()
+
+    return {
+        "usuario_id": contexto.get("usuario_id"),
+        "cargo": (contexto.get("cargo") or "").strip(),
+        "escola_id": contexto.get("escola_id"),
+        "ano_letivo_id": contexto.get("ano_letivo_id"),
+        "ano": contexto.get("ano")
+    }
+
+
+def _professor_legado_do_usuario(cursor, usuario_id):
+    """
+    Compatibiliza o cadastro atual de usuários com a tabela professores,
+    que ainda é utilizada pela tabela provas.
+    """
+    if not usuario_id:
+        return None
 
     cursor.execute("""
         SELECT
-            provas.id,
-            provas.nome,
-            turmas.nome,
-            professores.nome,
-            provas.disciplina,
-            provas.quantidade,
-            provas.data_geracao,
-            provas.data_aplicacao
-        FROM provas
-        JOIN turmas
-            ON provas.turma_id = turmas.id
-        LEFT JOIN professores
-            ON provas.professor_id = professores.id
-        ORDER BY provas.id DESC
-    """)
-    lista_provas = cursor.fetchall()
+            u.id AS usuario_id,
+            u.nome,
+            u.email,
+            u.escola_id
+        FROM usuarios AS u
+        INNER JOIN cargos AS c
+            ON c.id = u.cargo_id
+        WHERE u.id = ?
+          AND c.nome = 'Professor'
+        LIMIT 1
+    """, (usuario_id,))
 
-    banco.close()
+    usuario = cursor.fetchone()
 
-    return render_template(
-        "provas.html",
-        turmas=lista_turmas,
-        professores=lista_professores,
-        provas=lista_provas
-    )
-
-@app.route("/gerar_prova", methods=["POST"])
-def gerar_prova():
-
-    if not cargo_permitido([
-        "Administrador Geral",
-        "Administrador da Instituição",
-        "Coordenador",
-        "Professor"
-    ]):
-        return redirect("/login")
-
-    nome = request.form["nome"]
-    turma_id = request.form["turma_id"]
-    professor_id = request.form["professor_id"]
-    disciplina = request.form["disciplina"]
-    quantidade = int(request.form["quantidade"])
-    data_aplicacao = request.form["data_aplicacao"]
-    data_geracao = datetime.now().strftime("%d/%m/%Y")
-
-    banco = conectar_banco()
-    cursor = banco.cursor()
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM questoes
-        WHERE disciplina = ?
-    """, (disciplina,))
-
-    total_questoes = cursor.fetchone()[0]
-
-    if total_questoes < quantidade:
-        banco.close()
-        return f"""
-        <h2>Quantidade insuficiente de questões.</h2>
-
-        <p>Existem apenas <strong>{total_questoes}</strong>
-        questões cadastradas para a disciplina
-        <strong>{disciplina}</strong>.</p>
-
-        <a href="/provas">Voltar</a>
-        """
-
-    cursor.execute("""
-        INSERT INTO provas
-        (
-            nome,
-            turma_id,
-            professor_id,
-            disciplina,
-            quantidade,
-            data_geracao,
-            data_aplicacao
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        nome,
-        turma_id,
-        professor_id,
-        disciplina,
-        quantidade,
-        data_geracao,
-        data_aplicacao
-    ))
-
-    prova_id = cursor.lastrowid
+    if not usuario:
+        return None
 
     cursor.execute("""
         SELECT id
-        FROM questoes
-        WHERE disciplina = ?
-        ORDER BY RANDOM()
-        LIMIT ?
-    """, (disciplina, quantidade))
+        FROM professores
+        WHERE escola_id = ?
+          AND (
+                LOWER(TRIM(COALESCE(email, ''))) =
+                    LOWER(TRIM(COALESCE(?, '')))
+                OR LOWER(TRIM(nome)) = LOWER(TRIM(?))
+          )
+        ORDER BY
+            CASE
+                WHEN LOWER(TRIM(COALESCE(email, ''))) =
+                     LOWER(TRIM(COALESCE(?, '')))
+                THEN 0
+                ELSE 1
+            END,
+            id
+        LIMIT 1
+    """, (
+        usuario["escola_id"],
+        usuario["email"],
+        usuario["nome"],
+        usuario["email"]
+    ))
 
-    questoes_selecionadas = cursor.fetchall()
+    professor = cursor.fetchone()
 
-    for questao in questoes_selecionadas:
+    if professor:
+        return professor["id"]
+
+    cursor.execute("""
+        INSERT INTO professores (
+            nome,
+            email,
+            disciplina,
+            escola_id
+        )
+        VALUES (?, ?, ?, ?)
+    """, (
+        usuario["nome"],
+        usuario["email"],
+        "",
+        usuario["escola_id"]
+    ))
+
+    return cursor.lastrowid
+
+
+
+def _sincronizar_professores_da_escola(cursor, escola_id=None):
+    """Sincroniza usuários com cargo Professor com a tabela professores."""
+    parametros = []
+    filtro_escola = ""
+
+    if escola_id:
+        filtro_escola = " AND u.escola_id = ? "
+        parametros.append(escola_id)
+
+    cursor.execute(f"""
+        SELECT u.id, u.nome, u.email, u.escola_id
+        FROM usuarios AS u
+        INNER JOIN cargos AS c ON c.id = u.cargo_id
+        WHERE c.nome = 'Professor'
+          AND u.ativo = 1
+          AND u.escola_id IS NOT NULL
+          {filtro_escola}
+        ORDER BY u.nome COLLATE NOCASE
+    """, parametros)
+
+    for usuario in cursor.fetchall():
         cursor.execute("""
-            INSERT INTO prova_questoes (
-                prova_id,
-                questao_id
-            )
-            VALUES (?, ?)
+            SELECT id
+            FROM professores
+            WHERE escola_id = ?
+              AND (
+                    (
+                        COALESCE(TRIM(?), '') <> ''
+                        AND LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM(?))
+                    )
+                    OR LOWER(TRIM(nome)) = LOWER(TRIM(?))
+              )
+            ORDER BY id
+            LIMIT 1
         """, (
-            prova_id,
-            questao[0]
+            usuario["escola_id"],
+            usuario["email"],
+            usuario["email"],
+            usuario["nome"]
         ))
 
-    banco.commit()
-    banco.close()
+        existente = cursor.fetchone()
 
-    return redirect("/provas")
+        if existente:
+            cursor.execute("""
+                UPDATE professores
+                SET nome = ?, email = ?, escola_id = ?
+                WHERE id = ?
+            """, (
+                usuario["nome"],
+                usuario["email"],
+                usuario["escola_id"],
+                existente["id"]
+            ))
+        else:
+            cursor.execute("""
+                INSERT INTO professores (nome, email, disciplina, escola_id)
+                VALUES (?, ?, '', ?)
+            """, (
+                usuario["nome"],
+                usuario["email"],
+                usuario["escola_id"]
+            ))
 
-@app.route("/prova/<int:prova_id>")
-def visualizar_prova(prova_id):
 
-    if not cargo_permitido([
+def _pode_criar_prova(cargo):
+    return cargo in {
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
         "Professor"
-    ]):
-        return redirect("/login")
+    }
 
-    banco = conectar_banco()
-    cursor = banco.cursor()
+
+def _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False):
+    """
+    Valida o acesso no backend. Assim, alterar manualmente a URL não
+    permite acessar uma avaliação de outra instituição ou professor.
+    """
+    contexto = _contexto_provas()
+    cargo = contexto["cargo"]
 
     cursor.execute("""
         SELECT
-            provas.id,
-            provas.nome,
-            turmas.nome,
-            provas.disciplina,
-            provas.quantidade,
-            professores.nome,
-            provas.data_geracao,
-            provas.data_aplicacao
-        FROM provas
-        JOIN turmas
-            ON provas.turma_id = turmas.id
-        LEFT JOIN professores
-            ON provas.professor_id = professores.id
-        WHERE provas.id = ?
+            p.id,
+            p.professor_id,
+            p.escola_id,
+            p.ano_letivo_id,
+            p.status,
+            t.escola_id AS turma_escola_id,
+            t.ano_letivo_id AS turma_ano_letivo_id
+        FROM provas AS p
+        INNER JOIN turmas AS t
+            ON t.id = p.turma_id
+        WHERE p.id = ?
+        LIMIT 1
     """, (prova_id,))
 
     prova = cursor.fetchone()
 
-    cursor.execute("""
-        SELECT *
-        FROM instituicao
-        WHERE id = 1
-    """)
-    instituicao = cursor.fetchone()
+    if not prova:
+        return False
 
+    # Avaliação finalizada é somente leitura para qualquer perfil.
+    if exigir_edicao and (prova["status"] or "rascunho").strip().lower() == "finalizada":
+        return False
+
+    if cargo == "Administrador Geral":
+        return True
+
+    escola_prova = prova["escola_id"] or prova["turma_escola_id"]
+
+    if (
+        not contexto["escola_id"]
+        or int(escola_prova or 0) != int(contexto["escola_id"])
+    ):
+        return False
+
+    ano_prova = prova["ano_letivo_id"] or prova["turma_ano_letivo_id"]
+
+    if contexto["ano_letivo_id"] and ano_prova:
+        if int(ano_prova) != int(contexto["ano_letivo_id"]):
+            return False
+
+    if cargo == "Professor":
+        professor_id = _professor_legado_do_usuario(
+            cursor,
+            contexto["usuario_id"]
+        )
+        return bool(
+            professor_id
+            and int(prova["professor_id"] or 0) == int(professor_id)
+        )
+
+    if exigir_edicao:
+        return cargo in {
+            "Administrador da Instituição",
+            "Coordenador"
+        }
+
+    return cargo in {
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria"
+    }
+
+
+def _redirecionar_acesso_negado_prova():
+    flash(
+        "Você não possui permissão para acessar esta avaliação.",
+        "erro"
+    )
+    return redirect("/provas")
+
+
+@app.route("/provas")
+def provas():
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    contexto = _contexto_provas()
+    cargo = contexto["cargo"]
+    usuario_id = contexto["usuario_id"]
+    escola_id = contexto["escola_id"]
+    ano_letivo_id = contexto["ano_letivo_id"]
+    ano_visualizado = contexto["ano"]
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    escolas = []
+    turmas = []
+    professores = []
+    registros = []
+    professor_logado_id = None
+
+    try:
+        if cargo == "Administrador Geral":
+            _sincronizar_professores_da_escola(cursor)
+            banco.commit()
+
+            cursor.execute("""
+                SELECT id, nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao COLLATE NOCASE
+            """)
+            escolas = cursor.fetchall()
+
+            if ano_visualizado is not None:
+                cursor.execute("""
+                    SELECT DISTINCT
+                        t.id,
+                        t.nome,
+                        t.etapa,
+                        t.ano,
+                        t.turno,
+                        t.escola_id,
+                        e.nome_instituicao
+                    FROM turmas AS t
+                    INNER JOIN escolas AS e
+                        ON e.id = t.escola_id
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = t.ano_letivo_id
+                       AND al.escola_id = t.escola_id
+                    WHERE al.ano = ?
+                    ORDER BY
+                        e.nome_instituicao COLLATE NOCASE,
+                        t.nome COLLATE NOCASE
+                """, (ano_visualizado,))
+                turmas = cursor.fetchall()
+
+                cursor.execute("""
+                    SELECT
+                        pr.id,
+                        pr.nome,
+                        pr.escola_id,
+                        e.nome_instituicao
+                    FROM professores AS pr
+                    INNER JOIN escolas AS e
+                        ON e.id = pr.escola_id
+                    WHERE COALESCE(e.status, 1) = 1
+                    ORDER BY
+                        e.nome_instituicao COLLATE NOCASE,
+                        pr.nome COLLATE NOCASE
+                """)
+                professores = cursor.fetchall()
+
+                cursor.execute("""
+                    SELECT
+                        p.id,
+                        p.nome,
+                        p.disciplina,
+                        p.data_geracao,
+                        p.data_aplicacao,
+                        p.status,
+                        p.escola_id,
+                        t.nome AS turma_nome,
+                        e.nome_instituicao,
+                        COALESCE(pr.nome, 'Não informado') AS professor_nome,
+                        COUNT(pq.id) AS quantidade_real
+                    FROM provas AS p
+                    INNER JOIN turmas AS t
+                        ON t.id = p.turma_id
+                    INNER JOIN escolas AS e
+                        ON e.id = COALESCE(p.escola_id, t.escola_id)
+                    INNER JOIN anos_letivos AS al
+                        ON al.id = COALESCE(
+                            p.ano_letivo_id,
+                            t.ano_letivo_id
+                        )
+                    LEFT JOIN professores AS pr
+                        ON pr.id = p.professor_id
+                    LEFT JOIN prova_questoes AS pq
+                        ON pq.prova_id = p.id
+                    WHERE al.ano = ?
+                    GROUP BY p.id
+                    ORDER BY p.id DESC
+                """, (ano_visualizado,))
+                registros = cursor.fetchall()
+
+        else:
+            if not escola_id:
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
+            else:
+                _sincronizar_professores_da_escola(cursor, escola_id)
+                banco.commit()
+
+                if not ano_letivo_id:
+                    ano = atualizar_ano_letivo_na_sessao(escola_id)
+                    ano_letivo_id = ano["id"] if ano else None
+
+                if cargo == "Professor":
+                    professor_logado_id = _professor_legado_do_usuario(
+                        cursor,
+                        usuario_id
+                    )
+
+                    cursor.execute("""
+                        SELECT DISTINCT
+                            t.id,
+                            t.nome,
+                            t.etapa,
+                            t.ano,
+                            t.turno,
+                            t.escola_id
+                        FROM turmas AS t
+                        INNER JOIN professor_vinculos AS pv
+                            ON pv.turma_id = t.id
+                        WHERE pv.professor_id = ?
+                          AND t.escola_id = ?
+                          AND t.ano_letivo_id = ?
+                        ORDER BY t.nome COLLATE NOCASE
+                    """, (
+                        usuario_id,
+                        escola_id,
+                        ano_letivo_id
+                    ))
+                    turmas = cursor.fetchall()
+
+                    if professor_logado_id:
+                        cursor.execute("""
+                            SELECT id, nome, escola_id
+                            FROM professores
+                            WHERE id = ?
+                        """, (professor_logado_id,))
+                        professores = cursor.fetchall()
+
+                        cursor.execute("""
+                            SELECT
+                                p.id,
+                                p.nome,
+                                p.disciplina,
+                                p.data_geracao,
+                                p.data_aplicacao,
+                                p.status,
+                                p.escola_id,
+                                t.nome AS turma_nome,
+                                e.nome_instituicao,
+                                COALESCE(
+                                    pr.nome,
+                                    'Não informado'
+                                ) AS professor_nome,
+                                COUNT(pq.id) AS quantidade_real
+                            FROM provas AS p
+                            INNER JOIN turmas AS t
+                                ON t.id = p.turma_id
+                            INNER JOIN escolas AS e
+                                ON e.id = t.escola_id
+                            LEFT JOIN professores AS pr
+                                ON pr.id = p.professor_id
+                            LEFT JOIN prova_questoes AS pq
+                                ON pq.prova_id = p.id
+                            WHERE p.professor_id = ?
+                              AND t.escola_id = ?
+                              AND COALESCE(
+                                  p.ano_letivo_id,
+                                  t.ano_letivo_id
+                              ) = ?
+                            GROUP BY p.id
+                            ORDER BY p.id DESC
+                        """, (
+                            professor_logado_id,
+                            escola_id,
+                            ano_letivo_id
+                        ))
+                        registros = cursor.fetchall()
+
+                else:
+                    cursor.execute("""
+                        SELECT
+                            id,
+                            nome,
+                            etapa,
+                            ano,
+                            turno,
+                            escola_id
+                        FROM turmas
+                        WHERE escola_id = ?
+                          AND ano_letivo_id = ?
+                        ORDER BY nome COLLATE NOCASE
+                    """, (escola_id, ano_letivo_id))
+                    turmas = cursor.fetchall()
+
+                    cursor.execute("""
+                        SELECT id, nome, escola_id
+                        FROM professores
+                        WHERE escola_id = ?
+                        ORDER BY nome COLLATE NOCASE
+                    """, (escola_id,))
+                    professores = cursor.fetchall()
+
+                    cursor.execute("""
+                        SELECT
+                            p.id,
+                            p.nome,
+                            p.disciplina,
+                            p.data_geracao,
+                            p.data_aplicacao,
+                            p.status,
+                            p.escola_id,
+                            t.nome AS turma_nome,
+                            e.nome_instituicao,
+                            COALESCE(
+                                pr.nome,
+                                'Não informado'
+                            ) AS professor_nome,
+                            COUNT(pq.id) AS quantidade_real
+                        FROM provas AS p
+                        INNER JOIN turmas AS t
+                            ON t.id = p.turma_id
+                        INNER JOIN escolas AS e
+                            ON e.id = t.escola_id
+                        LEFT JOIN professores AS pr
+                            ON pr.id = p.professor_id
+                        LEFT JOIN prova_questoes AS pq
+                            ON pq.prova_id = p.id
+                        WHERE t.escola_id = ?
+                          AND COALESCE(
+                              p.ano_letivo_id,
+                              t.ano_letivo_id
+                          ) = ?
+                        GROUP BY p.id
+                        ORDER BY p.id DESC
+                    """, (escola_id, ano_letivo_id))
+                    registros = cursor.fetchall()
+
+        hoje = datetime.now().date()
+        lista_provas = []
+
+        for registro in registros:
+            data_aplicacao = (
+                registro["data_aplicacao"] or ""
+            ).strip()
+            data_objeto = None
+
+            for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+                if not data_aplicacao:
+                    break
+                try:
+                    data_objeto = datetime.strptime(
+                        data_aplicacao,
+                        formato
+                    ).date()
+                    break
+                except ValueError:
+                    continue
+
+            status_banco = (
+                registro["status"] or "rascunho"
+            ).strip().lower()
+
+            if status_banco == "finalizada":
+                if data_objeto and data_objeto > hoje:
+                    status = "Agendada"
+                    status_slug = "agendada"
+                elif data_aplicacao:
+                    status = "Aplicada"
+                    status_slug = "aplicada"
+                else:
+                    status = "Finalizada"
+                    status_slug = "aplicada"
+            else:
+                status = "Rascunho"
+                status_slug = "rascunho"
+
+            lista_provas.append({
+                "id": registro["id"],
+                "nome": registro["nome"],
+                "turma": registro["turma_nome"],
+                "professor": registro["professor_nome"],
+                "disciplina": registro["disciplina"],
+                "quantidade": registro["quantidade_real"] or 0,
+                "data_geracao": (
+                    registro["data_geracao"]
+                    or "Não informada"
+                ),
+                "data_aplicacao": (
+                    data_objeto.strftime("%d/%m/%Y")
+                    if data_objeto
+                    else data_aplicacao or "Não definida"
+                ),
+                "status": status,
+                "status_slug": status_slug,
+                "escola_id": registro["escola_id"],
+                "instituicao": registro["nome_instituicao"]
+            })
+
+        indicadores = {
+            "total": len(lista_provas),
+            "aplicadas": sum(
+                item["status_slug"] == "aplicada"
+                for item in lista_provas
+            ),
+            "agendadas": sum(
+                item["status_slug"] == "agendada"
+                for item in lista_provas
+            ),
+            "rascunhos": sum(
+                item["status_slug"] == "rascunho"
+                for item in lista_provas
+            )
+        }
+
+        disciplinas = sorted({
+            item["disciplina"]
+            for item in lista_provas
+            if item["disciplina"]
+        })
+
+        pode_criar = _pode_criar_prova(cargo)
+        pode_editar = _pode_criar_prova(cargo)
+        pode_excluir = _pode_criar_prova(cargo)
+
+        return render_template(
+            "provas.html",
+            provas=lista_provas,
+            turmas=turmas,
+            professores=professores,
+            escolas=escolas,
+            disciplinas=disciplinas,
+            indicadores=indicadores,
+            pode_criar=pode_criar,
+            pode_editar=pode_editar,
+            pode_excluir=pode_excluir,
+            exibir_instituicao=(
+                cargo == "Administrador Geral"
+            ),
+            professor_logado_id=professor_logado_id,
+            cargo=cargo
+        )
+
+    except sqlite3.Error as erro:
+        import traceback
+        traceback.print_exc()
+
+        flash(
+            f"Não foi possível carregar as avaliações: {erro}",
+            "erro"
+        )
+
+        return render_template(
+            "provas.html",
+            provas=[],
+            turmas=[],
+            professores=[],
+            escolas=[],
+            disciplinas=[],
+            indicadores={
+                "total": 0,
+                "aplicadas": 0,
+                "agendadas": 0,
+                "rascunhos": 0
+            },
+            pode_criar=False,
+            pode_editar=False,
+            pode_excluir=False,
+            exibir_instituicao=False,
+            cargo=cargo
+        )
+
+    finally:
+        banco.close()
+
+
+@app.route("/gerar_prova", methods=["POST"])
+def gerar_prova():
+    """
+    Cria apenas os dados básicos da avaliação.
+
+    As questões são escolhidas depois, na página de montagem.
+    """
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    contexto = _contexto_provas()
+    cargo = contexto["cargo"]
+    usuario_id = contexto["usuario_id"]
+
+    if not _pode_criar_prova(cargo):
+        return _redirecionar_acesso_negado_prova()
+
+    nome = request.form.get("nome", "").strip()
+    disciplina = request.form.get("disciplina", "").strip()
+    data_aplicacao = request.form.get(
+        "data_aplicacao",
+        ""
+    ).strip()
+
+    media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
+    media_aprovacao = None
+
+    if media_ativa:
+        media_texto = request.form.get("media_aprovacao", "").strip().replace(",", ".")
+        try:
+            media_aprovacao = float(media_texto)
+        except (TypeError, ValueError):
+            flash("Informe uma média válida entre 0,0 e 10,0.", "erro")
+            return redirect("/provas")
+
+        if not 0 <= media_aprovacao <= 10:
+            flash("A média deve estar entre 0,0 e 10,0.", "erro")
+            return redirect("/provas")
+
+    try:
+        turma_id = int(
+            request.form.get("turma_id", "").strip()
+        )
+    except (TypeError, ValueError):
+        flash("Selecione uma turma válida.", "erro")
+        return redirect("/provas")
+
+    if not nome:
+        flash("Informe o nome da avaliação.", "erro")
+        return redirect("/provas")
+
+    if not disciplina:
+        flash(
+            "Informe o componente curricular da avaliação.",
+            "erro"
+        )
+        return redirect("/provas")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                t.id,
+                t.escola_id,
+                t.ano_letivo_id
+            FROM turmas AS t
+            WHERE t.id = ?
+            LIMIT 1
+        """, (turma_id,))
+        turma = cursor.fetchone()
+
+        if not turma:
+            flash("A turma selecionada não foi encontrada.", "erro")
+            return redirect("/provas")
+
+        if cargo == "Administrador Geral":
+            try:
+                escola_id = int(
+                    request.form.get("escola_id", "").strip()
+                )
+            except (TypeError, ValueError):
+                flash("Selecione uma instituição.", "erro")
+                return redirect("/provas")
+
+            if int(turma["escola_id"]) != escola_id:
+                flash(
+                    "A turma não pertence à instituição selecionada.",
+                    "erro"
+                )
+                return redirect("/provas")
+        else:
+            escola_id = contexto["escola_id"]
+
+            if (
+                not escola_id
+                or int(turma["escola_id"]) != int(escola_id)
+            ):
+                return _redirecionar_acesso_negado_prova()
+
+        ano_letivo_id = turma["ano_letivo_id"]
+
+        if cargo == "Professor":
+            cursor.execute("""
+                SELECT 1
+                FROM professor_vinculos
+                WHERE professor_id = ?
+                  AND turma_id = ?
+                LIMIT 1
+            """, (usuario_id, turma_id))
+
+            if not cursor.fetchone():
+                flash(
+                    "Você não possui vínculo com essa turma.",
+                    "erro"
+                )
+                return redirect("/provas")
+
+            professor_id = _professor_legado_do_usuario(
+                cursor,
+                usuario_id
+            )
+        else:
+            try:
+                professor_id = int(
+                    request.form.get(
+                        "professor_id",
+                        ""
+                    ).strip()
+                )
+            except (TypeError, ValueError):
+                flash("Selecione um professor.", "erro")
+                return redirect("/provas")
+
+            cursor.execute("""
+                SELECT id
+                FROM professores
+                WHERE id = ?
+                  AND escola_id = ?
+                LIMIT 1
+            """, (professor_id, escola_id))
+
+            if not cursor.fetchone():
+                flash(
+                    "O professor selecionado não pertence à instituição.",
+                    "erro"
+                )
+                return redirect("/provas")
+
+        data_geracao = datetime.now().strftime("%d/%m/%Y")
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute("""
+            INSERT INTO provas (
+                nome,
+                turma_id,
+                professor_id,
+                disciplina,
+                quantidade,
+                data_geracao,
+                data_aplicacao,
+                escola_id,
+                ano_letivo_id,
+                status,
+                atualizado_em,
+                media_ativa,
+                media_aprovacao
+            )
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'rascunho', ?, ?, ?)
+        """, (
+            nome,
+            turma_id,
+            professor_id,
+            disciplina,
+            data_geracao,
+            data_aplicacao,
+            escola_id,
+            ano_letivo_id,
+            agora,
+            media_ativa,
+            media_aprovacao
+        ))
+
+        prova_id = cursor.lastrowid
+        banco.commit()
+
+        flash(
+            "Dados da avaliação salvos. Agora adicione as questões.",
+            "sucesso"
+        )
+
+        return redirect(f"/provas/{prova_id}/montar")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        import traceback
+        traceback.print_exc()
+
+        flash(
+            f"Não foi possível criar a avaliação: {erro}",
+            "erro"
+        )
+        return redirect("/provas")
+
+    finally:
+        banco.close()
+
+
+
+
+@app.route("/questoes/<int:questao_id>/editar", methods=["GET", "POST"])
+def editar_questao(questao_id):
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    prova_id = request.args.get("prova_id", type=int)
+    if request.method == "POST":
+        prova_id = request.form.get("prova_id", type=int)
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM questoes WHERE id = ? LIMIT 1", (questao_id,))
+        questao = cursor.fetchone()
+
+        if not questao:
+            flash("Questão não encontrada.", "erro")
+            return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
+
+        escola_usuario = obter_escola_usuario()
+        cargo = (session.get("usuario_cargo") or "").strip()
+
+        if (
+            cargo != "Administrador Geral"
+            and questao["escola_id"] is not None
+            and escola_usuario is not None
+            and int(questao["escola_id"]) != int(escola_usuario)
+        ):
+            return redirect("/acesso_negado")
+
+        if prova_id and not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+            return _redirecionar_acesso_negado_prova()
+
+        if request.method == "GET":
+            try:
+                alternativas = json.loads(questao["alternativas_json"] or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                alternativas = []
+
+            if not alternativas:
+                alternativas = []
+                for indice, campo in enumerate(
+                    ["alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d"]
+                ):
+                    texto = questao[campo] or ""
+                    if texto:
+                        alternativas.append({
+                            "letra": chr(65 + indice),
+                            "texto": texto,
+                            "imagem": ""
+                        })
+
+            try:
+                respostas = json.loads(questao["respostas_corretas"] or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                respostas = []
+
+            if not respostas and questao["correta"]:
+                respostas = [questao["correta"]]
+
+            cursor.execute("""
+                SELECT DISTINCT nome
+                FROM componentes_curriculares
+                WHERE ativo = 1
+                  AND (escola_id = ? OR ? IS NULL)
+                ORDER BY nome
+            """, (escola_usuario, escola_usuario))
+            componentes = [linha["nome"] for linha in cursor.fetchall()]
+
+            return render_template(
+                "editar_questao.html",
+                questao=questao,
+                alternativas=alternativas,
+                respostas=respostas,
+                componentes=componentes,
+                prova_id=prova_id
+            )
+
+        disciplina = (request.form.get("disciplina") or "").strip()
+        assunto = (request.form.get("assunto") or "").strip()
+        dificuldade = (request.form.get("dificuldade") or "").strip()
+        tipo_questao = (request.form.get("tipo_questao") or "multipla_escolha").strip()
+        enunciado = (request.form.get("enunciado") or "").strip()
+        resposta_esperada = (request.form.get("resposta_esperada") or "").strip()
+        criterios_correcao = (request.form.get("criterios_correcao") or "").strip()
+
+        try:
+            linhas_resposta = int(request.form.get("linhas_resposta") or 5)
+        except (TypeError, ValueError):
+            linhas_resposta = 5
+        linhas_resposta = max(1, min(linhas_resposta, 30))
+
+        if not disciplina or not assunto or not dificuldade or not enunciado:
+            flash("Preencha componente, assunto, dificuldade e enunciado.", "erro")
+            return redirect(
+                f"/questoes/{questao_id}/editar"
+                + (f"?prova_id={prova_id}" if prova_id else "")
+            )
+
+        tipos_validos = {
+            "multipla_escolha", "multiplas_respostas", "verdadeiro_falso",
+            "discursiva", "resposta_curta", "numerica"
+        }
+        if tipo_questao not in tipos_validos:
+            flash("Tipo de questão inválido.", "erro")
+            return redirect(
+                f"/questoes/{questao_id}/editar"
+                + (f"?prova_id={prova_id}" if prova_id else "")
+            )
+
+        alternativas = []
+        respostas_corretas = []
+
+        if tipo_questao in {"multipla_escolha", "multiplas_respostas"}:
+            textos = request.form.getlist("alternativas[]")
+            corretas = set(request.form.getlist("corretas[]"))
+
+            for indice, texto in enumerate(textos):
+                texto = (texto or "").strip()
+                if not texto:
+                    continue
+                letra = chr(65 + len(alternativas))
+                alternativas.append({"letra": letra, "texto": texto, "imagem": ""})
+                if str(indice) in corretas:
+                    respostas_corretas.append(letra)
+
+            if len(alternativas) < 2:
+                flash("Cadastre pelo menos duas alternativas.", "erro")
+                return redirect(
+                    f"/questoes/{questao_id}/editar"
+                    + (f"?prova_id={prova_id}" if prova_id else "")
+                )
+            if tipo_questao == "multipla_escolha" and len(respostas_corretas) != 1:
+                flash("Marque exatamente uma alternativa correta.", "erro")
+                return redirect(
+                    f"/questoes/{questao_id}/editar"
+                    + (f"?prova_id={prova_id}" if prova_id else "")
+                )
+            if tipo_questao == "multiplas_respostas" and not respostas_corretas:
+                flash("Marque pelo menos uma alternativa correta.", "erro")
+                return redirect(
+                    f"/questoes/{questao_id}/editar"
+                    + (f"?prova_id={prova_id}" if prova_id else "")
+                )
+
+        elif tipo_questao == "verdadeiro_falso":
+            resposta_vf = (request.form.get("resposta_vf") or "").strip()
+            if resposta_vf not in {"V", "F"}:
+                flash("Selecione Verdadeiro ou Falso.", "erro")
+                return redirect(
+                    f"/questoes/{questao_id}/editar"
+                    + (f"?prova_id={prova_id}" if prova_id else "")
+                )
+            alternativas = [
+                {"letra": "V", "texto": "Verdadeiro", "imagem": ""},
+                {"letra": "F", "texto": "Falso", "imagem": ""}
+            ]
+            respostas_corretas = [resposta_vf]
+
+        elif tipo_questao in {"resposta_curta", "numerica"} and not resposta_esperada:
+            flash("Informe a resposta esperada.", "erro")
+            return redirect(
+                f"/questoes/{questao_id}/editar"
+                + (f"?prova_id={prova_id}" if prova_id else "")
+            )
+
+        textos_legados = [(item.get("texto") or "") for item in alternativas[:4]]
+        textos_legados += [""] * (4 - len(textos_legados))
+        correta_legada = respostas_corretas[0] if respostas_corretas else ""
+
+        cursor.execute("""
+            UPDATE questoes
+            SET disciplina = ?, assunto = ?, dificuldade = ?,
+                tipo_questao = ?, enunciado = ?,
+                alternativa_a = ?, alternativa_b = ?,
+                alternativa_c = ?, alternativa_d = ?,
+                correta = ?, alternativas_json = ?,
+                respostas_corretas = ?, resposta_esperada = ?,
+                criterios_correcao = ?, linhas_resposta = ?,
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            disciplina, assunto, dificuldade, tipo_questao, enunciado,
+            textos_legados[0], textos_legados[1],
+            textos_legados[2], textos_legados[3],
+            correta_legada,
+            json.dumps(alternativas, ensure_ascii=False),
+            json.dumps(respostas_corretas, ensure_ascii=False),
+            resposta_esperada, criterios_correcao,
+            linhas_resposta if tipo_questao == "discursiva" else None,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            questao_id
+        ))
+
+        banco.commit()
+        flash("Questão atualizada com sucesso.", "sucesso")
+        return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Não foi possível editar a questão: {erro}", "erro")
+        return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
+    finally:
+        banco.close()
+
+
+def normalizar_ordem_questoes_prova(cursor, prova_id):
+    """Garante uma sequência de ordem 1, 2, 3... para a avaliação."""
     cursor.execute("""
-        SELECT questoes.*
+        SELECT id
         FROM prova_questoes
-        JOIN questoes
-            ON prova_questoes.questao_id = questoes.id
-        WHERE prova_questoes.prova_id = ?
-        ORDER BY prova_questoes.id
+        WHERE prova_id = ?
+        ORDER BY
+            CASE WHEN COALESCE(ordem, 0) <= 0 THEN 1 ELSE 0 END,
+            ordem,
+            id
     """, (prova_id,))
 
-    questoes = cursor.fetchall()
+    for indice, registro in enumerate(cursor.fetchall(), start=1):
+        cursor.execute("""
+            UPDATE prova_questoes
+            SET ordem = ?
+            WHERE id = ? AND prova_id = ?
+        """, (indice, registro["id"], prova_id))
 
-    banco.close()
 
-    return render_template(
-        "visualizar_prova.html",
-        prova=prova,
-        questoes=questoes,
-        instituicao=instituicao
-    )
+@app.route("/provas/<int:prova_id>/montar")
+def montar_prova(prova_id):
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=False
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT
+                p.id,
+                p.nome,
+                p.disciplina,
+                p.data_aplicacao,
+                p.status,
+                COALESCE(p.peso_total, 10) AS peso_total,
+                COALESCE(p.tipo_peso, 'automatico') AS tipo_peso,
+                p.escola_id,
+                p.ano_letivo_id,
+                t.id AS turma_id,
+                t.nome AS turma_nome,
+                t.etapa,
+                t.ano AS turma_ano,
+                t.turno,
+                e.nome_instituicao,
+                COALESCE(
+                    pr.nome,
+                    'Não informado'
+                ) AS professor_nome
+            FROM provas AS p
+            INNER JOIN turmas AS t
+                ON t.id = p.turma_id
+            INNER JOIN escolas AS e
+                ON e.id = COALESCE(
+                    p.escola_id,
+                    t.escola_id
+                )
+            LEFT JOIN professores AS pr
+                ON pr.id = p.professor_id
+            WHERE p.id = ?
+            LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
+
+        if not prova:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        if (prova["status"] or "rascunho").strip().lower() == "finalizada":
+            flash("Esta avaliação está finalizada e disponível somente para visualização.", "aviso")
+            return redirect(f"/prova/{prova_id}")
+
+        normalizar_ordem_questoes_prova(cursor, prova_id)
+        banco.commit()
+
+        cursor.execute("""
+            SELECT
+                pq.id AS vinculo_id,
+                COALESCE(pq.peso, 0) AS peso,
+                COALESCE(pq.ordem, 0) AS ordem,
+                q.*
+            FROM prova_questoes AS pq
+            INNER JOIN questoes AS q
+                ON q.id = pq.questao_id
+            WHERE pq.prova_id = ?
+            ORDER BY pq.ordem, pq.id
+        """, (prova_id,))
+        questoes_adicionadas = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT q.*
+            FROM questoes AS q
+            WHERE q.disciplina = ?
+              AND (
+                    q.escola_id = ?
+                    OR q.escola_id IS NULL
+              )
+              AND q.id NOT IN (
+                    SELECT questao_id
+                    FROM prova_questoes
+                    WHERE prova_id = ?
+              )
+            ORDER BY q.id DESC
+        """, (
+            prova["disciplina"],
+            prova["escola_id"],
+            prova_id
+        ))
+        banco_questoes = cursor.fetchall()
+
+        return render_template(
+            "montar_prova.html",
+            prova=prova,
+            questoes=questoes_adicionadas,
+            banco_questoes=banco_questoes,
+            total_questoes=len(questoes_adicionadas)
+        )
+
+    except sqlite3.Error as erro:
+        import traceback
+        traceback.print_exc()
+
+        flash(
+            f"Não foi possível abrir a montagem: {erro}",
+            "erro"
+        )
+        return redirect("/provas")
+
+    finally:
+        banco.close()
+
+
+@app.route("/provas/<int:prova_id>/banco-questoes")
+def selecionar_questoes_prova(prova_id):
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+            flash("Esta avaliação não pode mais ser editada.", "aviso")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            SELECT p.id, p.nome, p.disciplina, p.escola_id, p.status,
+                   t.escola_id AS turma_escola_id, t.nome AS turma_nome
+            FROM provas p
+            INNER JOIN turmas t ON t.id = p.turma_id
+            WHERE p.id = ?
+            LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
+
+        if not prova:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        busca = request.args.get("busca", "").strip()
+        assunto = request.args.get("assunto", "").strip()
+        dificuldade = request.args.get("dificuldade", "").strip()
+        tipo = request.args.get("tipo", "").strip()
+        etapa = request.args.get("etapa", "").strip()
+        ano_serie = request.args.get("ano_serie", "").strip()
+
+        escola_id = prova["escola_id"] or prova["turma_escola_id"]
+        filtros = [prova["disciplina"], escola_id, prova_id]
+        condicoes = [
+            "q.disciplina = ?",
+            "(q.escola_id = ? OR q.escola_id IS NULL)",
+            "q.id NOT IN (SELECT questao_id FROM prova_questoes WHERE prova_id = ?)"
+        ]
+
+        if busca:
+            condicoes.append("(q.enunciado LIKE ? OR COALESCE(q.assunto, '') LIKE ?)")
+            termo = f"%{busca}%"
+            filtros.extend([termo, termo])
+        if assunto:
+            condicoes.append("q.assunto = ?")
+            filtros.append(assunto)
+        if dificuldade:
+            condicoes.append("q.dificuldade = ?")
+            filtros.append(dificuldade)
+        if tipo:
+            condicoes.append("q.tipo_questao = ?")
+            filtros.append(tipo)
+        if etapa:
+            condicoes.append("q.etapa_ensino = ?")
+            filtros.append(etapa)
+        if ano_serie:
+            condicoes.append("q.ano_serie = ?")
+            filtros.append(ano_serie)
+
+        cursor.execute(f"""
+            SELECT q.*
+            FROM questoes q
+            WHERE {' AND '.join(condicoes)}
+            ORDER BY q.id DESC
+        """, filtros)
+
+        questoes = []
+        for registro in cursor.fetchall():
+            questao = dict(registro)
+
+            try:
+                alternativas = json.loads(questao.get("alternativas_json") or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                alternativas = []
+
+            if not alternativas:
+                alternativas = []
+                for indice, campo in enumerate(
+                    ["alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d"]
+                ):
+                    texto = (questao.get(campo) or "").strip()
+                    if texto:
+                        alternativas.append({
+                            "letra": chr(65 + indice),
+                            "texto": texto,
+                            "imagem": ""
+                        })
+
+            questao["alternativas"] = alternativas
+            questoes.append(questao)
+
+        cursor.execute("""
+            SELECT DISTINCT assunto FROM questoes
+            WHERE disciplina = ? AND TRIM(COALESCE(assunto, '')) <> ''
+            ORDER BY assunto
+        """, (prova["disciplina"],))
+        assuntos = [r["assunto"] for r in cursor.fetchall()]
+
+        return render_template(
+            "selecionar_questoes_prova.html",
+            prova=prova, questoes=questoes, assuntos=assuntos,
+            filtros={"busca": busca, "assunto": assunto, "dificuldade": dificuldade,
+                     "tipo": tipo, "etapa": etapa, "ano_serie": ano_serie}
+        )
+    except sqlite3.Error as erro:
+        flash(f"Não foi possível abrir o banco de questões: {erro}", "erro")
+        return redirect(f"/provas/{prova_id}/montar")
+    finally:
+        banco.close()
+
+
+@app.route("/provas/<int:prova_id>/banco-questoes/adicionar", methods=["POST"])
+def adicionar_questoes_selecionadas(prova_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+            flash("Esta avaliação não pode mais ser editada.", "aviso")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        ids_brutos = request.form.getlist("questoes_ids")
+        questoes_ids = []
+        for valor in ids_brutos:
+            try:
+                questoes_ids.append(int(valor))
+            except (TypeError, ValueError):
+                continue
+
+        if not questoes_ids:
+            flash("Selecione pelo menos uma questão.", "aviso")
+            return redirect(f"/provas/{prova_id}/banco-questoes")
+
+        cursor.execute("""
+            SELECT p.disciplina, p.escola_id, t.escola_id AS turma_escola_id
+            FROM provas p INNER JOIN turmas t ON t.id = p.turma_id
+            WHERE p.id = ? LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
+        escola_id = prova["escola_id"] or prova["turma_escola_id"]
+
+        cursor.execute("SELECT COALESCE(MAX(ordem), 0) AS ordem FROM prova_questoes WHERE prova_id = ?", (prova_id,))
+        ordem = cursor.fetchone()["ordem"]
+        adicionadas = 0
+
+        for questao_id in dict.fromkeys(questoes_ids):
+            cursor.execute("""
+                SELECT id FROM questoes
+                WHERE id = ? AND disciplina = ?
+                  AND (escola_id = ? OR escola_id IS NULL)
+                LIMIT 1
+            """, (questao_id, prova["disciplina"], escola_id))
+            if not cursor.fetchone():
+                continue
+
+            cursor.execute("SELECT 1 FROM prova_questoes WHERE prova_id = ? AND questao_id = ?", (prova_id, questao_id))
+            if cursor.fetchone():
+                continue
+
+            ordem += 1
+            cursor.execute("""
+                INSERT INTO prova_questoes (prova_id, questao_id, peso, ordem)
+                VALUES (?, ?, 0, ?)
+            """, (prova_id, questao_id, ordem))
+            adicionadas += 1
+
+        cursor.execute("""
+            UPDATE provas SET quantidade = (SELECT COUNT(*) FROM prova_questoes WHERE prova_id = ?),
+                atualizado_em = ? WHERE id = ?
+        """, (prova_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id))
+        banco.commit()
+
+        if adicionadas:
+            flash(f"{adicionadas} questão(ões) adicionada(s) à avaliação.", "sucesso")
+        else:
+            flash("Nenhuma questão nova foi adicionada.", "aviso")
+        return redirect(f"/provas/{prova_id}/montar")
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Não foi possível adicionar as questões: {erro}", "erro")
+        return redirect(f"/provas/{prova_id}/banco-questoes")
+    finally:
+        banco.close()
+
+
+@app.route(
+    "/provas/<int:prova_id>/questoes/adicionar",
+    methods=["POST"]
+)
+def adicionar_questao_prova(prova_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        try:
+            questao_id = int(
+                request.form.get("questao_id", "")
+            )
+        except (TypeError, ValueError):
+            flash("Selecione uma questão válida.", "erro")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            SELECT
+                p.escola_id,
+                p.disciplina,
+                t.escola_id AS turma_escola_id
+            FROM provas AS p
+            INNER JOIN turmas AS t
+                ON t.id = p.turma_id
+            WHERE p.id = ?
+            LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
+
+        cursor.execute("""
+            SELECT id, escola_id, disciplina
+            FROM questoes
+            WHERE id = ?
+            LIMIT 1
+        """, (questao_id,))
+        questao = cursor.fetchone()
+
+        if not prova or not questao:
+            flash("Questão não encontrada.", "erro")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        escola_prova = (
+            prova["escola_id"]
+            or prova["turma_escola_id"]
+        )
+
+        if (
+            questao["escola_id"] is not None
+            and int(questao["escola_id"]) != int(escola_prova)
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        if (
+            (questao["disciplina"] or "").strip().lower()
+            != (prova["disciplina"] or "").strip().lower()
+        ):
+            flash(
+                "A questão não pertence ao componente da avaliação.",
+                "erro"
+            )
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            SELECT id
+            FROM prova_questoes
+            WHERE prova_id = ?
+              AND questao_id = ?
+            LIMIT 1
+        """, (prova_id, questao_id))
+
+        if cursor.fetchone():
+            flash(
+                "Essa questão já foi adicionada à avaliação.",
+                "aviso"
+            )
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            SELECT COALESCE(MAX(ordem), 0) + 1 AS proxima_ordem
+            FROM prova_questoes
+            WHERE prova_id = ?
+        """, (prova_id,))
+        proxima_ordem = cursor.fetchone()["proxima_ordem"]
+
+        cursor.execute("""
+            INSERT INTO prova_questoes (
+                prova_id,
+                questao_id,
+                peso,
+                ordem
+            )
+            VALUES (?, ?, 0, ?)
+        """, (prova_id, questao_id, proxima_ordem))
+
+        cursor.execute("""
+            UPDATE provas
+            SET
+                quantidade = (
+                    SELECT COUNT(*)
+                    FROM prova_questoes
+                    WHERE prova_id = ?
+                ),
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            prova_id,
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            prova_id
+        ))
+
+        banco.commit()
+        flash("Questão adicionada à avaliação.", "sucesso")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(
+            f"Não foi possível adicionar a questão: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect(f"/provas/{prova_id}/montar")
+
+
+
+
+@app.route(
+    "/provas/<int:prova_id>/pesos",
+    methods=["POST"]
+)
+def salvar_pesos_prova(prova_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        tipo_peso = (request.form.get("tipo_peso") or "automatico").strip()
+        if tipo_peso not in {"automatico", "manual"}:
+            tipo_peso = "automatico"
+
+        try:
+            peso_total = float(
+                (request.form.get("peso_total") or "10").replace(",", ".")
+            )
+        except (TypeError, ValueError):
+            peso_total = 10.0
+
+        if peso_total <= 0:
+            flash("O peso total deve ser maior que zero.", "erro")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            SELECT id
+            FROM prova_questoes
+            WHERE prova_id = ?
+            ORDER BY ordem, id
+        """, (prova_id,))
+        vinculos = cursor.fetchall()
+
+        if not vinculos:
+            flash("Adicione questões antes de configurar os pesos.", "aviso")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        if tipo_peso == "automatico":
+            quantidade = len(vinculos)
+            valor_base = round(peso_total / quantidade, 2)
+            acumulado = 0.0
+
+            for indice, vinculo in enumerate(vinculos):
+                if indice == quantidade - 1:
+                    peso = round(peso_total - acumulado, 2)
+                else:
+                    peso = valor_base
+                    acumulado = round(acumulado + peso, 2)
+
+                cursor.execute("""
+                    UPDATE prova_questoes
+                    SET peso = ?
+                    WHERE id = ? AND prova_id = ?
+                """, (peso, vinculo["id"], prova_id))
+
+        else:
+            soma = 0.0
+            pesos = []
+
+            for vinculo in vinculos:
+                bruto = request.form.get(f"peso_{vinculo['id']}", "0")
+                try:
+                    peso = float(str(bruto).replace(",", "."))
+                except (TypeError, ValueError):
+                    peso = 0.0
+
+                if peso < 0:
+                    flash("Os pesos não podem ser negativos.", "erro")
+                    return redirect(f"/provas/{prova_id}/montar")
+
+                peso = round(peso, 2)
+                pesos.append((peso, vinculo["id"]))
+                soma = round(soma + peso, 2)
+
+            if abs(soma - peso_total) > 0.009:
+                flash(
+                    f"A soma dos pesos ({soma:.2f}) precisa ser igual ao peso total ({peso_total:.2f}).",
+                    "erro"
+                )
+                return redirect(f"/provas/{prova_id}/montar")
+
+            for peso, vinculo_id in pesos:
+                cursor.execute("""
+                    UPDATE prova_questoes
+                    SET peso = ?
+                    WHERE id = ? AND prova_id = ?
+                """, (peso, vinculo_id, prova_id))
+
+        cursor.execute("""
+            UPDATE provas
+            SET peso_total = ?,
+                tipo_peso = ?,
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            round(peso_total, 2),
+            tipo_peso,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            prova_id
+        ))
+
+        banco.commit()
+        flash("Pontuação da avaliação salva com sucesso.", "sucesso")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Não foi possível salvar os pesos: {erro}", "erro")
+
+    finally:
+        banco.close()
+
+    return redirect(f"/provas/{prova_id}/montar")
+
+
+
+
+@app.route(
+    "/provas/<int:prova_id>/questoes/<int:vinculo_id>/duplicar",
+    methods=["POST"]
+)
+def duplicar_questao_prova(prova_id, vinculo_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT q.*
+            FROM prova_questoes AS pq
+            INNER JOIN questoes AS q
+                ON q.id = pq.questao_id
+            WHERE pq.id = ?
+              AND pq.prova_id = ?
+            LIMIT 1
+        """, (vinculo_id, prova_id))
+
+        original = cursor.fetchone()
+
+        if not original:
+            flash("Questão não encontrada na avaliação.", "erro")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        # Duplica todas as colunas existentes da questão, exceto o ID.
+        # Os campos de criação/atualização são ajustados para o novo registro.
+        dados = dict(original)
+        dados.pop("id", None)
+
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if "criado_por" in dados:
+            dados["criado_por"] = session.get("usuario_id")
+
+        if "criado_em" in dados:
+            dados["criado_em"] = agora
+
+        if "atualizado_em" in dados:
+            dados["atualizado_em"] = agora
+
+        colunas = list(dados.keys())
+        marcadores = ", ".join(["?"] * len(colunas))
+        nomes_colunas = ", ".join(colunas)
+
+        cursor.execute(
+            f"""
+            INSERT INTO questoes ({nomes_colunas})
+            VALUES ({marcadores})
+            """,
+            [dados[coluna] for coluna in colunas]
+        )
+
+        nova_questao_id = cursor.lastrowid
+
+        cursor.execute("""
+            SELECT COALESCE(MAX(ordem), 0) + 1 AS proxima_ordem
+            FROM prova_questoes
+            WHERE prova_id = ?
+        """, (prova_id,))
+
+        proxima_ordem = cursor.fetchone()["proxima_ordem"]
+
+        cursor.execute("""
+            INSERT INTO prova_questoes (
+                prova_id,
+                questao_id,
+                peso,
+                ordem
+            )
+            VALUES (?, ?, 0, ?)
+        """, (
+            prova_id,
+            nova_questao_id,
+            proxima_ordem
+        ))
+
+        cursor.execute("""
+            UPDATE provas
+            SET quantidade = (
+                    SELECT COUNT(*)
+                    FROM prova_questoes
+                    WHERE prova_id = ?
+                ),
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            prova_id,
+            agora,
+            prova_id
+        ))
+
+        banco.commit()
+        flash(
+            "Questão duplicada e adicionada ao final da avaliação.",
+            "sucesso"
+        )
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(
+            f"Não foi possível duplicar a questão: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect(f"/provas/{prova_id}/montar")
+
+
+@app.route(
+    "/provas/<int:prova_id>/questoes/<int:vinculo_id>/mover/<direcao>",
+    methods=["POST"]
+)
+def mover_questao_prova(prova_id, vinculo_id, direcao):
+    if direcao not in {"cima", "baixo"}:
+        flash("Direção de movimentação inválida.", "erro")
+        return redirect(f"/provas/{prova_id}/montar")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+            return _redirecionar_acesso_negado_prova()
+
+        normalizar_ordem_questoes_prova(cursor, prova_id)
+
+        cursor.execute("""
+            SELECT id, ordem
+            FROM prova_questoes
+            WHERE id = ? AND prova_id = ?
+            LIMIT 1
+        """, (vinculo_id, prova_id))
+        atual = cursor.fetchone()
+
+        if not atual:
+            flash("Questão não encontrada na avaliação.", "erro")
+            return redirect(f"/provas/{prova_id}/montar")
+
+        operador = "<" if direcao == "cima" else ">"
+        ordenacao = "DESC" if direcao == "cima" else "ASC"
+
+        cursor.execute(f"""
+            SELECT id, ordem
+            FROM prova_questoes
+            WHERE prova_id = ? AND ordem {operador} ?
+            ORDER BY ordem {ordenacao}, id {ordenacao}
+            LIMIT 1
+        """, (prova_id, atual["ordem"]))
+        vizinha = cursor.fetchone()
+
+        if vizinha:
+            cursor.execute("""
+                UPDATE prova_questoes SET ordem = ?
+                WHERE id = ? AND prova_id = ?
+            """, (vizinha["ordem"], atual["id"], prova_id))
+            cursor.execute("""
+                UPDATE prova_questoes SET ordem = ?
+                WHERE id = ? AND prova_id = ?
+            """, (atual["ordem"], vizinha["id"], prova_id))
+            cursor.execute("""
+                UPDATE provas SET atualizado_em = ? WHERE id = ?
+            """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id))
+            banco.commit()
+            flash("Ordem das questões atualizada.", "sucesso")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Não foi possível reordenar a questão: {erro}", "erro")
+    finally:
+        banco.close()
+
+    return redirect(f"/provas/{prova_id}/montar")
+
+
+@app.route(
+    "/provas/<int:prova_id>/questoes/<int:vinculo_id>/remover",
+    methods=["POST"]
+)
+def remover_questao_prova(prova_id, vinculo_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            DELETE FROM prova_questoes
+            WHERE id = ?
+              AND prova_id = ?
+        """, (vinculo_id, prova_id))
+
+        normalizar_ordem_questoes_prova(cursor, prova_id)
+
+        cursor.execute("""
+            UPDATE provas
+            SET
+                quantidade = (
+                    SELECT COUNT(*)
+                    FROM prova_questoes
+                    WHERE prova_id = ?
+                ),
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            prova_id,
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            prova_id
+        ))
+
+        banco.commit()
+        flash("Questão removida da avaliação.", "sucesso")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(
+            f"Não foi possível remover a questão: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
+
+    return redirect(f"/provas/{prova_id}/montar")
+
+
+@app.route(
+    "/provas/<int:prova_id>/finalizar",
+    methods=["POST"]
+)
+def finalizar_prova(prova_id):
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM prova_questoes
+            WHERE prova_id = ?
+        """, (prova_id,))
+        total = cursor.fetchone()["total"]
+
+        if total <= 0:
+            flash(
+                "Adicione pelo menos uma questão antes de finalizar.",
+                "aviso"
+            )
+            return redirect(f"/provas/{prova_id}/montar")
+
+        cursor.execute("""
+            UPDATE provas
+            SET
+                quantidade = ?,
+                status = 'finalizada',
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            total,
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            prova_id
+        ))
+
+        banco.commit()
+        flash("Avaliação finalizada com sucesso.", "sucesso")
+
+        return redirect(f"/prova/{prova_id}")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(
+            f"Não foi possível finalizar a avaliação: {erro}",
+            "erro"
+        )
+        return redirect(f"/provas/{prova_id}/montar")
+
+    finally:
+        banco.close()
+
+
+@app.route("/prova/<int:prova_id>")
+def visualizar_prova(prova_id):
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=False
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT
+                p.id,
+                p.nome,
+                t.nome AS turma_nome,
+                p.disciplina,
+                COUNT(pq.id) AS quantidade,
+                COALESCE(pr.nome, 'Não informado') AS professor_nome,
+                p.data_geracao,
+                p.data_aplicacao,
+                e.nome_instituicao,
+                e.cidade,
+                e.estado,
+                e.logo
+            FROM provas AS p
+            INNER JOIN turmas AS t
+                ON t.id = p.turma_id
+            INNER JOIN escolas AS e
+                ON e.id = COALESCE(p.escola_id, t.escola_id)
+            LEFT JOIN professores AS pr
+                ON pr.id = p.professor_id
+            LEFT JOIN prova_questoes AS pq
+                ON pq.prova_id = p.id
+            WHERE p.id = ?
+            GROUP BY
+                p.id,
+                p.nome,
+                t.nome,
+                p.disciplina,
+                pr.nome,
+                p.data_geracao,
+                p.data_aplicacao,
+                e.nome_instituicao,
+                e.cidade,
+                e.estado,
+                e.logo
+            LIMIT 1
+        """, (prova_id,))
+
+        prova = cursor.fetchone()
+
+        if prova is None:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        cursor.execute("""
+            SELECT q.*, COALESCE(pq.peso, 0) AS peso
+            FROM prova_questoes AS pq
+            INNER JOIN questoes AS q
+                ON q.id = pq.questao_id
+            WHERE pq.prova_id = ?
+            ORDER BY COALESCE(NULLIF(pq.ordem, 0), pq.id), pq.id
+        """, (prova_id,))
+
+        questoes = cursor.fetchall()
+
+        instituicao = {
+            "nome": prova["nome_instituicao"] or "ARK EDUS",
+            "cidade": prova["cidade"] or "Não informada",
+            "estado": prova["estado"] or "Não informado",
+            "logo": prova["logo"]
+        }
+
+        return render_template(
+            "visualizar_prova.html",
+            prova=prova,
+            questoes=questoes,
+            instituicao=instituicao
+        )
+
+    except sqlite3.Error as erro:
+        flash(
+            f"Não foi possível abrir a avaliação: {erro}",
+            "erro"
+        )
+        return redirect("/provas")
+
+    finally:
+        banco.close()
 
 @app.route("/cartao_resposta/<int:prova_id>")
 def cartao_resposta(prova_id):
@@ -3377,8 +7665,12 @@ def salvar_instituicao():
 
     return redirect("/instituicao")
 
-@app.route("/excluir_prova/<int:prova_id>")
+@app.route(
+    "/excluir_prova/<int:prova_id>",
+    methods=["GET", "POST"]
+)
 def excluir_prova(prova_id):
+    """Exclui uma avaliação após validar sessão, módulo e vínculo do usuário."""
 
     if not cargo_permitido([
         "Administrador Geral",
@@ -3388,36 +7680,135 @@ def excluir_prova(prova_id):
     ]):
         return redirect("/login")
 
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    cargo = (session.get("usuario_cargo") or "").strip()
+
+    if cargo not in {
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Professor"
+    }:
+        flash(
+            "Você não possui permissão para excluir avaliações.",
+            "erro"
+        )
+        return redirect("/provas")
+
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute(
-        "DELETE FROM prova_questoes WHERE prova_id = ?",
-        (prova_id,)
-    )
+    try:
+        # Usa a mesma validação de instituição, ano letivo e professor
+        # aplicada nas demais ações do módulo de avaliações.
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=False
+        ):
+            flash(
+                "Avaliação não encontrada ou você não possui permissão para excluí-la.",
+                "erro"
+            )
+            return redirect("/provas")
 
-    cursor.execute(
-        "DELETE FROM provas WHERE id = ?",
-        (prova_id,)
-    )
+        cursor.execute("""
+            SELECT nome
+            FROM provas
+            WHERE id = ?
+            LIMIT 1
+        """, (prova_id,))
 
-    banco.commit()
-    banco.close()
+        prova = cursor.fetchone()
+
+        if prova is None:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        # O projeto não ativa PRAGMA foreign_keys em todas as conexões.
+        # Por isso, os registros dependentes são removidos explicitamente.
+        cursor.execute(
+            "DELETE FROM respostas_alunos WHERE prova_id = ?",
+            (prova_id,)
+        )
+
+        cursor.execute(
+            "DELETE FROM resultados WHERE prova_id = ?",
+            (prova_id,)
+        )
+
+        cursor.execute(
+            "DELETE FROM prova_questoes WHERE prova_id = ?",
+            (prova_id,)
+        )
+
+        cursor.execute(
+            "DELETE FROM provas WHERE id = ?",
+            (prova_id,)
+        )
+
+        if cursor.rowcount == 0:
+            banco.rollback()
+            flash("A avaliação não foi encontrada.", "erro")
+            return redirect("/provas")
+
+        banco.commit()
+
+        flash(
+            f'A avaliação “{prova["nome"]}” foi excluída com sucesso.',
+            "sucesso"
+        )
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO AO EXCLUIR AVALIAÇÃO:", erro)
+        flash(
+            f"Não foi possível excluir a avaliação: {erro}",
+            "erro"
+        )
+
+    finally:
+        banco.close()
 
     return redirect("/provas")
+
+
 
 @app.route("/editar_prova/<int:prova_id>")
 def editar_prova(prova_id):
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
+
+    cursor.execute("SELECT status FROM provas WHERE id = ?", (prova_id,))
+    status_prova = cursor.fetchone()
+    if status_prova and (status_prova["status"] or "rascunho").lower() == "finalizada":
+        banco.close()
+        flash("Esta avaliação já foi finalizada e não pode mais ser editada.", "aviso")
+        return redirect(f"/provas/{prova_id}/montar")
+
+    if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+        banco.close()
+        return _redirecionar_acesso_negado_prova()
 
     cursor.execute("SELECT * FROM provas WHERE id = ?", (prova_id,))
     prova = cursor.fetchone()
 
-    cursor.execute("SELECT * FROM turmas")
+    cursor.execute("""
+        SELECT * FROM turmas
+        WHERE escola_id = ? AND ano_letivo_id = ?
+        ORDER BY nome
+    """, (prova["escola_id"], prova["ano_letivo_id"]))
     turmas = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM professores")
+    cursor.execute("""
+        SELECT * FROM professores
+        WHERE escola_id = ?
+        ORDER BY nome
+    """, (prova["escola_id"],))
     professores = cursor.fetchall()
 
     banco.close()
@@ -3432,25 +7823,84 @@ def editar_prova(prova_id):
 
 @app.route("/atualizar_prova/<int:prova_id>", methods=["POST"])
 def atualizar_prova(prova_id):
-    nome = request.form["nome"]
-    turma_id = request.form["turma_id"]
-    professor_id = request.form["professor_id"]
-    disciplina = request.form["disciplina"]
-    quantidade = request.form["quantidade"]
+    nome = request.form.get("nome", "").strip()
+    disciplina = request.form.get("disciplina", "").strip()
+    data_aplicacao = request.form.get("data_aplicacao", "").strip()
+    media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
+    media_aprovacao = None
+
+    if not nome or not disciplina:
+        flash("Preencha os dados obrigatórios da avaliação.", "erro")
+        return redirect(f"/editar_prova/{prova_id}")
+
+    try:
+        turma_id = int(request.form.get("turma_id", ""))
+        professor_id = int(request.form.get("professor_id", ""))
+    except (TypeError, ValueError):
+        flash("Selecione uma turma e um professor válidos.", "erro")
+        return redirect(f"/editar_prova/{prova_id}")
+
+    if media_ativa:
+        try:
+            media_aprovacao = float(
+                request.form.get("media_aprovacao", "").strip().replace(",", ".")
+            )
+        except (TypeError, ValueError):
+            flash("Informe uma média válida entre 0,0 e 10,0.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        if not 0 <= media_aprovacao <= 10:
+            flash("A média deve estar entre 0,0 e 10,0.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        UPDATE provas
-        SET nome = ?, turma_id = ?, professor_id = ?, disciplina = ?, quantidade = ?
-        WHERE id = ?
-    """, (nome, turma_id, professor_id, disciplina, quantidade, prova_id))
+    try:
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+            return _redirecionar_acesso_negado_prova()
 
-    banco.commit()
-    banco.close()
+        cursor.execute("SELECT escola_id, ano_letivo_id FROM provas WHERE id = ?", (prova_id,))
+        prova_atual = cursor.fetchone()
 
-    return redirect("/provas")
+        cursor.execute("""
+            SELECT 1 FROM turmas
+            WHERE id = ? AND escola_id = ? AND ano_letivo_id = ?
+        """, (turma_id, prova_atual["escola_id"], prova_atual["ano_letivo_id"]))
+        if not cursor.fetchone():
+            flash("A turma selecionada não pertence à avaliação.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        cursor.execute("""
+            SELECT 1 FROM professores
+            WHERE id = ? AND escola_id = ?
+        """, (professor_id, prova_atual["escola_id"]))
+        if not cursor.fetchone():
+            flash("O professor selecionado não pertence à instituição.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        cursor.execute("""
+            UPDATE provas
+            SET nome = ?, turma_id = ?, professor_id = ?, disciplina = ?,
+                data_aplicacao = ?, media_ativa = ?, media_aprovacao = ?,
+                atualizado_em = ?
+            WHERE id = ?
+        """, (
+            nome, turma_id, professor_id, disciplina, data_aplicacao,
+            media_ativa, media_aprovacao,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id
+        ))
+        banco.commit()
+        flash("Avaliação atualizada com sucesso.", "sucesso")
+        return redirect("/provas")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Erro ao atualizar a avaliação: {erro}", "erro")
+        return redirect(f"/editar_prova/{prova_id}")
+    finally:
+        banco.close()
 
 # ==========================
 # EXCLUIR PROFESSOR
@@ -4180,7 +8630,7 @@ def corrigir_cartoes(prova_id):
         JOIN questoes
             ON prova_questoes.questao_id = questoes.id
         WHERE prova_questoes.prova_id = ?
-        ORDER BY prova_questoes.id
+        ORDER BY COALESCE(NULLIF(prova_questoes.ordem, 0), prova_questoes.id), prova_questoes.id
     """, (prova_qr,))
 
     gabarito = cursor.fetchall()
@@ -4277,14 +8727,20 @@ def corrigir_cartoes(prova_id):
 def resultados(prova_id):
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
     cursor.execute("""
-        SELECT nome
+        SELECT id, nome, media_ativa, media_aprovacao
         FROM provas
         WHERE id = ?
     """, (prova_id,))
     prova = cursor.fetchone()
+
+    if not prova:
+        banco.close()
+        flash("Avaliação não encontrada.", "erro")
+        return redirect("/provas")
 
     cursor.execute("""
         SELECT
@@ -4297,59 +8753,54 @@ def resultados(prova_id):
         WHERE resultados.prova_id = ?
         ORDER BY resultados.nota DESC
     """, (prova_id,))
-    resultados = cursor.fetchall()
+    lista_resultados = cursor.fetchall()
 
     cursor.execute("""
-        SELECT
-            COUNT(*),
-            ROUND(AVG(nota), 1),
-            MAX(nota),
-            MIN(nota)
+        SELECT COUNT(*) AS total, ROUND(AVG(nota), 1) AS media,
+               MAX(nota) AS maior, MIN(nota) AS menor
         FROM resultados
         WHERE prova_id = ?
     """, (prova_id,))
-
     estatisticas = cursor.fetchone()
 
-    total_alunos = estatisticas[0] or 0
-    media_turma = estatisticas[1] or 0
-    maior_nota = estatisticas[2] or 0
-    menor_nota = estatisticas[3] or 0
+    total_alunos = estatisticas["total"] or 0
+    media_turma = estatisticas["media"] or 0
+    maior_nota = estatisticas["maior"] or 0
+    menor_nota = estatisticas["menor"] or 0
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM resultados
-        WHERE prova_id = ?
-        AND nota >= 6
-    """, (prova_id,))
-    aprovados = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM resultados
-        WHERE prova_id = ?
-        AND nota < 6
-    """, (prova_id,))
-    reprovados = cursor.fetchone()[0]
-
+    media_ativa = bool(prova["media_ativa"])
+    media_aprovacao = prova["media_aprovacao"] if media_ativa else None
+    aprovados = 0
+    reprovados = 0
     taxa_aprovacao = 0
 
-    if total_alunos > 0:
-        taxa_aprovacao = round(
-            (aprovados / total_alunos) * 100,
-            1
-        )
+    if media_ativa and media_aprovacao is not None:
+        cursor.execute("""
+            SELECT
+                SUM(CASE WHEN nota >= ? THEN 1 ELSE 0 END) AS aprovados,
+                SUM(CASE WHEN nota < ? THEN 1 ELSE 0 END) AS reprovados
+            FROM resultados
+            WHERE prova_id = ?
+        """, (media_aprovacao, media_aprovacao, prova_id))
+        contagem = cursor.fetchone()
+        aprovados = contagem["aprovados"] or 0
+        reprovados = contagem["reprovados"] or 0
+
+        if total_alunos > 0:
+            taxa_aprovacao = round((aprovados / total_alunos) * 100, 1)
 
     banco.close()
 
     return render_template(
         "resultados.html",
         prova=prova,
-        resultados=resultados,
+        resultados=lista_resultados,
         total_alunos=total_alunos,
         media_turma=media_turma,
         maior_nota=maior_nota,
         menor_nota=menor_nota,
+        media_ativa=media_ativa,
+        media_aprovacao=media_aprovacao,
         aprovados=aprovados,
         reprovados=reprovados,
         taxa_aprovacao=taxa_aprovacao
@@ -4382,7 +8833,7 @@ def questao_relatorio(prova_id, numero):
         JOIN questoes
             ON prova_questoes.questao_id = questoes.id
         WHERE prova_questoes.prova_id = ?
-        ORDER BY prova_questoes.id
+        ORDER BY COALESCE(NULLIF(prova_questoes.ordem, 0), prova_questoes.id), prova_questoes.id
     """, (prova_id,))
 
     questoes = cursor.fetchall()
@@ -5061,6 +9512,16 @@ def nova_instituicao():
             ))
 
             escola_id = cursor.lastrowid
+
+            # -------------------------------------------------
+            # Cria e ativa o primeiro ano letivo oficial
+            # -------------------------------------------------
+            sincronizar_ano_letivo_instituicao(
+                cursor,
+                escola_id,
+                ano_letivo,
+                tornar_ativo=True
+            )
 
             # -------------------------------------------------
             # Salva os componentes curriculares da instituição
@@ -6842,6 +11303,13 @@ def login():
             if usuario["escola_id"]:
                 atualizar_ano_letivo_na_sessao(usuario["escola_id"])
 
+            if usuario["escola_id"]:
+                session["escola_id"] = int(usuario["escola_id"])
+                garantir_ano_atual_para_escola(usuario["escola_id"])
+                atualizar_ano_letivo_na_sessao(usuario["escola_id"])
+            else:
+                obter_ano_global_administrador()
+
             return redirect("/")
 
         except sqlite3.Error as erro:
@@ -7215,6 +11683,7 @@ def salvar_senha_usuario():
     return redirect("/login")
 
 criar_tabelas()
+sincronizar_anos_letivos_legados()
 
 @app.route("/gestao/instituicoes/editar/<int:id>", methods=["GET", "POST"])
 def editar_instituicao(id):
@@ -7435,6 +11904,15 @@ def editar_instituicao(id):
                 nome_logo,
                 id
             ))
+
+            # Mantém a tabela oficial de anos letivos sincronizada.
+            # O ano selecionado na edição passa a ser o ano ativo da escola.
+            sincronizar_ano_letivo_instituicao(
+                cursor,
+                id,
+                ano_letivo,
+                tornar_ativo=True
+            )
 
             cursor.execute("""
                 DELETE FROM componentes_curriculares
@@ -7918,6 +12396,139 @@ def excluir_usuario(id):
 
     return redirect("/usuarios")
 
+# =========================================================
+# API - COMPONENTES CURRICULARES DA TURMA
+# =========================================================
+
+@app.route(
+    "/api/turmas/<int:turma_id>/componentes",
+    methods=["GET"]
+)
+def api_componentes_da_turma(turma_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return jsonify({
+            "sucesso": False,
+            "mensagem": "Você não possui permissão para consultar componentes.",
+            "componentes": []
+        }), 403
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cargo_logado = session.get(
+            "usuario_cargo",
+            ""
+        ).strip()
+
+        escola_logada_id = session.get("escola_id")
+
+        if escola_logada_id not in (None, ""):
+            try:
+                escola_logada_id = int(escola_logada_id)
+            except (TypeError, ValueError):
+                escola_logada_id = None
+
+        cursor.execute("""
+            SELECT
+                id,
+                escola_id,
+                etapa,
+                ano,
+                nome,
+                turno
+            FROM turmas
+            WHERE id = ?
+            LIMIT 1
+        """, (turma_id,))
+
+        turma = cursor.fetchone()
+
+        if turma is None:
+            return jsonify({
+                "sucesso": False,
+                "mensagem": "Turma não encontrada.",
+                "componentes": []
+            }), 404
+
+        if (
+            cargo_logado == "Administrador da Instituição"
+            and turma["escola_id"] != escola_logada_id
+        ):
+            return jsonify({
+                "sucesso": False,
+                "mensagem": "Você não possui acesso a esta turma.",
+                "componentes": []
+            }), 403
+
+        etapa_turma = (turma["etapa"] or "").strip()
+
+        if not etapa_turma:
+            return jsonify({
+                "sucesso": False,
+                "mensagem": "A turma não possui uma etapa de ensino definida.",
+                "componentes": []
+            }), 400
+
+        cursor.execute("""
+            SELECT
+                MIN(id) AS id,
+                TRIM(nome) AS nome,
+                TRIM(etapa_ensino) AS etapa_ensino
+            FROM componentes_curriculares
+            WHERE escola_id = ?
+              AND ativo = 1
+              AND TRIM(COALESCE(nome, '')) <> ''
+              AND LOWER(TRIM(etapa_ensino)) = LOWER(TRIM(?))
+            GROUP BY
+                LOWER(TRIM(nome)),
+                LOWER(TRIM(etapa_ensino))
+            ORDER BY
+                TRIM(nome) COLLATE NOCASE ASC
+        """, (
+            turma["escola_id"],
+            etapa_turma
+        ))
+
+        componentes = [
+            {
+                "id": componente["id"],
+                "nome": componente["nome"],
+                "etapa_ensino": componente["etapa_ensino"]
+            }
+            for componente in cursor.fetchall()
+        ]
+
+        return jsonify({
+            "sucesso": True,
+            "turma": {
+                "id": turma["id"],
+                "etapa": turma["etapa"],
+                "ano": turma["ano"],
+                "nome": turma["nome"],
+                "turno": turma["turno"]
+            },
+            "componentes": componentes
+        })
+
+    except sqlite3.Error as erro:
+        print("ERRO AO BUSCAR COMPONENTES DA TURMA:", erro)
+
+        return jsonify({
+            "sucesso": False,
+            "mensagem": "Não foi possível carregar os componentes curriculares.",
+            "componentes": []
+        }), 500
+
+    finally:
+        banco.close()
+
+
 # =====================================================
 # VÍNCULOS DO PROFESSOR
 # =====================================================
@@ -8063,7 +12674,9 @@ def professor_vinculos(professor_id):
 
             # Confirma que a turma pertence à mesma instituição
             cursor.execute("""
-                SELECT id
+                SELECT
+                    id,
+                    etapa
                 FROM turmas
                 WHERE id = ?
                   AND escola_id = ?
@@ -8086,15 +12699,21 @@ def professor_vinculos(professor_id):
 
             # Confirma que o componente pertence à mesma instituição
             cursor.execute("""
-                SELECT id
+                SELECT
+                    id,
+                    TRIM(nome) AS nome,
+                    TRIM(etapa_ensino) AS etapa_ensino
                 FROM componentes_curriculares
                 WHERE id = ?
                   AND escola_id = ?
                   AND ativo = 1
+                  AND LOWER(TRIM(etapa_ensino)) =
+                      LOWER(TRIM(?))
                 LIMIT 1
             """, (
                 componente_id,
-                escola_professor_id
+                escola_professor_id,
+                turma["etapa"]
             ))
 
             componente = cursor.fetchone()
@@ -8108,18 +12727,22 @@ def professor_vinculos(professor_id):
                     f"/professor/{professor_id}/vinculos"
                 )
 
-            # Verifica vínculo duplicado
+            # Verifica vínculo duplicado pelo nome normalizado.
+            # Dessa forma, registros antigos do mesmo componente com IDs
+            # diferentes não geram vínculos visualmente repetidos.
             cursor.execute("""
-                SELECT id
-                FROM professor_vinculos
-                WHERE professor_id = ?
-                  AND turma_id = ?
-                  AND componente_id = ?
+                SELECT pv.id
+                FROM professor_vinculos AS pv
+                INNER JOIN componentes_curriculares AS cc
+                    ON cc.id = pv.componente_id
+                WHERE pv.professor_id = ?
+                  AND pv.turma_id = ?
+                  AND LOWER(TRIM(cc.nome)) = LOWER(TRIM(?))
                 LIMIT 1
             """, (
                 professor_id,
                 turma_id,
-                componente_id
+                componente["nome"]
             ))
 
             vinculo_existente = cursor.fetchone()
@@ -8182,22 +12805,10 @@ def professor_vinculos(professor_id):
         turmas = cursor.fetchall()
 
         # =================================================
-        # LISTA OS COMPONENTES DA INSTITUIÇÃO
+        # COMPONENTES CARREGADOS APÓS SELECIONAR A TURMA
         # =================================================
 
-        cursor.execute("""
-            SELECT
-                id,
-                nome
-            FROM componentes_curriculares
-            WHERE escola_id = ?
-              AND ativo = 1
-            ORDER BY nome COLLATE NOCASE ASC
-        """, (
-            escola_professor_id,
-        ))
-
-        componentes = cursor.fetchall()
+        componentes = []
 
         # =================================================
         # LISTA OS VÍNCULOS DO PROFESSOR
@@ -8774,10 +13385,39 @@ def anos_letivos():
 
     lista_anos = []
     escolas = []
+    configuracao_global = None
+    configuracao_instituicao = None
+    proximos_anos = {}
+    ano_sugerido = datetime.now().year + 1
 
     try:
+        cursor.execute("""
+            SELECT *
+            FROM configuracao_ano_letivo_global
+            WHERE id = 1
+            LIMIT 1
+        """)
+        configuracao_global = cursor.fetchone()
 
         if cargo == "Administrador Geral":
+            cursor.execute("""
+                SELECT id, nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao COLLATE NOCASE ASC
+            """)
+            escolas = cursor.fetchall()
+
+            for escola in escolas:
+                cursor.execute("""
+                    SELECT COALESCE(MAX(ano), ?) + 1 AS proximo
+                    FROM anos_letivos
+                    WHERE escola_id = ?
+                """, (datetime.now().year - 1, escola["id"]))
+                proximo = cursor.fetchone()
+                proximos_anos[str(escola["id"])] = (
+                    proximo["proximo"] if proximo else datetime.now().year
+                )
 
             cursor.execute("""
                 SELECT
@@ -8791,59 +13431,62 @@ def anos_letivos():
                     al.criado_em,
                     e.nome_instituicao,
 
-                    (
-                        SELECT COUNT(*)
-                        FROM turmas AS t
-                        WHERE t.ano_letivo_id = al.id
-                    ) AS total_turmas,
+                    (SELECT COUNT(*) FROM turmas t
+                     WHERE t.ano_letivo_id = al.id) AS total_turmas,
 
                     (
                         SELECT COUNT(*)
-                        FROM alunos AS a
-                        WHERE a.ano_letivo_id = al.id
+                        FROM (
+                            SELECT am.aluno_id
+                            FROM aluno_matriculas am
+                            WHERE am.ano_letivo_id = al.id
+                            UNION
+                            SELECT a.id
+                            FROM alunos a
+                            WHERE a.ano_letivo_id = al.id
+                        )
                     ) AS total_alunos,
 
+                    (SELECT COUNT(*) FROM provas p
+                     WHERE p.ano_letivo_id = al.id) AS total_provas,
+
                     (
-                        SELECT COUNT(*)
-                        FROM provas AS p
-                        WHERE p.ano_letivo_id = al.id
-                    ) AS total_provas
+                        SELECT COUNT(DISTINCT pv.professor_id)
+                        FROM professor_vinculos pv
+                        INNER JOIN turmas t_prof ON t_prof.id = pv.turma_id
+                        WHERE t_prof.ano_letivo_id = al.id
+                    ) AS total_professores
 
-                FROM anos_letivos AS al
-
-                INNER JOIN escolas AS e
-                    ON e.id = al.escola_id
-
-                ORDER BY
-                    e.nome_instituicao COLLATE NOCASE ASC,
-                    al.ano DESC
+                FROM anos_letivos al
+                INNER JOIN escolas e ON e.id = al.escola_id
+                ORDER BY e.nome_instituicao COLLATE NOCASE ASC, al.ano DESC
             """)
-
             lista_anos = cursor.fetchall()
 
-            cursor.execute("""
-                SELECT
-                    id,
-                    nome_instituicao
-                FROM escolas
-                WHERE COALESCE(status, 1) = 1
-                ORDER BY nome_instituicao COLLATE NOCASE ASC
-            """)
-
-            escolas = cursor.fetchall()
-
         else:
-
             if not escola_id:
-                flash(
-                    "Não foi possível identificar sua instituição.",
-                    "erro"
-                )
+                flash("Não foi possível identificar sua instituição.", "erro")
                 return redirect("/")
 
             atualizar_ano_letivo_na_sessao(escola_id)
 
             cursor.execute("""
+                SELECT *
+                FROM configuracao_ano_letivo_instituicao
+                WHERE escola_id = ?
+                LIMIT 1
+            """, (escola_id,))
+            configuracao_instituicao = cursor.fetchone()
+
+            cursor.execute("""
+                SELECT COALESCE(MAX(ano), ?) + 1 AS proximo
+                FROM anos_letivos
+                WHERE escola_id = ?
+            """, (datetime.now().year - 1, escola_id))
+            proximo = cursor.fetchone()
+            ano_sugerido = proximo["proximo"] if proximo else datetime.now().year
+
+            cursor.execute("""
                 SELECT
                     al.id,
                     al.escola_id,
@@ -8855,62 +13498,64 @@ def anos_letivos():
                     al.criado_em,
                     e.nome_instituicao,
 
-                    (
-                        SELECT COUNT(*)
-                        FROM turmas AS t
-                        WHERE t.ano_letivo_id = al.id
-                    ) AS total_turmas,
+                    (SELECT COUNT(*) FROM turmas t
+                     WHERE t.ano_letivo_id = al.id) AS total_turmas,
 
                     (
                         SELECT COUNT(*)
-                        FROM alunos AS a
-                        WHERE a.ano_letivo_id = al.id
+                        FROM (
+                            SELECT am.aluno_id
+                            FROM aluno_matriculas am
+                            WHERE am.ano_letivo_id = al.id
+                            UNION
+                            SELECT a.id
+                            FROM alunos a
+                            WHERE a.ano_letivo_id = al.id
+                        )
                     ) AS total_alunos,
 
+                    (SELECT COUNT(*) FROM provas p
+                     WHERE p.ano_letivo_id = al.id) AS total_provas,
+
                     (
-                        SELECT COUNT(*)
-                        FROM provas AS p
-                        WHERE p.ano_letivo_id = al.id
-                    ) AS total_provas
+                        SELECT COUNT(DISTINCT pv.professor_id)
+                        FROM professor_vinculos pv
+                        INNER JOIN turmas t_prof ON t_prof.id = pv.turma_id
+                        WHERE t_prof.ano_letivo_id = al.id
+                    ) AS total_professores
 
-                FROM anos_letivos AS al
-
-                INNER JOIN escolas AS e
-                    ON e.id = al.escola_id
-
+                FROM anos_letivos al
+                INNER JOIN escolas e ON e.id = al.escola_id
                 WHERE al.escola_id = ?
-
                 ORDER BY al.ano DESC
-            """, (
-                escola_id,
-            ))
-
+            """, (escola_id,))
             lista_anos = cursor.fetchall()
 
         return render_template(
             "gestao/anos_letivos.html",
             anos_letivos=lista_anos,
             escolas=escolas,
-            cargo=cargo
+            cargo=cargo,
+            configuracao_global=configuracao_global,
+            configuracao_instituicao=configuracao_instituicao,
+            proximos_anos=proximos_anos,
+            ano_sugerido=ano_sugerido
         )
 
     except sqlite3.Error as erro:
-
         import traceback
         traceback.print_exc()
-
-        print("ERRO AO LISTAR ANOS LETIVOS:", erro)
-
-        flash(
-            f"Erro ao carregar os anos letivos: {erro}",
-            "erro"
-        )
+        flash(f"Erro ao carregar os anos letivos: {erro}", "erro")
 
         return render_template(
             "gestao/anos_letivos.html",
             anos_letivos=[],
-            escolas=[],
-            cargo=cargo
+            escolas=escolas,
+            cargo=cargo,
+            configuracao_global=configuracao_global,
+            configuracao_instituicao=configuracao_instituicao,
+            proximos_anos=proximos_anos,
+            ano_sugerido=ano_sugerido
         )
 
     finally:
@@ -8941,8 +13586,10 @@ def abrir_ano_letivo():
     data_inicio = request.form.get("data_inicio", "").strip()
     data_fim = request.form.get("data_fim", "").strip()
 
-    copiar_turmas = (
-        request.form.get("copiar_turmas") == "1"
+    copiar_turmas = request.form.get("copiar_turmas") == "1"
+    copiar_vinculos = (
+        copiar_turmas
+        and request.form.get("copiar_vinculos") == "1"
     )
 
     if not escola_id:
@@ -9057,28 +13704,21 @@ def abrir_ano_letivo():
 
         # Copia as turmas do ano anterior, quando solicitado.
         total_turmas_copiadas = 0
+        total_vinculos_copiados = 0
+        mapa_turmas = {}
 
         if copiar_turmas and ano_anterior:
-
             cursor.execute("""
-                SELECT
-                    nome,
-                    etapa,
-                    ano,
-                    turno
+                SELECT id, nome, etapa, ano, turno
                 FROM turmas
                 WHERE escola_id = ?
                   AND ano_letivo_id = ?
                 ORDER BY id
-            """, (
-                escola_id,
-                ano_anterior["id"]
-            ))
+            """, (escola_id, ano_anterior["id"]))
 
             turmas_anteriores = cursor.fetchall()
 
             for turma in turmas_anteriores:
-
                 cursor.execute("""
                     INSERT INTO turmas (
                         nome,
@@ -9100,7 +13740,33 @@ def abrir_ano_letivo():
                     novo_ano_id
                 ))
 
+                nova_turma_id = cursor.lastrowid
+                mapa_turmas[turma["id"]] = nova_turma_id
                 total_turmas_copiadas += 1
+
+            if copiar_vinculos and mapa_turmas:
+                for turma_antiga_id, turma_nova_id in mapa_turmas.items():
+                    cursor.execute("""
+                        SELECT professor_id, componente_id
+                        FROM professor_vinculos
+                        WHERE turma_id = ?
+                    """, (turma_antiga_id,))
+
+                    for vinculo in cursor.fetchall():
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO professor_vinculos (
+                                professor_id,
+                                turma_id,
+                                componente_id
+                            )
+                            VALUES (?, ?, ?)
+                        """, (
+                            vinculo["professor_id"],
+                            turma_nova_id,
+                            vinculo["componente_id"]
+                        ))
+                        if cursor.rowcount:
+                            total_vinculos_copiados += 1
 
         # Mantém o campo antigo sincronizado.
         cursor.execute("""
@@ -9120,14 +13786,39 @@ def abrir_ano_letivo():
         if cargo != "Administrador Geral":
             session["ano_letivo_id"] = novo_ano_id
             session["ano_letivo"] = ano
+            session["ano_letivo_visualizado"] = ano
+        else:
+            session["ano_letivo_visualizado"] = ano
+            session["ano_letivo"] = ano
 
         mensagem = f"Ano letivo {ano} aberto com sucesso."
 
         if copiar_turmas:
+            mensagem += f" {total_turmas_copiadas} turma(s) foram copiadas."
+
+        if copiar_vinculos:
             mensagem += (
-                f" {total_turmas_copiadas} turma(s) "
-                "foram copiadas."
+                f" {total_vinculos_copiados} vínculo(s) de professor "
+                "foram copiados."
             )
+
+        cursor.execute("""
+            INSERT INTO ano_letivo_auditoria (
+                escola_id,
+                ano_letivo_id,
+                usuario_id,
+                acao,
+                detalhes
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            escola_id,
+            novo_ano_id,
+            session.get("usuario_id"),
+            "ABRIR_ANO",
+            f"Ano {ano} aberto manualmente."
+        ))
+        banco.commit()
 
         flash(mensagem, "success")
 
@@ -9211,9 +13902,16 @@ def selecionar_ano_letivo(ano_letivo_id):
             )
             return redirect("/anos-letivos")
 
-        session["ano_letivo_selecionado_id"] = ano_letivo["id"]
-        session["ano_letivo_id"] = ano_letivo["id"]
-        session["ano_letivo"] = ano_letivo["ano"]
+        if cargo == "Administrador Geral":
+            session["ano_letivo_visualizado"] = ano_letivo["ano"]
+            session["ano_letivo"] = ano_letivo["ano"]
+            session.pop("ano_letivo_id", None)
+            session.pop("ano_letivo_selecionado_id", None)
+        else:
+            session["ano_letivo_selecionado_id"] = ano_letivo["id"]
+            session["ano_letivo_id"] = ano_letivo["id"]
+            session["ano_letivo"] = ano_letivo["ano"]
+            session["ano_letivo_visualizado"] = ano_letivo["ano"]
 
         flash(
             f"A plataforma está consultando o ano "
@@ -9255,6 +13953,7 @@ def usar_ano_letivo_ativo():
         return redirect("/acesso_negado")
 
     session.pop("ano_letivo_selecionado_id", None)
+    session.pop("ano_letivo_visualizado", None)
 
     escola_id = obter_escola_usuario()
 
@@ -9268,6 +13967,305 @@ def usar_ano_letivo_ativo():
         "A plataforma voltou a utilizar o ano letivo ativo.",
         "success"
     )
+
+    return redirect("/anos-letivos")
+
+
+# =========================================================
+# SALVAR AGENDAMENTO GLOBAL
+# =========================================================
+
+@app.route("/anos-letivos/agendamento-global", methods=["POST"])
+def salvar_agendamento_global():
+
+    if not cargo_permitido(["Administrador Geral"]):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    cursor = banco.cursor()
+
+    try:
+        ano = int(request.form.get("ano", "").strip())
+        data_execucao = request.form.get("data_execucao", "").strip()
+        data_inicio = request.form.get("data_inicio", "").strip() or None
+        data_fim = request.form.get("data_fim", "").strip() or None
+
+        if ano < 2000 or ano > 2100:
+            raise ValueError("Informe um ano entre 2000 e 2100.")
+
+        if not data_execucao:
+            raise ValueError("Informe a data de execução.")
+
+        if data_inicio and data_fim and data_fim < data_inicio:
+            raise ValueError("A data final não pode ser anterior à inicial.")
+
+        cursor.execute("""
+            INSERT INTO configuracao_ano_letivo_global (
+                id, ativo, ano, data_execucao, data_inicio, data_fim,
+                copiar_turmas, copiar_vinculos, encerrar_anterior,
+                executado, atualizado_em
+            )
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                ativo = excluded.ativo,
+                ano = excluded.ano,
+                data_execucao = excluded.data_execucao,
+                data_inicio = excluded.data_inicio,
+                data_fim = excluded.data_fim,
+                copiar_turmas = excluded.copiar_turmas,
+                copiar_vinculos = excluded.copiar_vinculos,
+                encerrar_anterior = excluded.encerrar_anterior,
+                executado = 0,
+                atualizado_em = CURRENT_TIMESTAMP
+        """, (
+            1 if request.form.get("ativo") == "1" else 0,
+            ano,
+            data_execucao,
+            data_inicio,
+            data_fim,
+            1 if request.form.get("copiar_turmas") == "1" else 0,
+            1 if request.form.get("copiar_vinculos") == "1" else 0,
+            1 if request.form.get("encerrar_anterior") == "1" else 0
+        ))
+
+        banco.commit()
+        flash("Agendamento global salvo com sucesso.", "success")
+
+    except (ValueError, sqlite3.Error) as erro:
+        banco.rollback()
+        flash(f"Erro ao salvar o agendamento global: {erro}", "erro")
+
+    finally:
+        banco.close()
+
+    return redirect("/anos-letivos")
+
+
+# =========================================================
+# SALVAR CONFIGURAÇÃO DA INSTITUIÇÃO
+# =========================================================
+
+@app.route("/anos-letivos/agendamento-instituicao", methods=["POST"])
+def salvar_agendamento_instituicao():
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    cargo = session.get("usuario_cargo", "").strip()
+
+    if cargo == "Administrador Geral":
+        escola_id = request.form.get("escola_id", "").strip()
+    else:
+        escola_id = obter_escola_usuario()
+
+    try:
+        escola_id = int(escola_id)
+    except (TypeError, ValueError):
+        flash("Selecione uma instituição válida.", "erro")
+        return redirect("/anos-letivos")
+
+    modo = request.form.get("modo", "global").strip().lower()
+
+    if modo not in ("global", "proprio", "manual"):
+        modo = "global"
+
+    ano_texto = request.form.get("ano", "").strip()
+    data_execucao = request.form.get("data_execucao", "").strip() or None
+    data_inicio = request.form.get("data_inicio", "").strip() or None
+    data_fim = request.form.get("data_fim", "").strip() or None
+
+    try:
+        ano = int(ano_texto) if ano_texto else None
+
+        if ano is not None and (ano < 2000 or ano > 2100):
+            raise ValueError("Informe um ano entre 2000 e 2100.")
+
+        if modo == "proprio" and (ano is None or not data_execucao):
+            raise ValueError(
+                "No agendamento próprio, informe o ano e a data de execução."
+            )
+
+        if data_inicio and data_fim and data_fim < data_inicio:
+            raise ValueError("A data final não pode ser anterior à inicial.")
+
+        banco = conectar_banco()
+        cursor = banco.cursor()
+
+        cursor.execute("""
+            INSERT INTO configuracao_ano_letivo_instituicao (
+                escola_id, modo, ativo, ano, data_execucao,
+                data_inicio, data_fim, copiar_turmas,
+                copiar_vinculos, encerrar_anterior,
+                executado, atualizado_em
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT(escola_id) DO UPDATE SET
+                modo = excluded.modo,
+                ativo = excluded.ativo,
+                ano = excluded.ano,
+                data_execucao = excluded.data_execucao,
+                data_inicio = excluded.data_inicio,
+                data_fim = excluded.data_fim,
+                copiar_turmas = excluded.copiar_turmas,
+                copiar_vinculos = excluded.copiar_vinculos,
+                encerrar_anterior = excluded.encerrar_anterior,
+                executado = 0,
+                atualizado_em = CURRENT_TIMESTAMP
+        """, (
+            escola_id,
+            modo,
+            1 if request.form.get("ativo") == "1" else 0,
+            ano,
+            data_execucao,
+            data_inicio,
+            data_fim,
+            1 if request.form.get("copiar_turmas") == "1" else 0,
+            1 if request.form.get("copiar_vinculos") == "1" else 0,
+            1 if request.form.get("encerrar_anterior") == "1" else 0
+        ))
+
+        banco.commit()
+        banco.close()
+
+        flash("Configuração da instituição salva com sucesso.", "success")
+
+    except (ValueError, sqlite3.Error) as erro:
+        try:
+            banco.rollback()
+            banco.close()
+        except Exception:
+            pass
+        flash(f"Erro ao salvar a configuração: {erro}", "erro")
+
+    return redirect("/anos-letivos")
+
+
+# =========================================================
+# REABRIR ANO LETIVO
+# =========================================================
+
+@app.route(
+    "/anos-letivos/<int:ano_letivo_id>/reabrir",
+    methods=["POST"]
+)
+def reabrir_ano_letivo(ano_letivo_id):
+
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição"
+    ]):
+        return redirect("/acesso_negado")
+
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_usuario = obter_escola_usuario()
+    modo = request.form.get("modo", "edicao").strip().lower()
+
+    if modo not in ("edicao", "ativar"):
+        modo = "edicao"
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if cargo == "Administrador Geral":
+            cursor.execute("""
+                SELECT id, escola_id, ano
+                FROM anos_letivos
+                WHERE id = ?
+                LIMIT 1
+            """, (ano_letivo_id,))
+        else:
+            cursor.execute("""
+                SELECT id, escola_id, ano
+                FROM anos_letivos
+                WHERE id = ?
+                  AND escola_id = ?
+                LIMIT 1
+            """, (ano_letivo_id, escola_usuario))
+
+        ano_letivo = cursor.fetchone()
+
+        if not ano_letivo:
+            flash("Ano letivo não encontrado ou sem permissão.", "erro")
+            return redirect("/anos-letivos")
+
+        if modo == "ativar":
+            cursor.execute("""
+                UPDATE anos_letivos
+                SET ativo = 0,
+                    encerrado = 1
+                WHERE escola_id = ?
+                  AND id <> ?
+                  AND ativo = 1
+            """, (ano_letivo["escola_id"], ano_letivo_id))
+
+            cursor.execute("""
+                UPDATE anos_letivos
+                SET ativo = 1,
+                    encerrado = 0
+                WHERE id = ?
+            """, (ano_letivo_id,))
+
+            cursor.execute("""
+                UPDATE escolas
+                SET ano_letivo = ?
+                WHERE id = ?
+            """, (ano_letivo["ano"], ano_letivo["escola_id"]))
+
+            acao = "REABRIR_E_ATIVAR"
+            mensagem = (
+                f"O ano letivo {ano_letivo['ano']} foi reaberto e ativado."
+            )
+
+            if cargo != "Administrador Geral":
+                session["ano_letivo_selecionado_id"] = ano_letivo_id
+                session["ano_letivo_id"] = ano_letivo_id
+            else:
+                session.pop("ano_letivo_id", None)
+                session.pop("ano_letivo_selecionado_id", None)
+
+            session["ano_letivo"] = ano_letivo["ano"]
+            session["ano_letivo_visualizado"] = ano_letivo["ano"]
+
+        else:
+            cursor.execute("""
+                UPDATE anos_letivos
+                SET ativo = 0,
+                    encerrado = 0
+                WHERE id = ?
+            """, (ano_letivo_id,))
+
+            acao = "REABRIR_EDICAO"
+            mensagem = (
+                f"O ano letivo {ano_letivo['ano']} foi reaberto para edição."
+            )
+
+        cursor.execute("""
+            INSERT INTO ano_letivo_auditoria (
+                escola_id, ano_letivo_id, usuario_id, acao, detalhes
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            ano_letivo["escola_id"],
+            ano_letivo_id,
+            session.get("usuario_id"),
+            acao,
+            mensagem
+        ))
+
+        banco.commit()
+        flash(mensagem, "success")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        flash(f"Erro ao reabrir o ano letivo: {erro}", "erro")
+
+    finally:
+        banco.close()
 
     return redirect("/anos-letivos")
 

@@ -318,7 +318,7 @@ body.modal-aberto {
 
                     <td>{{ escola["diretor"] or "-" }}</td>
 
-                    <td>{{ escola["ano_letivo"] or "-" }}</td>
+                    <td>{{ escola["ano_letivo_ativo"] or escola["ano_letivo"] or "-" }}</td>
 
                     <td>
                         {% if escola["status"] == 1 %}

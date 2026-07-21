@@ -1,401 +1,247 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Banco de Questões</title>
+{% extends "layout/base.html" %}
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+{% block titulo %}Nova questão | ARK EDUS{% endblock %}
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6fb;
-            margin: 0;
-            color: #0f172a;
-        }
+{% block estilos %}
+<style>
+.questoes-pagina{
+    --ark-azul:#17468f;
+    --ark-azul-2:#2563eb;
+    --ark-borda:#dbe4f0;
+    --ark-texto:#0f172a;
+    --ark-suave:#64748b;
+    display:grid;
+    gap:18px;
+}
+.questoes-voltar{display:inline-flex;align-items:center;gap:8px;width:fit-content;color:var(--ark-azul);font-size:14px;font-weight:800;text-decoration:none}
+.questoes-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.questoes-topo h1{margin:0;color:var(--ark-azul);font-size:clamp(28px,3vw,36px);font-weight:900;letter-spacing:-.02em}
+.questoes-topo p{margin:8px 0 0;color:var(--ark-suave);font-size:14px}
+.modo-rapido{display:flex;align-items:center;gap:8px;border:1px solid #bfdbfe;border-radius:999px;background:#eff6ff;padding:8px 12px;color:var(--ark-azul);font-size:12px;font-weight:850}
+.questoes-card{overflow:hidden;border:1px solid var(--ark-borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
+.questoes-card-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 24px;border-bottom:1px solid var(--ark-borda)}
+.questoes-card-cabecalho h2{margin:0;color:var(--ark-texto);font-size:18px}.questoes-card-cabecalho p{margin:5px 0 0;color:var(--ark-suave);font-size:12px}
+.numero-etapa{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:11px;background:#eaf2ff;color:var(--ark-azul);font-weight:900}
+.cabecalho-titulo{display:flex;align-items:center;gap:12px}
+.questoes-formulario{padding:24px}.questoes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.largo{grid-column:1/-1}
+.questoes-grupo{display:grid;gap:7px}.questoes-grupo>label,.titulo-campo{color:#334155;font-size:12px;font-weight:850}
+.questoes-grupo input,.questoes-grupo select,.questoes-grupo textarea{width:100%;border:1px solid var(--ark-borda);border-radius:12px;background:#fff;color:var(--ark-texto);font:inherit;font-size:13px;outline:none;transition:.2s}
+.questoes-grupo input,.questoes-grupo select{min-height:46px;padding:0 13px}.questoes-grupo textarea{min-height:135px;padding:14px;resize:vertical;line-height:1.55}
+.questoes-grupo input:focus,.questoes-grupo select:focus,.questoes-grupo textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.oculto{display:none!important}.ajuda{color:#94a3b8;font-size:11px;line-height:1.45}
+.tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0;pointer-events:none}.tipo-opcao span{display:flex;min-height:54px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--ark-borda);border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;font-weight:800;text-align:center;cursor:pointer;transition:.2s}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--ark-azul);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.upload-principal{position:relative;display:grid;place-items:center;min-height:105px;padding:18px;border:2px dashed #bfdbfe;border-radius:16px;background:#f8fbff;text-align:center;cursor:pointer}.upload-principal input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.upload-principal strong{color:#1e3a8a;font-size:13px}.upload-principal small{margin-top:4px;color:var(--ark-suave)}
+.alternativas-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.btn-adicionar{border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:var(--ark-azul);padding:9px 12px;font-size:12px;font-weight:850;cursor:pointer}
+.alternativas-lista{display:grid;gap:12px}.alternativa-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:12px;align-items:start;padding:14px;border:1px solid #e4eaf2;border-radius:15px;background:#f8fafc}.alternativa-letra{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#eaf2ff;color:var(--ark-azul);font-size:14px;font-weight:900}.alternativa-conteudo{display:grid;gap:10px}.alternativa-texto{min-height:44px!important}.alternativa-acoes{display:flex;align-items:center;gap:8px}.marcar-correta{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 11px;border:1px solid #dbe4f0;border-radius:11px;background:#fff;color:#475569;font-size:11px;font-weight:800;cursor:pointer}.marcar-correta input{width:17px;height:17px;min-height:auto;padding:0;box-shadow:none}.remover-alternativa{display:grid;place-items:center;width:40px;height:40px;border:1px solid #fecaca;border-radius:11px;background:#fff;color:#dc2626;font-size:18px;cursor:pointer}
+.upload-alternativa{position:relative;display:flex;align-items:center;gap:10px;min-height:42px;padding:8px 11px;border:1px dashed #bfdbfe;border-radius:11px;background:#fff;color:#475569;font-size:11px;font-weight:750;cursor:pointer}.upload-alternativa input{position:absolute;inset:0;opacity:0;cursor:pointer}.preview-alternativa{display:none;max-width:180px;max-height:105px;border:1px solid #dbe4f0;border-radius:10px;object-fit:contain;background:#fff;padding:4px}.preview-alternativa.ativo{display:block}
+.vf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vf-opcao{position:relative}.vf-opcao input{position:absolute;opacity:0}.vf-opcao span{display:flex;align-items:center;justify-content:center;min-height:58px;border:1px solid var(--ark-borda);border-radius:13px;background:#f8fafc;color:#475569;font-size:13px;font-weight:850;cursor:pointer}.vf-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--ark-azul)}
+.classificacao-resumo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;cursor:pointer;list-style:none}.classificacao-resumo::-webkit-details-marker{display:none}.classificacao-resumo strong{color:var(--ark-texto);font-size:14px}.classificacao-resumo span{color:var(--ark-suave);font-size:12px}.classificacao-seta{color:var(--ark-azul);font-weight:900;transition:.2s}.classificacao[open] .classificacao-seta{transform:rotate(180deg)}
+.classificacao-conteudo{border-top:1px solid var(--ark-borda);padding:22px 24px;background:#fbfdff}.subsecao{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:3px;color:var(--ark-azul);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.subsecao:after{content:"";height:1px;flex:1;background:#e5edf7}
+.manter-box{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #bfdbfe;border-radius:14px;background:#f8fbff}.manter-box input{width:18px;height:18px;margin-top:1px}.manter-box strong{display:block;color:#1e3a8a;font-size:12px}.manter-box small{display:block;margin-top:3px;color:#64748b;font-size:11px}
+.questoes-rodape{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 24px 23px;border-top:1px solid var(--ark-borda)}.acoes-direita{display:flex;gap:10px}.questoes-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer}.secundario{border:1px solid var(--ark-borda);background:#fff;color:var(--ark-azul)}.principal{border:1px solid var(--ark-azul);background:linear-gradient(135deg,var(--ark-azul),var(--ark-azul-2));color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.2)}
+@media(max-width:850px){.questoes-grid,.tipo-grid{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa-item{grid-template-columns:38px minmax(0,1fr)}.alternativa-acoes{grid-column:2}.questoes-rodape,.acoes-direita{display:grid;width:100%}.questoes-btn{width:100%}}
+</style>
+{% endblock %}
 
-        header {
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: white;
-            padding: 40px 55px;
-            border-bottom-left-radius: 28px;
-            border-bottom-right-radius: 28px;
-            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
-        }
+{% block conteudo %}
+<div class="questoes-pagina">
+    {% if prova_id %}
+    <a href="/provas/{{ prova_id }}/montar" class="questoes-voltar">← Voltar para a avaliação</a>
+    {% else %}
+    <a href="/" class="questoes-voltar">← Voltar ao painel</a>
+    {% endif %}
+    <header class="questoes-topo">
+        <div>
+            <h1>Nova questão</h1>
+            <p>{% if prova_id %}A questão será salva no banco e adicionada automaticamente à avaliação.{% else %}Cadastre rapidamente e detalhe a classificação pedagógica apenas quando necessário.{% endif %}</p>
+        </div>
+        <div class="modo-rapido">Modo rápido ativado</div>
+    </header>
 
-        header h1 {
-            margin: 0;
-            font-size: 38px;
-        }
-
-        header p {
-            margin-top: 10px;
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .container {
-            padding: 32px;
-        }
-
-        .voltar {
-            display: inline-block;
-            margin-bottom: 22px;
-            color: #1e3a8a;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .card {
-            background: white;
-            padding: 35px;
-            border-radius: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
-            border: 1px solid #e5e7eb;
-        }
-
-        .card h2 {
-            margin: 0;
-            font-size: 28px;
-            color: #111827;
-        }
-
-        .descricao {
-            margin-top: 8px;
-            margin-bottom: 30px;
-            color: #64748b;
-            font-size: 16px;
-        }
-
-        label {
-            display: block;
-            margin-top: 16px;
-            margin-bottom: 8px;
-            font-size: 15px;
-            font-weight: 600;
-            color: #334155;
-        }
-
-        input,
-        select,
-        textarea {
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            outline: none;
-            transition: 0.2s;
-            background: white;
-        }
-
-        textarea {
-            min-height: 110px;
-            resize: vertical;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-        }
-
-        .campo-completo {
-            grid-column: 1 / -1;
-        }
-
-        .upload-box {
-            border: 2px dashed #bfdbfe;
-            border-radius: 18px;
-            padding: 20px;
-            background: #f8fbff;
-        }
-
-        .btn-principal {
-            width: 100%;
-            margin-top: 35px;
-            padding: 16px;
-            border: none;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
-        }
-
-        .btn-principal:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
-        }
-
-        .titulo-card {
-            margin-bottom: 18px;
-        }
-
-        .titulo-card h2 {
-            margin: 0;
-            font-size: 26px;
-        }
-
-        .tabela-container {
-            width: 100%;
-            overflow: visible;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-        }
-
-        table {
-            width: 100%;
-            background: white;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: left;
-            vertical-align: top;
-            font-size: 14px;
-        }
-
-        th {
-            background: #1e3a8a;
-            color: white;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background: #f8fafc;
-        }
-
-        .enunciado {
-            max-width: 520px;
-            line-height: 1.4;
-            color: #334155;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: bold;
-            background: #eff6ff;
-            color: #1e3a8a;
-            border: 1px solid #bfdbfe;
-        }
-
-        .badge-correta {
-            background: #ecfdf5;
-            color: #047857;
-            border-color: #bbf7d0;
-        }
-
-        .sem-registro {
-            text-align: center;
-            color: #64748b;
-            padding: 28px;
-            font-size: 16px;
-        }
-
-        @media (max-width: 900px) {
-            header {
-                padding: 35px 25px;
-            }
-
-            header h1 {
-                font-size: 32px;
-            }
-
-            .container {
-                padding: 22px;
-            }
-
-            .card {
-                padding: 25px;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .tabela-container {
-                overflow-x: auto;
-            }
-
-            table {
-                min-width: 950px;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<header>
-    <h1>Banco de Questões</h1>
-    <p>Cadastre, organize e consulte questões por disciplina, habilidade e dificuldade.</p>
-</header>
-
-<div class="container">
-
-    <a href="/" class="voltar">← Voltar para o início</a>
-
-    <div class="card">
-        <h2>Nova Questão</h2>
-
-        <p class="descricao">
-            Preencha os dados da questão e salve no banco para usar na montagem das avaliações.
-        </p>
-
-        <form method="POST" action="/cadastrar_questao" enctype="multipart/form-data">
-
-            <div class="form-grid">
-
-                <div>
-                    <label>Disciplina:</label>
-                    <select name="disciplina" required>
-                        <option value="">Selecione</option>
-                        <option value="Língua Portuguesa">Língua Portuguesa</option>
-                        <option value="Matemática">Matemática</option>
-                        <option value="Ciências">Ciências</option>
-                        <option value="História">História</option>
-                        <option value="Geografia">Geografia</option>
-                        <option value="Inglês">Inglês</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Dificuldade:</label>
-                    <select name="dificuldade" required>
-                        <option value="">Selecione</option>
-                        <option value="Fácil">Fácil</option>
-                        <option value="Média">Média</option>
-                        <option value="Difícil">Difícil</option>
-                    </select>
-                </div>
-
-                <div class="campo-completo">
-                    <label>Enunciado:</label>
-                    <textarea name="enunciado" placeholder="Digite o enunciado da questão" required></textarea>
-                </div>
-
-                <div class="campo-completo">
-                    <label>Imagem da questão:</label>
-
-                    <div class="upload-box">
-                        <input type="file" name="imagem" accept="image/*">
-                    </div>
-                </div>
-
-                <div>
-                    <label>Alternativa A:</label>
-                    <input type="text" name="alternativa_a" required>
-                </div>
-
-                <div>
-                    <label>Alternativa B:</label>
-                    <input type="text" name="alternativa_b" required>
-                </div>
-
-                <div>
-                    <label>Alternativa C:</label>
-                    <input type="text" name="alternativa_c" required>
-                </div>
-
-                <div>
-                    <label>Alternativa D:</label>
-                    <input type="text" name="alternativa_d" required>
-                </div>
-
-                <div>
-                    <label>Alternativa correta:</label>
-                    <select name="correta" required>
-                        <option value="">Selecione</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Habilidade ou descritor:</label>
-                    <input type="text" name="habilidade" placeholder="Ex: SAEB D13 ou BNCC EF05MA07">
-                </div>
-
+    <form method="POST" action="/cadastrar_questao" enctype="multipart/form-data" id="formQuestao">
+        {% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
+        <section class="questoes-card">
+            <div class="questoes-card-cabecalho">
+                <div class="cabecalho-titulo"><span class="numero-etapa">1</span><div><h2>Informações básicas</h2><p>Somente os dados necessários para organizar a questão.</p></div></div>
             </div>
+            <div class="questoes-formulario">
+                <div class="questoes-grid">
+                    <div class="questoes-grupo">
+                        <label for="disciplinaQuestao">Componente curricular</label>
+                        <select id="disciplinaQuestao" name="disciplina" required>
+                            <option value="">Selecione</option>
+                            {% for componente in componentes %}<option value="{{ componente }}" {% if valores_anteriores and valores_anteriores.get('disciplina') == componente %}selected{% endif %}>{{ componente }}</option>{% endfor %}
+                            {% if not componentes %}<option>Língua Portuguesa</option><option>Matemática</option><option>Ciências</option><option>História</option><option>Geografia</option><option>Inglês</option>{% endif %}
+                        </select>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="etapaEnsino">Etapa de ensino</label>
+                        <select id="etapaEnsino" name="etapa_ensino">
+                            <option value="">Selecione</option>
+                            {% for item in ['Educação Infantil','Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio','EJA'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('etapa_ensino') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="anoSerie">Ano/Série</label>
+                        <select id="anoSerie" name="ano_serie" data-valor="{{ valores_anteriores.get('ano_serie','') if valores_anteriores else '' }}"><option value="">Selecione primeiro a etapa</option></select>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="assuntoQuestao">Assunto</label>
+                        <select id="assuntoQuestao" name="assunto" required>
+                            <option value="">Selecione o assunto</option>
+                            {% for assunto in assuntos %}<option value="{{ assunto }}" {% if valores_anteriores and valores_anteriores.get('assunto') == assunto %}selected{% endif %}>{{ assunto }}</option>{% endfor %}
+                            <option value="__outro__">+ Cadastrar novo assunto</option>
+                        </select>
+                    </div>
+                    <div class="questoes-grupo largo oculto" id="grupoNovoAssunto"><label for="assuntoOutro">Novo assunto</label><input id="assuntoOutro" type="text" name="assunto_outro" placeholder="Ex.: Revolução Francesa"></div>
+                    <div class="questoes-grupo largo"><label for="subassuntoQuestao">Subassunto <span class="ajuda">(opcional)</span></label><input id="subassuntoQuestao" name="subassunto" value="{{ valores_anteriores.get('subassunto','') if valores_anteriores else '' }}" placeholder="Ex.: Período Regencial"></div>
+                    <div class="questoes-grupo"><label for="dificuldadeQuestao">Dificuldade</label><select id="dificuldadeQuestao" name="dificuldade" required><option value="">Selecione</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('dificuldade') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+                    <div class="questoes-grupo"><label for="taxonomiaBloom">Taxonomia de Bloom <span class="ajuda">(opcional)</span></label><select id="taxonomiaBloom" name="taxonomia_bloom"><option value="">Não informar</option>{% for item in ['Lembrar','Compreender','Aplicar','Analisar','Avaliar','Criar'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('taxonomia_bloom') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+                </div>
+            </div>
+        </section>
 
-            <button type="submit" class="btn-principal">
-                Cadastrar Questão
-            </button>
-        </form>
-    </div>
+        <section class="questoes-card">
+            <div class="questoes-card-cabecalho"><div class="cabecalho-titulo"><span class="numero-etapa">2</span><div><h2>Questão</h2><p>Escolha o formato e informe o enunciado.</p></div></div></div>
+            <div class="questoes-formulario"><div class="questoes-grid">
+                <div class="questoes-grupo largo"><span class="titulo-campo">Tipo da questão</span><div class="tipo-grid">
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="multipla_escolha" checked><span>Múltipla escolha</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="multiplas_respostas"><span>Múltiplas respostas</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="verdadeiro_falso"><span>Verdadeiro ou falso</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="resposta_curta"><span>Resposta curta</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="numerica"><span>Resposta numérica</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="discursiva"><span>Discursiva</span></label>
+                </div></div>
+                <div class="questoes-grupo largo"><label for="enunciadoQuestao">Enunciado</label><textarea id="enunciadoQuestao" name="enunciado" placeholder="Digite o enunciado da questão..." required></textarea></div>
+                <div class="questoes-grupo largo"><label>Imagem do enunciado <span class="ajuda">(opcional)</span></label><label class="upload-principal" for="imagemQuestao"><strong id="textoUploadQuestao">Clique para selecionar uma imagem</strong><small>PNG, JPG, JPEG ou WEBP</small><input id="imagemQuestao" type="file" name="imagem" accept="image/png,image/jpeg,image/webp"></label></div>
+                <div class="questoes-grupo largo" id="blocoAlternativas"><div class="alternativas-cabecalho"><div><span class="titulo-campo">Alternativas</span><div class="ajuda">Cada alternativa pode conter texto, imagem ou ambos.</div></div><button type="button" class="btn-adicionar" id="adicionarAlternativa">+ Adicionar alternativa</button></div><div class="alternativas-lista" id="listaAlternativas"></div></div>
+                <div class="questoes-grupo largo oculto" id="blocoVerdadeiroFalso"><span class="titulo-campo">Resposta correta</span><div class="vf-grid"><label class="vf-opcao"><input type="radio" name="resposta_vf" value="V"><span>Verdadeiro</span></label><label class="vf-opcao"><input type="radio" name="resposta_vf" value="F"><span>Falso</span></label></div></div>
+                <div class="questoes-grupo largo oculto" id="blocoRespostaEsperada"><label for="respostaEsperada">Resposta esperada</label><textarea id="respostaEsperada" name="resposta_esperada" placeholder="Informe a resposta correta ou uma resposta de referência."></textarea></div>
 
-    <div class="card">
-        <div class="titulo-card">
-            <h2>Questões Cadastradas</h2>
-        </div>
+                <div class="questoes-grupo largo oculto" id="blocoLinhasResposta">
+                    <label for="linhasResposta">Quantidade de linhas para resposta</label>
+                    <input
+                        id="linhasResposta"
+                        type="number"
+                        name="linhas_resposta"
+                        min="1"
+                        max="30"
+                        value="5"
+                    >
+                    <span class="ajuda">Defina de 1 a 30 linhas. Esse campo aparece somente na questão discursiva.</span>
+                </div>
+                <div class="questoes-grupo largo oculto" id="blocoCriterios"><label for="criteriosCorrecao">Critérios de correção <span class="ajuda">(opcional)</span></label><textarea id="criteriosCorrecao" name="criterios_correcao" placeholder="Descreva os critérios considerados na correção."></textarea></div>
+            </div></div>
+        </section>
 
-        <div class="tabela-container">
-            <table>
-                <tr>
-                    <th>ID</th>
-                    <th>Disciplina</th>
-                    <th>Enunciado</th>
-                    <th>Correta</th>
-                    <th>Habilidade</th>
-                    <th>Dificuldade</th>
-                </tr>
+        <section class="questoes-card classificacao">
+            <details class="classificacao" {% if valores_anteriores and valores_anteriores.get('abrir_avancado') %}open{% endif %}>
+                <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
+                <div class="classificacao-conteudo"><div class="questoes-grid">
+                    <div class="subsecao">BNCC</div>
+                    <div class="questoes-grupo"><label for="unidadeTematica">Unidade temática</label><input id="unidadeTematica" name="unidade_tematica" value="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" placeholder="Ex.: O mundo contemporâneo"></div>
+                    <div class="questoes-grupo"><label for="objetoConhecimento">Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" value="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" placeholder="Ex.: Revoltas do Período Regencial"></div>
+                    <div class="questoes-grupo largo"><label for="habilidadeBncc">Habilidade BNCC</label><input id="habilidadeBncc" name="habilidade_bncc" value="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" placeholder="Ex.: EF08HI15"></div>
+                    <div class="subsecao">SAEB</div>
+                    <div class="questoes-grupo"><label for="matrizReferencia">Matriz de referência</label><input id="matrizReferencia" name="matriz_referencia" value="{{ valores_anteriores.get('matriz_referencia','') if valores_anteriores else '' }}" placeholder="Ex.: SAEB Matemática - 5º ano"></div>
+                    <div class="questoes-grupo"><label for="descritorSaeb">Descritor SAEB</label><input id="descritorSaeb" name="descritor_saeb" value="{{ valores_anteriores.get('descritor_saeb','') if valores_anteriores else '' }}" placeholder="Ex.: D13"></div>
+                    <div class="subsecao">Informações complementares</div>
+                    <div class="questoes-grupo"><label for="fonteQuestao">Fonte</label><input id="fonteQuestao" name="fonte" value="{{ valores_anteriores.get('fonte','') if valores_anteriores else '' }}" placeholder="Ex.: Autoral, SAEB, ENEM"></div>
+                    <div class="questoes-grupo"><label for="anoFonte">Ano da fonte</label><input id="anoFonte" type="number" min="1900" max="2100" name="ano_fonte" value="{{ valores_anteriores.get('ano_fonte','') if valores_anteriores else '' }}" placeholder="2026"></div>
+                    <div class="questoes-grupo"><label for="tempoEstimado">Tempo estimado</label><input id="tempoEstimado" type="number" min="1" max="180" name="tempo_estimado" value="{{ valores_anteriores.get('tempo_estimado','') if valores_anteriores else '' }}" placeholder="Minutos"></div>
+                    <div class="questoes-grupo"><label for="tagsQuestao">Tags</label><input id="tagsQuestao" name="tags" value="{{ valores_anteriores.get('tags','') if valores_anteriores else '' }}" placeholder="história, regencial, oitavo ano"></div>
+                    <div class="questoes-grupo largo"><label for="observacoesQuestao">Observações do professor</label><textarea id="observacoesQuestao" name="observacoes" placeholder="Orientações internas sobre a questão."></textarea></div>
+                </div></div>
+            </details>
+        </section>
 
-                {% for questao in questoes %}
-                <tr>
-                    <td>{{ questao[0] }}</td>
-
-                    <td>
-                        <span class="badge">
-                            {{ questao[1] }}
-                        </span>
-                    </td>
-
-                    <td class="enunciado">
-                        {{ questao[2] }}
-                    </td>
-
-                    <td>
-                        <span class="badge badge-correta">
-                            {{ questao[7] }}
-                        </span>
-                    </td>
-
-                    <td>{{ questao[8] }}</td>
-                    <td>{{ questao[9] }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="sem-registro">
-                        Nenhuma questão cadastrada ainda.
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
-    </div>
-
+        <section class="questoes-card">
+            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Depois de salvar, componente, etapa, ano/série, assunto e classificação serão mantidos.</small></span></label></div>
+            <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Cadastrar questão</button></div></div>
+        </section>
+    </form>
 </div>
+{% endblock %}
 
-</body>
-</html>
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const lista = document.getElementById("listaAlternativas");
+    const botaoAdicionar = document.getElementById("adicionarAlternativa");
+    const blocoAlternativas = document.getElementById("blocoAlternativas");
+    const blocoVF = document.getElementById("blocoVerdadeiroFalso");
+    const blocoResposta = document.getElementById("blocoRespostaEsperada");
+    const blocoCriterios = document.getElementById("blocoCriterios");
+    const blocoLinhasResposta = document.getElementById("blocoLinhasResposta");
+    const assunto = document.getElementById("assuntoQuestao");
+    const grupoNovoAssunto = document.getElementById("grupoNovoAssunto");
+    const assuntoOutro = document.getElementById("assuntoOutro");
+    const imagemQuestao = document.getElementById("imagemQuestao");
+    const textoUpload = document.getElementById("textoUploadQuestao");
+    const etapa = document.getElementById("etapaEnsino");
+    const anoSerie = document.getElementById("anoSerie");
+
+    const seriesPorEtapa = {
+        "Educação Infantil":["Berçário","Maternal I","Maternal II","Pré I","Pré II"],
+        "Ensino Fundamental - Anos Iniciais":["1º ano","2º ano","3º ano","4º ano","5º ano"],
+        "Ensino Fundamental - Anos Finais":["6º ano","7º ano","8º ano","9º ano"],
+        "Ensino Médio":["1ª série","2ª série","3ª série"],
+        "EJA":["1º segmento","2º segmento","Ensino Médio"]
+    };
+
+    function atualizarSeries(){
+        const atual = anoSerie.dataset.valor || anoSerie.value;
+        const itens = seriesPorEtapa[etapa.value] || [];
+        anoSerie.innerHTML = '<option value="">Selecione</option>';
+        itens.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item;
+            option.textContent = item;
+            if(item === atual) option.selected = true;
+            anoSerie.appendChild(option);
+        });
+        anoSerie.dataset.valor = "";
+    }
+
+    function letra(indice){ return String.fromCharCode(65 + indice); }
+    function atualizarAlternativas(){
+        [...lista.querySelectorAll(".alternativa-item")].forEach((item, indice) => {
+            item.querySelector(".alternativa-letra").textContent = letra(indice);
+            const correta = item.querySelector(".input-correta");
+            correta.value = String(indice);
+            correta.type = document.querySelector('input[name="tipo_questao"]:checked').value === "multiplas_respostas" ? "checkbox" : "radio";
+        });
+    }
+    function criarAlternativa(){
+        const indice = lista.children.length;
+        const item = document.createElement("div");
+        item.className = "alternativa-item";
+        item.innerHTML = `<span class="alternativa-letra">${letra(indice)}</span><div class="alternativa-conteudo"><input class="alternativa-texto" type="text" name="alternativas[]" placeholder="Digite a alternativa"><label class="upload-alternativa"><span class="nome-arquivo">Adicionar imagem</span><input type="file" name="imagens_alternativas[]" accept="image/png,image/jpeg,image/webp"></label><img class="preview-alternativa" alt="Pré-visualização"></div><div class="alternativa-acoes"><label class="marcar-correta"><input class="input-correta" type="radio" name="corretas[]" value="${indice}"> Correta</label><button type="button" class="remover-alternativa" title="Remover">×</button></div>`;
+        const arquivo = item.querySelector('input[type="file"]');
+        const nome = item.querySelector(".nome-arquivo");
+        const preview = item.querySelector(".preview-alternativa");
+        arquivo.addEventListener("change", () => { const selecionado=arquivo.files[0]; nome.textContent=selecionado?selecionado.name:"Adicionar imagem"; if(selecionado){preview.src=URL.createObjectURL(selecionado);preview.classList.add("ativo");}else{preview.removeAttribute("src");preview.classList.remove("ativo");} });
+        item.querySelector(".remover-alternativa").addEventListener("click", () => { if(lista.children.length<=2)return alert("A questão precisa ter pelo menos duas alternativas."); item.remove(); atualizarAlternativas(); });
+        lista.appendChild(item); atualizarAlternativas();
+    }
+    function atualizarTipo(){
+        const tipo = document.querySelector('input[name="tipo_questao"]:checked').value;
+        blocoAlternativas.classList.toggle("oculto", !["multipla_escolha","multiplas_respostas"].includes(tipo));
+        blocoVF.classList.toggle("oculto", tipo !== "verdadeiro_falso");
+        blocoResposta.classList.toggle("oculto", !["resposta_curta","numerica","discursiva"].includes(tipo));
+        blocoCriterios.classList.toggle("oculto", tipo !== "discursiva");
+        blocoLinhasResposta.classList.toggle("oculto", tipo !== "discursiva");
+        document.getElementById("respostaEsperada").required = ["resposta_curta","numerica"].includes(tipo);
+        atualizarAlternativas();
+    }
+    assunto.addEventListener("change", () => { const novo=assunto.value==="__outro__"; grupoNovoAssunto.classList.toggle("oculto",!novo); assuntoOutro.required=novo; });
+    imagemQuestao.addEventListener("change", () => { textoUpload.textContent=imagemQuestao.files[0]?imagemQuestao.files[0].name:"Clique para selecionar uma imagem"; });
+    etapa.addEventListener("change", atualizarSeries);
+    document.querySelectorAll('input[name="tipo_questao"]').forEach(input => input.addEventListener("change", atualizarTipo));
+    botaoAdicionar.addEventListener("click", criarAlternativa);
+    atualizarSeries();
+    for(let i=0;i<4;i++) criarAlternativa();
+    atualizarTipo();
+});
+</script>
+{% endblock %}

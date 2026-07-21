@@ -1,0 +1,642 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Visualizar questão | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.visualizar-questao{
+    --ark-azul:#17468f;
+    --ark-azul-2:#2563eb;
+    --ark-texto:#0f172a;
+    --ark-suave:#64748b;
+    --ark-borda:#dbe4f0;
+    display:grid;
+    gap:18px;
+}
+
+.vq-voltar{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    width:fit-content;
+    color:var(--ark-azul);
+    font-size:13px;
+    font-weight:850;
+    text-decoration:none;
+}
+
+.vq-topo{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+}
+
+.vq-topo h1{
+    margin:0;
+    color:var(--ark-azul);
+    font-size:clamp(27px,3vw,36px);
+    font-weight:900;
+    letter-spacing:-.025em;
+}
+
+.vq-topo p{
+    margin:7px 0 0;
+    color:var(--ark-suave);
+    font-size:14px;
+}
+
+.vq-acoes{
+    display:flex;
+    gap:9px;
+    flex-wrap:wrap;
+}
+
+.vq-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:43px;
+    padding:0 15px;
+    border:1px solid var(--ark-borda);
+    border-radius:12px;
+    background:#fff;
+    color:var(--ark-azul);
+    font-size:12px;
+    font-weight:850;
+    text-decoration:none;
+    cursor:pointer;
+}
+
+.vq-btn svg{
+    width:17px;
+    height:17px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+}
+
+.vq-btn-principal{
+    border-color:var(--ark-azul);
+    background:linear-gradient(135deg,var(--ark-azul),var(--ark-azul-2));
+    color:#fff;
+    box-shadow:0 8px 20px rgba(37,99,235,.18);
+}
+
+.vq-layout{
+    display:grid;
+    grid-template-columns:minmax(0,1.7fr) minmax(280px,.72fr);
+    gap:18px;
+    align-items:start;
+}
+
+.vq-card{
+    border:1px solid var(--ark-borda);
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 10px 30px rgba(15,23,42,.055);
+}
+
+.vq-principal{
+    padding:24px;
+}
+
+.vq-tags{
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+    margin-bottom:18px;
+}
+
+.vq-tag{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    padding:0 10px;
+    border-radius:999px;
+    background:#f1f5f9;
+    color:#475569;
+    font-size:10px;
+    font-weight:850;
+}
+
+.vq-tag.azul{
+    background:#eaf2ff;
+    color:var(--ark-azul);
+}
+
+.vq-numero{
+    margin-left:auto;
+}
+
+.vq-enunciado-titulo{
+    margin:0 0 9px;
+    color:#475569;
+    font-size:11px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+}
+
+.vq-enunciado{
+    margin:0;
+    color:var(--ark-texto);
+    font-size:16px;
+    font-weight:700;
+    line-height:1.72;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+}
+
+.vq-imagem-principal{
+    display:block;
+    width:auto;
+    max-width:100%;
+    max-height:450px;
+    margin:20px auto 0;
+    border:1px solid var(--ark-borda);
+    border-radius:15px;
+    object-fit:contain;
+    background:#fff;
+    padding:6px;
+}
+
+.vq-divisor{
+    height:1px;
+    margin:23px 0;
+    background:#e9eff6;
+}
+
+.vq-secao-titulo{
+    margin:0 0 14px;
+    color:var(--ark-texto);
+    font-size:15px;
+    font-weight:900;
+}
+
+.vq-alternativas{
+    display:grid;
+    gap:11px;
+}
+
+.vq-alternativa{
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr);
+    gap:12px;
+    align-items:start;
+    padding:13px;
+    border:1px solid #e3eaf3;
+    border-radius:14px;
+    background:#f8fafc;
+}
+
+.vq-alternativa.correta{
+    border-color:#86efac;
+    background:#f0fdf4;
+}
+
+.vq-letra{
+    display:grid;
+    place-items:center;
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    background:#eaf2ff;
+    color:var(--ark-azul);
+    font-size:13px;
+    font-weight:900;
+}
+
+.vq-alternativa.correta .vq-letra{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.vq-alternativa-conteudo{
+    min-width:0;
+}
+
+.vq-alternativa-texto{
+    margin:2px 0 0;
+    color:#334155;
+    font-size:13px;
+    font-weight:650;
+    line-height:1.6;
+    white-space:pre-wrap;
+}
+
+.vq-alternativa-imagem{
+    display:block;
+    max-width:100%;
+    max-height:260px;
+    margin-top:9px;
+    border:1px solid var(--ark-borda);
+    border-radius:11px;
+    object-fit:contain;
+    background:#fff;
+    padding:5px;
+}
+
+.vq-correta-selo{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    margin-top:8px;
+    color:#15803d;
+    font-size:10px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+
+.vq-resposta-box{
+    padding:15px;
+    border:1px solid #bfdbfe;
+    border-radius:14px;
+    background:#f8fbff;
+}
+
+.vq-resposta-box strong{
+    display:block;
+    margin-bottom:6px;
+    color:var(--ark-azul);
+    font-size:12px;
+}
+
+.vq-resposta-box p{
+    margin:0;
+    color:#334155;
+    font-size:13px;
+    line-height:1.65;
+    white-space:pre-wrap;
+}
+
+.vq-lateral{
+    display:grid;
+    gap:14px;
+}
+
+.vq-card-cabecalho{
+    padding:17px 19px;
+    border-bottom:1px solid var(--ark-borda);
+}
+
+.vq-card-cabecalho h2{
+    margin:0;
+    color:var(--ark-texto);
+    font-size:14px;
+    font-weight:900;
+}
+
+.vq-dados{
+    display:grid;
+    gap:0;
+    padding:5px 19px 15px;
+}
+
+.vq-dado{
+    display:grid;
+    gap:4px;
+    padding:12px 0;
+    border-bottom:1px solid #edf2f7;
+}
+
+.vq-dado:last-child{
+    border-bottom:0;
+}
+
+.vq-dado span{
+    color:#94a3b8;
+    font-size:10px;
+    font-weight:850;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+}
+
+.vq-dado strong{
+    color:#334155;
+    font-size:12px;
+    font-weight:800;
+    line-height:1.5;
+    overflow-wrap:anywhere;
+}
+
+.vq-tags-lateral{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    padding:15px 19px 19px;
+}
+
+.vq-observacoes{
+    margin:0;
+    padding:16px 19px 19px;
+    color:#475569;
+    font-size:12px;
+    line-height:1.65;
+    white-space:pre-wrap;
+}
+
+.vq-rodape{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:17px 20px;
+    border-top:1px solid var(--ark-borda);
+}
+
+.vq-rodape-info{
+    color:#64748b;
+    font-size:11px;
+    line-height:1.55;
+}
+
+@media(max-width:980px){
+    .vq-layout{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:700px){
+    .vq-topo,
+    .vq-rodape{
+        align-items:stretch;
+        flex-direction:column;
+    }
+
+    .vq-acoes{
+        display:grid;
+        grid-template-columns:1fr;
+    }
+
+    .vq-btn{
+        width:100%;
+    }
+
+    .vq-principal{
+        padding:18px;
+    }
+
+    .vq-alternativa{
+        grid-template-columns:38px minmax(0,1fr);
+    }
+
+    .vq-letra{
+        width:38px;
+        height:38px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+{% set nomes_tipos = {
+    'multipla_escolha':'Múltipla escolha',
+    'multiplas_respostas':'Múltiplas respostas',
+    'verdadeiro_falso':'Verdadeiro ou falso',
+    'discursiva':'Discursiva',
+    'resposta_curta':'Resposta curta',
+    'numerica':'Resposta numérica'
+} %}
+
+<div class="visualizar-questao">
+    <a href="/questoes" class="vq-voltar">← Voltar ao Banco de Questões</a>
+
+    <header class="vq-topo">
+        <div>
+            <h1>Visualizar questão</h1>
+            <p>Confira o enunciado, a resposta e toda a classificação pedagógica.</p>
+        </div>
+
+        <div class="vq-acoes">
+            {% if pode_editar %}
+            <a href="/questoes/{{ questao['id'] }}/editar" class="vq-btn vq-btn-principal">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 20H21"/>
+                    <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L3 19L4 14Z"/>
+                </svg>
+                Editar questão
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="vq-layout">
+        <section class="vq-card">
+            <div class="vq-principal">
+                <div class="vq-tags">
+                    <span class="vq-tag azul">{{ questao['disciplina'] }}</span>
+                    {% if questao['ano_serie'] %}
+                    <span class="vq-tag">{{ questao['ano_serie'] }}</span>
+                    {% endif %}
+                    <span class="vq-tag">
+                        {{ nomes_tipos.get(questao['tipo_questao'], questao['tipo_questao']) }}
+                    </span>
+                    <span class="vq-tag">{{ questao['dificuldade'] }}</span>
+                    <span class="vq-tag vq-numero">#{{ questao['id'] }}</span>
+                </div>
+
+                <p class="vq-enunciado-titulo">Enunciado</p>
+                <div class="vq-enunciado">{{ questao['enunciado'] }}</div>
+
+                {% if questao['imagem'] %}
+                <img
+                    src="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                    alt="Imagem do enunciado"
+                    class="vq-imagem-principal"
+                >
+                {% endif %}
+
+                {% if alternativas %}
+                <div class="vq-divisor"></div>
+                <h2 class="vq-secao-titulo">Alternativas</h2>
+
+                <div class="vq-alternativas">
+                    {% for alternativa in alternativas %}
+                    {% set correta = alternativa.get('letra') in respostas_corretas %}
+                    <article class="vq-alternativa {% if correta %}correta{% endif %}">
+                        <div class="vq-letra">{{ alternativa.get('letra', loop.index|string) }}</div>
+
+                        <div class="vq-alternativa-conteudo">
+                            {% if alternativa.get('texto') %}
+                            <p class="vq-alternativa-texto">{{ alternativa.get('texto') }}</p>
+                            {% endif %}
+
+                            {% if alternativa.get('imagem') %}
+                            <img
+                                src="{{ url_for('static', filename='uploads/' ~ alternativa.get('imagem')) }}"
+                                alt="Imagem da alternativa {{ alternativa.get('letra', loop.index) }}"
+                                class="vq-alternativa-imagem"
+                            >
+                            {% endif %}
+
+                            {% if correta %}
+                            <span class="vq-correta-selo">✓ Resposta correta</span>
+                            {% endif %}
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if questao['resposta_esperada'] %}
+                <div class="vq-divisor"></div>
+                <h2 class="vq-secao-titulo">Resposta esperada</h2>
+                <div class="vq-resposta-box">
+                    <p>{{ questao['resposta_esperada'] }}</p>
+                </div>
+                {% endif %}
+
+                {% if questao['criterios_correcao'] %}
+                <div class="vq-divisor"></div>
+                <h2 class="vq-secao-titulo">Critérios de correção</h2>
+                <div class="vq-resposta-box">
+                    <p>{{ questao['criterios_correcao'] }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <footer class="vq-rodape">
+                <div class="vq-rodape-info">
+                    Criada por <strong>{{ questao['autor_nome'] }}</strong><br>
+                    {{ questao['instituicao_nome'] }} · {{ questao['total_usos'] }} uso(s)
+                </div>
+
+                <a href="/questoes" class="vq-btn">Voltar ao banco</a>
+            </footer>
+        </section>
+
+        <aside class="vq-lateral">
+            <section class="vq-card">
+                <div class="vq-card-cabecalho">
+                    <h2>Classificação pedagógica</h2>
+                </div>
+
+                <div class="vq-dados">
+                    {% if questao['etapa_ensino'] %}
+                    <div class="vq-dado">
+                        <span>Etapa de ensino</span>
+                        <strong>{{ questao['etapa_ensino'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['assunto'] %}
+                    <div class="vq-dado">
+                        <span>Assunto</span>
+                        <strong>
+                            {{ questao['assunto'] }}
+                            {% if questao['subassunto'] %} · {{ questao['subassunto'] }}{% endif %}
+                        </strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['unidade_tematica'] %}
+                    <div class="vq-dado">
+                        <span>Unidade temática</span>
+                        <strong>{{ questao['unidade_tematica'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['objeto_conhecimento'] %}
+                    <div class="vq-dado">
+                        <span>Objeto do conhecimento</span>
+                        <strong>{{ questao['objeto_conhecimento'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['habilidade_bncc'] %}
+                    <div class="vq-dado">
+                        <span>Habilidade BNCC</span>
+                        <strong>{{ questao['habilidade_bncc'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['matriz_referencia'] %}
+                    <div class="vq-dado">
+                        <span>Matriz de referência</span>
+                        <strong>{{ questao['matriz_referencia'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['descritor_saeb'] %}
+                    <div class="vq-dado">
+                        <span>Descritor SAEB</span>
+                        <strong>{{ questao['descritor_saeb'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['taxonomia_bloom'] %}
+                    <div class="vq-dado">
+                        <span>Taxonomia de Bloom</span>
+                        <strong>{{ questao['taxonomia_bloom'] }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['tempo_estimado'] %}
+                    <div class="vq-dado">
+                        <span>Tempo estimado</span>
+                        <strong>{{ questao['tempo_estimado'] }} minuto(s)</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if questao['linhas_resposta'] and questao['tipo_questao'] == 'discursiva' %}
+                    <div class="vq-dado">
+                        <span>Linhas para resposta</span>
+                        <strong>{{ questao['linhas_resposta'] }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            {% if questao['fonte'] or questao['ano_fonte'] %}
+            <section class="vq-card">
+                <div class="vq-card-cabecalho">
+                    <h2>Fonte</h2>
+                </div>
+                <div class="vq-dados">
+                    {% if questao['fonte'] %}
+                    <div class="vq-dado">
+                        <span>Origem</span>
+                        <strong>{{ questao['fonte'] }}</strong>
+                    </div>
+                    {% endif %}
+                    {% if questao['ano_fonte'] %}
+                    <div class="vq-dado">
+                        <span>Ano</span>
+                        <strong>{{ questao['ano_fonte'] }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if tags %}
+            <section class="vq-card">
+                <div class="vq-card-cabecalho">
+                    <h2>Tags</h2>
+                </div>
+                <div class="vq-tags-lateral">
+                    {% for tag in tags %}
+                    <span class="vq-tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if questao['observacoes'] %}
+            <section class="vq-card">
+                <div class="vq-card-cabecalho">
+                    <h2>Observações</h2>
+                </div>
+                <p class="vq-observacoes">{{ questao['observacoes'] }}</p>
+            </section>
+            {% endif %}
+        </aside>
+    </div>
+</div>
+{% endblock %}

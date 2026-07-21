@@ -2,138 +2,240 @@
    CABEÇALHO DAS PÁGINAS
 =========================== */
 
-.pagina-cabecalho {
-    margin-bottom: 30px;
+.pagina-cabecalho{
+    margin-bottom:34px;
 }
 
-.voltar {
-    display: inline-block;
-    margin-bottom: 28px;
+.voltar{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
 
-    color: var(--azul);
-    text-decoration: none;
-    font-weight: 700;
+    margin-bottom:28px;
 
-    transition: color 0.2s;
+    color:var(--ciano-escuro);
+
+    text-decoration:none;
+
+    font-weight:700;
+
+    transition:.25s;
 }
 
-.voltar:hover {
-    color: var(--azul-escuro);
+.voltar:hover{
+    color:var(--azul);
+    transform:translateX(-2px);
 }
 
-.pagina-titulo-linha {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
+.pagina-titulo-linha{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+
+    gap:24px;
 }
 
-.pagina-titulo-linha h1 {
-    margin: 0;
+.pagina-titulo-linha h1{
 
-    color: var(--azul);
-    font-size: 34px;
-    line-height: 1.15;
+    margin:0;
+
+    font-size:34px;
+
+    font-weight:800;
+
+    color:var(--azul);
 }
 
-.pagina-titulo-linha p {
-    margin: 10px 0 0;
+.pagina-titulo-linha p{
 
-    color: var(--texto-suave);
-    font-size: 15px;
+    margin:10px 0 0;
+
+    color:var(--texto-suave);
+
+    font-size:15px;
+
+    line-height:1.6;
 }
 
 /* ===========================
    CARDS
 =========================== */
 
-.card-listagem,
-.card {
-    position: relative;
+.card,
+.card-listagem{
 
-    width: 100%;
-    max-width: 100%;
+    position:relative;
 
-    padding: 32px;
+    width:100%;
 
-    background: var(--branco);
-    border: 1px solid var(--borda);
-    border-radius: 22px;
-    box-shadow: var(--sombra);
+    padding:32px;
 
-    /*
-       Permite que o menu dos três pontos
-       apareça fora do card sem ser cortado.
-    */
-    overflow: visible;
+    background:var(--branco);
+
+    border:1px solid rgba(13,45,98,.06);
+
+    border-radius:22px;
+
+    box-shadow:
+        0 8px 30px rgba(13,45,98,.06),
+        0 1px 2px rgba(13,45,98,.04);
+
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease,
+        border-color .25s ease;
+
+    overflow:visible;
 }
 
-/* Garante que a tabela não crie barra vertical */
+.card:hover,
+.card-listagem:hover{
 
-.card-listagem {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
+    transform:translateY(-3px);
+
+    border-color:rgba(16,183,199,.20);
+
+    box-shadow:
+        0 18px 42px rgba(13,45,98,.10);
+}
+
+/* ===========================
+   TÍTULO DOS CARDS
+=========================== */
+
+.card h2,
+.card h3,
+.card-listagem h2,
+.card-listagem h3{
+
+    margin-top:0;
+
+    margin-bottom:18px;
+
+    color:var(--azul);
+
+    font-weight:800;
+}
+
+/* ===========================
+   SEPARADORES
+=========================== */
+
+.card hr{
+
+    margin:24px 0;
+
+    border:none;
+
+    border-top:1px solid var(--borda);
 }
 
 /* ===========================
    ESTADO VAZIO
 =========================== */
 
-.estado-vazio {
-    min-height: 170px;
+.estado-vazio{
 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display:flex;
 
-    text-align: center;
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    min-height:180px;
+
+    text-align:center;
 }
 
-.estado-vazio h2 {
-    margin: 0 0 10px;
+.estado-vazio h2{
 
-    color: var(--azul);
-    font-size: 26px;
+    margin:0 0 12px;
+
+    color:var(--azul);
+
+    font-size:28px;
+
+    font-weight:800;
 }
 
-.estado-vazio p {
-    margin: 0;
+.estado-vazio p{
 
-    color: var(--texto-suave);
-    font-size: 16px;
+    max-width:420px;
+
+    margin:0;
+
+    color:var(--texto-suave);
+
+    line-height:1.7;
+
+    font-size:15px;
 }
 
 /* ===========================
-   RESPONSIVIDADE
+   BADGE OPCIONAL
 =========================== */
 
-@media (max-width: 800px) {
-    .pagina-titulo-linha {
-        align-items: flex-start;
-        flex-direction: column;
-    }
+.card-badge{
 
-    .pagina-titulo-linha h1 {
-        font-size: 29px;
-    }
+    display:inline-flex;
 
-    .card-listagem,
-    .card {
-        padding: 24px;
-    }
+    align-items:center;
+
+    padding:6px 12px;
+
+    border-radius:999px;
+
+    background:rgba(16,183,199,.10);
+
+    color:var(--ciano-escuro);
+
+    font-size:12px;
+
+    font-weight:700;
 }
 
-@media (max-width: 500px) {
-    .card-listagem,
-    .card {
-        padding: 20px;
-        border-radius: 18px;
+/* ===========================
+   RESPONSIVO
+=========================== */
+
+@media (max-width:800px){
+
+    .pagina-titulo-linha{
+
+        flex-direction:column;
+
+        align-items:flex-start;
     }
 
-    .estado-vazio h2 {
-        font-size: 22px;
+    .pagina-titulo-linha h1{
+
+        font-size:30px;
     }
+
+    .card,
+    .card-listagem{
+
+        padding:24px;
+    }
+
+}
+
+@media (max-width:500px){
+
+    .card,
+    .card-listagem{
+
+        padding:20px;
+
+        border-radius:18px;
+    }
+
+    .estado-vazio h2{
+
+        font-size:22px;
+    }
+
 }

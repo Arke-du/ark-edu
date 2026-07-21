@@ -1,0 +1,59 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Editar questão | ARK EDUS{% endblock %}
+{% block estilos %}
+<style>
+.editar-pagina{--azul:#17468f;--azul2:#2563eb;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
+.editar-voltar{display:inline-flex;width:fit-content;color:var(--azul);font-size:14px;font-weight:800;text-decoration:none}
+.editar-topo h1{margin:0;color:var(--azul);font-size:clamp(28px,3vw,36px);font-weight:900}.editar-topo p{margin:7px 0 0;color:var(--suave)}
+.editar-card{overflow:hidden;border:1px solid var(--borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
+.editar-cabecalho{padding:19px 24px;border-bottom:1px solid var(--borda)}.editar-cabecalho h2{margin:0;font-size:18px}
+.editar-form{padding:24px}.editar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.largo{grid-column:1/-1}
+.grupo{display:grid;gap:7px}.grupo label,.titulo{color:#334155;font-size:12px;font-weight:850}
+.grupo input,.grupo select,.grupo textarea{width:100%;border:1px solid var(--borda);border-radius:12px;background:#fff;font:inherit;font-size:13px;outline:none}
+.grupo input,.grupo select{min-height:46px;padding:0 13px}.grupo textarea{min-height:130px;padding:14px;resize:vertical}
+.tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0}.tipo-opcao span{display:flex;min-height:52px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--borda);border-radius:12px;background:#f8fafc;font-size:12px;font-weight:800;text-align:center;cursor:pointer}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--azul)}
+.alternativas{display:grid;gap:11px}.alternativa{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center;padding:12px;border:1px solid #e4eaf2;border-radius:13px;background:#f8fafc}.letra{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eaf2ff;color:var(--azul);font-weight:900}.correta{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800}.correta input{width:18px;height:18px;min-height:auto}
+.oculto{display:none!important}.rodape{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--borda);background:#f8fafc}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer}.secundario{border:1px solid var(--borda);background:#fff;color:var(--azul)}.principal{border:1px solid var(--azul);background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff}
+@media(max-width:800px){.editar-grid,.tipo-grid{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa{grid-template-columns:38px minmax(0,1fr)}.correta{grid-column:2}.rodape{display:grid}.btn{width:100%}}
+</style>
+{% endblock %}
+{% block conteudo %}
+<div class="editar-pagina">
+<a class="editar-voltar" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">← Voltar</a>
+<header class="editar-topo"><h1>Editar questão</h1><p>Atualize o conteúdo e salve para retornar à avaliação.</p></header>
+<form method="POST" action="/questoes/{{ questao['id'] }}/editar">
+{% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
+<section class="editar-card">
+<div class="editar-cabecalho"><h2>Informações da questão</h2></div>
+<div class="editar-form"><div class="editar-grid">
+<div class="grupo"><label>Componente curricular</label><select name="disciplina" required>{% if componentes %}{% for c in componentes %}<option value="{{ c }}" {% if questao['disciplina']==c %}selected{% endif %}>{{ c }}</option>{% endfor %}{% else %}<option selected>{{ questao['disciplina'] }}</option>{% endif %}</select></div>
+<div class="grupo"><label>Assunto</label><input name="assunto" value="{{ questao['assunto'] or '' }}" required></div>
+<div class="grupo"><label>Dificuldade</label><select name="dificuldade">{% for d in ['Fácil','Média','Difícil'] %}<option value="{{ d }}" {% if questao['dificuldade']==d %}selected{% endif %}>{{ d }}</option>{% endfor %}</select></div>
+<div class="grupo largo"><span class="titulo">Tipo da questão</span><div class="tipo-grid">
+{% for valor,rotulo in [('multipla_escolha','Múltipla escolha'),('multiplas_respostas','Múltiplas respostas'),('verdadeiro_falso','Verdadeiro ou falso'),('discursiva','Discursiva'),('resposta_curta','Resposta curta'),('numerica','Numérica')] %}
+<label class="tipo-opcao"><input type="radio" name="tipo_questao" value="{{ valor }}" {% if questao['tipo_questao']==valor %}checked{% endif %}><span>{{ rotulo }}</span></label>
+{% endfor %}
+</div></div>
+<div class="grupo largo"><label>Enunciado</label><textarea name="enunciado" required>{{ questao['enunciado'] }}</textarea></div>
+<div class="grupo largo" id="blocoAlternativas"><span class="titulo">Alternativas</span><div class="alternativas">
+{% for i in range(4) %}{% set alt=alternativas[i] if i < alternativas|length else none %}{% set letra=['A','B','C','D'][i] %}
+<div class="alternativa"><span class="letra">{{ letra }}</span><input name="alternativas[]" value="{{ alt['texto'] if alt else '' }}"><label class="correta"><input type="{% if questao['tipo_questao']=='multiplas_respostas' %}checkbox{% else %}radio{% endif %}" name="corretas[]" value="{{ i }}" {% if letra in respostas %}checked{% endif %}>Correta</label></div>
+{% endfor %}
+</div></div>
+<div class="grupo largo oculto" id="blocoVF"><span class="titulo">Resposta correta</span><div class="tipo-grid"><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="V" {% if 'V' in respostas %}checked{% endif %}><span>Verdadeiro</span></label><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="F" {% if 'F' in respostas %}checked{% endif %}><span>Falso</span></label></div></div>
+<div class="grupo largo oculto" id="blocoResposta"><label>Resposta esperada</label><textarea name="resposta_esperada">{{ questao['resposta_esperada'] or '' }}</textarea></div>
+<div class="grupo largo oculto" id="blocoCriterios"><label>Critérios de correção</label><textarea name="criterios_correcao">{{ questao['criterios_correcao'] or '' }}</textarea></div>
+<div class="grupo oculto" id="blocoLinhas"><label>Quantidade de linhas</label><input type="number" name="linhas_resposta" min="1" max="30" value="{{ questao['linhas_resposta'] or 5 }}"></div>
+</div></div>
+<div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Salvar alterações</button></div>
+</section></form></div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+const tipos=document.querySelectorAll('input[name="tipo_questao"]'),a=document.getElementById("blocoAlternativas"),vf=document.getElementById("blocoVF"),r=document.getElementById("blocoResposta"),c=document.getElementById("blocoCriterios"),l=document.getElementById("blocoLinhas");
+function atualizar(){const s=document.querySelector('input[name="tipo_questao"]:checked'),t=s?s.value:"multipla_escolha",obj=["multipla_escolha","multiplas_respostas"].includes(t),disc=t==="discursiva";a.classList.toggle("oculto",!obj);vf.classList.toggle("oculto",t!=="verdadeiro_falso");r.classList.toggle("oculto",!["discursiva","resposta_curta","numerica"].includes(t));c.classList.toggle("oculto",!disc);l.classList.toggle("oculto",!disc);document.querySelectorAll('input[name="corretas[]"]').forEach(x=>x.type=t==="multiplas_respostas"?"checkbox":"radio")}
+tipos.forEach(x=>x.addEventListener("change",atual));atual();
+});
+</script>
+{% endblock %}

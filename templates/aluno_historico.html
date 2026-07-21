@@ -1,0 +1,342 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Histórico do aluno | ARK EDU{% endblock %}
+
+{% block estilos %}
+<style>
+    .historico-pagina {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .historico-cabecalho,
+    .historico-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 22px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .historico-cabecalho {
+        padding: 26px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .historico-etiqueta {
+        display: inline-block;
+        margin-bottom: 8px;
+        color: #175bb5;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .historico-cabecalho h1 {
+        margin: 0;
+        color: #0f274d;
+        font-size: 1.8rem;
+    }
+
+    .historico-cabecalho p {
+        margin: 8px 0 0;
+        color: #64748b;
+    }
+
+    .historico-acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .historico-btn {
+        min-height: 42px;
+        padding: 0 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #d7e0ec;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #16335f;
+        font-weight: 700;
+        text-decoration: none;
+        transition: 0.2s ease;
+    }
+
+    .historico-btn:hover {
+        background: #f4f7fb;
+        border-color: #b7c7dc;
+    }
+
+    .historico-btn-principal {
+        border-color: #1d61b8;
+        background: #1d61b8;
+        color: #ffffff;
+    }
+
+    .historico-btn-principal:hover {
+        background: #164f98;
+        border-color: #164f98;
+    }
+
+    .historico-card {
+        padding: 26px 30px;
+    }
+
+    .historico-aluno {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .historico-avatar {
+        width: 64px;
+        height: 64px;
+        display: grid;
+        place-items: center;
+        border-radius: 18px;
+        background: #175bb5;
+        color: #ffffff;
+        font-size: 1.45rem;
+        font-weight: 800;
+    }
+
+    .historico-aluno h2 {
+        margin: 0;
+        color: #102a50;
+        font-size: 1.35rem;
+    }
+
+    .historico-dados {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 22px;
+        color: #64748b;
+        font-size: 0.92rem;
+    }
+
+    .historico-dados strong {
+        color: #263d5f;
+    }
+
+    .historico-titulo-secao {
+        margin: 0 0 18px;
+        color: #102a50;
+        font-size: 1.2rem;
+    }
+
+    .historico-lista {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .historico-registro {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 100px minmax(180px, 1.2fr) minmax(150px, 1fr) auto;
+        align-items: center;
+        gap: 18px;
+        border: 1px solid #e4eaf2;
+        border-radius: 16px;
+        background: #fbfcfe;
+    }
+
+    .historico-ano {
+        color: #175bb5;
+        font-size: 1.18rem;
+        font-weight: 800;
+    }
+
+    .historico-registro strong {
+        display: block;
+        color: #183458;
+    }
+
+    .historico-registro small {
+        display: block;
+        margin-top: 4px;
+        color: #718096;
+    }
+
+    .historico-status {
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #18713b;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .historico-status-encerrado {
+        background: #eef2f7;
+        color: #596779;
+    }
+
+    .historico-observacao {
+        grid-column: 2 / -1;
+        padding-top: 12px;
+        border-top: 1px solid #e5eaf1;
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
+    .historico-vazio {
+        padding: 42px 20px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .historico-vazio h3 {
+        margin: 0 0 8px;
+        color: #183458;
+    }
+
+    @media (max-width: 900px) {
+        .historico-cabecalho {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .historico-registro {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .historico-observacao {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .historico-cabecalho,
+        .historico-card {
+            padding: 20px;
+        }
+
+        .historico-registro {
+            grid-template-columns: 1fr;
+        }
+
+        .historico-observacao {
+            grid-column: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="historico-pagina">
+
+    <header class="historico-cabecalho">
+        <div>
+            <span class="historico-etiqueta">Alunos</span>
+            <h1>Histórico do aluno</h1>
+            <p>Consulte as matrículas e turmas do estudante em cada ano letivo.</p>
+        </div>
+
+        <div class="historico-acoes">
+            <a href="{{ url_for('alunos') }}" class="historico-btn">
+                ← Voltar para alunos
+            </a>
+
+            <a
+                href="{{ url_for('editar_aluno', aluno_id=aluno['id']) }}"
+                class="historico-btn historico-btn-principal"
+            >
+                Editar cadastro
+            </a>
+        </div>
+    </header>
+
+    <section class="historico-card">
+        <div class="historico-aluno">
+            <div class="historico-avatar">
+                {{ aluno['nome'][0]|upper }}
+            </div>
+
+            <div>
+                <h2>{{ aluno['nome'] }}</h2>
+
+                <div class="historico-dados">
+                    <span>
+                        <strong>Matrícula:</strong>
+                        {{ aluno['matricula'] or "Não informada" }}
+                    </span>
+
+                    {% if aluno['nome_instituicao'] %}
+                        <span>
+                            <strong>Instituição:</strong>
+                            {{ aluno['nome_instituicao'] }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="historico-card">
+        <h2 class="historico-titulo-secao">Histórico de matrículas</h2>
+
+        {% if historico %}
+            <div class="historico-lista">
+                {% for registro in historico %}
+                    <article class="historico-registro">
+                        <div class="historico-ano">
+                            {{ registro['ano_letivo'] or "—" }}
+                        </div>
+
+                        <div>
+                            <strong>{{ registro['nome_turma'] or "Turma não informada" }}</strong>
+                            <small>
+                                {% if registro['ano_turma'] %}
+                                    {{ registro['ano_turma'] }}
+                                {% endif %}
+                                {% if registro['etapa'] %}
+                                    {% if registro['ano_turma'] %} · {% endif %}
+                                    {{ registro['etapa'] }}
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <div>
+                            <strong>{{ registro['turno'] or "Turno não informado" }}</strong>
+                            <small>
+                                {% if registro['data_matricula'] %}
+                                    Matrícula em {{ registro['data_matricula'] }}
+                                {% else %}
+                                    Data da matrícula não registrada
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <span class="historico-status {% if registro['encerrado'] %}historico-status-encerrado{% endif %}">
+                            {{ registro['situacao'] or ("Encerrado" if registro['encerrado'] else "Cursando") }}
+                        </span>
+
+                        {% if registro['observacao'] %}
+                            <div class="historico-observacao">
+                                <strong>Observação:</strong>
+                                {{ registro['observacao'] }}
+                            </div>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="historico-vazio">
+                <h3>Nenhum histórico encontrado</h3>
+                <p>Este aluno ainda não possui registros de matrícula disponíveis.</p>
+            </div>
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

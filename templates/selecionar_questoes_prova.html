@@ -1,0 +1,119 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Selecionar questões | ARK EDU{% endblock %}
+
+{% block estilos %}
+<style>
+.selecao-pagina{--azul:#17468f;--azul2:#2563eb;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
+.selecao-voltar{width:fit-content;color:var(--azul);font-size:14px;font-weight:800;text-decoration:none}
+.selecao-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.selecao-topo h1{margin:0;color:var(--azul);font-size:clamp(28px,3vw,36px);font-weight:900}
+.selecao-topo p{margin:7px 0 0;color:var(--suave);font-size:14px}
+.selecao-resumo{display:flex;gap:10px;flex-wrap:wrap}
+.selecao-chip{padding:8px 11px;border:1px solid #bfdbfe;border-radius:999px;background:#eff6ff;color:var(--azul);font-size:12px;font-weight:800}
+.selecao-card{border:1px solid var(--borda);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.05);overflow:hidden}
+.filtros{display:grid;grid-template-columns:2fr repeat(3,minmax(150px,1fr));gap:12px;padding:18px}
+.campo{display:grid;gap:6px}.campo label{font-size:11px;font-weight:850;color:#334155}.campo input,.campo select{min-height:44px;padding:0 12px;border:1px solid var(--borda);border-radius:11px;background:#fff;font:inherit;font-size:12px;color:var(--texto)}
+.filtros-acoes{display:flex;align-items:end;gap:8px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:11px;font:inherit;font-size:12px;font-weight:850;text-decoration:none;cursor:pointer}.btn-sec{border:1px solid var(--borda);background:#fff;color:var(--azul)}.btn-pri{border:1px solid var(--azul);background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff}
+.lista-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-top:1px solid var(--borda);border-bottom:1px solid var(--borda);background:#fbfdff}.lista-cab strong{font-size:13px;color:var(--texto)}
+.lista{display:grid;gap:14px;padding:18px}.item{display:grid;grid-template-columns:24px minmax(0,1fr);gap:14px;padding:18px;border:1px solid #e5eaf1;border-radius:16px;background:#fff;cursor:pointer;transition:.2s}.item:hover{border-color:#93c5fd;background:#f8fbff;box-shadow:0 8px 24px rgba(37,99,235,.08)}.item:has(.checkQuestao:checked){border-color:#60a5fa;background:#f7fbff;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.item input{width:18px;height:18px;margin-top:3px}.questao-conteudo{min-width:0}.item h3{margin:0;color:var(--texto);font-size:14px;line-height:1.65}.questao-imagem{display:block;max-width:min(520px,100%);max-height:260px;margin-top:14px;border:1px solid var(--borda);border-radius:12px;background:#fff;object-fit:contain}.alternativas{display:grid;gap:8px;margin-top:14px}.alternativa{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;padding:9px 11px;border:1px solid #e5eaf1;border-radius:11px;background:#f8fafc;color:#334155;font-size:12px;line-height:1.5}.alternativa-letra{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#eaf2ff;color:var(--azul);font-weight:900}.alternativa img{display:block;max-width:260px;max-height:150px;margin-top:7px;border:1px solid var(--borda);border-radius:9px;background:#fff;object-fit:contain}.resposta-esperada{margin-top:14px;padding:12px 13px;border-left:4px solid #93c5fd;border-radius:10px;background:#eff6ff;color:#334155;font-size:12px;line-height:1.55}.resposta-esperada strong{display:block;margin-bottom:4px;color:var(--azul)}.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.tag{padding:5px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:10px;font-weight:800}
+.vazio{padding:55px 20px;text-align:center;color:var(--suave)}
+.rodape{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-top:1px solid var(--borda);background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}
+@media(max-width:980px){.filtros{grid-template-columns:1fr 1fr}.filtros-acoes{grid-column:1/-1}}@media(max-width:620px){.filtros{grid-template-columns:1fr}.filtros-acoes{grid-column:auto;display:grid}.rodape{align-items:stretch;flex-direction:column}.rodape .btn{width:100%}}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="selecao-pagina">
+    <a href="/provas/{{ prova['id'] }}/montar" class="selecao-voltar">← Voltar para a avaliação</a>
+
+    <header class="selecao-topo">
+        <div>
+            <h1>Banco de questões</h1>
+            <p>Selecione as questões que serão adicionadas à avaliação.</p>
+        </div>
+        <div class="selecao-resumo">
+            <span class="selecao-chip">{{ prova['disciplina'] }}</span>
+            <span class="selecao-chip">{{ prova['turma_nome'] }}</span>
+        </div>
+    </header>
+
+    <section class="selecao-card">
+        <form method="GET" action="/provas/{{ prova['id'] }}/banco-questoes" class="filtros">
+            <div class="campo"><label>Pesquisar</label><input name="busca" value="{{ filtros['busca'] }}" placeholder="Digite parte do enunciado ou assunto"></div>
+            <div class="campo"><label>Assunto</label><select name="assunto"><option value="">Todos</option>{% for item in assuntos %}<option value="{{ item }}" {% if filtros['assunto']==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="campo"><label>Dificuldade</label><select name="dificuldade"><option value="">Todas</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if filtros['dificuldade']==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="campo"><label>Tipo</label><select name="tipo"><option value="">Todos</option><option value="objetiva" {% if filtros['tipo']=='objetiva' %}selected{% endif %}>Objetiva</option><option value="discursiva" {% if filtros['tipo']=='discursiva' %}selected{% endif %}>Discursiva</option><option value="verdadeiro_falso" {% if filtros['tipo']=='verdadeiro_falso' %}selected{% endif %}>Verdadeiro ou falso</option><option value="resposta_curta" {% if filtros['tipo']=='resposta_curta' %}selected{% endif %}>Resposta curta</option><option value="numerica" {% if filtros['tipo']=='numerica' %}selected{% endif %}>Numérica</option></select></div>
+            <div class="filtros-acoes"><button class="btn btn-pri" type="submit">Filtrar</button><a class="btn btn-sec" href="/provas/{{ prova['id'] }}/banco-questoes">Limpar</a></div>
+        </form>
+
+        <form method="POST" action="/provas/{{ prova['id'] }}/banco-questoes/adicionar" id="formSelecionar">
+            <div class="lista-cab">
+                <strong>{{ questoes|length }} questão(ões) encontrada(s)</strong>
+                {% if questoes %}<label><input type="checkbox" id="marcarTodas"> Selecionar todas</label>{% endif %}
+            </div>
+
+            {% if questoes %}
+            <div class="lista">
+                {% for questao in questoes %}
+                <label class="item">
+                    <input class="checkQuestao" type="checkbox" name="questoes_ids" value="{{ questao['id'] }}">
+                    <div class="questao-conteudo">
+                        <h3>{{ questao['enunciado'] }}</h3>
+
+                        {% if questao['imagem'] %}
+                        <img class="questao-imagem" src="{{ url_for('static', filename=questao['imagem']) if not questao['imagem'].startswith('/static/') else questao['imagem'] }}" alt="Imagem da questão">
+                        {% endif %}
+
+                        {% if questao['alternativas'] %}
+                        <div class="alternativas">
+                            {% for alternativa in questao['alternativas'] %}
+                            <div class="alternativa">
+                                <span class="alternativa-letra">{{ alternativa.get('letra') or loop.index }}</span>
+                                <div>
+                                    {% if alternativa.get('texto') %}<span>{{ alternativa.get('texto') }}</span>{% endif %}
+                                    {% if alternativa.get('imagem') %}
+                                    <img src="{{ url_for('static', filename=alternativa.get('imagem')) if not alternativa.get('imagem').startswith('/static/') else alternativa.get('imagem') }}" alt="Imagem da alternativa">
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% elif questao['tipo_questao'] in ['discursiva', 'resposta_curta', 'numerica'] and questao['resposta_esperada'] %}
+                        <div class="resposta-esperada">
+                            <strong>Resposta esperada</strong>
+                            {{ questao['resposta_esperada'] }}
+                        </div>
+                        {% endif %}
+
+                        <div class="tags">
+                            {% if questao['assunto'] %}<span class="tag">{{ questao['assunto'] }}</span>{% endif %}
+                            {% if questao['dificuldade'] %}<span class="tag">{{ questao['dificuldade'] }}</span>{% endif %}
+                            {% if questao['tipo_questao'] %}<span class="tag">{{ questao['tipo_questao']|replace('_',' ')|title }}</span>{% endif %}
+                            {% if questao['ano_serie'] %}<span class="tag">{{ questao['ano_serie'] }}</span>{% endif %}
+                        </div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="rodape">
+                <span id="contadorSelecionadas">0 questão(ões) selecionada(s)</span>
+                <button type="submit" class="btn btn-pri">Adicionar selecionadas</button>
+            </div>
+            {% else %}
+            <div class="vazio">Nenhuma questão compatível foi encontrada com os filtros informados.</div>
+            {% endif %}
+        </form>
+    </section>
+</div>
+
+<script>
+const marcarTodas=document.getElementById('marcarTodas');
+const checks=[...document.querySelectorAll('.checkQuestao')];
+const contador=document.getElementById('contadorSelecionadas');
+function atualizar(){const total=checks.filter(c=>c.checked).length;if(contador)contador.textContent=`${total} questão(ões) selecionada(s)`;if(marcarTodas)marcarTodas.checked=checks.length>0&&total===checks.length}
+if(marcarTodas)marcarTodas.addEventListener('change',()=>{checks.forEach(c=>c.checked=marcarTodas.checked);atualizar()});
+checks.forEach(c=>c.addEventListener('change',atualizar));
+document.getElementById('formSelecionar')?.addEventListener('submit',e=>{if(!checks.some(c=>c.checked)){e.preventDefault();alert('Selecione pelo menos uma questão.')}});
+</script>
+{% endblock %}

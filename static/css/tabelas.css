@@ -1,3 +1,14 @@
+/* =====================================================
+   ARK EDUS — TABELAS, MENUS DE AÇÃO E MODAIS
+   Paleta atualizada para:
+   --azul: #0D2D62;
+   --ciano: #10B7C7;
+   --ciano-escuro: #0891B2;
+   --fundo: #F6F8FC;
+   --texto: #1E293B;
+   --borda: #E5E7EB;
+===================================================== */
+
 /* ===========================
    TABELAS
 =========================== */
@@ -43,7 +54,7 @@
 }
 
 .tabela tbody tr:hover {
-    background: #f8fafc;
+    background: #F8FAFC;
 }
 
 .tabela small {
@@ -111,8 +122,8 @@
     align-items: center;
     justify-content: center;
 
-    background: var(--azul-claro);
-    border: 1px solid var(--borda);
+    background: rgba(16, 183, 199, 0.08);
+    border: 1px solid rgba(16, 183, 199, 0.18);
     border-radius: 10px;
 
     color: var(--azul);
@@ -129,8 +140,8 @@
 
 .btn-menu-acoes:hover,
 .btn-menu-acoes:focus {
-    background: #dfe9ff;
-    border-color: rgba(22, 62, 143, 0.18);
+    background: #DDF6F8;
+    border-color: rgba(16, 183, 199, 0.22);
     color: var(--azul-escuro);
     outline: none;
 }
@@ -156,7 +167,7 @@
     border: 1px solid var(--borda);
     border-radius: 12px;
 
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 16px 40px rgba(13, 45, 98, 0.16);
 
     transform: translateY(-50%);
 }
@@ -250,7 +261,7 @@
     position: absolute;
     inset: 0;
 
-    background: rgba(15, 23, 42, 0.55);
+    background: rgba(13, 45, 98, 0.58);
     backdrop-filter: blur(3px);
 }
 
@@ -269,7 +280,7 @@
 
     text-align: center;
 
-    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+    box-shadow: 0 24px 70px rgba(13, 45, 98, 0.25);
 }
 
 .modal-icone {
@@ -486,7 +497,7 @@
 }
 
 .tabela-padrao tbody tr:hover {
-    background: #f8fafc;
+    background: #F8FAFC;
 }
 
 .coluna-acoes {
@@ -527,8 +538,8 @@
 .btn-menu:hover,
 .btn-menu.ativo {
     color: #ffffff;
-    background: var(--azul);
-    border-color: var(--azul);
+    background: linear-gradient(135deg, var(--azul), var(--ciano-escuro));
+    border-color: var(--ciano-escuro);
 }
 
 .btn-menu svg {
@@ -566,7 +577,7 @@
 
     padding: 12px 15px;
 
-    color: #334155;
+    color: #1E293B;
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
@@ -580,7 +591,7 @@
 
 .dropdown-acoes a:hover {
     color: var(--azul);
-    background: #f8fafc;
+    background: #F8FAFC;
 }
 
 .dropdown-acoes .acao-excluir {

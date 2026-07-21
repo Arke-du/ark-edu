@@ -1,243 +1,2538 @@
 <!DOCTYPE html>
+
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Caderno de Questões</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>{{ prova['nome'] }} | ARK EDUS</title>
 
 <style>
+/* =========================================================
+   CONFIGURAÇÕES GERAIS
+========================================================= */
+
+:root {
+    --arke-primary: #123f88;
+    --arke-primary-dark: #0b2f6a;
+    --arke-primary-light: #eaf2ff;
+    --arke-cyan: #00a9c8;
+    --arke-background: #f4f7fc;
+    --arke-card: #ffffff;
+    --arke-text: #172033;
+    --arke-muted: #64748b;
+    --arke-border: #dce5f2;
+    --arke-success: #15803d;
+    --arke-success-bg: #ecfdf3;
+    --arke-danger: #c81e1e;
+    --arke-danger-bg: #fff1f2;
+    --arke-warning: #b45309;
+    --arke-shadow: 0 12px 35px rgba(15, 48, 96, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    margin: 35px;
-    color: #111;
-}
-
-.botoes {
-    margin-bottom: 20px;
-}
-
-button, a.botao {
-    background: #1e3a8a;
-    color: white;
-    padding: 10px 14px;
-    border-radius: 6px;
-    text-decoration: none;
-    border: none;
-    cursor: pointer;
-}
-
-.cabecalho-prova {
-    width: 100%;
-    max-width: 900px;
-    margin-bottom: 30px;
-}
-
-.linha-topo {
-    display: flex;
-    align-items: flex-start;
-    gap: 25px;
-}
-
-.logo-area {
-    width: 120px;
-    min-height: 110px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    font-size: 28px;
-    text-align: center;
-}
-
-.logo-area img {
-    max-width: 100px;
-    max-height: 100px;
-    object-fit: contain;
-}
-
-.dados-area {
-    flex: 1;
-}
-
-.campo {
-    border-bottom: 1px solid #999;
-    padding: 3px 0;
-    font-size: 15px;
-    min-height: 20px;
-}
-
-.duplo {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-bottom: 1px solid #999;
-    padding: 3px 0;
-    font-size: 15px;
-    min-height: 20px;
-}
-
-.instrucoes {
-    margin-top: 10px;
-    font-size: 15px;
-}
-
-.instrucoes strong {
-    display: block;
-    margin-bottom: 5px;
-}
-
-.instrucoes ol {
     margin: 0;
-    padding-left: 20px;
-}
-
-.instrucoes li {
-    margin-bottom: 4px;
-}
-
-.titulo-prova {
-    text-align: center;
-    margin-top: 18px;
-    padding-top: 8px;
-    border-top: 1px solid #ddd;
-    font-size: 18px;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-
-.questao {
-    margin-bottom: 30px;
-    page-break-inside: avoid;
-}
-
-.questao h3 {
-    font-size: 18px;
-    margin-bottom: 15px;
-}
-
-.enunciado {
-    font-size: 16px;
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+    background: var(--arke-background);
+    color: var(--arke-text);
     line-height: 1.5;
 }
 
-.imagem {
-    max-width: 450px;
+button,
+a {
+    font: inherit;
+}
+
+img {
+    max-width: 100%;
+}
+
+/* =========================================================
+   CABEÇALHO DA PÁGINA
+========================================================= */
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid var(--arke-border);
+    backdrop-filter: blur(12px);
+}
+
+.topbar-content {
+    width: 100%;
+    max-width: 1280px;
+    min-height: 72px;
+    margin: 0 auto;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.brand-icon {
+    width: 43px;
+    height: 43px;
+    border-radius: 13px;
+    background: linear-gradient(
+        135deg,
+        var(--arke-primary-dark),
+        var(--arke-primary),
+        var(--arke-cyan)
+    );
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 7px 18px rgba(18, 63, 136, 0.22);
+    flex-shrink: 0;
+}
+
+.brand-icon svg {
+    width: 23px;
+    height: 23px;
+}
+
+.topbar-title {
+    min-width: 0;
+}
+
+.topbar-title strong {
     display: block;
-    margin: 15px auto;
-}
-
-.alternativa {
-    margin: 8px 0;
+    color: var(--arke-text);
     font-size: 16px;
+    line-height: 1.2;
 }
 
-.gabarito {
-    margin-top: 30px;
-    border-top: 1px solid #000;
-    padding-top: 15px;
+.topbar-title span {
+    display: block;
+    margin-top: 3px;
+    color: var(--arke-muted);
+    font-size: 13px;
 }
 
-@media print {
-    .botoes, .gabarito {
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* =========================================================
+   BOTÕES
+========================================================= */
+
+.btn {
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #ffffff;
+    color: var(--arke-primary);
+    border-color: var(--arke-border);
+}
+
+.btn-secondary:hover {
+    border-color: #adc3e5;
+    background: #f8fbff;
+    box-shadow: 0 6px 18px rgba(18, 63, 136, 0.08);
+}
+
+.btn-primary {
+    background: var(--arke-primary);
+    color: #ffffff;
+    border-color: var(--arke-primary);
+    box-shadow: 0 7px 18px rgba(18, 63, 136, 0.18);
+}
+
+.btn-primary:hover {
+    background: var(--arke-primary-dark);
+    border-color: var(--arke-primary-dark);
+    box-shadow: 0 9px 22px rgba(18, 63, 136, 0.24);
+}
+
+.btn-light {
+    background: var(--arke-primary-light);
+    color: var(--arke-primary);
+    border-color: #cfe0f8;
+}
+
+.btn-light:hover {
+    background: #dceaff;
+}
+
+/* =========================================================
+   CONTEÚDO
+========================================================= */
+
+.page-wrapper {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 30px 28px 50px;
+}
+
+.page-heading {
+    margin-bottom: 22px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.page-heading-text {
+    min-width: 0;
+}
+
+.page-label {
+    margin-bottom: 7px;
+    color: var(--arke-primary);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.page-heading h1 {
+    margin: 0;
+    color: var(--arke-text);
+    font-size: clamp(24px, 3vw, 31px);
+    line-height: 1.2;
+}
+
+.page-heading p {
+    margin: 7px 0 0;
+    color: var(--arke-muted);
+    font-size: 14px;
+}
+
+.question-count {
+    min-width: 136px;
+    padding: 12px 16px;
+    border: 1px solid var(--arke-border);
+    border-radius: 14px;
+    background: #ffffff;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(15, 48, 96, 0.04);
+}
+
+.question-count strong {
+    display: block;
+    color: var(--arke-primary);
+    font-size: 22px;
+    line-height: 1;
+}
+
+.question-count span {
+    display: block;
+    margin-top: 5px;
+    color: var(--arke-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   CARD PRINCIPAL
+========================================================= */
+
+.exam-card {
+    overflow: hidden;
+    border: 1px solid var(--arke-border);
+    border-radius: 20px;
+    background: var(--arke-card);
+    box-shadow: var(--arke-shadow);
+}
+
+.exam-card-header {
+    position: relative;
+    overflow: hidden;
+    padding: 28px 30px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(0, 169, 200, 0.21),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            var(--arke-primary-dark),
+            var(--arke-primary)
+        );
+    color: #ffffff;
+}
+
+.exam-card-header::after {
+    content: "";
+    position: absolute;
+    right: -50px;
+    bottom: -95px;
+    width: 210px;
+    height: 210px;
+    border: 28px solid rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+.exam-header-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.institution-logo {
+    width: 92px;
+    height: 92px;
+    padding: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 10px 24px rgba(7, 29, 68, 0.18);
+}
+
+.institution-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.logo-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 13px;
+    background: linear-gradient(
+        135deg,
+        var(--arke-primary-light),
+        #ffffff
+    );
+    color: var(--arke-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-placeholder svg {
+    width: 40px;
+    height: 40px;
+}
+
+.exam-header-text {
+    min-width: 0;
+}
+
+.exam-header-eyebrow {
+    margin-bottom: 6px;
+    color: #dcecff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.exam-header-text h2 {
+    margin: 0;
+    font-size: clamp(21px, 3vw, 29px);
+    line-height: 1.22;
+    text-transform: uppercase;
+}
+
+.exam-header-text p {
+    margin: 8px 0 0;
+    color: #dcecff;
+    font-size: 14px;
+}
+
+/* =========================================================
+   INFORMAÇÕES DA AVALIAÇÃO
+========================================================= */
+
+.exam-information {
+    padding: 28px 30px;
+    border-bottom: 1px solid var(--arke-border);
+    background: #ffffff;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.info-item {
+    min-height: 86px;
+    padding: 15px;
+    border: 1px solid var(--arke-border);
+    border-radius: 13px;
+    background: #f9fbfe;
+}
+
+.info-label {
+    margin-bottom: 7px;
+    color: var(--arke-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.info-value {
+    color: var(--arke-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.student-line {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(180px, 0.7fr);
+    gap: 20px;
+}
+
+.blank-field {
+    min-height: 42px;
+    padding: 10px 0 7px;
+    border-bottom: 1px solid #9aa9bc;
+    color: var(--arke-text);
+    font-size: 14px;
+}
+
+.blank-field strong {
+    color: var(--arke-text);
+}
+
+/* =========================================================
+   INSTRUÇÕES
+========================================================= */
+
+.instructions-section {
+    padding: 24px 30px;
+    border-bottom: 1px solid var(--arke-border);
+    background: #f8fbff;
+}
+
+.instructions-box {
+    padding: 20px 22px;
+    border: 1px solid #cfe0f8;
+    border-left: 5px solid var(--arke-primary);
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.instructions-title {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--arke-primary);
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.instructions-title svg {
+    width: 19px;
+    height: 19px;
+}
+
+.instructions-box ol {
+    margin: 0;
+    padding-left: 23px;
+    color: #445269;
+    font-size: 14px;
+}
+
+.instructions-box li {
+    margin: 6px 0;
+    padding-left: 4px;
+}
+
+/* =========================================================
+   QUESTÕES
+========================================================= */
+
+.questions-section {
+    padding: 30px;
+    background: #f7f9fd;
+}
+
+.section-heading {
+    margin-bottom: 18px;
+}
+
+.section-heading h3 {
+    margin: 0;
+    color: var(--arke-text);
+    font-size: 20px;
+}
+
+.section-heading p {
+    margin: 5px 0 0;
+    color: var(--arke-muted);
+    font-size: 13px;
+}
+
+.question-card {
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid var(--arke-border);
+    border-radius: 17px;
+    background: #ffffff;
+    box-shadow: 0 7px 22px rgba(15, 48, 96, 0.045);
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.question-card:last-child {
+    margin-bottom: 0;
+}
+
+.question-header {
+    min-height: 60px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--arke-border);
+    background: linear-gradient(90deg, #f3f7ff, #ffffff);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.question-identification {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.question-number {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--arke-primary);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 5px 14px rgba(18, 63, 136, 0.18);
+    flex-shrink: 0;
+}
+
+.question-title {
+    color: var(--arke-text);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.question-type {
+    padding: 6px 10px;
+    border: 1px solid #d8e5f7;
+    border-radius: 999px;
+    background: var(--arke-primary-light);
+    color: var(--arke-primary);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.question-body {
+    padding: 23px 22px 24px;
+}
+
+.statement {
+    margin: 0;
+    color: #202b3d;
+    font-size: 16px;
+    line-height: 1.65;
+    white-space: pre-line;
+}
+
+.question-image-area {
+    margin: 20px auto;
+    padding: 12px;
+    max-width: 620px;
+    border: 1px solid var(--arke-border);
+    border-radius: 14px;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.question-image {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 420px;
+    margin: 0 auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.alternatives {
+    margin-top: 22px;
+    display: grid;
+    gap: 10px;
+}
+
+.alternative {
+    min-height: 48px;
+    padding: 11px 14px;
+    border: 1px solid var(--arke-border);
+    border-radius: 12px;
+    background: #ffffff;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    color: #263348;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.alternative-letter {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #bfd0e7;
+    border-radius: 50%;
+    background: #f3f7fd;
+    color: var(--arke-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.alternative-text {
+    padding-top: 2px;
+    white-space: pre-line;
+}
+
+/* =========================================================
+   ESTADO SEM QUESTÕES
+========================================================= */
+
+.empty-state {
+    padding: 50px 24px;
+    border: 1px dashed #b9c9dd;
+    border-radius: 16px;
+    background: #ffffff;
+    text-align: center;
+}
+
+.empty-state-icon {
+    width: 54px;
+    height: 54px;
+    margin: 0 auto 13px;
+    border-radius: 16px;
+    background: var(--arke-primary-light);
+    color: var(--arke-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-state-icon svg {
+    width: 27px;
+    height: 27px;
+}
+
+.empty-state h4 {
+    margin: 0;
+    color: var(--arke-text);
+    font-size: 17px;
+}
+
+.empty-state p {
+    margin: 7px 0 0;
+    color: var(--arke-muted);
+    font-size: 14px;
+}
+
+/* =========================================================
+   GABARITO
+========================================================= */
+
+.answer-key-section {
+    padding: 28px 30px 32px;
+    border-top: 1px solid var(--arke-border);
+    background: #ffffff;
+}
+
+.answer-key-card {
+    overflow: hidden;
+    border: 1px solid #cde6d6;
+    border-radius: 16px;
+    background: var(--arke-success-bg);
+}
+
+.answer-key-header {
+    width: 100%;
+    padding: 17px 20px;
+    border: none;
+    background: transparent;
+    color: var(--arke-success);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.answer-key-title {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.answer-key-title svg {
+    width: 20px;
+    height: 20px;
+}
+
+.answer-key-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #427452;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.answer-key-toggle svg {
+    width: 17px;
+    height: 17px;
+    transition: transform 0.25s ease;
+}
+
+.answer-key-card.open .answer-key-toggle svg {
+    transform: rotate(180deg);
+}
+
+.answer-key-content {
+    display: none;
+    padding: 0 20px 20px;
+}
+
+.answer-key-card.open .answer-key-content {
+    display: block;
+}
+
+.answer-grid {
+    padding-top: 16px;
+    border-top: 1px solid #cde6d6;
+    display: grid;
+    grid-template-columns: repeat(10, minmax(55px, 1fr));
+    gap: 10px;
+}
+
+.answer-item {
+    padding: 10px 7px;
+    border: 1px solid #bfe0cb;
+    border-radius: 10px;
+    background: #ffffff;
+    text-align: center;
+}
+
+.answer-item span {
+    display: block;
+    color: #5c7164;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.answer-item strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--arke-success);
+    font-size: 17px;
+}
+
+/* =========================================================
+   RODAPÉ
+========================================================= */
+
+.page-footer {
+    padding: 18px 30px;
+    border-top: 1px solid var(--arke-border);
+    background: #fbfcfe;
+    color: var(--arke-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    font-size: 12px;
+}
+
+.page-footer strong {
+    color: var(--arke-primary);
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+========================================================= */
+
+@media (max-width: 980px) {
+    .info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .answer-grid {
+        grid-template-columns: repeat(5, minmax(55px, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .topbar-content {
+        padding: 12px 18px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .topbar-actions {
+        width: 100%;
+    }
+
+    .topbar-actions .btn {
+        flex: 1;
+    }
+
+    .page-wrapper {
+        padding: 22px 15px 35px;
+    }
+
+    .page-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .question-count {
+        width: 100%;
+    }
+
+    .exam-header-content {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .institution-logo {
+        width: 78px;
+        height: 78px;
+    }
+
+    .exam-card-header,
+    .exam-information,
+    .instructions-section,
+    .questions-section,
+    .answer-key-section {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .student-line {
+        grid-template-columns: 1fr;
+        gap: 9px;
+    }
+
+    .question-header {
+        align-items: flex-start;
+    }
+
+    .question-type {
         display: none;
     }
 
-    body {
-        margin: 25px;
+    .question-body {
+        padding: 19px 16px 21px;
+    }
+
+    .statement {
+        font-size: 15px;
+    }
+
+    .answer-grid {
+        grid-template-columns: repeat(4, minmax(50px, 1fr));
+    }
+
+    .page-footer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
+
+@media (max-width: 420px) {
+    .topbar-actions {
+        flex-direction: column;
+    }
+
+    .topbar-actions .btn {
+        width: 100%;
+    }
+
+    .answer-grid {
+        grid-template-columns: repeat(3, minmax(48px, 1fr));
+    }
+}
+
+
+
+/* CONFIGURAÇÃO DE IMPRESSÃO */
+.print-settings-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(15,23,42,.5)}
+.print-settings-overlay[hidden]{display:none}
+.print-settings-modal{width:min(680px,100%);max-height:90vh;overflow:auto;border:1px solid var(--arke-border);border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25)}
+.print-settings-header{display:flex;justify-content:space-between;gap:20px;padding:22px 24px;border-bottom:1px solid var(--arke-border)}
+.print-settings-header strong{display:block;font-size:19px}.print-settings-header span{display:block;margin-top:4px;color:var(--arke-muted);font-size:13px}
+.print-settings-close{width:36px;height:36px;border:0;border-radius:10px;background:#f1f5f9;font-size:24px;cursor:pointer}
+.print-settings-body{padding:20px 24px}.print-settings-table-head,.print-setting-row{display:grid;grid-template-columns:minmax(0,1fr) 80px 110px;align-items:center;gap:10px}
+.print-settings-table-head{padding:0 12px 8px;color:var(--arke-muted);font-size:11px;font-weight:800;text-transform:uppercase}.print-setting-row{padding:11px 12px;border-top:1px solid #edf2f7}.print-setting-row label:first-child{font-weight:700}.print-setting-row input{width:18px;height:18px;justify-self:center}
+.print-simple-option{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:700}.print-simple-option input{width:18px;height:18px}
+.print-settings-footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--arke-border);background:#f8fafc}
+
+/* =========================================================
+   IMPRESSÃO OTIMIZADA – PRETO E BRANCO
+========================================================= */
+
+@page {
+    size: A4 portrait;
+    margin: 8mm 10mm 9mm;
+}
+
+@media print {
+    * {
+        box-sizing: border-box !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+
+    body {
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12pt !important;
+        line-height: 1.25 !important;
+    }
+
+    .no-print,
+    .topbar,
+    .page-heading,
+    .answer-key-section,
+    .page-footer {
+        display: none !important;
+    }
+
+    .page-wrapper {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .exam-card {
+        width: 100% !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+    }
+
+    /* CABEÇALHO */
+    .exam-card-header {
+        position: relative !important;
+        min-height: 0 !important;
+        margin: 0 0 4mm !important;
+        padding: 0 0 3mm !important;
+        overflow: visible !important;
+        border-bottom: 1.5px solid #000000 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    .exam-card-header::after {
+        display: none !important;
+    }
+
+    .exam-header-content {
+        display: grid !important;
+        grid-template-columns: 20mm minmax(0, 1fr) !important;
+        align-items: center !important;
+        gap: 4mm !important;
+    }
+
+    .institution-logo {
+        width: 20mm !important;
+        height: 20mm !important;
+        min-width: 20mm !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        filter: grayscale(100%) contrast(120%) !important;
+    }
+
+    .institution-logo img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        filter: grayscale(100%) contrast(120%) !important;
+    }
+
+    .logo-placeholder {
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    .logo-placeholder svg {
+        width: 9mm !important;
+        height: 9mm !important;
+        stroke: #000000 !important;
+    }
+
+    .exam-header-text {
+        min-width: 0 !important;
+        text-align: left !important;
+    }
+
+    .exam-header-eyebrow {
+        margin: 0 0 1mm !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        font-weight: 700 !important;
+        letter-spacing: .06em !important;
+    }
+
+    .exam-header-text h2 {
+        margin: 0 !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 14pt !important;
+        line-height: 1.1 !important;
+        text-align: left !important;
+    }
+
+    .exam-header-text p {
+        margin: 1mm 0 0 !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.15 !important;
+    }
+
+    /* INFORMAÇÕES */
+    .exam-information {
+        margin: 0 !important;
+        padding: 0 0 3mm !important;
+        border-bottom: 1px solid #777777 !important;
+        background: #ffffff !important;
+    }
+
+    .info-grid {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 2mm 4mm !important;
+    }
+
+    .info-item {
+        min-height: 10mm !important;
+        margin: 0 !important;
+        padding: 1mm 0 1.5mm !important;
+        overflow: hidden !important;
+        border: 0 !important;
+        border-bottom: 1px solid #999999 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .info-label {
+        margin: 0 0 .7mm !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 9pt !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+        letter-spacing: .02em !important;
+    }
+
+    .info-value {
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        font-weight: 400 !important;
+        line-height: 1.12 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .student-line {
+        display: grid !important;
+        grid-template-columns: minmax(0, 4fr) minmax(30mm, 1fr) !important;
+        gap: 5mm !important;
+        margin-top: 2.5mm !important;
+    }
+
+    .blank-field {
+        min-height: 8mm !important;
+        padding: 2mm 0 1mm !important;
+        border-bottom: 1px solid #555555 !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+    }
+
+    /* INSTRUÇÕES — ARIAL 10 */
+    .instructions-section {
+        margin: 2.5mm 0 3mm !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .instructions-box {
+        margin: 0 !important;
+        padding: 2.5mm 3mm !important;
+        border: 1px solid #777777 !important;
+        border-left: 3px solid #000000 !important;
+        border-radius: 2mm !important;
+        background: #ffffff !important;
+    }
+
+    .instructions-title {
+        margin: 0 0 1.2mm !important;
+        gap: 1.5mm !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+    }
+
+    .instructions-title svg {
+        width: 3.8mm !important;
+        height: 3.8mm !important;
+        stroke: #000000 !important;
+    }
+
+    .instructions-box ol {
+        margin: 0 !important;
+        padding-left: 5.5mm !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.22 !important;
+    }
+
+    .instructions-box li {
+        margin: .6mm 0 !important;
+        padding-left: .5mm !important;
+    }
+
+    /* QUESTÕES — ARIAL 12 */
+    .questions-section {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .section-heading {
+        display: none !important;
+    }
+
+    .question-card {
+        width: 100% !important;
+        margin: 0 0 4mm !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid-page !important;
+    }
+
+    .question-header {
+        display: flex !important;
+        min-height: 0 !important;
+        margin: 0 0 2mm !important;
+        padding: 0 !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        border: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .question-identification {
+        gap: 0 !important;
+    }
+
+    .question-number {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-width: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        box-shadow: none !important;
+    }
+
+    .question-title {
+        display: block !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12pt !important;
+        font-weight: 700 !important;
+    }
+
+    .question-type {
+        display: none !important;
+    }
+
+    .question-body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .statement {
+        margin: 0 0 2mm !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12pt !important;
+        line-height: 1.35 !important;
+        text-align: justify !important;
+        white-space: pre-line !important;
+        orphans: 3;
+        widows: 3;
+    }
+
+    .question-image-area {
+        max-width: 120mm !important;
+        margin: 2mm auto 2.5mm !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .question-image {
+        width: auto !important;
+        max-width: 100% !important;
+        max-height: 65mm !important;
+        margin: 0 auto !important;
+        border-radius: 0 !important;
+        object-fit: contain !important;
+        filter: grayscale(100%) contrast(110%) !important;
+    }
+
+    /* ALTERNATIVAS ALINHADAS */
+    .alternatives {
+        display: grid !important;
+        gap: 1.5mm !important;
+        margin-top: 2mm !important;
+    }
+
+    .alternative {
+        display: grid !important;
+        grid-template-columns: 7mm minmax(0, 1fr) !important;
+        align-items: start !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 2mm !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12pt !important;
+        line-height: 1.3 !important;
+    }
+
+    .alternative-letter {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 6mm !important;
+        height: 6mm !important;
+        min-width: 6mm !important;
+        margin: .2mm 0 0 !important;
+        padding: 0 !important;
+        border: 1px solid #000000 !important;
+        border-radius: 50% !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 9pt !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
+    }
+
+    .alternative-letter::after {
+        content: none !important;
+    }
+
+    .alternative-text {
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12pt !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .empty-state {
+        display: none !important;
+    }
+
+    img,
+    .question-image-area,
+    .alternatives,
+    .alternative {
+        page-break-inside: avoid !important;
+        break-inside: avoid-page !important;
+    }
+
+    /* Ajustes finais da impressão */
+    .exam-header-eyebrow { display: none !important; }
+    .print-field-instituicao, .print-field-quantidade { display: none !important; }
+    .info-value { font-weight: 400 !important; }
+    .institution-logo { border: 0 !important; padding: 0 !important; background: transparent !important; }
+    .question-number { display: none !important; }
+    .question-identification { gap: 0 !important; }
+    .question-header { margin-bottom: 1mm !important; }
+    .statement { margin-top: 0 !important; }
+    .instructions-section, .instructions-section * { font-family: Arial, Helvetica, sans-serif !important; font-size: 10pt !important; }
+    .print-hidden { display: none !important; }
+    .print-empty .info-value { color: transparent !important; }
+    .print-empty.blank-field { color: transparent !important; }
+    .hide-print-logo .institution-logo { display: none !important; }
+    .hide-print-logo .exam-header-content { grid-template-columns: 1fr !important; }
+    .hide-print-instructions .instructions-section { display: none !important; }
+
+}
+
+
+/* =========================================================
+   CABEÇALHO EXCLUSIVO DA IMPRESSÃO
+========================================================= */
+
+.print-exam-header {
+    display: none;
+}
+
+@media print {
+    /* O cabeçalho visual da tela é substituído pelo cabeçalho impresso. */
+    .exam-card > .exam-card-header,
+    .exam-card > .exam-information {
+        display: none !important;
+    }
+
+    .print-exam-header {
+        display: block !important;
+        width: 100%;
+        margin: 0 0 3mm;
+        padding: 4mm 5mm 3mm;
+        border: 1px solid #000000;
+        border-radius: 3mm;
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        page-break-inside: avoid;
+        break-inside: avoid-page;
+    }
+
+    .print-header-top {
+        display: grid;
+        grid-template-columns: 42mm minmax(0, 1fr);
+        align-items: stretch;
+        min-height: 31mm;
+    }
+
+    .print-ark-brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1mm 5mm 1mm 1mm;
+        border-right: 1px solid #777777;
+    }
+
+    .print-ark-brand img {
+        display: block;
+        width: 31mm;
+        max-height: 27mm;
+        object-fit: contain;
+        filter: grayscale(100%) contrast(125%);
+    }
+
+    .print-institution-area {
+        min-width: 0;
+        padding-left: 5mm;
+    }
+
+    .print-institution-name {
+        padding: 0 0 2.5mm;
+        border-bottom: 1px solid #777777;
+        text-align: center;
+    }
+
+    .print-institution-name .print-field-label {
+        display: block;
+        margin-bottom: .5mm;
+        font-size: 9pt;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .print-institution-name .print-field-value {
+        display: block;
+        font-size: 17pt;
+        font-weight: 700;
+        line-height: 1.05;
+        text-transform: uppercase;
+    }
+
+    .print-header-data {
+        display: grid;
+        grid-template-columns:
+            .78fr
+            1.35fr
+            1fr
+            1.05fr
+            .88fr;
+        margin-top: 3mm;
+    }
+
+    .print-data-item {
+        min-width: 0;
+        padding: 0 3mm;
+        border-right: 1px solid #999999;
+    }
+
+    .print-data-item:first-child {
+        padding-left: 0;
+    }
+
+    .print-data-item:last-child {
+        padding-right: 0;
+        border-right: 0;
+    }
+
+    .print-field-label {
+        display: block;
+        color: #000000 !important;
+        font-size: 8pt;
+        font-weight: 700;
+        line-height: 1.05;
+    }
+
+    .print-field-value {
+        display: block;
+        margin-top: 1.4mm;
+        color: #000000 !important;
+        font-size: 10pt;
+        font-weight: 400;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+    }
+
+    .print-student-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 45mm;
+        gap: 8mm;
+        margin-top: 5mm;
+    }
+
+    .print-student-field,
+    .print-grade-field {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: end;
+        gap: 3mm;
+        color: #000000 !important;
+        font-size: 10pt;
+        font-weight: 700;
+    }
+
+    .print-line {
+        display: block;
+        min-height: 5mm;
+        border-bottom: 1px solid #000000;
+    }
+
+    .print-exam-title {
+        display: grid;
+        grid-template-columns: minmax(15mm, 1fr) auto minmax(15mm, 1fr);
+        align-items: center;
+        gap: 4mm;
+        margin-top: 4mm;
+    }
+
+    .print-exam-title span {
+        height: 1px;
+        background: #000000;
+    }
+
+    .print-exam-title strong {
+        max-width: 125mm;
+        color: #000000 !important;
+        font-size: 13pt;
+        font-weight: 700;
+        line-height: 1.1;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    /* Mantém as instruções, em Arial 10, como solicitado. */
+    .instructions-section {
+        display: block;
+        margin: 2.5mm 0 3mm !important;
+    }
+
+    .instructions-box {
+        padding: 2.5mm 3mm !important;
+        border: 1px solid #777777 !important;
+        border-left: 3px solid #000000 !important;
+        border-radius: 2mm !important;
+        background: #ffffff !important;
+    }
+
+    .instructions-title,
+    .instructions-box ol,
+    .instructions-box li {
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+    }
+
+    .instructions-title svg {
+        stroke: #000000 !important;
+    }
+
+    .hide-print-logo .print-ark-brand {
+        display: none !important;
+    }
+
+    .hide-print-logo .print-header-top {
+        grid-template-columns: 1fr !important;
+    }
+
+    .print-empty .print-field-value {
+        color: transparent !important;
+    }
+
+    .print-empty.print-student-field span:first-child,
+    .print-empty.print-grade-field span:first-child {
+        color: #000000 !important;
+    }
+}
+
+
+/* AJUSTES FINAIS DO CABEÇALHO IMPRESSO */
+@media print {
+    .print-ark-brand {
+        padding: 0 5mm 0 0 !important;
+        border-right: 1px solid #777777 !important;
+        background: transparent !important;
+    }
+
+    .print-ark-brand img {
+        width: 35mm !important;
+        max-width: 100% !important;
+        max-height: 29mm !important;
+        object-fit: contain !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        filter: grayscale(100%) contrast(125%) !important;
+    }
+
+    .print-institution-name {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 12mm !important;
+        padding: 0 0 2.5mm !important;
+    }
+
+    .print-institution-name .print-field-value {
+        margin-top: 0 !important;
+    }
+
+    .print-header-data {
+        grid-template-columns:
+            .78fr
+            1.35fr
+            1fr
+            1.05fr
+            .88fr !important;
+    }
+}
+
+
+/* =========================================================
+   REFINAMENTO VISUAL DO CABEÇALHO IMPRESSO
+========================================================= */
+@media print {
+    .print-exam-header {
+        padding: 4mm 5mm 3.5mm !important;
+        border: 1px solid #444444 !important;
+        border-radius: 3mm !important;
+    }
+
+    .print-header-top {
+        grid-template-columns: 38mm minmax(0, 1fr) !important;
+        min-height: 28mm !important;
+    }
+
+    .print-ark-brand {
+        padding: 1mm 5mm 1mm 0 !important;
+        border-right: 1px solid #8a8a8a !important;
+    }
+
+    .print-ark-brand img {
+        width: 30mm !important;
+        max-height: 22mm !important;
+    }
+
+    .print-institution-area {
+        padding-left: 5mm !important;
+    }
+
+    .print-institution-name {
+        min-height: 10mm !important;
+        padding: 0 0 2mm !important;
+        border-bottom: 1px solid #777777 !important;
+    }
+
+    .print-institution-name .print-field-value {
+        font-size: 15pt !important;
+        line-height: 1 !important;
+        letter-spacing: .01em !important;
+    }
+
+    .print-header-data {
+        grid-template-columns: .78fr 1.18fr .92fr 1.05fr .78fr !important;
+        margin-top: 2.5mm !important;
+    }
+
+    .print-data-item {
+        min-height: 15mm !important;
+        padding: 0 2.8mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+    }
+
+    .print-field-label {
+        font-size: 7.5pt !important;
+        line-height: 1.05 !important;
+        min-height: 4.5mm !important;
+    }
+
+    .print-field-value {
+        margin-top: 1mm !important;
+        font-size: 9.5pt !important;
+        line-height: 1.15 !important;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+    }
+
+    .print-student-row {
+        grid-template-columns: minmax(0, 1fr) 42mm !important;
+        gap: 8mm !important;
+        margin-top: 4mm !important;
+    }
+
+    .print-student-field,
+    .print-grade-field {
+        font-size: 9.5pt !important;
+    }
+
+    .print-line {
+        min-height: 4.5mm !important;
+    }
+
+    .print-exam-title {
+        grid-template-columns: minmax(12mm, 1fr) minmax(0, auto) minmax(12mm, 1fr) !important;
+        gap: 4mm !important;
+        margin-top: 3.5mm !important;
+    }
+
+    .print-exam-title strong {
+        max-width: 120mm !important;
+        font-size: 11.5pt !important;
+        line-height: 1.1 !important;
+        letter-spacing: .01em !important;
+        overflow-wrap: anywhere !important;
+    }
+}
+
+
+.linhas-resposta-discursiva {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+}
+.linha-resposta-discursiva {
+    height: 24px;
+    border-bottom: 1px solid #94a3b8;
+}
+@media print {
+    .linhas-resposta-discursiva {
+        gap: 2.5mm !important;
+        margin-top: 3mm !important;
+    }
+    .linha-resposta-discursiva {
+        height: 7mm !important;
+        border-bottom: 1px solid #000000 !important;
+    }
+}
+
 </style>
+
 </head>
 
 <body>
 
-<div class="botoes">
-    <a href="/provas" class="botao">← Voltar</a>
-    <button onclick="window.print()">🖨 Imprimir Prova</button>
+<!-- =====================================================
+     BARRA SUPERIOR
+====================================================== -->
+
+<header class="topbar no-print">
+    <div class="topbar-content">
+
+    <div class="topbar-left">
+        <div class="brand-icon">
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+                <path d="M8 13h8"/>
+                <path d="M8 17h6"/>
+            </svg>
+        </div>
+
+        <div class="topbar-title">
+            <strong>Visualização da avaliação</strong>
+            <span>Confira o caderno de questões antes da impressão.</span>
+        </div>
+    </div>
+
+    <div class="topbar-actions">
+        <a href="/provas" class="btn btn-secondary">
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="m15 18-6-6 6-6"/>
+            </svg>
+
+            Voltar para provas
+        </a>
+
+        <button
+            type="button"
+            class="btn btn-light"
+            onclick="alternarGabarito()"
+        >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+
+            Ver gabarito
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="abrirConfiguracaoImpressao()"
+        >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Configurar impressão
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-primary"
+            onclick="window.print()"
+        >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+
+            Imprimir prova
+        </button>
+    </div>
+
 </div>
 
-<div class="cabecalho-prova">
+</header>
 
-    <div class="linha-topo">
+<!-- =====================================================
+     CONTEÚDO PRINCIPAL
+====================================================== -->
 
-        <div class="logo-area">
-            {% if instituicao and instituicao[7] %}
-                <img src="/static/uploads/{{ instituicao[7] }}">
+<div class="print-settings-overlay no-print" id="printSettingsOverlay" hidden>
+    <div class="print-settings-modal" role="dialog" aria-modal="true" aria-labelledby="printSettingsTitle">
+        <div class="print-settings-header">
+            <div>
+                <strong id="printSettingsTitle">Configurar impressão</strong>
+                <span>Escolha o que aparecerá no cabeçalho e quais dados serão preenchidos.</span>
+            </div>
+            <button type="button" class="print-settings-close" onclick="fecharConfiguracaoImpressao()" aria-label="Fechar">×</button>
+        </div>
+        <div class="print-settings-body">
+            <div class="print-settings-table-head"><span>Informação</span><span>Exibir</span><span>Preenchida</span></div>
+            <div id="printSettingsFields"></div>
+            <label class="print-simple-option"><input type="checkbox" id="optMostrarInstrucoes" checked> Exibir instruções</label>
+            <label class="print-simple-option"><input type="checkbox" id="optMostrarLogo" checked> Exibir logo da instituição</label>
+        </div>
+        <div class="print-settings-footer">
+            <button type="button" class="btn btn-secondary" onclick="fecharConfiguracaoImpressao()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="imprimirComConfiguracao()">Aplicar e imprimir</button>
+        </div>
+    </div>
+</div>
+
+<main class="page-wrapper">
+
+<div class="page-heading no-print">
+
+    <div class="page-heading-text">
+        <div class="page-label">Provas e avaliações</div>
+
+        <h1>Caderno de questões</h1>
+
+        <p>
+            Visualize as informações, questões, alternativas e o
+            gabarito da avaliação.
+        </p>
+    </div>
+
+    <div class="question-count">
+        <strong>{{ questoes|length }}</strong>
+
+        <span>
+            {% if questoes|length == 1 %}
+                questão cadastrada
             {% else %}
-                logo
+                questões cadastradas
             {% endif %}
-        </div>
-
-        <div class="dados-area">
-
-            <div class="campo">
-                Nome da Escola: {{ instituicao[1] if instituicao else '' }}
-            </div>
-
-            <div class="campo">
-                Estudante:
-            </div>
-
-            <div class="campo">
-                Professor: {{ prova[5] if prova[5] else '' }}
-            </div>
-
-            <div class="campo">
-                Componente curricular: {{ prova[3] }}
-            </div>
-
-            <div class="duplo">
-                <span>Cidade: {{ instituicao[2] if instituicao else '' }}</span>
-                <span>Estado: {{ instituicao[3] if instituicao else '' }}</span>
-            </div>
-
-            <div class="duplo">
-                <span>Data: ____/____/______</span>
-                <span>Turma: {{ prova[2] }}</span>
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="instrucoes">
-        <strong>INSTRUÇÕES PARA REALIZAR A AVALIAÇÃO</strong>
-        <ol>
-            <li>Verifique se sua prova está completa (questões e páginas).</li>
-            <li>Leia com calma e atenção as questões solicitadas, respondendo-as com clareza.</li>
-            <li>Todas as respostas deverão ser escritas a caneta no cartão-resposta.</li>
-            <li>Escreva com letra legível, coloque seu nome e revise sua prova antes de entregá-la.</li>
-        </ol>
-    </div>
-
-    <div class="titulo-prova">
-        {{ prova[1] }}
+        </span>
     </div>
 
 </div>
 
-{% for questao in questoes %}
-<div class="questao">
-    <h3>Questão {{ "%02d"|format(loop.index) }}</h3>
+<section class="exam-card">
 
-    <p class="enunciado">{{ questao[2] }}</p>
+    <!-- =================================================
+         CABEÇALHO EXCLUSIVO DA IMPRESSÃO
+    ================================================== -->
+    {% set ufs = {
+        'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA',
+        'Ceará':'CE','Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO',
+        'Maranhão':'MA','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG',
+        'Pará':'PA','Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI',
+        'Rio de Janeiro':'RJ','Rio Grande do Norte':'RN','Rio Grande do Sul':'RS',
+        'Rondônia':'RO','Roraima':'RR','Santa Catarina':'SC','São Paulo':'SP',
+        'Sergipe':'SE','Tocantins':'TO'
+    } %}
+    <div class="print-exam-header">
+        <div class="print-header-top">
+            <div class="print-ark-brand">
+                {% if instituicao and instituicao.get('logo') %}
+                    <img
+                        src="{{ url_for('static', filename='uploads/' ~ instituicao.get('logo')) }}"
+                        alt="{{ instituicao.get('nome', 'Logo da instituição') }}"
+                    >
+                {% endif %}
+            </div>
 
-    {% if questao[3] %}
-        <img class="imagem" src="/static/uploads/{{ questao[3] }}">
+            <div class="print-institution-area">
+                <div
+                    class="print-institution-name print-field"
+                    data-print-field="instituicao"
+                >
+                    <span class="print-field-value">
+                        {{ instituicao.get('nome', '') if instituicao else '' }}
+                    </span>
+                </div>
+
+                <div class="print-header-data">
+                    <div
+                        class="print-data-item print-field"
+                        data-print-field="turma"
+                    >
+                        <span class="print-field-label">Turma</span>
+                        <span class="print-field-value">
+                            {{ prova['turma_nome'] if prova['turma_nome'] else '' }}
+                        </span>
+                    </div>
+
+                    <div
+                        class="print-data-item print-field"
+                        data-print-field="componente"
+                    >
+                        <span class="print-field-label">Componente curricular</span>
+                        <span class="print-field-value">
+                            {{ prova['disciplina'] if prova['disciplina'] else '' }}
+                        </span>
+                    </div>
+
+                    <div
+                        class="print-data-item print-field"
+                        data-print-field="professor"
+                    >
+                        <span class="print-field-label">Professor(a)</span>
+                        <span class="print-field-value">
+                            {{ prova['professor_nome'] if prova['professor_nome'] else '' }}
+                        </span>
+                    </div>
+
+                    <div
+                        class="print-data-item print-field"
+                        data-print-field="cidade"
+                    >
+                        <span class="print-field-label">Cidade/UF</span>
+                        <span class="print-field-value">
+                            {% if instituicao and instituicao.get('cidade') %}
+                                {{ instituicao.get('cidade') }}{% if instituicao.get('estado') %} - {{ ufs.get(instituicao.get('estado'), instituicao.get('estado')) }}{% endif %}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div
+                        class="print-data-item print-field"
+                        data-print-field="data"
+                    >
+                        <span class="print-field-label">Data</span>
+                        <span class="print-field-value">____/____/________</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="print-student-row">
+            <div
+                class="print-student-field print-field"
+                data-print-field="estudante"
+            >
+                <span>Estudante:</span>
+                <span class="print-line"></span>
+            </div>
+
+            <div
+                class="print-grade-field print-field"
+                data-print-field="nota"
+            >
+                <span>Nota:</span>
+                <span class="print-line"></span>
+            </div>
+        </div>
+
+        <div class="print-exam-title">
+            <span></span>
+            <strong>{{ prova['nome']|replace('_', ' ') }}</strong>
+            <span></span>
+        </div>
+    </div>
+
+
+    <!-- =================================================
+         CABEÇALHO DA PROVA
+    ================================================== -->
+
+    <div class="exam-card-header">
+        <div class="exam-header-content">
+
+            <div class="institution-logo">
+                {% if instituicao and instituicao.get('logo') %}
+                    <img
+                        src="/static/uploads/{{ instituicao.get('logo') }}"
+                        alt="Logo da instituição"
+                    >
+                {% else %}
+                    <div class="logo-placeholder">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="m3 10 9-7 9 7"/>
+                            <path d="M5 9v11h14V9"/>
+                            <path d="M9 20v-6h6v6"/>
+                        </svg>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="exam-header-text">
+                <div class="exam-header-eyebrow">
+                    Avaliação escolar
+                </div>
+
+                <h2>
+                    {{ prova['nome'] }}
+                </h2>
+
+                <p>
+                    {{ instituicao.get('nome', 'Instituição não informada') if instituicao else 'Instituição não informada' }}
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- =================================================
+         DADOS DA PROVA
+    ================================================== -->
+
+    <div class="exam-information">
+
+        <div class="info-grid">
+
+            <div class="info-item print-field print-field-instituicao" data-print-field="instituicao">
+                <div class="info-label">Instituição</div>
+
+                <div class="info-value">
+                    {{ instituicao.get('nome', 'Não informada') if instituicao else 'Não informada' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-turma" data-print-field="turma">
+                <div class="info-label">Turma</div>
+
+                <div class="info-value">
+                    {{ prova['turma_nome'] if prova['turma_nome'] else 'Não informada' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-componente" data-print-field="componente">
+                <div class="info-label">Componente curricular</div>
+
+                <div class="info-value">
+                    {{ prova['disciplina'] if prova['disciplina'] else 'Não informado' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-professor" data-print-field="professor">
+                <div class="info-label">Professor</div>
+
+                <div class="info-value">
+                    {{ prova['professor_nome'] if prova['professor_nome'] else 'Não informado' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-cidade" data-print-field="cidade">
+                <div class="info-label">Cidade</div>
+
+                <div class="info-value">
+                    {{ instituicao.get('cidade', 'Não informada') if instituicao else 'Não informada' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-estado" data-print-field="estado">
+                <div class="info-label">Estado</div>
+
+                <div class="info-value">
+                    {{ instituicao.get('estado', 'Não informado') if instituicao else 'Não informado' }}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-quantidade" data-print-field="quantidade">
+                <div class="info-label">Quantidade de questões</div>
+
+                <div class="info-value">
+                    {{ questoes|length }}
+                    {% if questoes|length == 1 %}
+                        questão
+                    {% else %}
+                        questões
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="info-item print-field print-field-data" data-print-field="data">
+                <div class="info-label">Data da avaliação</div>
+
+                <div class="info-value">
+                    ____/____/________
+                </div>
+            </div>
+
+        </div>
+
+        <div class="student-line">
+
+            <div class="blank-field print-field print-field-estudante" data-print-field="estudante">
+                <strong>Estudante:</strong>
+            </div>
+
+            <div class="blank-field print-field print-field-nota" data-print-field="nota">
+                <strong>Nota:</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =================================================
+         INSTRUÇÕES
+    ================================================== -->
+
+    <div class="instructions-section">
+
+        <div class="instructions-box">
+
+            <div class="instructions-title">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4"/>
+                    <path d="M12 8h.01"/>
+                </svg>
+
+                Instruções para realizar a avaliação
+            </div>
+
+            <ol>
+                <li>
+                    Verifique se sua prova está completa, observando
+                    a quantidade de questões e páginas.
+                </li>
+
+                <li>
+                    Leia com calma e atenção todas as questões antes
+                    de registrar suas respostas.
+                </li>
+
+                <li>
+                    Marque as respostas no cartão-resposta utilizando
+                    caneta azul ou preta.
+                </li>
+
+                <li>
+                    Preencha corretamente seu nome, turma e demais
+                    informações solicitadas.
+                </li>
+
+                <li>
+                    Revise suas respostas antes de entregar a
+                    avaliação.
+                </li>
+            </ol>
+
+        </div>
+
+    </div>
+
+    <!-- =================================================
+         QUESTÕES
+    ================================================== -->
+
+    <div class="questions-section">
+
+        <div class="section-heading no-print">
+            <h3>Questões da avaliação</h3>
+
+            <p>
+                As alternativas são apresentadas na mesma ordem
+                definida no banco de questões.
+            </p>
+        </div>
+
+        {% if questoes %}
+
+            {% for questao in questoes %}
+
+                <article class="question-card">
+
+                    <div class="question-header">
+
+                        <div class="question-identification">
+
+                            <div class="question-number">
+                                {{ "%02d"|format(loop.index) }}
+                            </div>
+
+                            <div class="question-title">
+                                Questão {{ "%02d"|format(loop.index) }}
+                            </div>
+
+                        </div>
+
+                        <div class="question-type">
+                    {% set tipo = (questao['tipo_questao'] or 'multipla_escolha')|lower %}
+
+                    {% if tipo == 'multipla_escolha' %}
+                        Múltipla escolha
+                    {% elif tipo == 'discursiva' %}
+                        Discursiva
+                    {% elif tipo == 'verdadeiro_falso' %}
+                        Verdadeiro ou falso
+                    {% elif tipo == 'multipla_resposta' %}
+                        Múltiplas respostas
+                    {% elif tipo == 'associacao' %}
+                        Associação
+                    {% elif tipo == 'ordenacao' %}
+                        Ordenação
+                    {% elif tipo == 'lacunas' %}
+                        Complete as lacunas
+                    {% else %}
+                        {{ tipo|replace('_', ' ')|title }}
+                    {% endif %}
+                </div>
+
+                    </div>
+
+                    <div class="question-body">
+
+                        <p class="statement">
+                            {{ questao['enunciado'] }}
+                        </p>
+
+                        {% if questao['imagem'] %}
+                            <div class="question-image-area">
+                                <img
+                                    class="question-image"
+                                    src="/static/uploads/{{ questao['imagem'] }}"
+                                    alt="Imagem da questão {{ loop.index }}"
+                                >
+                            </div>
+                        {% endif %}
+
+                        {% if questao['tipo_questao'] == 'discursiva' %}
+                            <div class="linhas-resposta-discursiva">
+                                {% set total_linhas = questao['linhas_resposta'] or 5 %}
+                                {% for _ in range(total_linhas) %}
+                                    <div class="linha-resposta-discursiva"></div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                        <div class="alternatives">
+
+                            <div class="alternative">
+                                <div class="alternative-letter">A</div>
+
+                                <div class="alternative-text">{{ questao['alternativa_a'] }}</div>
+                            </div>
+
+                            <div class="alternative">
+                                <div class="alternative-letter">B</div>
+
+                                <div class="alternative-text">{{ questao['alternativa_b'] }}</div>
+                            </div>
+
+                            <div class="alternative">
+                                <div class="alternative-letter">C</div>
+
+                                <div class="alternative-text">{{ questao['alternativa_c'] }}</div>
+                            </div>
+
+                            <div class="alternative">
+                                <div class="alternative-letter">D</div>
+
+                                <div class="alternative-text">{{ questao['alternativa_d'] }}</div>
+                            </div>
+
+                        </div>
+                        {% endif %}
+
+                    </div>
+
+                </article>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="empty-state">
+
+                <div class="empty-state-icon">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <path d="M14 2v6h6"/>
+                        <path d="M9 15h6"/>
+                        <path d="M9 11h3"/>
+                    </svg>
+                </div>
+
+                <h4>Nenhuma questão adicionada</h4>
+
+                <p>
+                    Esta avaliação ainda não possui questões
+                    cadastradas.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- =================================================
+         GABARITO
+    ================================================== -->
+
+    {% if questoes %}
+        <div class="answer-key-section no-print">
+
+            <div
+                class="answer-key-card"
+                id="answerKeyCard"
+            >
+
+                <button
+                    type="button"
+                    class="answer-key-header"
+                    onclick="alternarGabarito()"
+                >
+
+                    <span class="answer-key-title">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+
+                        Gabarito do professor
+                    </span>
+
+                    <span class="answer-key-toggle">
+                        <span id="answerKeyText">Exibir respostas</span>
+
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </span>
+
+                </button>
+
+                <div class="answer-key-content">
+
+                    <div class="answer-grid">
+                        {% for questao in questoes %}
+
+                            <div class="answer-item">
+                                <span>
+                                    Questão {{ "%02d"|format(loop.index) }}
+                                </span>
+
+                                <strong>
+                                    {{ questao['correta'] }}
+                                </strong>
+                            </div>
+
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
     {% endif %}
 
-    <p class="alternativa">A) {{ questao[4] }}</p>
-    <p class="alternativa">B) {{ questao[5] }}</p>
-    <p class="alternativa">C) {{ questao[6] }}</p>
-    <p class="alternativa">D) {{ questao[7] }}</p>
-</div>
-{% endfor %}
+    <!-- =================================================
+         RODAPÉ
+    ================================================== -->
 
-<div class="gabarito">
-    <h3>Gabarito do professor</h3>
+    <div class="page-footer no-print">
+        <span>
+            Visualização administrativa da avaliação
+        </span>
 
-    {% for questao in questoes %}
-        <p>Questão {{ "%02d"|format(loop.index) }}: {{ questao[8] }}</p>
-    {% endfor %}
-</div>
+        <span>
+            Gerado pela plataforma <strong>ARK EDUS</strong>
+        </span>
+    </div>
+
+</section>
+
+</main>
+
+<script>
+const CAMPOS_IMPRESSAO = [
+    {id:'instituicao', nome:'Instituição', exibir:false, preenchido:true},
+    {id:'turma', nome:'Turma', exibir:true, preenchido:true},
+    {id:'componente', nome:'Componente curricular', exibir:true, preenchido:true},
+    {id:'professor', nome:'Professor', exibir:true, preenchido:true},
+    {id:'cidade', nome:'Cidade', exibir:true, preenchido:true},
+    {id:'quantidade', nome:'Quantidade de questões', exibir:false, preenchido:true},
+    {id:'data', nome:'Data da avaliação', exibir:true, preenchido:false},
+    {id:'estudante', nome:'Estudante', exibir:true, preenchido:false},
+    {id:'nota', nome:'Nota', exibir:true, preenchido:false}
+];
+
+function montarCamposImpressao(){
+    const area=document.getElementById('printSettingsFields');
+    if(!area || area.dataset.montado) return;
+    area.innerHTML=CAMPOS_IMPRESSAO.map(c=>`<div class="print-setting-row"><label for="show-${c.id}">${c.nome}</label><input id="show-${c.id}" type="checkbox" ${c.exibir?'checked':''}><input id="fill-${c.id}" type="checkbox" ${c.preenchido?'checked':''}></div>`).join('');
+    area.dataset.montado='1';
+}
+function abrirConfiguracaoImpressao(){ montarCamposImpressao(); document.getElementById('printSettingsOverlay').hidden=false; }
+function fecharConfiguracaoImpressao(){ document.getElementById('printSettingsOverlay').hidden=true; }
+function aplicarConfiguracaoImpressao(){
+    CAMPOS_IMPRESSAO.forEach(c=>{
+        const elementos=document.querySelectorAll(`[data-print-field="${c.id}"]`);
+        if(!elementos.length) return;
+        const mostrar=document.getElementById(`show-${c.id}`)?.checked ?? c.exibir;
+        const preencher=document.getElementById(`fill-${c.id}`)?.checked ?? c.preenchido;
+        elementos.forEach(el=>{
+            el.classList.toggle('print-hidden',!mostrar);
+            el.classList.toggle('print-empty',mostrar && !preencher);
+        });
+    });
+    document.body.classList.toggle('hide-print-instructions',!document.getElementById('optMostrarInstrucoes').checked);
+    document.body.classList.toggle('hide-print-logo',!document.getElementById('optMostrarLogo').checked);
+}
+function imprimirComConfiguracao(){ aplicarConfiguracaoImpressao(); fecharConfiguracaoImpressao(); setTimeout(()=>window.print(),80); }
+function alternarGabarito(){
+    const card=document.getElementById('answerKeyCard'); const texto=document.getElementById('answerKeyText');
+    if(!card)return; card.classList.toggle('open');
+    if(texto) texto.textContent=card.classList.contains('open')?'Ocultar respostas':'Exibir respostas';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fecharConfiguracaoImpressao();});
+</script>
 
 </body>
 </html>

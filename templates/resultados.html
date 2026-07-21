@@ -1,257 +1,1425 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<title>Resultados</title>
+{% extends "layout/base.html" %}
 
+{% block titulo %}Resultados da Prova | ARK EDU{% endblock %}
+
+{% block estilos %}
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f4f6f9;
-    margin: 0;
-}
+.resultados-page {
+            --ark-primary: #173f73;
+            --ark-primary-hover: #12345f;
+            --ark-primary-light: #edf4fb;
 
-header {
-    background: #1e3a8a;
-    color: white;
-    padding: 35px;
-}
+            --ark-secondary: #c9973f;
+            --ark-secondary-light: #fff8e9;
 
-.container {
-    padding: 30px;
-}
+            --ark-success: #17845f;
+            --ark-success-light: #eaf8f2;
 
-.voltar {
-    color: #1e3a8a;
-    font-weight: bold;
-    text-decoration: none;
-}
+            --ark-danger: #d74747;
+            --ark-danger-light: #fff0f0;
 
-.card {
-    background: white;
-    padding: 28px;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
+            --ark-warning: #c98218;
+            --ark-warning-light: #fff6e7;
 
-.resumo {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 15px;
-    margin: 25px 0;
-}
+            --ark-purple: #7556c6;
+            --ark-purple-light: #f2efff;
 
-.bloco {
-    background: #eef2ff;
-    border-left: 6px solid #1e3a8a;
-    padding: 18px;
-    border-radius: 10px;
-}
+            --ark-background: #f5f7fa;
+            --ark-surface: #ffffff;
 
-.bloco h3 {
-    margin: 0;
-    color: #1e3a8a;
-    font-size: 14px;
-}
+            --ark-text: #182230;
+            --ark-text-secondary: #667085;
+            --ark-text-light: #98a2b3;
 
-.bloco p {
-    margin: 8px 0 0;
-    font-size: 26px;
-    font-weight: bold;
-}
+            --ark-border: #e4e8ef;
+            --ark-border-light: #eef1f5;
 
-.aprovado {
-    border-left-color: #16a34a;
-}
+            --ark-shadow:
+                0 1px 2px rgba(16, 24, 40, 0.03),
+                0 5px 18px rgba(16, 24, 40, 0.05);
 
-.reprovado {
-    border-left-color: #dc2626;
-}
+            --ark-radius: 12px;
+        }
+/* =========================================================
+           PÁGINA
+        ========================================================= */
 
-.taxa {
-    border-left-color: #7c3aed;
-}
+        .ark-page {
+            width: 100%;
+            max-width: none;
+            padding: 24px 22px 34px;
+        }
 
-.nota-aprovado {
-    color: #16a34a;
-    font-weight: bold;
-}
+        .ark-page-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
 
-.nota-reprovado {
-    color: #dc2626;
-    font-weight: bold;
-}
+        /* =========================================================
+           CABEÇALHO DA PÁGINA
+        ========================================================= */
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
+        .ark-page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
 
-th {
-    background: #1e3a8a;
-    color: white;
-    padding: 12px;
-}
+        .ark-page-heading {
+            min-width: 0;
+        }
+.ark-page-title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
-td {
-    padding: 12px;
-    border-bottom: 1px solid #ddd;
-    text-align: center;
-}
+        .ark-page-icon {
+            display: flex;
+            width: 44px;
+            min-width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            background: var(--ark-primary-light);
+            border-radius: 11px;
+            color: var(--ark-primary);
+        }
 
-tr:nth-child(even) {
-    background: #f8fafc;
-}
+        .ark-page-icon i {
+            width: 22px;
+            height: 22px;
+        }
 
-.posicao {
-    font-weight: bold;
-    color: #1e3a8a;
-}
+        .ark-page-title {
+            color: var(--ark-text);
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
 
-.sem-resultados {
-    text-align: center;
-    color: #666;
-    padding: 25px;
-}
+        .ark-page-description {
+            margin-top: 6px;
+            color: var(--ark-text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
 
-@media (max-width: 1100px) {
-    .resumo {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
+        .ark-page-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 9px;
+        }
 
-@media (max-width: 700px) {
-    .resumo {
-        grid-template-columns: 1fr;
-    }
-}
+        .ark-page-header-stacked {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 18px;
+        }
 
-@media print {
-    header, .voltar {
-        display: none;
-    }
+        .ark-page-actions-top {
+            justify-content: flex-start;
+        }
 
-    body {
-        background: white;
-    }
+        .ark-page-heading {
+            width: 100%;
+        }
 
-    .card {
-        box-shadow: none;
-    }
-}
+        /* =========================================================
+           BOTÕES ARK EDU
+        ========================================================= */
+
+        .ark-btn {
+            display: inline-flex;
+            min-height: 40px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease,
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+        }
+
+        .ark-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .ark-btn i {
+            width: 16px;
+            height: 16px;
+        }
+
+        .ark-btn-secondary {
+            background: var(--ark-surface);
+            border-color: var(--ark-border);
+            color: var(--ark-text-secondary);
+        }
+
+        .ark-btn-secondary:hover {
+            border-color: #cbd2dc;
+            color: var(--ark-primary);
+        }
+
+        .ark-btn-primary {
+            background: var(--ark-primary);
+            border-color: var(--ark-primary);
+            color: #ffffff;
+            box-shadow: 0 3px 8px rgba(23, 63, 115, 0.15);
+        }
+
+        .ark-btn-primary:hover {
+            background: var(--ark-primary-hover);
+            border-color: var(--ark-primary-hover);
+        }
+
+        /* =========================================================
+           CARD PRINCIPAL
+        ========================================================= */
+
+        .ark-card {
+            width: 100%;
+            max-width: none;
+            overflow: hidden;
+            background: var(--ark-surface);
+            border: 1px solid #dfe5ed;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(23, 63, 115, 0.06);
+        }
+
+        .ark-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 20px 22px;
+            border-bottom: 1px solid var(--ark-border-light);
+        }
+
+        .ark-exam-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .ark-exam-icon {
+            display: flex;
+            width: 42px;
+            min-width: 42px;
+            height: 42px;
+            align-items: center;
+            justify-content: center;
+            background: var(--ark-primary-light);
+            border-radius: 10px;
+            color: var(--ark-primary);
+        }
+
+        .ark-exam-icon i {
+            width: 20px;
+            height: 20px;
+        }
+
+        .ark-exam-label {
+            margin-bottom: 3px;
+            color: var(--ark-text-light);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .ark-exam-title {
+            overflow: hidden;
+            color: var(--ark-text);
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ark-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            background: var(--ark-success-light);
+            border: 1px solid #ccecdf;
+            border-radius: 999px;
+            color: var(--ark-success);
+            font-size: 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .ark-status::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            background: var(--ark-success);
+            border-radius: 50%;
+        }
+
+        .ark-card-body {
+            padding: 22px;
+        }
+
+        /* =========================================================
+           CABEÇALHO DAS SEÇÕES
+        ========================================================= */
+
+        .ark-section-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 16px;
+        }
+
+        .ark-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--ark-text);
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .ark-section-title i {
+            width: 18px;
+            height: 18px;
+            color: var(--ark-primary);
+        }
+
+        .ark-section-description {
+            margin-top: 4px;
+            color: var(--ark-text-secondary);
+            font-size: 11px;
+        }
+
+        /* =========================================================
+           RESUMO DOS RESULTADOS
+        ========================================================= */
+
+        .ark-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 22px;
+        }
+
+        .ark-summary-card {
+            position: relative;
+            overflow: hidden;
+            min-height: 118px;
+            padding: 16px;
+            background: #ffffff;
+            border: 1px solid var(--ark-border);
+            border-radius: 11px;
+            transition:
+                border-color 0.2s ease,
+                box-shadow 0.2s ease,
+                transform 0.2s ease;
+        }
+
+        .ark-summary-card:hover {
+            transform: translateY(-2px);
+            border-color: #d5dbe5;
+            box-shadow: 0 5px 14px rgba(16, 24, 40, 0.05);
+        }
+
+        .ark-summary-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 17px;
+        }
+
+        .ark-summary-label {
+            color: var(--ark-text-secondary);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .ark-summary-icon {
+            display: flex;
+            width: 30px;
+            min-width: 30px;
+            height: 30px;
+            align-items: center;
+            justify-content: center;
+            background: var(--ark-primary-light);
+            border-radius: 8px;
+            color: var(--ark-primary);
+        }
+
+        .ark-summary-icon i {
+            width: 15px;
+            height: 15px;
+        }
+
+        .ark-summary-value {
+            color: var(--ark-text);
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+        }
+
+        .ark-summary-description {
+            margin-top: 7px;
+            color: var(--ark-text-light);
+            font-size: 9px;
+            font-weight: 500;
+        }
+
+        .ark-summary-card.success .ark-summary-icon {
+            background: var(--ark-success-light);
+            color: var(--ark-success);
+        }
+
+        .ark-summary-card.success .ark-summary-value {
+            color: var(--ark-success);
+        }
+
+        .ark-summary-card.danger .ark-summary-icon {
+            background: var(--ark-danger-light);
+            color: var(--ark-danger);
+        }
+
+        .ark-summary-card.danger .ark-summary-value {
+            color: var(--ark-danger);
+        }
+
+        .ark-summary-card.warning .ark-summary-icon {
+            background: var(--ark-warning-light);
+            color: var(--ark-warning);
+        }
+
+        .ark-summary-card.warning .ark-summary-value {
+            color: var(--ark-warning);
+        }
+
+        .ark-summary-card.purple .ark-summary-icon {
+            background: var(--ark-purple-light);
+            color: var(--ark-purple);
+        }
+
+        .ark-summary-card.purple .ark-summary-value {
+            color: var(--ark-purple);
+        }
+
+        /* =========================================================
+           TAXA DE APROVAÇÃO
+        ========================================================= */
+
+        .ark-approval-box {
+            margin-bottom: 28px;
+            padding: 16px 18px;
+            background: #f9fafc;
+            border: 1px solid var(--ark-border-light);
+            border-radius: 10px;
+        }
+
+        .ark-approval-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+
+        .ark-approval-title {
+            color: var(--ark-text-secondary);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .ark-approval-value {
+            color: var(--ark-success);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ark-progress {
+            width: 100%;
+            height: 8px;
+            overflow: hidden;
+            background: #e7ebf0;
+            border-radius: 999px;
+        }
+
+        .ark-progress-bar {
+            height: 100%;
+            background: var(--ark-success);
+            border-radius: inherit;
+            transition: width 0.4s ease;
+        }
+
+        /* =========================================================
+           RANKING
+        ========================================================= */
+
+        .ark-ranking-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            background: var(--ark-primary-light);
+            border-radius: 999px;
+            color: var(--ark-primary);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .ark-ranking-count i {
+            width: 14px;
+            height: 14px;
+        }
+
+        .ark-table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--ark-border);
+            border-radius: 10px;
+        }
+
+        .ark-table {
+            width: 100%;
+            min-width: 800px;
+            border-collapse: collapse;
+            background: #ffffff;
+        }
+
+        .ark-table thead {
+            background: #f7f9fb;
+        }
+
+        .ark-table th {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--ark-border);
+            color: var(--ark-text-secondary);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.07em;
+            text-align: left;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .ark-table th.center,
+        .ark-table td.center {
+            text-align: center;
+        }
+
+        .ark-table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        .ark-table tbody tr:hover {
+            background: #f9fbfd;
+        }
+
+        .ark-table tbody tr:not(:last-child) td {
+            border-bottom: 1px solid var(--ark-border-light);
+        }
+
+        .ark-table td {
+            padding: 13px 15px;
+            color: var(--ark-text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* =========================================================
+           POSIÇÃO
+        ========================================================= */
+
+        .ark-position {
+            display: inline-flex;
+            min-width: 36px;
+            height: 28px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
+            background: #f4f6f8;
+            border: 1px solid var(--ark-border);
+            border-radius: 7px;
+            color: var(--ark-text-secondary);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ark-position.first {
+            background: #fff8e8;
+            border-color: #efd99e;
+            color: #95620c;
+        }
+
+        .ark-position.second {
+            background: #f4f5f7;
+            border-color: #d9dde3;
+            color: #667085;
+        }
+
+        .ark-position.third {
+            background: #fff2e9;
+            border-color: #ebc9b0;
+            color: #9b582d;
+        }
+
+        /* =========================================================
+           ALUNO
+        ========================================================= */
+
+        .ark-student {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 240px;
+        }
+
+        .ark-student-avatar {
+            display: flex;
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+            align-items: center;
+            justify-content: center;
+            background: var(--ark-primary-light);
+            border-radius: 50%;
+            color: var(--ark-primary);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .ark-student-name {
+            color: var(--ark-text);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        /* =========================================================
+           ACERTOS, ERROS E NOTA
+        ========================================================= */
+
+        .ark-correct {
+            color: var(--ark-success);
+            font-weight: 800;
+        }
+
+        .ark-incorrect {
+            color: var(--ark-danger);
+            font-weight: 800;
+        }
+
+        .ark-grade {
+            display: inline-flex;
+            min-width: 56px;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 9px;
+            border-radius: 7px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ark-grade.approved {
+            background: var(--ark-success-light);
+            border: 1px solid #ccecdf;
+            color: var(--ark-success);
+        }
+
+        .ark-grade.failed {
+            background: var(--ark-danger-light);
+            border: 1px solid #ffd1d1;
+            color: var(--ark-danger);
+        }
+
+        .ark-result-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .ark-result-status::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .ark-result-status.approved {
+            background: var(--ark-success-light);
+            color: var(--ark-success);
+        }
+
+        .ark-result-status.approved::before {
+            background: var(--ark-success);
+        }
+
+        .ark-result-status.failed {
+            background: var(--ark-danger-light);
+            color: var(--ark-danger);
+        }
+
+        .ark-result-status.failed::before {
+            background: var(--ark-danger);
+        }
+
+        /* =========================================================
+           SEM RESULTADOS
+        ========================================================= */
+
+        .ark-empty {
+            padding: 55px 20px;
+            text-align: center;
+        }
+
+        .ark-empty-icon {
+            display: flex;
+            width: 58px;
+            height: 58px;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            background: var(--ark-primary-light);
+            border-radius: 15px;
+            color: var(--ark-primary);
+        }
+
+        .ark-empty-icon i {
+            width: 26px;
+            height: 26px;
+        }
+
+        .ark-empty-title {
+            margin-bottom: 5px;
+            color: var(--ark-text);
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .ark-empty-description {
+            color: var(--ark-text-secondary);
+            font-size: 11px;
+        }
+
+        /* =========================================================
+           RODAPÉ DO CARD
+        ========================================================= */
+
+        .ark-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 17px 22px;
+            background: #fbfcfd;
+            border-top: 1px solid var(--ark-border-light);
+        }
+
+        .ark-footer-note {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--ark-text-light);
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .ark-footer-note i {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* =========================================================
+           RESPONSIVIDADE
+        ========================================================= */
+
+        @media (max-width: 1450px) {
+            .ark-summary-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 900px) {
+            .ark-page {
+                padding: 18px;
+            }
+
+            .ark-page-header {
+                flex-direction: column;
+            }
+
+            .ark-page-actions {
+                justify-content: flex-start;
+            }
+
+            .ark-page-actions-top {
+                width: 100%;
+            }
+
+            .ark-summary-grid {
+                grid-template-columns: repeat(2, minmax(145px, 1fr));
+            }
+        }
+
+        @media (max-width: 620px) {
+            .ark-page {
+                padding: 14px;
+            }
+
+            .ark-page-title {
+                font-size: 21px;
+            }
+
+            .ark-page-actions {
+                width: 100%;
+            }
+
+            .ark-page-actions .ark-btn {
+                flex: 1 1 100%;
+                width: 100%;
+            }
+
+            .ark-card-header {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 18px;
+            }
+
+            .ark-exam-title {
+                white-space: normal;
+            }
+
+            .ark-card-body {
+                padding: 18px 13px;
+            }
+
+            .ark-summary-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .ark-summary-card {
+                min-height: auto;
+            }
+
+            .ark-section-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .ark-card-footer {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 16px 18px;
+            }
+
+            .ark-card-footer .ark-btn {
+                width: 100%;
+            }
+        }
+
+        /* =========================================================
+           IMPRESSÃO
+        ========================================================= */
+
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 10mm;
+            }
+
+
+            .ark-page {
+                padding: 0;
+            }
+
+            .ark-page-actions,
+            .ark-card-footer {
+                display: none !important;
+            }
+
+            .ark-page-header {
+                margin-bottom: 16px;
+            }
+
+            .ark-card {
+                border: 1px solid #cccccc;
+                box-shadow: none;
+            }
+
+            .ark-summary-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .ark-summary-card {
+                break-inside: avoid;
+                box-shadow: none;
+            }
+
+            .ark-table tbody tr {
+                break-inside: avoid;
+            }
+        }
 </style>
-</head>
+{% endblock %}
 
-<body>
+{% block cabecalho %}{% endblock %}
 
-<header>
-    <h1>Resultados da Prova</h1>
-</header>
+{% block conteudo %}
+<div class="resultados-page ark-page">
 
-<div class="container">
+        <div class="ark-page-container">
 
-    <p>
-    <a class="voltar" href="/provas">
-        ← Voltar para provas
-    </a>
-</p>
+            <!-- Cabeçalho -->
+            <header class="ark-page-header ark-page-header-stacked">
 
-<p>
-    <a class="voltar" href="/relatorio_questoes/{{ request.view_args['prova_id'] }}">
-        📊 Relatório por questão
-    </a>
-</p>
+                <div class="ark-page-actions ark-page-actions-top">
 
-    <div class="card">
-        <h2>{{ prova[0] }}</h2>
+                    <a
+                        href="/provas"
+                        class="ark-btn ark-btn-secondary"
+                    >
+                        <i data-lucide="arrow-left"></i>
+                        Voltar
+                    </a>
 
-        <div class="resumo">
-            <div class="bloco">
-                <h3>Total de alunos</h3>
-                <p>{{ total_alunos }}</p>
-            </div>
+                    <button
+                        type="button"
+                        class="ark-btn ark-btn-secondary"
+                        onclick="window.print()"
+                    >
+                        <i data-lucide="printer"></i>
+                        Imprimir
+                    </button>
 
-            <div class="bloco">
-                <h3>Média da turma</h3>
-                <p>{{ "%.1f"|format(media_turma) }}</p>
-            </div>
+                    <a
+                        href="/relatorio_questoes/{{ request.view_args['prova_id'] }}"
+                        class="ark-btn ark-btn-primary"
+                    >
+                        <i data-lucide="chart-bar-big"></i>
+                        Relatório por questão
+                    </a>
 
-            <div class="bloco">
-                <h3>Maior nota</h3>
-                <p>{{ "%.1f"|format(maior_nota) }}</p>
-            </div>
+                </div>
 
-            <div class="bloco">
-                <h3>Menor nota</h3>
-                <p>{{ "%.1f"|format(menor_nota) }}</p>
-            </div>
+                <div class="ark-page-heading">
 
-            <div class="bloco aprovado">
-                <h3>Aprovados</h3>
-                <p>{{ aprovados }}</p>
-            </div>
+                    <div class="ark-page-title-row">
 
-            <div class="bloco reprovado">
-                <h3>Reprovados</h3>
-                <p>{{ reprovados }}</p>
-            </div>
+                        <div class="ark-page-icon">
+                            <i data-lucide="chart-no-axes-combined"></i>
+                        </div>
 
-            <div class="bloco taxa">
-                <h3>Taxa de aprovação</h3>
-                <p>{{ "%.1f"|format(taxa_aprovacao) }}%</p>
-            </div>
+                        <div>
+                            <h1 class="ark-page-title">
+                                Resultados da Prova
+                            </h1>
+
+                            <p class="ark-page-description">
+                                Acompanhe o desempenho da turma e os resultados
+                                individuais dos alunos.
+                            </p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+            <!-- Card -->
+            <section class="ark-card">
+
+                <div class="ark-card-header">
+
+                    <div class="ark-exam-info">
+
+                        <div class="ark-exam-icon">
+                            <i data-lucide="clipboard-check"></i>
+                        </div>
+
+                        <div>
+                            <div class="ark-exam-label">
+                                Prova selecionada
+                            </div>
+
+                            <h2 class="ark-exam-title">
+                                {{ prova["nome"] }}
+                            </h2>
+                        </div>
+
+                    </div>
+
+                    <span class="ark-status">
+                        Resultados disponíveis
+                    </span>
+
+                </div>
+
+                <div class="ark-card-body">
+
+                    <!-- Resumo -->
+                    <div class="ark-section-header">
+
+                        <div>
+                            <h3 class="ark-section-title">
+                                <i data-lucide="layout-dashboard"></i>
+                                Resumo dos resultados
+                            </h3>
+
+                            <p class="ark-section-description">
+                                Informações gerais sobre o desempenho da turma.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="ark-summary-grid">
+
+                        <div class="ark-summary-card">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Total de alunos
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="users"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ total_alunos }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Resultados registrados
+                            </div>
+
+                        </div>
+
+                        <div class="ark-summary-card">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Média da turma
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="chart-line"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ "%.1f"|format(media_turma) }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Média geral
+                            </div>
+
+                        </div>
+
+                        <div class="ark-summary-card success">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Maior nota
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="trending-up"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ "%.1f"|format(maior_nota) }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Melhor resultado
+                            </div>
+
+                        </div>
+
+                        <div class="ark-summary-card warning">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Menor nota
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="trending-down"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ "%.1f"|format(menor_nota) }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Menor resultado
+                            </div>
+
+                        </div>
+
+                        {% if media_ativa %}
+                        <div class="ark-summary-card purple">
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">Média definida</span>
+                                <span class="ark-summary-icon"><i data-lucide="target"></i></span>
+                            </div>
+                            <div class="ark-summary-value">{{ "%.1f"|format(media_aprovacao) }}</div>
+                            <div class="ark-summary-description">Critério desta avaliação</div>
+                        </div>
+
+                        <div class="ark-summary-card success">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Aprovados
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="circle-check"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ aprovados }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Nota igual ou superior a {{ "%.1f"|format(media_aprovacao) }}
+                            </div>
+
+                        </div>
+
+                        <div class="ark-summary-card danger">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Abaixo da média
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="circle-alert"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ reprovados }}
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Nota inferior a {{ "%.1f"|format(media_aprovacao) }}
+                            </div>
+
+                        </div>
+
+                        <div class="ark-summary-card purple">
+
+                            <div class="ark-summary-header">
+                                <span class="ark-summary-label">
+                                    Taxa de aprovação
+                                </span>
+
+                                <span class="ark-summary-icon">
+                                    <i data-lucide="percent"></i>
+                                </span>
+                            </div>
+
+                            <div class="ark-summary-value">
+                                {{ "%.1f"|format(taxa_aprovacao) }}%
+                            </div>
+
+                            <div class="ark-summary-description">
+                                Percentual da turma
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Barra de aprovação -->
+                    <div class="ark-approval-box">
+
+                        <div class="ark-approval-header">
+
+                            <span class="ark-approval-title">
+                                Taxa de aprovação da turma
+                            </span>
+
+                            <span class="ark-approval-value">
+                                {{ "%.1f"|format(taxa_aprovacao) }}%
+                            </span>
+
+                        </div>
+
+                        <div
+                            class="ark-progress"
+                            role="progressbar"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="{{ taxa_aprovacao }}"
+                        >
+                            <div
+                                class="ark-progress-bar"
+                                style="width: {{ taxa_aprovacao }}%;"
+                            ></div>
+                        </div>
+
+                        {% endif %}
+
+                    </div>
+
+                    <!-- Ranking -->
+                    <section>
+
+                        <div class="ark-section-header">
+
+                            <div>
+                                <h3 class="ark-section-title">
+                                    <i data-lucide="trophy"></i>
+                                    Ranking dos alunos
+                                </h3>
+
+                                <p class="ark-section-description">
+                                    Classificação organizada da maior para a menor nota.
+                                </p>
+                            </div>
+
+                            <span class="ark-ranking-count">
+                                <i data-lucide="users-round"></i>
+
+                                {{ total_alunos }}
+
+                                {% if total_alunos == 1 %}
+                                    aluno
+                                {% else %}
+                                    alunos
+                                {% endif %}
+                            </span>
+
+                        </div>
+
+                        <div class="ark-table-wrapper">
+
+                            <table class="ark-table">
+
+                                <thead>
+                                    <tr>
+                                        <th class="center">
+                                            Posição
+                                        </th>
+
+                                        <th>
+                                            Aluno
+                                        </th>
+
+                                        <th class="center">
+                                            Acertos
+                                        </th>
+
+                                        <th class="center">
+                                            Erros
+                                        </th>
+
+                                        <th class="center">
+                                            Nota
+                                        </th>
+
+                                        <th class="center">
+                                            Situação
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    {% for r in resultados %}
+                                    <tr>
+
+                                        <td class="center">
+
+                                            {% if loop.index == 1 %}
+                                                <span class="ark-position first">
+                                                    1º
+                                                </span>
+
+                                            {% elif loop.index == 2 %}
+                                                <span class="ark-position second">
+                                                    2º
+                                                </span>
+
+                                            {% elif loop.index == 3 %}
+                                                <span class="ark-position third">
+                                                    3º
+                                                </span>
+
+                                            {% else %}
+                                                <span class="ark-position">
+                                                    {{ loop.index }}º
+                                                </span>
+                                            {% endif %}
+
+                                        </td>
+
+                                        <td>
+
+                                            <div class="ark-student">
+
+                                                <div class="ark-student-avatar">
+                                                    {{ r[0][0] if r[0] else "A" }}
+                                                </div>
+
+                                                <span class="ark-student-name">
+                                                    {{ r[0] }}
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+                                        <td class="center">
+                                            <span class="ark-correct">
+                                                {{ r[1] }}
+                                            </span>
+                                        </td>
+
+                                        <td class="center">
+                                            <span class="ark-incorrect">
+                                                {{ r[2] }}
+                                            </span>
+                                        </td>
+
+                                        <td class="center">
+
+                                            {% if not media_ativa %}
+                                                <span class="ark-grade">{{ "%.1f"|format(r[3]) }}</span>
+                                            {% elif r[3] >= media_aprovacao %}
+                                                <span class="ark-grade approved">{{ "%.1f"|format(r[3]) }}</span>
+                                            {% else %}
+                                                <span class="ark-grade failed">{{ "%.1f"|format(r[3]) }}</span>
+                                            {% endif %}
+
+                                        </td>
+
+                                        <td class="center">
+
+                                            {% if not media_ativa %}
+                                                <span class="ark-result-status">Sem critério</span>
+                                            {% elif r[3] >= media_aprovacao %}
+                                                <span class="ark-result-status approved">Aprovado</span>
+                                            {% else %}
+                                                <span class="ark-result-status failed">Abaixo da média</span>
+                                            {% endif %}
+
+                                        </td>
+
+                                    </tr>
+
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6">
+
+                                            <div class="ark-empty">
+
+                                                <div class="ark-empty-icon">
+                                                    <i data-lucide="clipboard-x"></i>
+                                                </div>
+
+                                                <h3 class="ark-empty-title">
+                                                    Nenhum resultado registrado
+                                                </h3>
+
+                                                <p class="ark-empty-description">
+                                                    Ainda não existem resultados
+                                                    disponíveis para esta prova.
+                                                </p>
+
+                                            </div>
+
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </section>
+
+                </div>
+
+                <footer class="ark-card-footer">
+
+                    <div class="ark-footer-note">
+                        <i data-lucide="info"></i>
+
+                        <span>
+                            {% if media_ativa %}
+                                A situação considera a média mínima de {{ "%.1f"|format(media_aprovacao) }} pontos.
+                            {% else %}
+                                Esta avaliação não utiliza média para aprovação.
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <a
+                        href="/relatorio_questoes/{{ request.view_args['prova_id'] }}"
+                        class="ark-btn ark-btn-primary"
+                    >
+                        <i data-lucide="chart-bar-big"></i>
+                        Analisar questões
+                    </a>
+
+                </footer>
+
+            </section>
+
         </div>
-
-        <h3>Ranking dos alunos</h3>
-
-        <table>
-            <tr>
-                <th>Posição</th>
-                <th>Aluno</th>
-                <th>Acertos</th>
-                <th>Erros</th>
-                <th>Nota</th>
-            </tr>
-
-            {% for r in resultados %}
-            <tr>
-                <td class="posicao">
-                    {% if loop.index == 1 %}
-                        🥇
-                    {% elif loop.index == 2 %}
-                        🥈
-                    {% elif loop.index == 3 %}
-                        🥉
-                    {% else %}
-                        {{ loop.index }}º
-                    {% endif %}
-                </td>
-
-                <td>{{ r[0] }}</td>
-                <td>{{ r[1] }}</td>
-                <td>{{ r[2] }}</td>
-
-                <td>
-                    {% if r[3] >= 6 %}
-                        <span class="nota-aprovado">{{ "%.1f"|format(r[3]) }}</span>
-                    {% else %}
-                        <span class="nota-reprovado">{{ "%.1f"|format(r[3]) }}</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="sem-resultados">
-                    Nenhum resultado registrado para esta prova.
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-
-    </div>
-
+    
 </div>
+{% endblock %}
 
-</body>
-</html>
+{% block scripts %}
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    });
+</script>
+{% endblock %}

@@ -16,141 +16,83 @@ Vínculos do Professor | ARK EDU
 <div class="pv-pagina">
 
     <div class="pv-topo">
-
         <div>
-            <span class="pv-etiqueta">
-                Gestão pedagógica
-            </span>
-
-            <h1>
-                Vínculos do Professor
-            </h1>
-
+            <span class="pv-etiqueta">Gestão pedagógica</span>
+            <h1>Vínculos do Professor</h1>
             <p>
                 Vincule o professor às turmas e aos componentes
                 curriculares em que ele leciona.
             </p>
         </div>
 
-        <a href="/usuarios" class="pv-voltar">
-            ← Voltar
-        </a>
-
+        <a href="/usuarios" class="pv-voltar">← Voltar</a>
     </div>
 
-
     {% with mensagens = get_flashed_messages(with_categories=true) %}
-
         {% if mensagens %}
-
             <div class="pv-mensagens">
-
                 {% for categoria, mensagem in mensagens %}
-
                     <div class="pv-alerta pv-alerta-{{ categoria }}">
                         {{ mensagem }}
                     </div>
-
                 {% endfor %}
-
             </div>
-
         {% endif %}
-
     {% endwith %}
 
-
     <div class="pv-card pv-professor-card">
-
         <div class="pv-avatar">
-            <svg viewBox="0 0 24 24">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="8" r="4"></circle>
                 <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
             </svg>
         </div>
 
         <div class="pv-professor-info">
-
-            <span>
-                Professor selecionado
-            </span>
-
-            <h2>
-                {{ professor["nome"] }}
-            </h2>
+            <span>Professor selecionado</span>
+            <h2>{{ professor["nome"] }}</h2>
 
             <div class="pv-professor-dados">
-
                 <p>
                     <strong>E-mail:</strong>
                     {{ professor["email"] or "Não informado" }}
                 </p>
-
                 <p>
                     <strong>Instituição:</strong>
                     {{ professor["nome_instituicao"] or "Não informada" }}
                 </p>
-
             </div>
-
         </div>
-
     </div>
 
-
     <div class="pv-card">
-
         <div class="pv-card-topo">
-
             <div>
-
-                <span class="pv-etiqueta">
-                    Novo vínculo
-                </span>
-
-                <h2>
-                    Adicionar turma e componente curricular
-                </h2>
-
+                <span class="pv-etiqueta">Novo vínculo</span>
+                <h2>Adicionar turma e componente curricular</h2>
                 <p>
-                    Selecione uma turma e um componente curricular.
+                    Selecione uma turma para visualizar somente os componentes
+                    curriculares cadastrados para a etapa correspondente.
                 </p>
-
             </div>
-
         </div>
 
-
-        {% if turmas and componentes %}
-
+        {% if turmas %}
             <form
                 method="POST"
                 action="/professor/{{ professor['id'] }}/vinculos"
                 class="pv-formulario"
+                id="form-vinculo"
             >
-
                 <div class="pv-grid">
-
                     <div class="pv-campo">
+                        <label for="turma_id">Turma</label>
 
-                        <label for="turma_id">
-                            Turma
-                        </label>
-
-                        <select
-                            id="turma_id"
-                            name="turma_id"
-                            required
-                        >
-
-                            <option value="">
-                                Selecione uma turma
-                            </option>
+                        <select id="turma_id" name="turma_id" required>
+                            <option value="">Selecione uma turma</option>
 
                             {% for turma in turmas %}
-
                                 <option value="{{ turma['id'] }}">
-
                                     {% if turma["etapa"] %}
                                         {{ turma["etapa"] }} -
                                     {% endif %}
@@ -164,125 +106,71 @@ Vínculos do Professor | ARK EDU
                                     {% if turma["turno"] %}
                                         - {{ turma["turno"] }}
                                     {% endif %}
-
                                 </option>
-
                             {% endfor %}
-
                         </select>
-
                     </div>
 
-
                     <div class="pv-campo">
-
-                        <label for="componente_id">
-                            Componente curricular
-                        </label>
+                        <label for="componente_id">Componente curricular</label>
 
                         <select
                             id="componente_id"
                             name="componente_id"
                             required
+                            disabled
                         >
-
-                            <option value="">
-                                Selecione um componente
-                            </option>
-
-                            {% for componente in componentes %}
-
-                                <option value="{{ componente['id'] }}">
-                                    {{ componente["nome"] }}
-                                </option>
-
-                            {% endfor %}
-
+                            <option value="">Primeiro selecione uma turma</option>
                         </select>
 
+                        <small
+                            id="mensagem-componentes"
+                            class="pv-ajuda-componente"
+                            aria-live="polite"
+                        ></small>
                     </div>
-
                 </div>
-
 
                 <div class="pv-acoes">
-
-                    <button type="submit" class="pv-salvar">
+                    <button
+                        type="submit"
+                        class="pv-salvar"
+                        id="botao-adicionar"
+                        disabled
+                    >
                         Adicionar vínculo
                     </button>
-
                 </div>
-
             </form>
-
         {% else %}
-
             <div class="pv-vazio">
-
-                {% if not turmas and not componentes %}
-
-                    Nenhuma turma e nenhum componente curricular
-                    foram encontrados para esta instituição.
-
-                {% elif not turmas %}
-
-                    Nenhuma turma foi encontrada para esta instituição.
-
-                {% elif not componentes %}
-
-                    Nenhum componente curricular foi encontrado
-                    para esta instituição.
-
-                {% endif %}
-
+                Nenhuma turma foi encontrada para a instituição deste professor.
             </div>
-
         {% endif %}
-
     </div>
 
-
     <div class="pv-card">
-
         <div class="pv-card-topo pv-card-lista-topo">
-
             <div>
-
-                <span class="pv-etiqueta">
-                    Vínculos cadastrados
-                </span>
-
-                <h2>
-                    Turmas e componentes do professor
-                </h2>
-
-                <p>
-                    Confira os vínculos registrados.
-                </p>
-
+                <span class="pv-etiqueta">Vínculos cadastrados</span>
+                <h2>Turmas e componentes do professor</h2>
+                <p>Confira os vínculos registrados.</p>
             </div>
 
             <span class="pv-contador">
                 {{ vinculos|length }}
-
                 {% if vinculos|length == 1 %}
                     vínculo
                 {% else %}
                     vínculos
                 {% endif %}
             </span>
-
         </div>
 
-
         {% if vinculos %}
-
             <div class="pv-tabela-area">
-
                 <table class="pv-tabela">
-
                     <thead>
-
                         <tr>
                             <th>Etapa</th>
                             <th>Ano</th>
@@ -291,78 +179,176 @@ Vínculos do Professor | ARK EDU
                             <th>Componente</th>
                             <th>Ações</th>
                         </tr>
-
                     </thead>
 
                     <tbody>
-
                         {% for vinculo in vinculos %}
-
                             <tr>
-
-                                <td>
-                                    {{ vinculo["etapa"] or "-" }}
-                                </td>
-
-                                <td>
-                                    {{ vinculo["ano"] or "-" }}
-                                </td>
-
-                                <td>
-                                    <strong>
-                                        {{ vinculo["turma_nome"] }}
-                                    </strong>
-                                </td>
-
-                                <td>
-                                    {{ vinculo["turno"] or "-" }}
-                                </td>
-
+                                <td>{{ vinculo["etapa"] or "-" }}</td>
+                                <td>{{ vinculo["ano"] or "-" }}</td>
+                                <td><strong>{{ vinculo["turma_nome"] }}</strong></td>
+                                <td>{{ vinculo["turno"] or "-" }}</td>
                                 <td>
                                     <span class="pv-componente">
                                         {{ vinculo["componente_nome"] }}
                                     </span>
                                 </td>
-
                                 <td>
-
                                     <form
                                         method="POST"
                                         action="/professor/{{ professor['id'] }}/vinculos/{{ vinculo['id'] }}/excluir"
                                         onsubmit="return confirm('Deseja excluir este vínculo?')"
                                     >
-
-                                        <button
-                                            type="submit"
-                                            class="pv-excluir"
-                                        >
+                                        <button type="submit" class="pv-excluir">
                                             Excluir
                                         </button>
-
                                     </form>
-
                                 </td>
-
                             </tr>
-
                         {% endfor %}
-
                     </tbody>
-
                 </table>
-
             </div>
-
         {% else %}
-
             <div class="pv-vazio">
                 Nenhum vínculo foi cadastrado para este professor.
             </div>
-
         {% endif %}
-
     </div>
 
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const turmaSelect = document.getElementById("turma_id");
+    const componenteSelect = document.getElementById("componente_id");
+    const botaoAdicionar = document.getElementById("botao-adicionar");
+    const mensagemComponentes = document.getElementById("mensagem-componentes");
+
+    if (!turmaSelect || !componenteSelect || !botaoAdicionar) {
+        return;
+    }
+
+    function limparComponentes(mensagem) {
+        componenteSelect.innerHTML = "";
+
+        const opcao = document.createElement("option");
+        opcao.value = "";
+        opcao.textContent = mensagem;
+
+        componenteSelect.appendChild(opcao);
+        componenteSelect.disabled = true;
+        botaoAdicionar.disabled = true;
+    }
+
+    function mostrarMensagem(texto, tipo = "") {
+        if (!mensagemComponentes) {
+            return;
+        }
+
+        mensagemComponentes.textContent = texto;
+        mensagemComponentes.classList.remove("sucesso", "erro", "carregando");
+
+        if (tipo) {
+            mensagemComponentes.classList.add(tipo);
+        }
+    }
+
+    async function carregarComponentes() {
+        const turmaId = turmaSelect.value;
+
+        if (!turmaId) {
+            limparComponentes("Primeiro selecione uma turma");
+            mostrarMensagem("");
+            return;
+        }
+
+        limparComponentes("Carregando componentes...");
+        mostrarMensagem(
+            "Buscando os componentes cadastrados para esta etapa...",
+            "carregando"
+        );
+
+        try {
+            const resposta = await fetch(
+                `/api/turmas/${turmaId}/componentes`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
+            );
+
+            const dados = await resposta.json();
+
+            if (!resposta.ok || !dados.sucesso) {
+                limparComponentes(
+                    dados.mensagem || "Não foi possível carregar os componentes"
+                );
+
+                mostrarMensagem(
+                    dados.mensagem || "Não foi possível carregar os componentes.",
+                    "erro"
+                );
+
+                return;
+            }
+
+            if (!dados.componentes || dados.componentes.length === 0) {
+                limparComponentes(
+                    "Nenhum componente cadastrado para esta etapa"
+                );
+
+                mostrarMensagem(
+                    "Nenhum componente curricular foi cadastrado para a etapa " +
+                    `${dados.turma.etapa}.`,
+                    "erro"
+                );
+
+                return;
+            }
+
+            componenteSelect.innerHTML = "";
+
+            const opcaoInicial = document.createElement("option");
+            opcaoInicial.value = "";
+            opcaoInicial.textContent = "Selecione um componente";
+            componenteSelect.appendChild(opcaoInicial);
+
+            dados.componentes.forEach(function (componente) {
+                const opcao = document.createElement("option");
+                opcao.value = componente.id;
+                opcao.textContent = componente.nome;
+                componenteSelect.appendChild(opcao);
+            });
+
+            componenteSelect.disabled = false;
+
+            mostrarMensagem(
+                `${dados.componentes.length} componente(s) disponível(is) para ` +
+                `${dados.turma.etapa}.`,
+                "sucesso"
+            );
+        } catch (erro) {
+            console.error("Erro ao carregar componentes:", erro);
+
+            limparComponentes("Erro ao carregar os componentes");
+            mostrarMensagem(
+                "Ocorreu um erro de comunicação com o servidor.",
+                "erro"
+            );
+        }
+    }
+
+    turmaSelect.addEventListener("change", carregarComponentes);
+
+    componenteSelect.addEventListener("change", function () {
+        botaoAdicionar.disabled = !componenteSelect.value;
+    });
+
+    limparComponentes("Primeiro selecione uma turma");
+});
+</script>
 
 {% endblock %}

@@ -1,0 +1,259 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Banco de Questões | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.bq-pagina{
+    --azul:#17468f;
+    --azul-2:#2563eb;
+    --texto:#0f172a;
+    --suave:#64748b;
+    --borda:#dbe4f0;
+    display:grid;
+    gap:18px;
+}
+.bq-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.bq-topo h1{margin:0;color:var(--azul);font-size:clamp(28px,3vw,36px);font-weight:900;letter-spacing:-.025em}
+.bq-topo p{margin:7px 0 0;color:var(--suave);font-size:14px}
+.bq-acoes-topo{display:flex;gap:10px;flex-wrap:wrap}
+.bq-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer;transition:.2s}
+.bq-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bq-btn-principal{border:1px solid var(--azul);background:linear-gradient(135deg,var(--azul),var(--azul-2));color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.2)}
+.bq-btn-secundario{border:1px solid var(--borda);background:#fff;color:var(--azul)}
+.bq-resumo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.bq-kpi{display:flex;align-items:center;gap:13px;padding:18px;border:1px solid var(--borda);border-radius:17px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.045)}
+.bq-kpi-icone{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#eef5ff;color:var(--azul)}
+.bq-kpi-icone svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2}
+.bq-kpi strong{display:block;color:var(--texto);font-size:23px;font-weight:900;line-height:1}
+.bq-kpi span{display:block;margin-top:5px;color:var(--suave);font-size:12px;font-weight:700}
+.bq-filtros-card{padding:18px;border:1px solid var(--borda);border-radius:18px;background:#fff;box-shadow:0 9px 28px rgba(15,23,42,.045)}
+.bq-busca{position:relative;margin-bottom:13px}
+.bq-busca svg{position:absolute;left:15px;top:50%;width:20px;height:20px;transform:translateY(-50%);fill:none;stroke:#64748b;stroke-width:2}
+.bq-busca input{width:100%;height:50px;padding:0 16px 0 46px;border:1px solid var(--borda);border-radius:14px;background:#f8fafc;color:var(--texto);font:inherit;font-size:13px;outline:none}
+.bq-busca input:focus,.bq-filtro select:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.09);background:#fff}
+.bq-filtros{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+.bq-filtro{display:grid;gap:6px;flex:1 1 140px;min-width:130px}
+.bq-filtro label{color:#475569;font-size:11px;font-weight:850}
+.bq-filtro select{width:100%;height:43px;padding:0 35px 0 11px;border:1px solid var(--borda);border-radius:11px;background:#fff;color:#334155;font:inherit;font-size:12px;outline:none}
+.bq-filtros-acoes{display:flex;gap:8px;align-items:center}
+.bq-limpar,.bq-aplicar{height:43px;padding:0 14px;border-radius:11px;font:inherit;font-size:12px;font-weight:850;cursor:pointer}
+.bq-limpar{border:1px solid var(--borda);background:#fff;color:#475569;text-decoration:none;display:inline-flex;align-items:center}
+.bq-aplicar{border:1px solid var(--azul);background:var(--azul);color:#fff}
+.bq-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #edf2f7}
+.bq-chip{display:inline-flex;align-items:center;gap:7px;min-height:35px;padding:0 12px;border:1px solid var(--borda);border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:800;text-decoration:none}
+.bq-chip.ativo{border-color:#93c5fd;background:#eff6ff;color:var(--azul)}
+.bq-lista-topo{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bq-lista-topo strong{color:var(--texto);font-size:15px}.bq-lista-topo span{color:var(--suave);font-size:12px}
+.bq-lista{display:grid;gap:13px}
+.bq-card{position:relative;padding:19px;border:1px solid var(--borda);border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.045);transition:.2s}
+.bq-card:hover{transform:translateY(-1px);border-color:#bfdbfe;box-shadow:0 13px 32px rgba(15,23,42,.075)}
+.bq-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.bq-tags{display:flex;gap:7px;flex-wrap:wrap}
+.bq-tag{display:inline-flex;align-items:center;min-height:27px;padding:0 9px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:10px;font-weight:850}
+.bq-tag.azul{background:#eaf2ff;color:var(--azul)}
+.bq-tag.verde{background:#ecfdf3;color:#15803d}
+.bq-tag.amarelo{background:#fffbeb;color:#b45309}
+.bq-enunciado{margin:14px 0 11px;color:#1e293b;font-size:14px;font-weight:750;line-height:1.55}
+.bq-meta{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:11px;font-weight:650}
+.bq-meta span{display:inline-flex;align-items:center;gap:5px}
+.bq-meta svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.bq-card-rodape{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px;padding-top:13px;border-top:1px solid #edf2f7}
+.bq-autor{color:#64748b;font-size:11px}.bq-autor strong{color:#334155}
+.bq-acoes{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.bq-acao{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px;padding:0 10px;border:1px solid var(--borda);border-radius:10px;background:#fff;color:#475569;font-size:11px;font-weight:800;text-decoration:none;cursor:pointer}
+.bq-acao:hover{background:#f8fafc;color:var(--azul)}
+.bq-acao-visualizar{border-color:#bfdbfe;background:#eff6ff;color:var(--azul)}
+.bq-acao.perigo{border-color:#fecaca;color:#dc2626}.bq-acao.perigo:hover{background:#fef2f2}
+.bq-acao svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.bq-vazio{display:grid;place-items:center;gap:10px;min-height:300px;padding:35px;border:1px dashed #bfdbfe;border-radius:18px;background:#fbfdff;text-align:center}
+.bq-vazio-icone{display:grid;place-items:center;width:62px;height:62px;border-radius:18px;background:#eaf2ff;color:var(--azul)}
+.bq-vazio-icone svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:2}
+.bq-vazio h3{margin:5px 0 0;color:var(--texto);font-size:17px}.bq-vazio p{margin:0;color:var(--suave);font-size:13px}
+.bq-paginacao{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:3px}
+.bq-pagina-link{display:grid;place-items:center;min-width:38px;height:38px;padding:0 10px;border:1px solid var(--borda);border-radius:10px;background:#fff;color:#475569;font-size:12px;font-weight:850;text-decoration:none}
+.bq-pagina-link.ativa{border-color:var(--azul);background:var(--azul);color:#fff}
+.bq-pagina-link.desabilitada{opacity:.4;pointer-events:none}
+.bq-modal-fundo{position:fixed;inset:0;z-index:9998;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48)}
+.bq-modal-fundo.ativo{display:flex}.bq-modal{width:min(500px,100%);padding:24px;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25)}
+.bq-modal h3{margin:0;color:#0f172a;font-size:18px}.bq-modal p{margin:9px 0 20px;color:#64748b;font-size:13px;line-height:1.55}.bq-modal-acoes{display:flex;justify-content:flex-end;gap:9px}
+@media(max-width:1050px){.bq-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.bq-resumo{grid-template-columns:1fr}.bq-topo,.bq-lista-topo,.bq-card-topo,.bq-card-rodape{align-items:stretch;flex-direction:column}.bq-acoes-topo,.bq-acoes{display:grid;grid-template-columns:1fr 1fr}.bq-btn,.bq-acao{width:100%}.bq-filtro{flex-basis:100%}.bq-filtros-acoes{display:grid;grid-template-columns:1fr 1fr;width:100%}.bq-limpar,.bq-aplicar{justify-content:center}}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="bq-pagina">
+    <header class="bq-topo">
+        <div>
+            <h1>Banco de Questões</h1>
+            <p>Encontre, organize e reutilize questões com rapidez.</p>
+        </div>
+        <div class="bq-acoes-topo">
+            <a href="/questoes/nova" class="bq-btn bq-btn-principal">
+                <svg viewBox="0 0 24 24"><path d="M12 5V19M5 12H19"/></svg>
+                Nova questão
+            </a>
+        </div>
+    </header>
+
+    <section class="bq-resumo">
+        {% for valor, rotulo in [
+            (total_geral, 'Questões no banco'),
+            (total_minhas, 'Criadas por mim'),
+            (total_objetivas, 'Questões objetivas'),
+            (total_discursivas, 'Questões abertas')
+        ] %}
+        <article class="bq-kpi">
+            <div class="bq-kpi-icone"><svg viewBox="0 0 24 24"><path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"/><path d="M14 2V8H20"/></svg></div>
+            <div><strong>{{ valor }}</strong><span>{{ rotulo }}</span></div>
+        </article>
+        {% endfor %}
+    </section>
+
+    <form method="GET" action="/questoes" class="bq-filtros-card">
+        <div class="bq-busca">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20L16.65 16.65"/></svg>
+            <input type="search" name="busca" value="{{ filtros_atuais.get('busca','') }}" placeholder="Pesquisar por enunciado, assunto, habilidade, descritor ou palavra-chave...">
+        </div>
+
+        <input type="hidden" name="origem" value="{{ filtros_atuais.get('origem','todas') }}">
+        <div class="bq-filtros">
+            <div class="bq-filtro"><label>Componente</label><select name="disciplina"><option value="">Todos</option>{% for item in opcoes.get('disciplinas',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('disciplina') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtro"><label>Etapa</label><select name="etapa"><option value="">Todas</option>{% for item in opcoes.get('etapas',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('etapa') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtro"><label>Ano/Série</label><select name="ano_serie"><option value="">Todos</option>{% for item in opcoes.get('anos',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('ano_serie') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtro"><label>Assunto</label><select name="assunto"><option value="">Todos</option>{% for item in opcoes.get('assuntos',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('assunto') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtro"><label>Tipo</label><select name="tipo"><option value="">Todos</option><option value="multipla_escolha" {% if filtros_atuais.get('tipo') == 'multipla_escolha' %}selected{% endif %}>Múltipla escolha</option><option value="multiplas_respostas" {% if filtros_atuais.get('tipo') == 'multiplas_respostas' %}selected{% endif %}>Múltiplas respostas</option><option value="verdadeiro_falso" {% if filtros_atuais.get('tipo') == 'verdadeiro_falso' %}selected{% endif %}>Verdadeiro ou falso</option><option value="discursiva" {% if filtros_atuais.get('tipo') == 'discursiva' %}selected{% endif %}>Discursiva</option><option value="resposta_curta" {% if filtros_atuais.get('tipo') == 'resposta_curta' %}selected{% endif %}>Resposta curta</option><option value="numerica" {% if filtros_atuais.get('tipo') == 'numerica' %}selected{% endif %}>Numérica</option></select></div>
+            <div class="bq-filtro"><label>Dificuldade</label><select name="dificuldade"><option value="">Todas</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if filtros_atuais.get('dificuldade') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtro"><label>Bloom</label><select name="bloom"><option value="">Todas</option>{% for item in opcoes.get('blooms',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('bloom') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+            <div class="bq-filtros-acoes"><a href="/questoes" class="bq-limpar">Limpar</a><button type="submit" class="bq-aplicar">Aplicar filtros</button></div>
+        </div>
+
+        <div class="bq-chips">
+            <a href="{{ url_for('questoes', origem='todas') }}" class="bq-chip {% if filtros_atuais.get('origem','todas') == 'todas' %}ativo{% endif %}">Todas</a>
+            <a href="{{ url_for('questoes', origem='minhas') }}" class="bq-chip {% if filtros_atuais.get('origem') == 'minhas' %}ativo{% endif %}">Minhas questões</a>
+            <a href="{{ url_for('questoes', tipo='multipla_escolha') }}" class="bq-chip {% if filtros_atuais.get('tipo') == 'multipla_escolha' %}ativo{% endif %}">Objetivas</a>
+            <a href="{{ url_for('questoes', tipo='discursiva') }}" class="bq-chip {% if filtros_atuais.get('tipo') == 'discursiva' %}ativo{% endif %}">Discursivas</a>
+        </div>
+    </form>
+
+    <div class="bq-lista-topo"><strong>{{ total }} questão(ões) encontrada(s)</strong><span>Página {{ pagina }} de {{ total_paginas }}</span></div>
+
+    {% if questoes %}
+    <section class="bq-lista">
+        {% set nomes_tipos = {'multipla_escolha':'Múltipla escolha','multiplas_respostas':'Múltiplas respostas','verdadeiro_falso':'Verdadeiro ou falso','discursiva':'Discursiva','resposta_curta':'Resposta curta','numerica':'Numérica'} %}
+        {% for q in questoes %}
+        <article class="bq-card">
+            <div class="bq-card-topo">
+                <div class="bq-tags">
+                    <span class="bq-tag azul">{{ q['disciplina'] }}</span>
+                    {% if q['ano_serie'] %}<span class="bq-tag">{{ q['ano_serie'] }}</span>{% endif %}
+                    <span class="bq-tag">{{ nomes_tipos.get(q['tipo_questao'], q['tipo_questao']) }}</span>
+                    <span class="bq-tag {% if q['dificuldade'] == 'Fácil' %}verde{% elif q['dificuldade'] == 'Difícil' %}amarelo{% endif %}">{{ q['dificuldade'] }}</span>
+                </div>
+                <span class="bq-tag">#{{ q['id'] }}</span>
+            </div>
+
+            <p class="bq-enunciado">{{ q['enunciado']|striptags|truncate(320, True, '...') }}</p>
+
+            <div class="bq-meta">
+                {% if q['assunto'] %}<span><svg viewBox="0 0 24 24"><path d="M4 4H20V20H4Z"/><path d="M8 8H16M8 12H16M8 16H13"/></svg>{{ q['assunto'] }}{% if q['subassunto'] %} · {{ q['subassunto'] }}{% endif %}</span>{% endif %}
+                {% if q['habilidade_bncc'] %}<span><svg viewBox="0 0 24 24"><path d="M12 2L15 8L22 9L17 14L18 21L12 18L6 21L7 14L2 9L9 8Z"/></svg>{{ q['habilidade_bncc'] }}</span>{% endif %}
+                {% if q['descritor_saeb'] %}<span>SAEB {{ q['descritor_saeb'] }}</span>{% endif %}
+                <span>{{ q['total_usos'] }} uso(s)</span>
+            </div>
+
+            <div class="bq-card-rodape">
+                <div class="bq-autor">Criada por <strong>{{ q['autor_nome'] }}</strong> · {{ q['instituicao_nome'] }}</div>
+                <div class="bq-acoes">
+                    <a class="bq-acao bq-acao-visualizar" href="/questoes/{{ q['id'] }}">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2 12S5.5 5 12 5s10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Visualizar
+                    </a>
+
+                    <a class="bq-acao" href="/questoes/{{ q['id'] }}/editar">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 20H21"/>
+                            <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L3 19L4 14Z"/>
+                        </svg>
+                        Editar
+                    </a>
+
+                    <button
+                        type="button"
+                        class="bq-acao perigo"
+                        data-excluir-id="{{ q['id'] }}"
+                        data-excluir-texto="{{ q['enunciado']|striptags|truncate(90, True, '...')|e }}"
+                    >
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3 6H21M8 6V4H16V6M19 6L18 21H6L5 6M10 11V17M14 11V17"/>
+                        </svg>
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="bq-vazio">
+        <div class="bq-vazio-icone"><svg viewBox="0 0 24 24"><path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"/><path d="M14 2V8H20"/><path d="M9 15H15M12 12V18"/></svg></div>
+        <h3>Nenhuma questão encontrada</h3>
+        <p>Altere os filtros ou cadastre uma nova questão.</p>
+        <a href="/questoes/nova" class="bq-btn bq-btn-principal">Nova questão</a>
+    </section>
+    {% endif %}
+
+    {% if total_paginas > 1 %}
+    <nav class="bq-paginacao">
+        {% set anterior = pagina - 1 %}{% set proxima = pagina + 1 %}
+        <a class="bq-pagina-link {% if pagina <= 1 %}desabilitada{% endif %}" href="{{ url_for('questoes', pagina=anterior, **filtros_atuais) }}">‹</a>
+        {% for numero in range([1, pagina-2]|max, [total_paginas+1, pagina+3]|min) %}<a class="bq-pagina-link {% if numero == pagina %}ativa{% endif %}" href="{{ url_for('questoes', pagina=numero, **filtros_atuais) }}">{{ numero }}</a>{% endfor %}
+        <a class="bq-pagina-link {% if pagina >= total_paginas %}desabilitada{% endif %}" href="{{ url_for('questoes', pagina=proxima, **filtros_atuais) }}">›</a>
+    </nav>
+    {% endif %}
+</div>
+
+<div class="bq-modal-fundo" id="modalExcluir" aria-hidden="true">
+    <div class="bq-modal">
+        <h3>Excluir questão?</h3>
+        <p id="modalExcluirTexto">Esta ação não poderá ser desfeita.</p>
+        <form method="POST" id="formExcluir" class="bq-modal-acoes">
+            <button type="button" class="bq-btn bq-btn-secundario" id="cancelarExcluir">Cancelar</button>
+            <button type="submit" class="bq-btn" style="border:1px solid #dc2626;background:#dc2626;color:#fff">Excluir questão</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const modal = document.getElementById('modalExcluir');
+    const form = document.getElementById('formExcluir');
+    const texto = document.getElementById('modalExcluirTexto');
+    const cancelar = document.getElementById('cancelarExcluir');
+    if (!modal || !form) return;
+
+    document.querySelectorAll('[data-excluir-id]').forEach(botao => {
+        botao.addEventListener('click', () => {
+            form.action = `/questoes/${botao.dataset.excluirId}/excluir`;
+            texto.textContent = `A questão “${botao.dataset.excluirTexto}” será removida permanentemente.`;
+            modal.classList.add('ativo');
+            modal.setAttribute('aria-hidden', 'false');
+        });
+    });
+
+    const fechar = () => {
+        modal.classList.remove('ativo');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+    cancelar.addEventListener('click', fechar);
+    modal.addEventListener('click', e => { if (e.target === modal) fechar(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') fechar(); });
+})();
+</script>
+{% endblock %}

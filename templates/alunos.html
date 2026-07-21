@@ -1,376 +1,726 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Cadastro de Alunos</title>
+{% extends "layout/base.html" %}
 
-    <style>
-        * {
-            box-sizing: border-box;
+{% block titulo %}Alunos | ARK EDU{% endblock %}
+
+{% block estilos %}
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/alunos.css') }}"
+>
+
+<style>
+    .alunos-tabela-container {
+        width: 100%;
+        overflow: visible;
+    }
+
+    .alunos-tabela {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    .alunos-tabela th,
+    .alunos-tabela td {
+        padding-left: 12px;
+        padding-right: 12px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .alunos-tabela th:nth-child(1),
+    .alunos-tabela td:nth-child(1) { width: 22%; }
+
+    .alunos-tabela th:nth-child(2),
+    .alunos-tabela td:nth-child(2) { width: 10%; }
+
+    .alunos-tabela th:nth-child(3),
+    .alunos-tabela td:nth-child(3) { width: 20%; }
+
+    .alunos-tabela th:nth-child(4),
+    .alunos-tabela td:nth-child(4) { width: 9%; }
+
+    {% if session.get("usuario_cargo") == "Administrador Geral" %}
+        .alunos-tabela th:nth-child(5),
+        .alunos-tabela td:nth-child(5) { width: 23%; }
+
+        .alunos-tabela th:nth-child(6),
+        .alunos-tabela td:nth-child(6) { width: 9%; }
+
+        .alunos-tabela th:nth-child(7),
+        .alunos-tabela td:nth-child(7) { width: 7%; }
+    {% else %}
+        .alunos-tabela th:nth-child(5),
+        .alunos-tabela td:nth-child(5) { width: 11%; }
+
+        .alunos-tabela th:nth-child(6),
+        .alunos-tabela td:nth-child(6) { width: 8%; }
+    {% endif %}
+
+    .alunos-coluna-acoes {
+        text-align: center;
+    }
+
+    .alunos-identificacao,
+    .alunos-identificacao > div:last-child {
+        min-width: 0;
+    }
+
+    .alunos-identificacao strong,
+    .alunos-identificacao small {
+        display: block;
+        white-space: normal;
+    }
+
+    @media (max-width: 1100px) {
+        .alunos-tabela th,
+        .alunos-tabela td {
+            padding-left: 8px;
+            padding-right: 8px;
+            font-size: 0.82rem;
         }
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6fb;
-            margin: 0;
-            color: #0f172a;
-        }
-
-        header {
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: white;
-            padding: 40px 55px;
-            border-bottom-left-radius: 28px;
-            border-bottom-right-radius: 28px;
-            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
-        }
-
-        header h1 {
-            margin: 0;
-            font-size: 38px;
-        }
-
-        header p {
-            margin-top: 10px;
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .container {
-            padding: 32px;
-        }
-
-        .voltar {
-            display: inline-block;
-            margin-bottom: 22px;
-            color: #1e3a8a;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
-            border: 1px solid #e5e7eb;
-        }
-
-        .card h2 {
-            margin-top: 0;
-            font-size: 26px;
-            color: #111827;
-        }
-
-        label {
-            display: block;
-            margin-top: 14px;
-            margin-bottom: 6px;
-            font-weight: bold;
-            color: #334155;
-        }
-
-        input, select {
-            padding: 13px;
-            width: 100%;
-            font-size: 16px;
-            border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            outline: none;
-        }
-
-        input:focus, select:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px #dbeafe;
-        }
-
-        button {
-            margin-top: 18px;
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
-        }
-
-        .tabela-container {
-            width: 100%;
-            overflow: visible;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-        }
-
-        table {
-            width: 100%;
-            background: white;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: left;
-            vertical-align: middle;
-            font-size: 14px;
-        }
-
-        th {
-            background: #1e3a8a;
-            color: white;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background: #f8fafc;
-        }
-
-        a {
-            color: #1e3a8a;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .acoes {
-            width: 80px;
-            text-align: center;
-            position: relative;
-        }
-
-        .menu-acoes {
-            position: relative;
-            display: inline-block;
-        }
-
-        .btn-menu {
-            width: 38px;
-            height: 38px;
-            border-radius: 12px;
-            border: 1px solid #dbe3ef;
-            background: #ffffff;
-            color: #1e3a8a;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            line-height: 30px;
-            transition: 0.2s;
-            box-shadow: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .btn-menu:hover,
-        .btn-menu.ativo {
-            background: #eff6ff;
-            border-color: #2563eb;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .dropdown {
+        .alunos-avatar {
             display: none;
-            position: absolute;
-            right: 0;
-            top: 45px;
-            width: 190px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.15);
-            z-index: 9999;
-            overflow: hidden;
-            text-align: left;
         }
+    }
+</style>
+{% endblock %}
 
-        .dropdown.ativo {
-            display: block;
-        }
+{% block conteudo %}
 
-        .dropdown a {
-            display: block;
-            padding: 13px 16px;
-            color: #334155;
-            font-size: 14px;
-            font-weight: 600;
-            border-bottom: 1px solid #f1f5f9;
-        }
+<div class="alunos-pagina">
 
-        .dropdown a:hover {
-            background: #f8fafc;
-            color: #1e3a8a;
-        }
+    <div class="alunos-cabecalho">
 
-        .dropdown a.excluir {
-            color: #b91c1c;
-        }
+        <div>
+            <span class="alunos-etiqueta">
+                Gestão acadêmica
+            </span>
 
-        .dropdown a.excluir:hover {
-            background: #fef2f2;
-            color: #991b1b;
-        }
+            <h1>Alunos e Matrículas</h1>
 
-        .sem-registro {
-            text-align: center;
-            color: #64748b;
-            padding: 28px;
-            font-size: 16px;
-        }
-
-        @media (max-width: 900px) {
-            header {
-                padding: 35px 25px;
-            }
-
-            header h1 {
-                font-size: 32px;
-            }
-
-            .container {
-                padding: 22px;
-            }
-
-            .tabela-container {
-                overflow-x: auto;
-            }
-
-            table {
-                min-width: 750px;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<header>
-    <h1>Cadastro de Alunos</h1>
-    <p>Cadastre estudantes e organize os vínculos com suas turmas.</p>
-</header>
-
-<div class="container">
-
-    <a href="/" class="voltar">← Voltar para o início</a>
-
-    <div class="card">
-        <h2>Novo Aluno</h2>
-
-        <form action="/cadastrar_aluno" method="POST">
-            <label>Nome do aluno:</label>
-            <input type="text" name="nome" placeholder="Ex: João da Silva" required>
-
-            <label>Matrícula:</label>
-            <input type="text" name="matricula" placeholder="Ex: 2026001">
-
-            <label>Turma:</label>
-            <select name="turma_id" required>
-                <option value="">Selecione uma turma</option>
-
-                {% for turma in turmas %}
-                <option value="{{ turma[0] }}">
-                    {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
-                </option>
-                {% endfor %}
-            </select>
-
-            <button type="submit">Cadastrar Aluno</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <h2>Alunos Cadastrados</h2>
-
-        <div class="tabela-container">
-            <table>
-                <tr>
-                    <th>ID</th>
-                    <th>Nome</th>
-                    <th>Matrícula</th>
-                    <th>Turma</th>
-                    <th>Ações</th>
-                </tr>
-
-                {% for aluno in alunos %}
-                <tr>
-                    <td>{{ aluno[0] }}</td>
-                    <td>{{ aluno[1] }}</td>
-                    <td>{{ aluno[2] }}</td>
-                    <td>{{ aluno[3] }}</td>
-                    <td class="acoes">
-                        <div class="menu-acoes">
-                            <button class="btn-menu" type="button" onclick="toggleMenu(this)">
-                                ⋮
-                            </button>
-
-                            <div class="dropdown">
-                                <a href="/editar_aluno/{{ aluno[0] }}">
-                                    Editar aluno
-                                </a>
-
-                                <a href="/excluir_aluno/{{ aluno[0] }}"
-                                   class="excluir"
-                                   onclick="return confirm('Deseja realmente excluir este aluno?')">
-                                    Excluir aluno
-                                </a>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="sem-registro">
-                        Nenhum aluno cadastrado ainda.
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
+            <p>
+                Cadastre, consulte e gerencie os estudantes da instituição.
+            </p>
         </div>
+
+        <a href="/" class="alunos-btn-voltar">
+            ← Voltar ao painel
+        </a>
+
     </div>
+
+
+    {% if consultando_ano_antigo %}
+
+        <div class="alunos-aviso-consulta">
+            <strong>Modo de consulta</strong>
+
+            <span>
+                Você está visualizando um ano letivo encerrado.
+                Novas matrículas estão bloqueadas neste período.
+            </span>
+        </div>
+
+    {% endif %}
+
+
+    <div class="alunos-grid">
+
+        <section class="alunos-card alunos-card-formulario">
+
+            <div class="alunos-card-cabecalho">
+
+                <div>
+                    <span class="alunos-card-etiqueta">
+                        Matrícula
+                    </span>
+
+                    <h2>Matricular aluno</h2>
+
+                    <p>
+                        Informe os dados essenciais para realizar a matrícula.
+                    </p>
+                </div>
+
+                <div class="alunos-ano-selo">
+                    <small>Ano letivo</small>
+                    <strong>{{ ano_contexto or ano_letivo_ativo or "—" }}</strong>
+                </div>
+
+            </div>
+
+
+            <form
+                action="/cadastrar_aluno"
+                method="POST"
+                class="alunos-formulario"
+            >
+
+                {% if session.get("usuario_cargo") == "Administrador Geral" %}
+
+                    <div class="alunos-campo alunos-campo-completo">
+                        <label for="escola_id">
+                            Instituição
+                        </label>
+
+                        <select
+                            id="escola_id"
+                            name="escola_id"
+                            required
+                            {% if consultando_ano_antigo %}disabled{% endif %}
+                        >
+                            <option value="">
+                                Selecione uma instituição
+                            </option>
+
+                            {% for escola in escolas %}
+                                <option value="{{ escola['id'] }}">
+                                    {{ escola['nome_instituicao'] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <small class="alunos-texto-secundario">
+                            Após selecionar a instituição, serão exibidas somente as turmas correspondentes.
+                        </small>
+                    </div>
+
+                {% endif %}
+
+
+                <div class="alunos-campo alunos-campo-completo">
+                    <label for="nome">
+                        Nome completo do aluno
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nome"
+                        name="nome"
+                        placeholder="Ex.: João da Silva"
+                        required
+                        {% if consultando_ano_antigo %}disabled{% endif %}
+                    >
+                </div>
+
+
+                <div class="alunos-campo alunos-campo-matricula">
+                    <label>Forma de geração da matrícula</label>
+
+                    <div class="alunos-matricula-opcoes">
+                        <label class="alunos-radio-card">
+                            <input
+                                type="radio"
+                                name="modo_matricula"
+                                value="automatica"
+                                checked
+                                {% if consultando_ano_antigo %}disabled{% endif %}
+                            >
+                            <span>
+                                <strong>Automática</strong>
+                                <small>O sistema gera o próximo número.</small>
+                            </span>
+                        </label>
+
+                        <label class="alunos-radio-card">
+                            <input
+                                type="radio"
+                                name="modo_matricula"
+                                value="manual"
+                                {% if consultando_ano_antigo %}disabled{% endif %}
+                            >
+                            <span>
+                                <strong>Digitar</strong>
+                                <small>Informe o número manualmente.</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <input
+                        type="text"
+                        id="matricula"
+                        name="matricula"
+                        placeholder="Será gerada automaticamente"
+                        disabled
+                        autocomplete="off"
+                    >
+                </div>
+
+
+                <div class="alunos-campo">
+                    <label for="turma_id">
+                        Turma
+                    </label>
+
+                    <select
+                        id="turma_id"
+                        name="turma_id"
+                        required
+                        {% if consultando_ano_antigo %}disabled{% endif %}
+                        {% if session.get("usuario_cargo") == "Administrador Geral" %}disabled{% endif %}
+                    >
+                        <option value="">
+                            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                                Selecione primeiro uma instituição
+                            {% else %}
+                                Selecione uma turma
+                            {% endif %}
+                        </option>
+
+                        {% for turma in turmas %}
+
+                            <option
+                                value="{{ turma['id'] }}"
+                                data-escola-id="{{ turma['escola_id'] }}"
+                            >
+                                {{ turma['nome'] }}
+                                {% if turma['ano'] %}
+                                    — {{ turma['ano'] }}
+                                {% endif %}
+                                {% if turma['turno'] %}
+                                    — {{ turma['turno'] }}
+                                {% endif %}
+                            </option>
+
+                        {% endfor %}
+                    </select>
+
+                    <small
+                        id="mensagem_turmas"
+                        class="alunos-texto-secundario"
+                        hidden
+                    ></small>
+                </div>
+
+
+                <div class="alunos-formulario-rodape">
+
+                    <span>
+                        A matrícula será vinculada automaticamente ao ano
+                        <strong>{{ ano_contexto or ano_letivo_ativo or "selecionado" }}</strong>.
+                    </span>
+
+                    <button
+                        type="submit"
+                        id="btn_matricular"
+                        class="alunos-btn-salvar"
+                        {% if consultando_ano_antigo or not turmas %}disabled{% endif %}
+                    >
+                        + Matricular aluno
+                    </button>
+
+                </div>
+
+                {% if not turmas and not consultando_ano_antigo %}
+
+                    <div class="alunos-sem-turmas">
+                        Não há turmas disponíveis para matrícula neste ano letivo.
+                    </div>
+
+                {% endif %}
+
+            </form>
+
+        </section>
+
+
+        <section class="alunos-card alunos-card-resumo">
+
+            <span class="alunos-card-etiqueta">
+                Resumo
+            </span>
+
+            <h2>Visão geral</h2>
+
+            <div class="alunos-resumo-numero">
+                {{ alunos|length }}
+            </div>
+
+            <div class="alunos-resumo-item">
+                <span>Ano letivo</span>
+                <strong>{{ ano_contexto or ano_letivo_ativo or "—" }}</strong>
+            </div>
+
+            <div class="alunos-resumo-item">
+                <span>Turmas disponíveis</span>
+                <strong>{{ turmas|length }}</strong>
+            </div>
+
+            <div class="alunos-resumo-status">
+                {% if consultando_ano_antigo %}
+                    <span class="alunos-status alunos-status-consulta">
+                        Consulta
+                    </span>
+                {% else %}
+                    <span class="alunos-status alunos-status-ativo">
+                        Em uso
+                    </span>
+                {% endif %}
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <section class="alunos-card alunos-listagem">
+
+        <div class="alunos-listagem-topo">
+
+            <div>
+                <span class="alunos-card-etiqueta">
+                    Matrículas
+                </span>
+
+                <h2>Alunos matriculados</h2>
+
+                <p>
+                    Relação de estudantes do ano letivo selecionado.
+                </p>
+            </div>
+
+            <div class="alunos-total">
+                {{ alunos|length }}
+                <span>
+                    aluno{% if alunos|length != 1 %}s{% endif %}
+                </span>
+            </div>
+
+        </div>
+
+
+        {% if alunos %}
+
+            <div class="alunos-tabela-container">
+
+                <table class="alunos-tabela">
+
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Matrícula</th>
+                            <th>Turma</th>
+                            <th>Turno</th>
+
+                            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                                <th>Instituição</th>
+                            {% endif %}
+
+                            <th>Ano letivo</th>
+                            <th class="alunos-coluna-acoes">Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for aluno in alunos %}
+
+                            <tr>
+
+                                <td>
+                                    <div class="alunos-identificacao">
+
+                                        <div class="alunos-avatar">
+                                            {{ aluno['nome'][0]|upper }}
+                                        </div>
+
+                                        <div>
+                                            <strong>{{ aluno['nome'] }}</strong>
+                                            <small>Aluno #{{ aluno['id'] }}</small>
+                                        </div>
+
+                                    </div>
+                                </td>
+
+                                <td>
+                                    {{ aluno['matricula'] or "Não informada" }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ aluno['nome_turma'] or "Sem turma" }}
+                                    </strong>
+
+                                    {% if aluno['ano_turma'] %}
+                                        <small class="alunos-texto-secundario">
+                                            {{ aluno['ano_turma'] }}
+                                            {% if aluno['etapa'] %}
+                                                · {{ aluno['etapa'] }}
+                                            {% endif %}
+                                        </small>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ aluno['turno'] or "—" }}
+                                </td>
+
+                                {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                                    <td>
+                                        {{ aluno['nome_instituicao'] or "—" }}
+                                    </td>
+                                {% endif %}
+
+                                <td>
+                                    <span class="alunos-ano-tabela">
+                                        {{ aluno['ano_letivo'] or ano_contexto or "—" }}
+                                    </span>
+                                </td>
+
+                                <td class="alunos-coluna-acoes">
+
+                                    <div class="alunos-menu-acoes">
+
+                                        <button
+                                            type="button"
+                                            class="alunos-btn-menu"
+                                            aria-label="Abrir ações"
+                                            onclick="alternarMenuAluno(this)"
+                                        >
+                                            ⋮
+                                        </button>
+
+                                        <div class="alunos-dropdown">
+
+                                            <a href="{{ url_for('historico_aluno', aluno_id=aluno['id']) }}">
+                                                Ver aluno
+                                            </a>
+
+                                            <a href="{{ url_for('editar_aluno', aluno_id=aluno['id']) }}">
+                                                Editar cadastro
+                                            </a>
+
+                                            {% if not consultando_ano_antigo %}
+
+                                                <a
+                                                    href="/excluir_aluno/{{ aluno['id'] }}"
+                                                    class="alunos-acao-excluir"
+                                                    onclick="return confirm('Deseja realmente excluir este aluno?')"
+                                                >
+                                                    Excluir aluno
+                                                </a>
+
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="alunos-vazio">
+
+                <div class="alunos-vazio-icone">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="9" cy="8" r="4"></circle>
+                        <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                        <circle cx="18" cy="9" r="3"></circle>
+                    </svg>
+                </div>
+
+                <h3>Nenhum aluno matriculado</h3>
+
+                <p>
+                    Ainda não existem alunos vinculados ao ano letivo
+                    {{ ano_contexto or ano_letivo_ativo or "selecionado" }}.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </section>
 
 </div>
 
+{% endblock %}
+
+
+{% block scripts %}
+
 <script>
-    function toggleMenu(botao) {
-        const menuAtual = botao.nextElementSibling;
-
-        document.querySelectorAll(".dropdown").forEach(menu => {
-            if (menu !== menuAtual) {
+    function fecharMenusAlunos() {
+        document
+            .querySelectorAll(".alunos-dropdown")
+            .forEach(menu => {
                 menu.classList.remove("ativo");
-            }
-        });
+                menu.style.top = "";
+                menu.style.left = "";
+                menu.style.right = "";
+            });
 
-        document.querySelectorAll(".btn-menu").forEach(btn => {
-            if (btn !== botao) {
-                btn.classList.remove("ativo");
-            }
-        });
-
-        menuAtual.classList.toggle("ativo");
-        botao.classList.toggle("ativo");
+        document
+            .querySelectorAll(".alunos-btn-menu")
+            .forEach(botao => botao.classList.remove("ativo"));
     }
 
-    document.addEventListener("click", function(event) {
-        if (!event.target.closest(".menu-acoes")) {
-            document.querySelectorAll(".dropdown").forEach(menu => {
-                menu.classList.remove("ativo");
+    function posicionarMenuAluno(botao, menu) {
+        const botaoRect = botao.getBoundingClientRect();
+        const larguraMenu = 185;
+        const margem = 10;
+
+        let esquerda = botaoRect.right - larguraMenu;
+
+        if (esquerda < margem) {
+            esquerda = margem;
+        }
+
+        if (esquerda + larguraMenu > window.innerWidth - margem) {
+            esquerda = window.innerWidth - larguraMenu - margem;
+        }
+
+        menu.style.left = `${esquerda}px`;
+        menu.style.right = "auto";
+
+        const alturaEstimada = 132;
+        const espacoAbaixo = window.innerHeight - botaoRect.bottom;
+
+        if (espacoAbaixo < alturaEstimada + margem) {
+            menu.style.top = `${Math.max(margem, botaoRect.top - alturaEstimada - 6)}px`;
+        } else {
+            menu.style.top = `${botaoRect.bottom + 6}px`;
+        }
+    }
+
+    function alternarMenuAluno(botao) {
+        const menu = botao.nextElementSibling;
+        const estavaAberto = menu.classList.contains("ativo");
+
+        fecharMenusAlunos();
+
+        if (!estavaAberto) {
+            posicionarMenuAluno(botao, menu);
+            menu.classList.add("ativo");
+            botao.classList.add("ativo");
+        }
+    }
+
+    function configurarFiltroInstituicao() {
+        const escola = document.getElementById("escola_id");
+        const turma = document.getElementById("turma_id");
+        const mensagem = document.getElementById("mensagem_turmas");
+        const botao = document.getElementById("btn_matricular");
+
+        if (!escola || !turma) {
+            return;
+        }
+
+        const opcoesTurmas = Array.from(
+            turma.querySelectorAll("option[data-escola-id]")
+        );
+
+        function atualizarTurmas() {
+            const escolaId = escola.value;
+            let totalVisiveis = 0;
+
+            turma.value = "";
+
+            opcoesTurmas.forEach(opcao => {
+                const pertence = escolaId && opcao.dataset.escolaId === escolaId;
+                opcao.hidden = !pertence;
+                opcao.disabled = !pertence;
+
+                if (pertence) {
+                    totalVisiveis += 1;
+                }
             });
 
-            document.querySelectorAll(".btn-menu").forEach(btn => {
-                btn.classList.remove("ativo");
-            });
+            turma.disabled = !escolaId || totalVisiveis === 0;
+
+            const opcaoInicial = turma.querySelector('option[value=""]');
+
+            if (!escolaId) {
+                opcaoInicial.textContent = "Selecione primeiro uma instituição";
+                mensagem.hidden = true;
+            } else if (totalVisiveis === 0) {
+                opcaoInicial.textContent = "Nenhuma turma disponível";
+                mensagem.textContent =
+                    "A instituição selecionada não possui turmas cadastradas neste ano letivo.";
+                mensagem.hidden = false;
+            } else {
+                opcaoInicial.textContent = "Selecione uma turma";
+                mensagem.hidden = true;
+            }
+
+            if (botao) {
+                botao.disabled = !escolaId || totalVisiveis === 0;
+            }
         }
+
+        escola.addEventListener("change", atualizarTurmas);
+        atualizarTurmas();
+    }
+
+
+    function configurarMatricula() {
+        const opcoes = document.querySelectorAll(
+            'input[name="modo_matricula"]'
+        );
+        const campo = document.getElementById("matricula");
+
+        if (!campo || !opcoes.length) {
+            return;
+        }
+
+        function atualizarCampo() {
+            const selecionada = document.querySelector(
+                'input[name="modo_matricula"]:checked'
+            );
+
+            const manual = selecionada && selecionada.value === "manual";
+
+            campo.disabled = !manual;
+            campo.required = manual;
+
+            if (manual) {
+                campo.placeholder = "Ex.: 20260001";
+                campo.focus();
+            } else {
+                campo.value = "";
+                campo.placeholder = "Será gerada automaticamente";
+            }
+        }
+
+        opcoes.forEach(opcao => {
+            opcao.addEventListener("change", atualizarCampo);
+        });
+
+        atualizarCampo();
+    }
+
+    document.addEventListener("click", function (event) {
+        if (!event.target.closest(".alunos-menu-acoes")) {
+            fecharMenusAlunos();
+        }
+    });
+
+    window.addEventListener("resize", fecharMenusAlunos);
+    window.addEventListener("scroll", fecharMenusAlunos, true);
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+            fecharMenusAlunos();
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        configurarMatricula();
+        configurarFiltroInstituicao();
     });
 </script>
 
-</body>
-</html>
+{% endblock %}

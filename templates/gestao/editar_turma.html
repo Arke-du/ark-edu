@@ -1,0 +1,538 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Editar turma | ARK EDU{% endblock %}
+
+{% block conteudo %}
+
+<style>
+    .et-pagina {
+        width: 100%;
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 8px 0 40px;
+    }
+
+    .et-topo {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .et-topo-texto {
+        min-width: 0;
+    }
+
+    .et-voltar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        color: #475569;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .et-voltar:hover {
+        color: #1d4ed8;
+    }
+
+    .et-etiqueta {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 5px 10px;
+        margin-bottom: 8px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .et-topo h1 {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 9px;
+        margin: 0 0 8px;
+        color: #123b82;
+        font-size: clamp(27px, 4vw, 38px);
+        line-height: 1.15;
+    }
+
+    .et-separador-titulo {
+        color: #94a3b8;
+        font-weight: 500;
+    }
+
+    .et-subtitulo {
+        margin: 0;
+        color: #64748b;
+        font-size: 15px;
+        line-height: 1.55;
+    }
+
+    .et-card {
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        background: #ffffff;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, .06);
+    }
+
+    .et-card-cabecalho {
+        padding: 24px 26px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .et-card-cabecalho h2 {
+        margin: 0 0 5px;
+        color: #123b82;
+        font-size: 21px;
+    }
+
+    .et-card-cabecalho p {
+        margin: 0;
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .et-formulario {
+        padding: 26px;
+    }
+
+    .et-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .et-campo {
+        min-width: 0;
+    }
+
+    .et-campo-completo {
+        grid-column: 1 / -1;
+    }
+
+    .et-campo label {
+        display: block;
+        margin-bottom: 8px;
+        color: #334155;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .et-campo input,
+    .et-campo select {
+        width: 100%;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        outline: none;
+        background: #ffffff;
+        color: #0f172a;
+        font: inherit;
+        font-size: 14px;
+        transition: border-color .2s ease, box-shadow .2s ease;
+        box-sizing: border-box;
+    }
+
+    .et-campo input:focus,
+    .et-campo select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, .10);
+    }
+
+    .et-campo small {
+        display: block;
+        margin-top: 7px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .et-resumo {
+        margin-top: 24px;
+        padding: 18px;
+        border: 1px solid #dbeafe;
+        border-radius: 14px;
+        background: #eff6ff;
+    }
+
+    .et-resumo span {
+        display: block;
+        margin-bottom: 5px;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .et-resumo strong {
+        color: #123b82;
+        font-size: 17px;
+    }
+
+    .et-rodape {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 26px;
+        padding-top: 22px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .et-rodape-texto {
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .et-acoes {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+
+    .et-btn {
+        min-height: 44px;
+        padding: 0 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid transparent;
+        border-radius: 11px;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .et-btn-cancelar {
+        border-color: #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+    }
+
+    .et-btn-cancelar:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+    }
+
+    .et-btn-salvar {
+        background: #1d4ed8;
+        color: #ffffff;
+    }
+
+    .et-btn-salvar:hover {
+        background: #1e40af;
+        transform: translateY(-1px);
+    }
+
+    .et-btn-salvar:disabled {
+        opacity: .65;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    @media (max-width: 720px) {
+        .et-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .et-campo-completo {
+            grid-column: auto;
+        }
+
+        .et-rodape {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .et-acoes {
+            width: 100%;
+        }
+
+        .et-btn {
+            flex: 1;
+        }
+    }
+
+    @media (max-width: 500px) {
+        .et-card-cabecalho,
+        .et-formulario {
+            padding: 20px;
+        }
+
+        .et-topo h1 {
+            gap: 6px;
+            font-size: 27px;
+        }
+
+        .et-acoes {
+            flex-direction: column-reverse;
+        }
+
+        .et-btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="et-pagina">
+
+    <header class="et-topo">
+        <div class="et-topo-texto">
+
+            <a href="/turmas/{{ turma['id'] }}" class="et-voltar">
+                <span aria-hidden="true">←</span>
+                Voltar para a turma
+            </a>
+
+            <div class="et-etiqueta">
+                Gestão de turma
+            </div>
+
+            <h1>
+                <span>Editar</span>
+                <span class="et-separador-titulo">/</span>
+                <span>{{ turma["ano"] }} {{ turma["nome"] }}</span>
+            </h1>
+
+            <p class="et-subtitulo">
+                Atualize os dados de identificação e organização desta turma.
+            </p>
+
+        </div>
+    </header>
+
+    <section class="et-card">
+
+        <div class="et-card-cabecalho">
+            <h2>Dados da turma</h2>
+            <p>Todos os campos são obrigatórios.</p>
+        </div>
+
+        <form
+            action="/turmas/{{ turma['id'] }}/editar"
+            method="POST"
+            class="et-formulario"
+            id="formEditarTurma"
+        >
+
+            <div class="et-grid">
+
+                <div class="et-campo">
+                    <label for="etapa">Etapa de ensino</label>
+
+                    <select id="etapa" name="etapa" required>
+                        <option value="">Selecione a etapa</option>
+
+                        {% set etapas = [
+                            "Educação Infantil",
+                            "Ensino Fundamental - Anos Iniciais",
+                            "Ensino Fundamental - Anos Finais",
+                            "Ensino Médio",
+                            "Educação de Jovens e Adultos",
+                            "Educação Profissional e Tecnológica",
+                            "Ensino Superior"
+                        ] %}
+
+                        {% for etapa_opcao in etapas %}
+                            <option
+                                value="{{ etapa_opcao }}"
+                                {% if turma["etapa"] == etapa_opcao %}selected{% endif %}
+                            >
+                                {{ etapa_opcao }}
+                            </option>
+                        {% endfor %}
+
+                        {% if turma["etapa"] and turma["etapa"] not in etapas %}
+                            <option value="{{ turma['etapa'] }}" selected>
+                                {{ turma["etapa"] }}
+                            </option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="et-campo">
+                    <label for="ano">Ano ou série</label>
+
+                    <select id="ano" name="ano" required>
+                        <option value="">Selecione o ano ou série</option>
+
+                        {% set anos_series = [
+                            "Berçário",
+                            "Maternal I",
+                            "Maternal II",
+                            "Pré I",
+                            "Pré II",
+                            "1º Ano",
+                            "2º Ano",
+                            "3º Ano",
+                            "4º Ano",
+                            "5º Ano",
+                            "6º Ano",
+                            "7º Ano",
+                            "8º Ano",
+                            "9º Ano",
+                            "1ª Série",
+                            "2ª Série",
+                            "3ª Série",
+                            "1º Período",
+                            "2º Período",
+                            "3º Período",
+                            "4º Período",
+                            "5º Período",
+                            "6º Período",
+                            "7º Período",
+                            "8º Período",
+                            "9º Período",
+                            "10º Período"
+                        ] %}
+
+                        {% for ano_opcao in anos_series %}
+                            <option
+                                value="{{ ano_opcao }}"
+                                {% if turma["ano"] == ano_opcao %}selected{% endif %}
+                            >
+                                {{ ano_opcao }}
+                            </option>
+                        {% endfor %}
+
+                        {% if turma["ano"] and turma["ano"] not in anos_series %}
+                            <option value="{{ turma['ano'] }}" selected>
+                                {{ turma["ano"] }}
+                            </option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="et-campo">
+                    <label for="nome">Identificação da turma</label>
+
+                    <input
+                        type="text"
+                        id="nome"
+                        name="nome"
+                        value="{{ turma['nome'] }}"
+                        placeholder='Ex.: A, B, 1ª Série "A"'
+                        maxlength="100"
+                        required
+                    >
+
+                    <small>
+                        Informe somente a identificação usada pela instituição.
+                    </small>
+                </div>
+
+                <div class="et-campo">
+                    <label for="turno">Turno</label>
+
+                    <select id="turno" name="turno" required>
+                        <option value="">Selecione o turno</option>
+
+                        {% set turnos = [
+                            "Matutino",
+                            "Vespertino",
+                            "Noturno",
+                            "Integral"
+                        ] %}
+
+                        {% for turno_opcao in turnos %}
+                            <option
+                                value="{{ turno_opcao }}"
+                                {% if turma["turno"] == turno_opcao %}selected{% endif %}
+                            >
+                                {{ turno_opcao }}
+                            </option>
+                        {% endfor %}
+
+                        {% if turma["turno"] and turma["turno"] not in turnos %}
+                            <option value="{{ turma['turno'] }}" selected>
+                                {{ turma["turno"] }}
+                            </option>
+                        {% endif %}
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="et-resumo">
+                <span>Pré-visualização</span>
+                <strong id="preVisualizacaoTurma">
+                    {{ turma["ano"] }} / {{ turma["nome"] }}
+                </strong>
+            </div>
+
+            <div class="et-rodape">
+
+                <div class="et-rodape-texto">
+                    A instituição e o ano letivo da turma não serão alterados.
+                </div>
+
+                <div class="et-acoes">
+                    <a
+                        href="/turmas/{{ turma['id'] }}"
+                        class="et-btn et-btn-cancelar"
+                    >
+                        Cancelar
+                    </a>
+
+                    <button
+                        type="submit"
+                        class="et-btn et-btn-salvar"
+                        id="btnSalvarTurma"
+                    >
+                        Salvar alterações
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </section>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const formulario = document.getElementById("formEditarTurma");
+    const campoAno = document.getElementById("ano");
+    const campoNome = document.getElementById("nome");
+    const preVisualizacao = document.getElementById("preVisualizacaoTurma");
+    const botaoSalvar = document.getElementById("btnSalvarTurma");
+
+    function atualizarPreVisualizacao() {
+        const ano = campoAno.value.trim() || "Ano/Série";
+        const nome = campoNome.value.trim() || "Identificação";
+
+        preVisualizacao.textContent = `${ano} / ${nome}`;
+    }
+
+    campoAno.addEventListener("change", atualizarPreVisualizacao);
+    campoNome.addEventListener("input", atualizarPreVisualizacao);
+
+    formulario.addEventListener("submit", function () {
+        botaoSalvar.disabled = true;
+        botaoSalvar.textContent = "Salvando...";
+    });
+
+    atualizarPreVisualizacao();
+});
+</script>
+
+{% endblock %}

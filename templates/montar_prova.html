@@ -1,0 +1,1538 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Montar avaliação | ARK EDU{% endblock %}
+
+{% block estilos %}
+<style>
+    .montagem-pagina {
+        --ark-azul: #123b82;
+        --ark-azul-claro: #2563eb;
+        --ark-borda: #dbe4f0;
+        --ark-texto: #0f172a;
+        --ark-suave: #64748b;
+        display: grid;
+        gap: 18px;
+    }
+
+    .montagem-voltar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        color: var(--ark-azul);
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .montagem-voltar:hover {
+        color: var(--ark-azul-claro);
+    }
+
+    .montagem-topo {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+    .montagem-topo h1 {
+        margin: 0;
+        color: #17468f;
+        font-size: clamp(28px, 3vw, 36px);
+        font-weight: 900;
+        letter-spacing: -.02em;
+    }
+
+    .montagem-topo p {
+        margin: 8px 0 0;
+        color: var(--ark-suave);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .montagem-acoes {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .montagem-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 44px;
+        padding: 0 17px;
+        border-radius: 12px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 850;
+        text-decoration: none;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .montagem-btn svg,
+    .montagem-svg {
+        width: 21px;
+        height: 21px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .montagem-btn-secundario {
+        border: 1px solid var(--ark-borda);
+        background: #ffffff;
+        color: var(--ark-azul);
+    }
+
+    .montagem-btn-secundario:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+    }
+
+    .montagem-btn-principal {
+        border: 1px solid var(--ark-azul);
+        background: linear-gradient(135deg, var(--ark-azul), var(--ark-azul-claro));
+        color: #ffffff;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, .2);
+    }
+
+    .montagem-btn-principal:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px rgba(37, 99, 235, .27);
+    }
+
+    .montagem-btn-perigo {
+        border: 1px solid #fecaca;
+        background: #ffffff;
+        color: #b91c1c;
+    }
+
+    .montagem-resumo {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--ark-borda);
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .045);
+    }
+
+    .montagem-resumo-item {
+        min-width: 0;
+        padding-right: 12px;
+        border-right: 1px solid #e9eef5;
+    }
+
+    .montagem-resumo-item:last-child {
+        border-right: 0;
+    }
+
+    .montagem-resumo-item small,
+    .montagem-resumo-item strong {
+        display: block;
+    }
+
+    .montagem-resumo-item small {
+        margin-bottom: 5px;
+        color: var(--ark-suave);
+        font-size: 11px;
+        font-weight: 850;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .montagem-resumo-item strong {
+        overflow: hidden;
+        color: var(--ark-texto);
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .montagem-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 18px;
+        align-items: start;
+    }
+
+    .montagem-conteudo {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
+    }
+
+    .montagem-card {
+        border: 1px solid var(--ark-borda);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, .05);
+    }
+
+    .montagem-card-cabecalho {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 19px 21px;
+        border-bottom: 1px solid var(--ark-borda);
+    }
+
+    .montagem-card-cabecalho h2 {
+        margin: 0;
+        color: var(--ark-texto);
+        font-size: 19px;
+    }
+
+    .montagem-card-cabecalho p {
+        margin: 5px 0 0;
+        color: var(--ark-suave);
+        font-size: 12px;
+    }
+
+    .montagem-contador {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 11px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: var(--ark-azul);
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .montagem-opcoes {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        padding: 18px;
+    }
+
+    .montagem-opcao {
+        display: grid;
+        gap: 13px;
+        min-height: 175px;
+        padding: 19px;
+        border: 1px solid var(--ark-borda);
+        border-radius: 15px;
+        background: #ffffff;
+        color: inherit;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .montagem-opcao:hover {
+        border-color: #93c5fd;
+        background: #f8fbff;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, .1);
+    }
+
+    .montagem-opcao-icone {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 13px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .montagem-opcao h3 {
+        margin: 0;
+        color: var(--ark-texto);
+        font-size: 16px;
+    }
+
+    .montagem-opcao p {
+        margin: 0;
+        color: var(--ark-suave);
+        font-size: 12px;
+        line-height: 1.55;
+    }
+
+    .montagem-opcao span {
+        margin-top: auto;
+        color: var(--ark-azul);
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    .montagem-lista {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+    }
+
+    .montagem-questao {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 13px;
+        align-items: start;
+        padding: 15px;
+        border: 1px solid #e5eaf1;
+        border-radius: 14px;
+        background: #ffffff;
+    }
+
+    .montagem-numero {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #eff6ff;
+        color: var(--ark-azul);
+        font-size: 14px;
+        font-weight: 900;
+    }
+
+    .montagem-questao h3 {
+        margin: 0 0 8px;
+        color: var(--ark-texto);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .montagem-tags {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+    }
+
+    .montagem-tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 25px;
+        padding: 0 9px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .montagem-questao-acoes {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .montagem-btn-icone {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: 1px solid var(--ark-borda);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--ark-azul);
+        cursor: pointer;
+    }
+
+    .montagem-btn-icone:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+    }
+
+    .montagem-btn-icone.perigo {
+        color: #b91c1c;
+    }
+
+    .montagem-vazio {
+        display: grid;
+        place-items: center;
+        min-height: 240px;
+        padding: 40px 20px;
+        text-align: center;
+    }
+
+    .montagem-vazio-icone {
+        display: grid;
+        place-items: center;
+        width: 70px;
+        height: 70px;
+        margin-bottom: 15px;
+        border-radius: 20px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .montagem-vazio h3 {
+        margin: 0;
+        color: var(--ark-texto);
+        font-size: 18px;
+    }
+
+    .montagem-vazio p {
+        max-width: 440px;
+        margin: 8px auto 0;
+        color: var(--ark-suave);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .montagem-lateral {
+        position: sticky;
+        top: 90px;
+        display: grid;
+        gap: 14px;
+    }
+
+    .montagem-painel {
+        padding: 18px;
+        border: 1px solid var(--ark-borda);
+        border-radius: 17px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, .05);
+    }
+
+    .montagem-painel h2 {
+        margin: 0 0 16px;
+        color: var(--ark-texto);
+        font-size: 17px;
+    }
+
+    .montagem-estatistica {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 0;
+        border-bottom: 1px solid #edf2f7;
+        color: #475569;
+        font-size: 12px;
+    }
+
+    .montagem-estatistica:last-child {
+        border-bottom: 0;
+    }
+
+    .montagem-estatistica strong {
+        color: var(--ark-texto);
+        font-size: 13px;
+    }
+
+    .montagem-painel-acoes {
+        display: grid;
+        gap: 9px;
+    }
+
+    .montagem-painel-acoes .montagem-btn {
+        width: 100%;
+    }
+
+    .montagem-modal-fundo {
+        position: fixed;
+        inset: 0;
+        z-index: 12000;
+        display: none;
+        place-items: center;
+        padding: 20px;
+        background: rgba(15, 23, 42, .58);
+        backdrop-filter: blur(4px);
+    }
+
+    .montagem-modal-fundo.ativo {
+        display: grid;
+    }
+
+    .montagem-modal {
+        width: min(860px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        border: 1px solid var(--ark-borda);
+        border-radius: 19px;
+        background: #ffffff;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, .28);
+    }
+
+    .montagem-modal-cabecalho {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 19px 21px;
+        border-bottom: 1px solid var(--ark-borda);
+    }
+
+    .montagem-modal-cabecalho h2 {
+        margin: 0;
+        color: var(--ark-texto);
+        font-size: 19px;
+    }
+
+    .montagem-modal-corpo {
+        padding: 18px;
+    }
+
+    .montagem-banco-lista {
+        display: grid;
+        gap: 10px;
+    }
+
+    .montagem-banco-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid #e5eaf1;
+        border-radius: 13px;
+    }
+
+    .montagem-banco-item h3 {
+        margin: 0 0 7px;
+        color: var(--ark-texto);
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    @media (max-width: 1100px) {
+        .montagem-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .montagem-lateral {
+            position: static;
+        }
+
+        .montagem-resumo {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .montagem-resumo-item {
+            border-right: 0;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .montagem-topo {
+            flex-direction: column;
+        }
+
+        .montagem-acoes,
+        .montagem-acoes .montagem-btn {
+            width: 100%;
+        }
+
+        .montagem-opcoes,
+        .montagem-resumo {
+            grid-template-columns: 1fr;
+        }
+
+        .montagem-questao {
+            grid-template-columns: 38px minmax(0, 1fr);
+        }
+
+        .montagem-questao-acoes {
+            grid-column: 1 / -1;
+            justify-content: flex-end;
+        }
+
+        .montagem-banco-item {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .montagem-pontuacao {
+        margin: 18px;
+        padding: 18px;
+        border: 1px solid #dbe4f0;
+        border-radius: 15px;
+        background: #f8fbff;
+    }
+    .montagem-pontuacao-topo {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:16px;
+        margin-bottom:15px;
+    }
+    .montagem-pontuacao h3 { margin:0; color:#0f172a; font-size:16px; }
+    .montagem-pontuacao p { margin:5px 0 0; color:#64748b; font-size:12px; }
+    .peso-modos { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .peso-modo {
+        display:flex; align-items:center; gap:8px; padding:10px 12px;
+        border:1px solid #dbe4f0; border-radius:11px; background:#fff;
+        color:#334155; font-size:12px; font-weight:800; cursor:pointer;
+    }
+    .peso-modo input { width:17px; height:17px; }
+    .peso-total-grid { display:grid; grid-template-columns:minmax(0,220px) auto; gap:12px; align-items:end; }
+    .peso-campo { display:grid; gap:6px; }
+    .peso-campo label { color:#334155; font-size:11px; font-weight:850; }
+    .peso-campo input {
+        width:100%; min-height:42px; padding:0 12px; border:1px solid #cbd5e1;
+        border-radius:10px; background:#fff; font:inherit;
+    }
+    .peso-manual { display:none; }
+    .peso-manual.ativo { display:block; }
+    .peso-input {
+        width:92px; min-height:38px; padding:0 10px; border:1px solid #cbd5e1;
+        border-radius:9px; background:#fff; font:inherit; font-size:12px; text-align:right;
+    }
+    .peso-salvar {
+        min-height:42px; padding:0 15px; border:1px solid #123b82; border-radius:10px;
+        background:#123b82; color:#fff; font:inherit; font-size:12px; font-weight:850; cursor:pointer;
+    }
+    .peso-resumo { margin-top:12px; color:#475569; font-size:12px; font-weight:700; }
+
+
+    .ordem-acoes{display:flex;align-items:center;gap:5px}
+    .ordem-acoes form{margin:0}
+    .montagem-btn-icone:disabled{opacity:.35;cursor:not-allowed}
+
+
+    /* =====================================================
+       PRÉ-VISUALIZAÇÃO PROFISSIONAL DA QUESTÃO
+    ===================================================== */
+
+    .preview-modal {
+        width: min(720px, calc(100vw - 32px));
+        max-height: 86vh;
+        overflow: hidden;
+        border-radius: 20px;
+    }
+
+    .preview-modal .montagem-modal-cabecalho {
+        padding: 20px 22px;
+        background: #ffffff;
+    }
+
+    .preview-modal .montagem-modal-cabecalho h2 {
+        color: #166534;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
+    .preview-corpo {
+        display: grid;
+        gap: 18px;
+        padding: 22px 24px;
+        overflow-y: auto;
+        max-height: calc(86vh - 150px);
+        background: #ffffff;
+    }
+
+    .preview-topo {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .preview-topo h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 20px;
+        font-weight: 900;
+    }
+
+    .preview-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 9px;
+    }
+
+    .preview-peso {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 0 10px;
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #17468f;
+        font-size: 10px;
+        font-weight: 900;
+    }
+
+    .preview-enunciado {
+        color: #1e293b;
+        font-size: 15px;
+        line-height: 1.65;
+        white-space: pre-line;
+    }
+
+    .preview-imagem {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        max-height: 420px;
+        margin: 0 auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #ffffff;
+        object-fit: contain;
+        cursor: zoom-in;
+    }
+
+    .preview-alternativas {
+        display: grid;
+        gap: 9px;
+    }
+
+    .preview-alternativa {
+        position: relative;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 11px;
+        align-items: center;
+        min-height: 54px;
+        padding: 10px 13px;
+        border: 1px solid #dbe4f0;
+        border-radius: 12px;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .preview-alternativa.correta {
+        border-color: #86efac;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    .preview-letra {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid #93a4ba;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #123b82;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .preview-alternativa.correta .preview-letra {
+        border-color: #22c55e;
+        background: #16a34a;
+        color: #ffffff;
+    }
+
+    .preview-selo-correta {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: #15803d;
+        font-size: 10px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .preview-detalhes {
+        display: grid;
+        gap: 9px;
+        padding: 14px;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        background: #f8fbff;
+        color: #334155;
+        font-size: 12px;
+        line-height: 1.55;
+    }
+
+    .preview-pedagogico {
+        overflow: hidden;
+        border: 1px solid #dbe4f0;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    .preview-pedagogico summary {
+        padding: 13px 15px;
+        color: #17468f;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .preview-pedagogico summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .preview-pedagogico summary::after {
+        content: "⌄";
+        float: right;
+        font-size: 16px;
+    }
+
+    .preview-pedagogico[open] summary::after {
+        transform: rotate(180deg);
+    }
+
+    .preview-pedagogico-conteudo {
+        display: grid;
+        gap: 10px;
+        padding: 0 15px 15px;
+        color: #475569;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .preview-pedagogico-item strong {
+        display: block;
+        margin-bottom: 2px;
+        color: #334155;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .preview-rodape {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 9px;
+        padding: 16px 20px;
+        border-top: 1px solid #dbe4f0;
+        background: #f8fafc;
+    }
+
+    .preview-acao {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 42px;
+        padding: 0 14px;
+        border-radius: 11px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 850;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .preview-editar {
+        border: 1px solid #17468f;
+        background: #17468f;
+        color: #ffffff;
+    }
+
+    .preview-duplicar {
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        color: #17468f;
+    }
+
+    .preview-excluir {
+        border: 1px solid #fecaca;
+        background: #fff;
+        color: #b91c1c;
+    }
+
+    .preview-fechar {
+        border: 1px solid #dbe4f0;
+        background: #ffffff;
+        color: #475569;
+    }
+
+    @media (max-width: 650px) {
+        .preview-rodape {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .preview-acao {
+            width: 100%;
+        }
+
+        .preview-alternativa {
+            grid-template-columns: 34px minmax(0, 1fr);
+        }
+
+        .preview-selo-correta {
+            grid-column: 2;
+        }
+    }
+
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="montagem-pagina">
+    <a href="/provas" class="montagem-voltar">
+        <span aria-hidden="true">←</span>
+        Voltar para avaliações
+    </a>
+
+    <header class="montagem-topo">
+        <div>
+            <h1>Montar avaliação</h1>
+            <p>{{ prova["nome"] }} · {{ prova["disciplina"] }} · {{ prova["turma_nome"] }}</p>
+        </div>
+    </header>
+
+    <section class="montagem-resumo">
+        <div class="montagem-resumo-item">
+            <small>Instituição</small>
+            <strong>{{ prova["nome_instituicao"] }}</strong>
+        </div>
+
+        <div class="montagem-resumo-item">
+            <small>Turma</small>
+            <strong>{{ prova["turma_nome"] }}</strong>
+        </div>
+
+        <div class="montagem-resumo-item">
+            <small>Professor</small>
+            <strong>{{ prova["professor_nome"] }}</strong>
+        </div>
+
+        <div class="montagem-resumo-item">
+            <small>Componente</small>
+            <strong>{{ prova["disciplina"] }}</strong>
+        </div>
+
+        <div class="montagem-resumo-item">
+            <small>Aplicação</small>
+            <strong>{{ prova["data_aplicacao"] or "Não definida" }}</strong>
+        </div>
+    </section>
+
+    <div class="montagem-layout">
+        <main class="montagem-conteudo">
+            <section class="montagem-card">
+                <div class="montagem-card-cabecalho">
+                    <div>
+                        <h2>Adicionar questões</h2>
+                        <p>Escolha como deseja construir esta avaliação.</p>
+                    </div>
+                </div>
+
+                <div class="montagem-opcoes">
+                    <a href="/provas/{{ prova['id'] }}/banco-questoes" class="montagem-opcao">
+                        <span class="montagem-opcao-icone">
+                            <svg class="montagem-svg" viewBox="0 0 24 24">
+                                <path d="M4 4H20V20H4Z"></path>
+                                <path d="M8 8H16"></path>
+                                <path d="M8 12H16"></path>
+                                <path d="M8 16H13"></path>
+                            </svg>
+                        </span>
+                        <h3>Banco de questões</h3>
+                        <p>Selecione questões já cadastradas para o mesmo componente curricular.</p>
+                        <span>Selecionar questões →</span>
+                    </a>
+
+                    <a href="/questoes/nova?prova_id={{ prova['id'] }}" class="montagem-opcao">
+                        <span class="montagem-opcao-icone">
+                            <svg class="montagem-svg" viewBox="0 0 24 24">
+                                <path d="M12 20H21"></path>
+                                <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L4 19L5 15Z"></path>
+                            </svg>
+                        </span>
+                        <h3>Criar questão</h3>
+                        <p>Cadastre uma nova questão autoral no banco da instituição.</p>
+                        <span>Abrir cadastro →</span>
+                    </a>
+
+                    <a href="/questoes/importar" class="montagem-opcao">
+                        <span class="montagem-opcao-icone">
+                            <svg class="montagem-svg" viewBox="0 0 24 24">
+                                <path d="M12 3V15"></path>
+                                <path d="M7 10L12 15L17 10"></path>
+                                <path d="M5 21H19"></path>
+                            </svg>
+                        </span>
+                        <h3>Importar questões</h3>
+                        <p>Use um arquivo para incluir várias questões no banco de uma só vez.</p>
+                        <span>Iniciar importação →</span>
+                    </a>
+                </div>
+            </section>
+
+            <section class="montagem-card">
+                <div class="montagem-card-cabecalho">
+                    <div>
+                        <h2>Questões da avaliação</h2>
+                        <p>Revise as questões antes de finalizar.</p>
+                    </div>
+
+                    <span class="montagem-contador">
+                        {{ total_questoes }} questão(ões)
+                    </span>
+                </div>
+
+
+                {% if questoes %}
+                <form method="POST" action="/provas/{{ prova['id'] }}/pesos" id="formPesos"></form>
+                    <div class="montagem-pontuacao">
+                        <div class="montagem-pontuacao-topo">
+                            <div>
+                                <h3>Pontuação da avaliação</h3>
+                                <p>Distribua o peso total igualmente ou informe o peso de cada questão.</p>
+                            </div>
+                        </div>
+
+                        <div class="peso-modos">
+                            <label class="peso-modo">
+                                <input type="radio" name="tipo_peso" value="automatico" form="formPesos"
+                                    {% if prova['tipo_peso'] != 'manual' %}checked{% endif %}>
+                                Distribuição automática
+                            </label>
+                            <label class="peso-modo">
+                                <input type="radio" name="tipo_peso" value="manual" form="formPesos"
+                                    {% if prova['tipo_peso'] == 'manual' %}checked{% endif %}>
+                                Definir manualmente
+                            </label>
+                        </div>
+
+                        <div class="peso-total-grid">
+                            <div class="peso-campo">
+                                <label for="pesoTotal">Peso total da avaliação</label>
+                                <input
+                                    id="pesoTotal"
+                                    type="number"
+                                    name="peso_total"
+                                    form="formPesos"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="{{ '%.2f'|format(prova['peso_total'] or 10) }}"
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="peso-salvar" form="formPesos">Salvar pontuação</button>
+                        </div>
+
+                        <div class="peso-resumo" id="resumoPesos"></div>
+                    </div>
+                <div class="montagem-lista">
+                    {% for questao in questoes %}
+                    <article class="montagem-questao">
+                        <div class="montagem-numero">{{ loop.index }}</div>
+
+                        <div>
+                            <h3>{{ questao["enunciado"] }}</h3>
+                            <div class="montagem-tags">
+                                <span class="montagem-tag">{{ questao["disciplina"] }}</span>
+                                <span class="montagem-tag">{{ questao["dificuldade"] }}</span>
+                                {% if questao["habilidade"] %}
+                                <span class="montagem-tag">{{ questao["habilidade"] }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="montagem-questao-acoes">
+                            <div class="peso-manual {% if prova['tipo_peso'] == 'manual' %}ativo{% endif %}">
+                                <input class="peso-input" type="number"
+                                    name="peso_{{ questao['vinculo_id'] }}"
+                                    min="0" step="0.01"
+                                    value="{{ '%.2f'|format(questao['peso'] or 0) }}"
+                                    title="Peso desta questão" form="formPesos">
+                            </div>
+
+                            <div class="ordem-acoes">
+                                <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/mover/cima">
+                                    <button type="submit" class="montagem-btn-icone" title="Mover para cima" {% if loop.first %}disabled{% endif %}>
+                                        <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M12 19V5"></path><path d="M6 11L12 5L18 11"></path></svg>
+                                    </button>
+                                </form>
+                                <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/mover/baixo">
+                                    <button type="submit" class="montagem-btn-icone" title="Mover para baixo" {% if loop.last %}disabled{% endif %}>
+                                        <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M12 5V19"></path><path d="M6 13L12 19L18 13"></path></svg>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <button type="button" class="montagem-btn-icone"
+                                title="Pré-visualizar questão"
+                                data-preview-id="previewQuestao{{ questao['id'] }}"
+                                data-edit-url="/questoes/{{ questao['id'] }}/editar?prova_id={{ prova['id'] }}"
+                                data-duplicate-url="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/duplicar"
+                                data-delete-url="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/remover">
+                                <svg class="montagem-svg" viewBox="0 0 24 24">
+                                    <path d="M2 12S5.5 5 12 5S22 12 22 12S18.5 19 12 19S2 12 2 12Z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+
+                            <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/remover">
+                                <button type="submit" class="montagem-btn-icone perigo" title="Remover questão">
+                                    <svg class="montagem-svg" viewBox="0 0 24 24">
+                                        <path d="M3 6H21"></path><path d="M8 6V4H16V6"></path><path d="M19 6L18 20H6L5 6"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+
+                    <template id="previewQuestao{{ questao['id'] }}">
+                        <div class="preview-topo">
+                            <div>
+                                <h3>Questão {{ "%02d"|format(loop.index) }}</h3>
+
+                                <div class="preview-meta">
+                                    <span class="montagem-tag">{{ questao['disciplina'] }}</span>
+                                    <span class="montagem-tag">{{ questao['dificuldade'] }}</span>
+
+                                    <span class="montagem-tag">
+                                        {% if questao['tipo_questao'] == 'multipla_escolha' %}
+                                            Múltipla escolha
+                                        {% elif questao['tipo_questao'] == 'multiplas_respostas' %}
+                                            Múltiplas respostas
+                                        {% elif questao['tipo_questao'] == 'verdadeiro_falso' %}
+                                            Verdadeiro ou falso
+                                        {% elif questao['tipo_questao'] == 'discursiva' %}
+                                            Discursiva
+                                        {% elif questao['tipo_questao'] == 'resposta_curta' %}
+                                            Resposta curta
+                                        {% elif questao['tipo_questao'] == 'numerica' %}
+                                            Numérica
+                                        {% else %}
+                                            {{ questao['tipo_questao']|replace('_', ' ')|title }}
+                                        {% endif %}
+                                    </span>
+
+                                    <span class="preview-peso">
+                                        Vale {{ '%.2f'|format(questao['peso'] or 0) }} ponto(s)
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="preview-enunciado">{{ questao['enunciado'] }}</div>
+
+                        {% if questao['imagem'] %}
+                            <a
+                                href="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                                target="_blank"
+                                title="Abrir imagem em tamanho maior"
+                            >
+                                <img
+                                    class="preview-imagem"
+                                    src="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                                    alt="Imagem da questão"
+                                >
+                            </a>
+                        {% endif %}
+
+                        {% if questao['tipo_questao'] in ['multipla_escolha', 'multiplas_respostas'] %}
+                            {% set respostas_json = questao['respostas_corretas'] or '[]' %}
+
+                            <div class="preview-alternativas">
+                                {% for letra, texto in [
+                                    ('A', questao['alternativa_a']),
+                                    ('B', questao['alternativa_b']),
+                                    ('C', questao['alternativa_c']),
+                                    ('D', questao['alternativa_d'])
+                                ] %}
+                                    {% if texto %}
+                                        {% set correta = letra == questao['correta'] or ('"' ~ letra ~ '"') in respostas_json %}
+                                        <div class="preview-alternativa {% if correta %}correta{% endif %}">
+                                            <span class="preview-letra">{{ letra }}</span>
+                                            <span>{{ texto }}</span>
+
+                                            {% if correta %}
+                                                <span class="preview-selo-correta">
+                                                    ✓ Correta
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                        {% elif questao['tipo_questao'] == 'verdadeiro_falso' %}
+                            <div class="preview-alternativas">
+                                {% for letra, texto in [('V', 'Verdadeiro'), ('F', 'Falso')] %}
+                                    <div class="preview-alternativa {% if letra == questao['correta'] %}correta{% endif %}">
+                                        <span class="preview-letra">{{ letra }}</span>
+                                        <span>{{ texto }}</span>
+
+                                        {% if letra == questao['correta'] %}
+                                            <span class="preview-selo-correta">✓ Correta</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                        {% else %}
+                            <div class="preview-detalhes">
+                                {% if questao['resposta_esperada'] %}
+                                    <div>
+                                        <strong>Resposta esperada:</strong>
+                                        {{ questao['resposta_esperada'] }}
+                                    </div>
+                                {% endif %}
+
+                                {% if questao['criterios_correcao'] %}
+                                    <div>
+                                        <strong>Critérios de correção:</strong>
+                                        {{ questao['criterios_correcao'] }}
+                                    </div>
+                                {% endif %}
+
+                                {% if questao['tipo_questao'] == 'discursiva' %}
+                                    <div>
+                                        <strong>Quantidade de linhas:</strong>
+                                        {{ questao['linhas_resposta'] or 5 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        {% if
+                            questao['habilidade_bncc']
+                            or questao['habilidade']
+                            or questao['objeto_conhecimento']
+                            or questao['unidade_tematica']
+                            or questao['descritor_saeb']
+                            or questao['taxonomia_bloom']
+                            or questao['tempo_estimado']
+                            or questao['fonte']
+                        %}
+                            <details class="preview-pedagogico">
+                                <summary>Informações pedagógicas</summary>
+
+                                <div class="preview-pedagogico-conteudo">
+                                    {% if questao['habilidade_bncc'] or questao['habilidade'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Habilidade</strong>
+                                            {{ questao['habilidade_bncc'] or questao['habilidade'] }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['objeto_conhecimento'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Objeto do conhecimento</strong>
+                                            {{ questao['objeto_conhecimento'] }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['unidade_tematica'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Unidade temática</strong>
+                                            {{ questao['unidade_tematica'] }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['descritor_saeb'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Descritor SAEB</strong>
+                                            {{ questao['descritor_saeb'] }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['taxonomia_bloom'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Taxonomia de Bloom</strong>
+                                            {{ questao['taxonomia_bloom'] }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['tempo_estimado'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Tempo estimado</strong>
+                                            {{ questao['tempo_estimado'] }} minuto(s)
+                                        </div>
+                                    {% endif %}
+
+                                    {% if questao['fonte'] %}
+                                        <div class="preview-pedagogico-item">
+                                            <strong>Fonte</strong>
+                                            {{ questao['fonte'] }}
+                                            {% if questao['ano_fonte'] %} · {{ questao['ano_fonte'] }}{% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </details>
+                        {% endif %}
+                    </template>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="montagem-vazio">
+                    <div class="montagem-vazio-icone">
+                        <svg class="montagem-svg" viewBox="0 0 24 24">
+                            <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                            <path d="M14 2V8H20"></path>
+                            <path d="M12 12V18"></path>
+                            <path d="M9 15H15"></path>
+                        </svg>
+                    </div>
+                    <h3>Nenhuma questão adicionada</h3>
+                    <p>Comece selecionando questões do banco ou crie uma nova questão para esta avaliação.</p>
+                </div>
+                {% endif %}
+            </section>
+        </main>
+
+        <aside class="montagem-lateral">
+            <section class="montagem-painel">
+                <h2>Resumo</h2>
+
+                <div class="montagem-estatistica">
+                    <span>Total de questões</span>
+                    <strong>{{ total_questoes }}</strong>
+                </div>
+
+                <div class="montagem-estatistica">
+                    <span>Status</span>
+                    <strong>
+                        {% if prova["status"] == "finalizada" %}
+                            Finalizada
+                        {% else %}
+                            Rascunho
+                        {% endif %}
+                    </strong>
+                </div>
+
+                <div class="montagem-estatistica">
+                    <span>Componente</span>
+                    <strong>{{ prova["disciplina"] }}</strong>
+                </div>
+
+                <div class="montagem-estatistica">
+                    <span>Data de aplicação</span>
+                    <strong>{{ prova["data_aplicacao"] or "Não definida" }}</strong>
+                </div>
+            </section>
+
+            <section class="montagem-painel montagem-painel-acoes">
+                <form method="POST" action="/provas/{{ prova['id'] }}/finalizar">
+                    <button type="submit" class="montagem-btn montagem-btn-principal">
+                        Finalizar avaliação
+                    </button>
+                </form>
+            </section>
+        </aside>
+    </div>
+</div>
+
+
+<div class="montagem-modal-fundo" id="modalPreviewQuestao" aria-hidden="true">
+    <div class="montagem-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="tituloPreviewQuestao">
+        <div class="montagem-modal-cabecalho">
+            <h2 id="tituloPreviewQuestao">Pré-visualização da questão</h2>
+            <button type="button" class="montagem-btn-icone" data-fechar-modal aria-label="Fechar">
+                <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M18 6L6 18"></path><path d="M6 6L18 18"></path></svg>
+            </button>
+        </div>
+        <div class="preview-corpo" id="previewQuestaoConteudo"></div>
+        <div class="preview-rodape">
+            <button
+                type="button"
+                class="preview-acao preview-fechar"
+                data-fechar-modal
+            >
+                Fechar
+            </button>
+
+            <form id="previewExcluirForm" method="POST" action="#">
+                <button
+                    type="submit"
+                    class="preview-acao preview-excluir"
+                    onclick="return confirm('Remover esta questão da avaliação?');"
+                >
+                    Excluir
+                </button>
+            </form>
+
+            <form id="previewDuplicarForm" method="POST" action="#">
+                <button
+                    type="submit"
+                    class="preview-acao preview-duplicar"
+                >
+                    Duplicar
+                </button>
+            </form>
+
+            <a
+                id="previewEditarLink"
+                href="#"
+                class="preview-acao preview-editar"
+            >
+                Editar questão
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="montagem-modal-fundo" id="modalBancoQuestoes" aria-hidden="true">
+    <div class="montagem-modal" role="dialog" aria-modal="true" aria-labelledby="tituloBancoQuestoes">
+        <div class="montagem-modal-cabecalho">
+            <div>
+                <h2 id="tituloBancoQuestoes">Banco de questões</h2>
+            </div>
+
+            <button type="button" class="montagem-btn-icone" data-fechar-modal aria-label="Fechar">
+                <svg class="montagem-svg" viewBox="0 0 24 24">
+                    <path d="M18 6L6 18"></path>
+                    <path d="M6 6L18 18"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="montagem-modal-corpo">
+            {% if banco_questoes %}
+            <div class="montagem-banco-lista">
+                {% for questao in banco_questoes %}
+                <article class="montagem-banco-item">
+                    <div>
+                        <h3>{{ questao["enunciado"] }}</h3>
+                        <div class="montagem-tags">
+                            <span class="montagem-tag">{{ questao["disciplina"] }}</span>
+                            <span class="montagem-tag">{{ questao["dificuldade"] }}</span>
+                            {% if questao["habilidade"] %}
+                            <span class="montagem-tag">{{ questao["habilidade"] }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <form method="POST" action="/provas/{{ prova['id'] }}/questoes/adicionar">
+                        <input type="hidden" name="questao_id" value="{{ questao['id'] }}">
+                        <button type="submit" class="montagem-btn montagem-btn-principal">
+                            Adicionar
+                        </button>
+                    </form>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="montagem-vazio">
+                <div class="montagem-vazio-icone">
+                    <svg class="montagem-svg" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="M20 20L16.5 16.5"></path>
+                    </svg>
+                </div>
+                <h3>Nenhuma questão disponível</h3>
+                <p>Não há outras questões deste componente disponíveis para adicionar.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function abrirModal(modal) {
+        if (!modal) return;
+        modal.classList.add("ativo");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+    }
+
+    function fecharModal(modal) {
+        if (!modal) return;
+        modal.classList.remove("ativo");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    document.querySelectorAll("[data-abrir-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            abrirModal(document.getElementById(botao.dataset.abrirModal));
+        });
+    });
+
+    document.querySelectorAll("[data-fechar-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            fecharModal(botao.closest(".montagem-modal-fundo"));
+        });
+    });
+
+    document.querySelectorAll(".montagem-modal-fundo").forEach(function (fundo) {
+        fundo.addEventListener("click", function (evento) {
+            if (evento.target === fundo) {
+                fecharModal(fundo);
+            }
+        });
+    });
+
+
+    document.querySelectorAll("[data-preview-id]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            const template = document.getElementById(botao.dataset.previewId);
+            const conteudo = document.getElementById("previewQuestaoConteudo");
+            const linkEditar = document.getElementById("previewEditarLink");
+            const formDuplicar = document.getElementById("previewDuplicarForm");
+            const formExcluir = document.getElementById("previewExcluirForm");
+            const modal = document.getElementById("modalPreviewQuestao");
+
+            if (!template || !conteudo || !modal) return;
+
+            conteudo.innerHTML = "";
+            conteudo.appendChild(template.content.cloneNode(true));
+
+            if (linkEditar) {
+                linkEditar.href = botao.dataset.editUrl || "#";
+            }
+
+            if (formDuplicar) {
+                formDuplicar.action = botao.dataset.duplicateUrl || "#";
+            }
+
+            if (formExcluir) {
+                formExcluir.action = botao.dataset.deleteUrl || "#";
+            }
+
+            abrirModal(modal);
+        });
+    });
+
+    document.addEventListener("keydown", function (evento) {
+        if (evento.key !== "Escape") return;
+
+        document.querySelectorAll(".montagem-modal-fundo.ativo").forEach(
+            function (modal) {
+                fecharModal(modal);
+            }
+        );
+    });
+});
+
+    const radiosPeso = document.querySelectorAll('input[name="tipo_peso"]');
+    const pesosManuais = document.querySelectorAll(".peso-manual");
+    const pesoTotal = document.getElementById("pesoTotal");
+    const resumoPesos = document.getElementById("resumoPesos");
+
+    function atualizarModoPeso() {
+        const selecionado = document.querySelector('input[name="tipo_peso"]:checked');
+        const manual = selecionado && selecionado.value === "manual";
+
+        pesosManuais.forEach(item => item.classList.toggle("ativo", manual));
+
+        if (!resumoPesos || !pesoTotal) return;
+
+        if (manual) {
+            const soma = [...document.querySelectorAll(".peso-input")]
+                .reduce((total, campo) => total + (parseFloat(campo.value || "0") || 0), 0);
+            const esperado = parseFloat(pesoTotal.value || "0") || 0;
+            resumoPesos.textContent = `Total informado: ${soma.toFixed(2)} de ${esperado.toFixed(2)} pontos.`;
+        } else {
+            const quantidade = {{ total_questoes or 0 }};
+            const total = parseFloat(pesoTotal.value || "0") || 0;
+            resumoPesos.textContent = quantidade
+                ? `O sistema distribuirá ${total.toFixed(2)} pontos igualmente entre ${quantidade} questão(ões).`
+                : "";
+        }
+    }
+
+    radiosPeso.forEach(radio => radio.addEventListener("change", atualizarModoPeso));
+    document.querySelectorAll(".peso-input").forEach(campo => campo.addEventListener("input", atualizarModoPeso));
+    if (pesoTotal) pesoTotal.addEventListener("input", atualizarModoPeso);
+    atualizarModoPeso();
+
+</script>
+{% endblock %}

@@ -1,0 +1,760 @@
+/* =====================================================
+   ALUNOS E MATRÍCULAS
+===================================================== */
+
+.alunos-pagina {
+    width: 100%;
+    max-width: 1380px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+}
+
+.alunos-cabecalho {
+    margin-bottom: 24px;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.alunos-etiqueta,
+.alunos-card-etiqueta {
+    display: inline-block;
+    margin-bottom: 7px;
+
+    color: #2563a8;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.alunos-cabecalho h1 {
+    margin: 0 0 8px;
+
+    color: #123b82;
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.alunos-cabecalho p,
+.alunos-card p,
+.alunos-listagem-topo p {
+    margin: 0;
+
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.alunos-btn-voltar {
+    min-height: 42px;
+    padding: 0 16px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #31506f;
+    background: #ffffff;
+
+    border: 1px solid #dbe3ec;
+    border-radius: 12px;
+
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.alunos-btn-voltar:hover {
+    color: #123b82;
+    background: #f7faff;
+}
+
+
+/* =====================================================
+   AVISO
+===================================================== */
+
+.alunos-aviso-consulta {
+    margin-bottom: 22px;
+    padding: 14px 18px;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    color: #854d0e;
+    background: #fff8df;
+
+    border: 1px solid #f3d88c;
+    border-radius: 14px;
+
+    font-size: 13px;
+}
+
+.alunos-aviso-consulta strong {
+    white-space: nowrap;
+}
+
+
+/* =====================================================
+   CARDS
+===================================================== */
+
+.alunos-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: 22px;
+    margin-bottom: 24px;
+}
+
+.alunos-card {
+    background: #ffffff;
+
+    border: 1px solid #e1e8f0;
+    border-radius: 20px;
+
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.055);
+}
+
+.alunos-card-formulario,
+.alunos-card-resumo {
+    padding: 26px;
+}
+
+.alunos-card-cabecalho {
+    margin-bottom: 23px;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.alunos-card h2,
+.alunos-listagem-topo h2 {
+    margin: 0 0 7px;
+
+    color: #17243a;
+    font-size: 21px;
+    font-weight: 800;
+}
+
+.alunos-ano-selo {
+    min-width: 105px;
+    padding: 10px 14px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    color: #ffffff;
+    background: linear-gradient(135deg, #173f8a, #286bc6);
+
+    border-radius: 14px;
+}
+
+.alunos-ano-selo small {
+    margin-bottom: 2px;
+
+    color: rgba(255,255,255,.72);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.alunos-ano-selo strong {
+    font-size: 20px;
+}
+
+
+/* =====================================================
+   FORMULÁRIO
+===================================================== */
+
+.alunos-formulario {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.alunos-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.alunos-campo-completo {
+    grid-column: 1 / -1;
+}
+
+.alunos-campo label {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.alunos-campo input,
+.alunos-campo select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+
+    color: #172033;
+    background: #ffffff;
+
+    border: 1px solid #cfd9e5;
+    border-radius: 12px;
+
+    font-size: 14px;
+    outline: none;
+}
+
+.alunos-campo input:focus,
+.alunos-campo select:focus {
+    border-color: #3b82d0;
+    box-shadow: 0 0 0 3px rgba(59, 130, 208, .12);
+}
+
+.alunos-campo input:disabled,
+.alunos-campo select:disabled {
+    color: #94a3b8;
+    background: #f4f7fa;
+    cursor: not-allowed;
+}
+
+.alunos-formulario-rodape {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.alunos-formulario-rodape > span {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.alunos-btn-salvar {
+    min-width: 190px;
+    min-height: 46px;
+    padding: 0 20px;
+
+    color: #ffffff;
+    background: linear-gradient(135deg, #18458f, #2569bd);
+
+    border: 0;
+    border-radius: 12px;
+
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.alunos-btn-salvar:hover:not(:disabled) {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+}
+
+.alunos-btn-salvar:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.alunos-sem-turmas {
+    grid-column: 1 / -1;
+    padding: 11px 13px;
+
+    color: #92400e;
+    background: #fff7df;
+
+    border: 1px solid #f4dda0;
+    border-radius: 11px;
+
+    font-size: 12px;
+}
+
+
+/* =====================================================
+   RESUMO
+===================================================== */
+
+.alunos-card-resumo {
+    display: flex;
+    flex-direction: column;
+}
+
+.alunos-resumo-numero {
+    margin: 7px 0 22px;
+
+    color: #1c5ca6;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.alunos-resumo-item {
+    padding: 13px 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    border-top: 1px solid #edf1f5;
+}
+
+.alunos-resumo-item span {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.alunos-resumo-item strong {
+    color: #17243a;
+    font-size: 18px;
+}
+
+.alunos-resumo-status {
+    margin-top: auto;
+    padding-top: 18px;
+}
+
+.alunos-status {
+    min-height: 31px;
+    padding: 0 12px;
+
+    display: inline-flex;
+    align-items: center;
+
+    border-radius: 999px;
+
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.alunos-status-ativo {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.alunos-status-consulta {
+    color: #9a5708;
+    background: #fff1c7;
+}
+
+
+/* =====================================================
+   LISTAGEM
+===================================================== */
+
+.alunos-listagem {
+    padding: 0;
+}
+
+.alunos-listagem-topo {
+    padding: 24px 26px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    border-bottom: 1px solid #e8edf3;
+}
+
+.alunos-total {
+    min-width: 72px;
+    padding: 9px 13px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    color: #1f5fa8;
+    background: #edf5ff;
+
+    border-radius: 13px;
+
+    font-size: 21px;
+    font-weight: 900;
+}
+
+.alunos-total span {
+    color: #58718c;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.alunos-tabela-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.alunos-tabela {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.alunos-tabela th,
+.alunos-tabela td {
+    padding: 15px 17px;
+
+    border-bottom: 1px solid #edf1f5;
+
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+
+    font-size: 13px;
+}
+
+.alunos-tabela th {
+    color: #53677d;
+    background: #f7f9fc;
+
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.alunos-tabela tbody tr:hover {
+    background: #fbfdff;
+}
+
+.alunos-identificacao {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.alunos-avatar {
+    width: 38px;
+    height: 38px;
+
+    display: grid;
+    place-items: center;
+
+    flex: 0 0 auto;
+
+    color: #ffffff;
+    background: linear-gradient(135deg, #2b67ad, #173f86);
+
+    border-radius: 12px;
+
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.alunos-identificacao > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.alunos-identificacao strong {
+    color: #16243a;
+    font-size: 14px;
+}
+
+.alunos-identificacao small,
+.alunos-texto-secundario {
+    color: #8391a2;
+    font-size: 11px;
+}
+
+.alunos-texto-secundario {
+    display: block;
+    margin-top: 3px;
+}
+
+.alunos-ano-tabela {
+    min-height: 29px;
+    padding: 0 10px;
+
+    display: inline-flex;
+    align-items: center;
+
+    color: #185aa5;
+    background: #eaf3ff;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+
+/* =====================================================
+   AÇÕES
+===================================================== */
+
+.alunos-coluna-acoes {
+    width: 80px;
+    text-align: center !important;
+}
+
+.alunos-menu-acoes {
+    position: relative;
+    display: inline-block;
+}
+
+.alunos-btn-menu {
+    width: 38px;
+    height: 38px;
+    margin: 0;
+    padding: 0;
+
+    color: #255b93;
+    background: #ffffff;
+
+    border: 1px solid #dbe4ee;
+    border-radius: 11px;
+
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.alunos-btn-menu:hover,
+.alunos-btn-menu.ativo {
+    background: #edf5ff;
+    border-color: #87b5e5;
+}
+
+.alunos-dropdown {
+    display: none;
+    position: fixed;
+    z-index: 5000;
+
+    width: 185px;
+    overflow: hidden;
+
+    background: #ffffff;
+
+    border: 1px solid #e0e7ef;
+    border-radius: 13px;
+
+    box-shadow: 0 18px 38px rgba(15, 23, 42, .16);
+    text-align: left;
+}
+
+.alunos-dropdown.ativo {
+    display: block;
+}
+
+.alunos-dropdown a {
+    padding: 12px 14px;
+
+    display: block;
+
+    color: #334155;
+    border-bottom: 1px solid #f0f3f6;
+
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.alunos-dropdown a:last-child {
+    border-bottom: 0;
+}
+
+.alunos-dropdown a:hover {
+    color: #174f91;
+    background: #f5f9ff;
+}
+
+.alunos-dropdown a.alunos-acao-excluir {
+    color: #b42318;
+}
+
+.alunos-dropdown a.alunos-acao-excluir:hover {
+    color: #9f1b12;
+    background: #fff2f0;
+}
+
+
+/* =====================================================
+   VAZIO
+===================================================== */
+
+.alunos-vazio {
+    padding: 55px 24px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    text-align: center;
+}
+
+.alunos-vazio-icone {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 14px;
+
+    display: grid;
+    place-items: center;
+
+    color: #437ebd;
+    background: #edf5ff;
+
+    border-radius: 18px;
+}
+
+.alunos-vazio-icone svg {
+    width: 28px;
+    height: 28px;
+
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.alunos-vazio h3 {
+    margin: 0 0 7px;
+
+    color: #17243a;
+    font-size: 18px;
+}
+
+.alunos-vazio p {
+    max-width: 480px;
+    margin: 0;
+
+    color: #718096;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+
+/* =====================================================
+   RESPONSIVO
+===================================================== */
+
+@media (max-width: 980px) {
+
+    .alunos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .alunos-card-resumo {
+        min-height: 230px;
+    }
+}
+
+@media (max-width: 700px) {
+
+    .alunos-cabecalho,
+    .alunos-card-cabecalho,
+    .alunos-formulario-rodape,
+    .alunos-listagem-topo {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .alunos-formulario {
+        grid-template-columns: 1fr;
+    }
+
+    .alunos-campo-completo,
+    .alunos-formulario-rodape,
+    .alunos-sem-turmas {
+        grid-column: auto;
+    }
+
+    .alunos-btn-salvar {
+        width: 100%;
+    }
+
+    .alunos-ano-selo {
+        width: 100%;
+    }
+}
+
+
+/* =====================================================
+   GERAÇÃO DA MATRÍCULA
+===================================================== */
+
+.alunos-campo-matricula {
+    gap: 9px;
+}
+
+.alunos-matricula-opcoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.alunos-radio-card {
+    min-height: 66px;
+    padding: 10px 12px;
+
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+
+    color: #334155;
+    background: #f8fafc;
+
+    border: 1px solid #dbe4ee;
+    border-radius: 12px;
+
+    cursor: pointer;
+}
+
+.alunos-radio-card:has(input:checked) {
+    color: #174f91;
+    background: #edf5ff;
+    border-color: #7eafe2;
+    box-shadow: 0 0 0 2px rgba(59, 130, 208, .09);
+}
+
+.alunos-radio-card input {
+    width: 16px;
+    height: 16px;
+    min-height: auto;
+    margin: 3px 0 0;
+    padding: 0;
+    accent-color: #2468b6;
+    box-shadow: none;
+}
+
+.alunos-radio-card span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.alunos-radio-card strong {
+    color: inherit;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.alunos-radio-card small {
+    color: #718096;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+@media (max-width: 520px) {
+    .alunos-matricula-opcoes {
+        grid-template-columns: 1fr;
+    }
+}

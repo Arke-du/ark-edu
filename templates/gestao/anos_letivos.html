@@ -261,7 +261,7 @@
 
 .anos-resumo {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 26px;
 }
@@ -433,6 +433,28 @@
     text-align: center;
 }
 
+
+/* CONFIGURAÇÕES E AUDITORIA */
+.anos-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:26px}
+.anos-config-card{padding:24px;border:1px solid #e2e8f0;border-radius:20px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.anos-config-card h2{margin:0 0 6px;color:#123b82;font-size:19px;font-weight:900}
+.anos-config-card>p{margin:0 0 18px;color:#64748b;font-size:13px;line-height:1.55}
+.anos-config-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.anos-config-opcoes{display:grid;gap:9px;margin-top:14px}
+.anos-check{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px;font-weight:700}
+.anos-check input{width:17px;height:17px;accent-color:#2563eb}
+.anos-acoes{flex-wrap:wrap}
+.anos-btn-reabrir{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border:1px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#92400e;font:800 12px inherit;cursor:pointer}
+.anos-reabrir-form{display:flex;align-items:center;gap:7px}
+.anos-reabrir-form select{min-height:38px;padding:0 9px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:12px}
+.anos-auditoria{margin-top:26px;padding:24px;border:1px solid #e2e8f0;border-radius:22px;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.06)}
+.anos-auditoria h2{margin:0 0 6px;color:#123b82;font-size:21px;font-weight:900}
+.anos-auditoria p{margin:0 0 18px;color:#64748b;font-size:13px}
+.anos-auditoria-lista{display:grid;gap:10px}
+.anos-auditoria-item{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid #e2e8f0;border-radius:13px;background:#f8fafc;font-size:12px;color:#475569}
+.anos-auditoria-item strong{color:#1e293b}
+@media(max-width:900px){.anos-config-grid{grid-template-columns:1fr}.anos-auditoria-item{grid-template-columns:1fr}}
+
 /* =====================================================
    RESPONSIVO
 ===================================================== */
@@ -508,6 +530,52 @@
     </div>
 
 
+    <!-- CONFIGURAÇÕES DE ABERTURA AUTOMÁTICA -->
+    <div class="anos-config-grid">
+        {% if cargo == "Administrador Geral" %}
+        <form class="anos-config-card" action="{{ url_for('salvar_agendamento_global') }}" method="POST">
+            <h2>Agendamento global</h2>
+            <p>Define a abertura automática para todas as instituições que seguem a configuração da plataforma.</p>
+            <div class="anos-config-campos">
+                <div class="anos-campo"><label>Ano</label><input type="number" name="ano" min="2000" max="2100" value="{{ configuracao_global['ano'] or '' if configuracao_global else '' }}" required></div>
+                <div class="anos-campo"><label>Data de execução</label><input type="date" name="data_execucao" value="{{ configuracao_global['data_execucao'] or '' if configuracao_global else '' }}" required></div>
+                <div class="anos-campo"><label>Início do ano</label><input type="date" name="data_inicio" value="{{ configuracao_global['data_inicio'] or '' if configuracao_global else '' }}"></div>
+                <div class="anos-campo"><label>Fim previsto</label><input type="date" name="data_fim" value="{{ configuracao_global['data_fim'] or '' if configuracao_global else '' }}"></div>
+            </div>
+            <div class="anos-config-opcoes">
+                <label class="anos-check"><input type="checkbox" name="ativo" value="1" {% if configuracao_global and configuracao_global['ativo'] %}checked{% endif %}> Ativar agendamento global</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_turmas" value="1" {% if not configuracao_global or configuracao_global['copiar_turmas'] %}checked{% endif %}> Copiar turmas</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_vinculos" value="1" {% if not configuracao_global or configuracao_global['copiar_vinculos'] %}checked{% endif %}> Copiar vínculos dos professores</label>
+                <label class="anos-check"><input type="checkbox" name="encerrar_anterior" value="1" {% if not configuracao_global or configuracao_global['encerrar_anterior'] %}checked{% endif %}> Encerrar o ano anterior</label>
+            </div>
+            <div class="anos-form-acoes"><button class="anos-btn-abrir" type="submit">Salvar agendamento global</button></div>
+        </form>
+        {% endif %}
+
+        <form class="anos-config-card" action="{{ url_for('salvar_agendamento_instituicao') }}" method="POST">
+            <h2>Configuração da instituição</h2>
+            <p>A instituição pode seguir a plataforma, trabalhar manualmente ou usar um agendamento próprio.</p>
+            {% if cargo == "Administrador Geral" %}
+            <div class="anos-campo"><label>Instituição</label><select name="escola_id" required><option value="">Selecione</option>{% for escola in escolas %}<option value="{{ escola['id'] }}">{{ escola['nome_instituicao'] }}</option>{% endfor %}</select></div>
+            {% endif %}
+            {% set ci = configuracao_instituicao %}
+            <div class="anos-config-campos" style="margin-top:13px">
+                <div class="anos-campo"><label>Modo</label><select name="modo"><option value="global" {% if not ci or ci['modo']=='global' %}selected{% endif %}>Seguir configuração global</option><option value="proprio" {% if ci and ci['modo']=='proprio' %}selected{% endif %}>Agendamento próprio</option><option value="manual" {% if ci and ci['modo']=='manual' %}selected{% endif %}>Manual</option></select></div>
+                <div class="anos-campo"><label>Ano</label><input type="number" name="ano" min="2000" max="2100" value="{{ ci['ano'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Data de execução</label><input type="date" name="data_execucao" value="{{ ci['data_execucao'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Início do ano</label><input type="date" name="data_inicio" value="{{ ci['data_inicio'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Fim previsto</label><input type="date" name="data_fim" value="{{ ci['data_fim'] or '' if ci else '' }}"></div>
+            </div>
+            <div class="anos-config-opcoes">
+                <label class="anos-check"><input type="checkbox" name="ativo" value="1" {% if ci and ci['ativo'] %}checked{% endif %}> Ativar agendamento próprio</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_turmas" value="1" {% if not ci or ci['copiar_turmas'] %}checked{% endif %}> Copiar turmas</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_vinculos" value="1" {% if not ci or ci['copiar_vinculos'] %}checked{% endif %}> Copiar vínculos</label>
+                <label class="anos-check"><input type="checkbox" name="encerrar_anterior" value="1" {% if not ci or ci['encerrar_anterior'] %}checked{% endif %}> Encerrar o ano anterior</label>
+            </div>
+            <div class="anos-form-acoes"><button class="anos-btn-abrir" type="submit">Salvar configuração</button></div>
+        </form>
+    </div>
+
     <!-- =====================================================
          ABRIR NOVO ANO
     ====================================================== -->
@@ -568,7 +636,7 @@
                             </option>
 
                             {% for escola in escolas %}
-                                <option value="{{ escola['id'] }}">
+                                <option value="{{ escola['id'] }}" data-proximo-ano="{{ (proximos_anos|default({})).get(escola['id']|string, '') }}">
                                     {{ escola['nome_instituicao'] }}
                                 </option>
                             {% endfor %}
@@ -589,6 +657,7 @@
                         min="2000"
                         max="2100"
                         placeholder="Ex.: 2027"
+                        value="{{ ano_sugerido if cargo != 'Administrador Geral' else '' }}"
                         required
                     >
                 </div>
@@ -642,37 +711,37 @@
 
                 <div class="anos-opcao" style="cursor: default; opacity: .65;">
 
-                    <input
-                        type="checkbox"
-                        disabled
-                    >
+                    <input type="checkbox" disabled>
 
                     <span>
                         <strong>Promover alunos</strong>
                         <span>
-                            Esta etapa será adicionada no próximo ajuste
-                            do módulo.
+                            Os alunos não são copiados automaticamente. A matrícula
+                            do novo período será feita com segurança depois.
                         </span>
                     </span>
 
                 </div>
 
-                <div class="anos-opcao" style="cursor: default; opacity: .65;">
+                <label class="anos-opcao">
 
                     <input
                         type="checkbox"
-                        disabled
+                        id="copiar_vinculos"
+                        name="copiar_vinculos"
+                        value="1"
+                        checked
                     >
 
                     <span>
-                        <strong>Copiar vínculos</strong>
+                        <strong>Copiar vínculos dos professores</strong>
                         <span>
-                            A cópia dos vínculos dos professores será
-                            adicionada depois.
+                            Mantém os professores e componentes vinculados às
+                            turmas que forem copiadas.
                         </span>
                     </span>
 
-                </div>
+                </label>
 
             </div>
 
@@ -728,6 +797,18 @@
         <div class="anos-resumo-card">
             <span>Anos encerrados</span>
             <strong>{{ encerrados|length }}</strong>
+        </div>
+
+        {% set resumo = namespace(total_professores=0) %}
+        {% for item in anos_letivos %}
+            {% if 'total_professores' in item.keys() %}
+                {% set resumo.total_professores = resumo.total_professores + (item['total_professores'] or 0) %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="anos-resumo-card">
+            <span>Professores no histórico</span>
+            <strong>{{ resumo.total_professores }}</strong>
         </div>
 
         <div class="anos-resumo-card">
@@ -795,6 +876,7 @@
                         <th>Fim</th>
                         <th>Turmas</th>
                         <th>Alunos</th>
+                        <th>Professores</th>
                         <th>Provas</th>
                         <th>Ação</th>
 
@@ -862,6 +944,10 @@
                             </td>
 
                             <td>
+                                {{ (item['total_professores'] or 0) if 'total_professores' in item.keys() else 0 }}
+                            </td>
+
+                            <td>
                                 {{ item["total_provas"] or 0 }}
                             </td>
 
@@ -869,7 +955,7 @@
 
                                 <div class="anos-acoes">
 
-                                    {% if session.get("ano_letivo_id") == item["id"] %}
+                                    {% if (cargo == "Administrador Geral" and session.get("ano_letivo") == item["ano"]) or (cargo != "Administrador Geral" and session.get("ano_letivo_id") == item["id"]) %}
 
                                         <span class="anos-selecionado">
                                             Em uso
@@ -891,6 +977,16 @@
 
                                     {% endif %}
 
+                                    {% if item["encerrado"] == 1 %}
+                                    <form class="anos-reabrir-form" action="{{ url_for('reabrir_ano_letivo', ano_letivo_id=item['id']) }}" method="POST" onsubmit="return confirm('Deseja realmente reabrir o ano letivo {{ item['ano'] }}?');">
+                                        <select name="modo" aria-label="Modo de reabertura">
+                                            <option value="edicao">Reabrir para edição</option>
+                                            <option value="ativo">Reabrir e tornar ativo</option>
+                                        </select>
+                                        <button type="submit" class="anos-btn-reabrir">Reabrir</button>
+                                    </form>
+                                    {% endif %}
+
                                 </div>
 
                             </td>
@@ -901,7 +997,7 @@
 
                         <tr>
                             <td
-                                colspan="{% if cargo == 'Administrador Geral' %}9{% else %}8{% endif %}"
+                                colspan="{% if cargo == 'Administrador Geral' %}10{% else %}9{% endif %}"
                                 class="anos-vazio"
                             >
                                 Nenhum ano letivo cadastrado.
@@ -917,6 +1013,22 @@
         </div>
 
     </div>
+
+    <section class="anos-auditoria">
+        <h2>Histórico de alterações</h2>
+        <p>Últimas ações realizadas no gerenciamento dos anos letivos.</p>
+        <div class="anos-auditoria-lista">
+            {% for registro in auditoria|default([]) %}
+            <div class="anos-auditoria-item">
+                <span>{{ registro['criado_em'] }}</span>
+                <div><strong>{{ registro['acao']|replace('_', ' ')|title }}</strong><br>{{ registro['nome_instituicao'] }}{% if registro['ano'] %} — {{ registro['ano'] }}{% endif %}{% if registro['detalhes'] %}<br>{{ registro['detalhes'] }}{% endif %}</div>
+                <span>{{ registro['usuario_nome'] or 'Sistema' }}</span>
+            </div>
+            {% else %}
+            <div class="anos-vazio">Nenhuma alteração registrada.</div>
+            {% endfor %}
+        </div>
+    </section>
 
 </div>
 
@@ -939,6 +1051,29 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+
+    const campoInstituicaoInicial = document.getElementById("escola_id");
+    const campoAnoInicial = document.getElementById("ano");
+    const copiarTurmas = document.querySelector('input[name="copiar_turmas"]');
+    const copiarVinculos = document.getElementById("copiar_vinculos");
+
+    if (campoInstituicaoInicial && campoAnoInicial) {
+        campoInstituicaoInicial.addEventListener("change", function () {
+            const opcao = this.options[this.selectedIndex];
+            const proximoAno = opcao ? opcao.dataset.proximoAno : "";
+            if (proximoAno) campoAnoInicial.value = proximoAno;
+        });
+    }
+
+    function sincronizarVinculos() {
+        if (!copiarTurmas || !copiarVinculos) return;
+        copiarVinculos.disabled = !copiarTurmas.checked;
+        if (!copiarTurmas.checked) copiarVinculos.checked = false;
+    }
+
+    if (copiarTurmas) copiarTurmas.addEventListener("change", sincronizarVinculos);
+    sincronizarVinculos();
+
     if (formulario) {
 
         formulario.addEventListener("submit", function (evento) {
@@ -948,6 +1083,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const campoInstituicao =
                 document.getElementById("escola_id");
+
+            const dataInicio = document.getElementById("data_inicio");
+            const dataFim = document.getElementById("data_fim");
+
+            if (dataInicio && dataFim && dataInicio.value && dataFim.value && dataFim.value < dataInicio.value) {
+                evento.preventDefault();
+                window.alert("A data final não pode ser anterior à data de início.");
+                dataFim.focus();
+                return;
+            }
 
             const ano =
                 campoAno ? campoAno.value.trim() : "";
