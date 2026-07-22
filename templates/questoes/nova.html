@@ -30,19 +30,8 @@
 .questoes-grupo input,.questoes-grupo select,.questoes-grupo textarea{width:100%;border:1px solid var(--ark-borda);border-radius:12px;background:#fff;color:var(--ark-texto);font:inherit;font-size:13px;outline:none;transition:.2s}
 .questoes-grupo input,.questoes-grupo select{min-height:46px;padding:0 13px}.questoes-grupo textarea{min-height:135px;padding:14px;resize:vertical;line-height:1.55}
 .questoes-grupo input:focus,.questoes-grupo select:focus,.questoes-grupo textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.bncc-select{appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center!important;padding-right:46px!important;cursor:pointer}.bncc-select:disabled{background-color:#f8fafc!important;color:#94a3b8;cursor:not-allowed}.bncc-select option{color:#0f172a;background:#fff}.bncc-status{min-height:16px}.bncc-status.erro{color:#dc2626}.bncc-status.sucesso{color:#64748b}
 .oculto{display:none!important}.ajuda{color:#94a3b8;font-size:11px;line-height:1.45}
-.seletor-assunto{position:relative}
-.assunto-controle{position:relative}
-.assunto-controle input{padding-right:42px!important}
-.assunto-seta{position:absolute;right:14px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#64748b;font-size:16px;cursor:pointer}
-.assunto-menu{position:absolute;z-index:999;top:calc(100% + 7px);left:0;right:0;display:none;max-height:320px;overflow:auto;border:1px solid var(--ark-borda);border-radius:13px;background:#fff;box-shadow:0 16px 35px rgba(15,23,42,.16);padding:6px}
-.assunto-menu.aberto{display:block}
-.assunto-opcao{display:block;width:100%;border:0;border-radius:9px;background:#fff;padding:10px 11px;color:#334155;font:inherit;font-size:12px;text-align:left;cursor:pointer}
-.assunto-opcao:hover,.assunto-opcao.ativo{background:#eff6ff;color:var(--ark-azul)}
-.assunto-vazio{padding:12px;color:#94a3b8;font-size:12px;text-align:center}
-.btn-assunto-temporario{margin-top:2px;padding:0;border:0;background:transparent;color:var(--ark-azul);font:inherit;font-size:11px;font-weight:850;text-align:left;cursor:pointer}
-.btn-assunto-temporario:hover{text-decoration:underline}
-.btn-assunto-temporario.ativo{color:#92400e}
 .tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0;pointer-events:none}.tipo-opcao span{display:flex;min-height:54px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--ark-borda);border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;font-weight:800;text-align:center;cursor:pointer;transition:.2s}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--ark-azul);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
 .editor-shell{overflow:hidden;border:1px solid var(--ark-borda);border-radius:14px;background:#fff;transition:.2s}.editor-shell:focus-within{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
 .editor-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:8px 10px;border-bottom:1px solid #e5edf7;background:linear-gradient(180deg,#fff,#f8fafc)}
@@ -102,36 +91,12 @@
                             {% for item in ['Educação Infantil','Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio','EJA'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('etapa_ensino') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="linha-classificacao">
-                        <div class="questoes-grupo">
-                            <label for="anoSerie">Ano/Série</label>
-                            <select id="anoSerie" name="ano_serie" data-valor="{{ valores_anteriores.get('ano_serie','') if valores_anteriores else '' }}" required>
-                                <option value="">Selecione primeiro a etapa</option>
-                            </select>
-                        </div>
-
-                        <div class="questoes-grupo seletor-assunto">
-                            <label for="pesquisaAssunto">Assunto</label>
-                            <div class="assunto-controle">
-                                <input
-                                    id="pesquisaAssunto"
-                                    type="text"
-                                    value="{{ valores_anteriores.get('assunto','') if valores_anteriores else '' }}"
-                                    placeholder="Selecione ou digite para pesquisar"
-                                    autocomplete="off"
-                                >
-                                <button type="button" class="assunto-seta" id="abrirAssuntos" aria-label="Abrir assuntos">⌄</button>
-                            </div>
-                            <input type="hidden" id="assuntoQuestao" name="assunto" value="{{ valores_anteriores.get('assunto','') if valores_anteriores else '' }}" required>
-                            <div class="assunto-menu" id="menuAssuntos"></div>
-                            <span class="ajuda" id="ajudaAssunto">Clique no campo para ver os assuntos deste componente e desta série.</span>
-                            <button type="button" class="btn-assunto-temporario" id="alternarAssuntoTemporario">
-                                + Usar assunto somente nesta questão
-                            </button>
-                            <input type="hidden" id="assuntoTemporario" name="assunto_temporario" value="0">
-                        </div>
+                    <div class="questoes-grupo">
+                        <label for="anoSerie">Ano/Série</label>
+                        <select id="anoSerie" name="ano_serie" data-valor="{{ valores_anteriores.get('ano_serie','') if valores_anteriores else '' }}" required>
+                            <option value="">Selecione primeiro a etapa</option>
+                        </select>
                     </div>
-                    <div class="questoes-grupo largo"><label for="subassuntoQuestao">Subassunto <span class="ajuda">(opcional)</span></label><input id="subassuntoQuestao" name="subassunto" value="{{ valores_anteriores.get('subassunto','') if valores_anteriores else '' }}" placeholder="Ex.: Período Regencial"></div>
                     <div class="questoes-grupo"><label for="dificuldadeQuestao">Dificuldade</label><select id="dificuldadeQuestao" name="dificuldade" required><option value="">Selecione</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('dificuldade') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
                     <div class="questoes-grupo"><label for="taxonomiaBloom">Taxonomia de Bloom <span class="ajuda">(opcional)</span></label><select id="taxonomiaBloom" name="taxonomia_bloom"><option value="">Não informar</option>{% for item in ['Lembrar','Compreender','Aplicar','Analisar','Avaliar','Criar'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('taxonomia_bloom') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
                 </div>
@@ -198,9 +163,26 @@
                 <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
                 <div class="classificacao-conteudo"><div class="questoes-grid">
                     <div class="subsecao">BNCC</div>
-                    <div class="questoes-grupo"><label for="unidadeTematica">Unidade temática</label><input id="unidadeTematica" name="unidade_tematica" value="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" placeholder="Ex.: O mundo contemporâneo"></div>
-                    <div class="questoes-grupo"><label for="objetoConhecimento">Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" value="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" placeholder="Ex.: Revoltas do Período Regencial"></div>
-                    <div class="questoes-grupo largo"><label for="habilidadeBncc">Habilidade BNCC</label><input id="habilidadeBncc" name="habilidade_bncc" value="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" placeholder="Ex.: EF08HI15"></div>
+                    <div class="questoes-grupo">
+                        <label for="unidadeTematica">Unidade temática / prática de linguagem</label>
+                        <select id="unidadeTematica" name="unidade_tematica" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Selecione a unidade temática</option>
+                        </select>
+                        <span class="ajuda bncc-status" id="ajudaUnidadeBncc">Selecione componente, etapa e ano/série para carregar a BNCC.</span>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="objetoConhecimento">Objeto do conhecimento</label>
+                        <select id="objetoConhecimento" name="objeto_conhecimento" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Primeiro selecione a unidade temática</option>
+                        </select>
+                    </div>
+                    <div class="questoes-grupo largo">
+                        <label for="habilidadeBncc">Habilidade BNCC</label>
+                        <select id="habilidadeBncc" name="habilidade_bncc" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Primeiro selecione o objeto do conhecimento</option>
+                        </select>
+                        <span class="ajuda">Selecione uma habilidade para vinculá-la à questão.</span>
+                    </div>
                     <div class="subsecao">SAEB</div>
                     <div class="questoes-grupo"><label for="matrizReferencia">Matriz de referência</label><input id="matrizReferencia" name="matriz_referencia" value="{{ valores_anteriores.get('matriz_referencia','') if valores_anteriores else '' }}" placeholder="Ex.: SAEB Matemática - 5º ano"></div>
                     <div class="questoes-grupo"><label for="descritorSaeb">Descritor SAEB</label><input id="descritorSaeb" name="descritor_saeb" value="{{ valores_anteriores.get('descritor_saeb','') if valores_anteriores else '' }}" placeholder="Ex.: D13"></div>
@@ -215,7 +197,7 @@
         </section>
 
         <section class="questoes-card">
-            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Depois de salvar, componente, etapa, ano/série, assunto e classificação serão mantidos.</small></span></label></div>
+            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Depois de salvar, componente, etapa, ano/série e classificação serão mantidos.</small></span></label></div>
             <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Cadastrar questão</button></div></div>
         </section>
     </form>
@@ -232,13 +214,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const blocoResposta = document.getElementById("blocoRespostaEsperada");
     const blocoCriterios = document.getElementById("blocoCriterios");
     const blocoLinhasResposta = document.getElementById("blocoLinhasResposta");
-    const assunto = document.getElementById("assuntoQuestao");
-    const pesquisaAssunto = document.getElementById("pesquisaAssunto");
-    const menuAssuntos = document.getElementById("menuAssuntos");
-    const abrirAssuntos = document.getElementById("abrirAssuntos");
-    const ajudaAssunto = document.getElementById("ajudaAssunto");
-    const botaoAssuntoTemporario = document.getElementById("alternarAssuntoTemporario");
-    const assuntoTemporario = document.getElementById("assuntoTemporario");
     const disciplina = document.getElementById("disciplinaQuestao");
     const editor = document.getElementById("editorEnunciado");
     const enunciadoTexto = document.getElementById("enunciadoQuestao");
@@ -255,7 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "EJA":["1º segmento","2º segmento","Ensino Médio"]
     };
 
-    const catalogoAssuntos = {{ assuntos|tojson }};
 
     function normalizarTexto(valor){
         return String(valor || "")
@@ -277,78 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return numeroA && numeroB && numeroA[0] === numeroB[0];
     }
 
-    let assuntosFiltrados = [];
-
-    function filtrarCatalogoAssuntos(){
-        const disciplinaAtual = normalizarTexto(disciplina.value);
-        const etapaAtual = normalizarTexto(etapa.value);
-        const serieAtual = anoSerie.value;
-
-        assuntosFiltrados = [...new Set(
-            catalogoAssuntos
-                .filter(item =>
-                    normalizarTexto(item.disciplina) === disciplinaAtual &&
-                    normalizarTexto(item.etapa_ensino) === etapaAtual &&
-                    serieEquivalente(item.ano_serie, serieAtual)
-                )
-                .map(item => item.nome)
-                .filter(Boolean)
-        )].sort((a,b) => a.localeCompare(b, "pt-BR"));
-    }
-
-    function renderizarAssuntos(termo=""){
-        if(assuntoTemporario.value === "1") return;
-
-        const busca = normalizarTexto(termo);
-        const exibidos = assuntosFiltrados.filter(nome =>
-            !busca || normalizarTexto(nome).includes(busca)
-        );
-
-        menuAssuntos.innerHTML = "";
-
-        if(!disciplina.value || !etapa.value || !anoSerie.value){
-            menuAssuntos.innerHTML = '<div class="assunto-vazio">Selecione componente, etapa e série.</div>';
-        }else if(!exibidos.length){
-            menuAssuntos.innerHTML = '<div class="assunto-vazio">Nenhum assunto encontrado para esta seleção.</div>';
-        }else{
-            exibidos.forEach(nome => {
-                const botao = document.createElement("button");
-                botao.type = "button";
-                botao.className = "assunto-opcao";
-                botao.textContent = nome;
-                if(normalizarTexto(assunto.value) === normalizarTexto(nome)){
-                    botao.classList.add("ativo");
-                }
-                botao.addEventListener("click", () => {
-                    assunto.value = nome;
-                    pesquisaAssunto.value = nome;
-                    menuAssuntos.classList.remove("aberto");
-                });
-                menuAssuntos.appendChild(botao);
-            });
-        }
-
-        menuAssuntos.classList.add("aberto");
-    }
-
-    function atualizarAssuntos(){
-        if(assuntoTemporario.value === "1") return;
-        filtrarCatalogoAssuntos();
-
-        const selecionadoExiste = assuntosFiltrados.some(
-            nome => normalizarTexto(nome) === normalizarTexto(assunto.value)
-        );
-
-        if(!selecionadoExiste){
-            assunto.value = "";
-            pesquisaAssunto.value = "";
-        }
-
-        ajudaAssunto.textContent = assuntosFiltrados.length
-            ? `${assuntosFiltrados.length} assunto(s) disponível(is) para esta seleção.`
-            : "Nenhum assunto oficial foi encontrado para este componente e esta série.";
-    }
-
     function atualizarSeries(){
         const atual = anoSerie.dataset.valor || anoSerie.value;
         const itens = seriesPorEtapa[etapa.value] || [];
@@ -361,7 +263,6 @@ document.addEventListener("DOMContentLoaded", () => {
             anoSerie.appendChild(option);
         });
         anoSerie.dataset.valor = "";
-        atualizarAssuntos();
     }
 
     function letra(indice){ return String.fromCharCode(65 + indice); }
@@ -515,54 +416,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("respostaEsperada").required = ["resposta_curta","numerica"].includes(tipo);
         atualizarAlternativas();
     }
-    pesquisaAssunto.addEventListener("focus", () => {
-        if(assuntoTemporario.value !== "1") renderizarAssuntos(pesquisaAssunto.value);
-    });
-    pesquisaAssunto.addEventListener("input", () => {
-        if(assuntoTemporario.value === "1"){
-            assunto.value = pesquisaAssunto.value.trim();
-        }else{
-            assunto.value = "";
-            renderizarAssuntos(pesquisaAssunto.value);
-        }
-    });
-    abrirAssuntos.addEventListener("click", () => {
-        if(assuntoTemporario.value !== "1"){
-            renderizarAssuntos(pesquisaAssunto.value);
-            pesquisaAssunto.focus();
-        }
-    });
-    document.addEventListener("click", evento => {
-        if(!evento.target.closest(".seletor-assunto")){
-            menuAssuntos.classList.remove("aberto");
-        }
-    });
-
-    botaoAssuntoTemporario.addEventListener("click", () => {
-        const ativar = assuntoTemporario.value !== "1";
-        assuntoTemporario.value = ativar ? "1" : "0";
-        botaoAssuntoTemporario.classList.toggle("ativo", ativar);
-        botaoAssuntoTemporario.textContent = ativar
-            ? "Cancelar assunto temporário"
-            : "+ Usar assunto somente nesta questão";
-
-        assunto.value = "";
-        pesquisaAssunto.value = "";
-        menuAssuntos.classList.remove("aberto");
-
-        if(ativar){
-            pesquisaAssunto.placeholder = "Digite o assunto somente desta questão";
-            ajudaAssunto.textContent = "Este assunto ficará salvo na questão, mas não será incluído no catálogo.";
-            pesquisaAssunto.focus();
-        }else{
-            pesquisaAssunto.placeholder = "Selecione ou digite para pesquisar";
-            atualizarAssuntos();
-            renderizarAssuntos();
-        }
-    });
-
-    disciplina.addEventListener("change", atualizarAssuntos);
-    anoSerie.addEventListener("change", atualizarAssuntos);
     document.querySelectorAll(".editor-btn[data-comando]").forEach(botao => {
         botao.addEventListener("click", () => { editor.focus(); document.execCommand(botao.dataset.comando, false, null); });
     });
@@ -677,26 +530,321 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.focus();
             return alert("Digite o enunciado da questão.");
         }
-        if(assuntoTemporario.value === "1"){
-            assunto.value = pesquisaAssunto.value.trim();
-        }
-
-        if(!assunto.value.trim()){
-            evento.preventDefault();
-            pesquisaAssunto.focus();
-            alert(
-                assuntoTemporario.value === "1"
-                    ? "Digite o assunto temporário da questão."
-                    : "Selecione um assunto da lista."
-            );
-        }
     });
 
     atualizarSeries();
-    atualizarAssuntos();
     for(let i=0;i<4;i++) criarAlternativa();
     atualizarTipo();
     setTimeout(() => editor.focus(), 80);
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const disciplina = document.getElementById("disciplinaQuestao");
+    const etapa = document.getElementById("etapaEnsino");
+    const anoSerie = document.getElementById("anoSerie");
+    const unidade = document.getElementById("unidadeTematica");
+    const objeto = document.getElementById("objetoConhecimento");
+    const habilidade = document.getElementById("habilidadeBncc");
+    const ajuda = document.getElementById("ajudaUnidadeBncc");
+
+    if (!disciplina || !etapa || !anoSerie || !unidade || !objeto || !habilidade) return;
+
+    let controle = null;
+
+    const iniciais = {
+        unidade: unidade.dataset.valorInicial || "",
+        objeto: objeto.dataset.valorInicial || "",
+        habilidade: habilidade.dataset.valorInicial || ""
+    };
+
+    function criarOption(valor, texto = valor) {
+        const option = document.createElement("option");
+        option.value = valor;
+        option.textContent = texto;
+        option.title = texto;
+        return option;
+    }
+
+    function preencherLista(select, itens, placeholder, selecionado = "") {
+        select.innerHTML = "";
+        select.appendChild(criarOption("", placeholder));
+
+        for (const item of itens || []) {
+            if (typeof item === "string") {
+                select.appendChild(criarOption(item));
+            } else {
+                const valor = item.valor || `${item.codigo} — ${item.descricao}`;
+                const texto = `${item.codigo} — ${item.descricao}`;
+                select.appendChild(criarOption(valor, texto));
+            }
+        }
+
+        if (selecionado) {
+            const existe = Array.from(select.options).some(op => op.value === selecionado);
+            if (existe) select.value = selecionado;
+        }
+    }
+
+    function contextoValido() {
+        return Boolean(
+            disciplina.value.trim() &&
+            etapa.value.trim() &&
+            anoSerie.value.trim()
+        );
+    }
+
+    async function buscarBncc({ unidadeSelecionada = "", objetoSelecionado = "" } = {}) {
+        if (!contextoValido()) {
+            return { unidades: [], objetos: [], habilidades: [] };
+        }
+
+        if (controle) controle.abort();
+        controle = new AbortController();
+
+        const params = new URLSearchParams({
+            componente: disciplina.value.trim(),
+            etapa: etapa.value.trim(),
+            ano_serie: anoSerie.value.trim()
+        });
+
+        if (unidadeSelecionada) params.set("unidade", unidadeSelecionada);
+        if (objetoSelecionado) params.set("objeto", objetoSelecionado);
+
+        const resposta = await fetch(
+            `/api/bncc/opcoes?${params.toString()}`,
+            {
+                signal: controle.signal,
+                headers: { "Accept": "application/json" }
+            }
+        );
+
+        const dados = await resposta.json();
+
+        if (!resposta.ok) {
+            throw new Error(dados.erro || "Não foi possível consultar a BNCC.");
+        }
+
+        return dados;
+    }
+
+    function definirCarregando(mensagem) {
+        ajuda.className = "ajuda bncc-status";
+        ajuda.textContent = mensagem;
+    }
+
+    function definirErro(erro) {
+        ajuda.className = "ajuda bncc-status erro";
+        ajuda.textContent = erro?.message || "Não foi possível carregar o catálogo da BNCC.";
+    }
+
+    async function carregarUnidades({ restaurarInicial = false } = {}) {
+        if (!contextoValido()) {
+            preencherLista(unidade, [], "Selecione componente, etapa e ano/série");
+            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
+            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
+            unidade.disabled = true;
+            objeto.disabled = true;
+            habilidade.disabled = true;
+            ajuda.className = "ajuda bncc-status";
+            ajuda.textContent = "Selecione componente, etapa e ano/série para carregar a BNCC.";
+            return;
+        }
+
+        definirCarregando("Carregando unidades temáticas...");
+
+        try {
+            const dados = await buscarBncc();
+
+            const valorInicialUnidade = restaurarInicial ? iniciais.unidade : "";
+            preencherLista(
+                unidade,
+                dados.unidades || [],
+                "Selecione a unidade temática",
+                valorInicialUnidade
+            );
+
+            unidade.disabled = !(dados.unidades || []).length;
+
+            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
+            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
+            objeto.disabled = true;
+            habilidade.disabled = true;
+
+            if (restaurarInicial && unidade.value) {
+                await carregarObjetos({
+                    unidadeSelecionada: unidade.value,
+                    restaurarInicial: true
+                });
+                return;
+            }
+
+            ajuda.className = "ajuda bncc-status sucesso";
+            ajuda.textContent = (dados.unidades || []).length
+                ? "Selecione uma unidade temática para carregar os objetos."
+                : "Nenhuma opção da BNCC foi encontrada para esta classificação.";
+        } catch (erro) {
+            if (erro.name === "AbortError") return;
+            definirErro(erro);
+        }
+    }
+
+    async function carregarObjetos({
+        unidadeSelecionada = unidade.value,
+        restaurarInicial = false
+    } = {}) {
+        const unidadeEscolhida = unidadeSelecionada.trim();
+
+        preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
+        habilidade.disabled = true;
+
+        if (!unidadeEscolhida) {
+            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
+            objeto.disabled = true;
+            ajuda.className = "ajuda bncc-status sucesso";
+            ajuda.textContent = "Selecione uma unidade temática para carregar os objetos.";
+            return;
+        }
+
+        objeto.disabled = true;
+        preencherLista(objeto, [], "Carregando objetos...");
+        definirCarregando("Carregando objetos do conhecimento...");
+
+        try {
+            const dados = await buscarBncc({
+                unidadeSelecionada: unidadeEscolhida
+            });
+
+            const valorInicialObjeto = restaurarInicial ? iniciais.objeto : "";
+
+            const objetosEncontrados = dados.objetos || [];
+            const habilidadesEncontradas = dados.habilidades || [];
+
+            preencherLista(
+                objeto,
+                objetosEncontrados,
+                objetosEncontrados.length
+                    ? "Selecione o objeto do conhecimento"
+                    : "Objeto não informado na planilha",
+                valorInicialObjeto
+            );
+
+            objeto.disabled = !objetosEncontrados.length;
+
+            // Algumas linhas da planilha BNCC não trazem o objeto do
+            // conhecimento preenchido. Nesses casos, o sistema não deve
+            // bloquear o professor: carrega diretamente as habilidades
+            // relacionadas à unidade temática selecionada.
+            if (!objetosEncontrados.length) {
+                const valorInicialHabilidade = restaurarInicial
+                    ? iniciais.habilidade
+                    : "";
+
+                preencherLista(
+                    habilidade,
+                    habilidadesEncontradas,
+                    habilidadesEncontradas.length
+                        ? "Selecione a habilidade BNCC"
+                        : "Nenhuma habilidade encontrada",
+                    valorInicialHabilidade
+                );
+
+                habilidade.disabled = !habilidadesEncontradas.length;
+
+                ajuda.className = "ajuda bncc-status sucesso";
+                ajuda.textContent = habilidadesEncontradas.length
+                    ? `Objeto não informado na planilha. ${habilidadesEncontradas.length} habilidade(s) disponível(is) para esta unidade.`
+                    : "Nenhum objeto ou habilidade foi encontrado para esta unidade.";
+                return;
+            }
+
+            if (restaurarInicial && objeto.value) {
+                await carregarHabilidades({
+                    unidadeSelecionada: unidadeEscolhida,
+                    objetoSelecionado: objeto.value,
+                    restaurarInicial: true
+                });
+                return;
+            }
+
+            ajuda.className = "ajuda bncc-status sucesso";
+            ajuda.textContent =
+                `${objetosEncontrados.length} objeto(s) encontrado(s). Selecione um objeto.`;
+        } catch (erro) {
+            if (erro.name === "AbortError") return;
+            definirErro(erro);
+        }
+    }
+
+    async function carregarHabilidades({
+        unidadeSelecionada = unidade.value,
+        objetoSelecionado = objeto.value,
+        restaurarInicial = false
+    } = {}) {
+        const unidadeEscolhida = unidadeSelecionada.trim();
+        const objetoEscolhido = objetoSelecionado.trim();
+
+        if (!unidadeEscolhida || !objetoEscolhido) {
+            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
+            habilidade.disabled = true;
+            return;
+        }
+
+        habilidade.disabled = true;
+        preencherLista(habilidade, [], "Carregando habilidades...");
+        definirCarregando("Carregando habilidades da BNCC...");
+
+        try {
+            const dados = await buscarBncc({
+                unidadeSelecionada: unidadeEscolhida,
+                objetoSelecionado: objetoEscolhido
+            });
+
+            const valorInicialHabilidade = restaurarInicial ? iniciais.habilidade : "";
+
+            preencherLista(
+                habilidade,
+                dados.habilidades || [],
+                "Selecione a habilidade BNCC",
+                valorInicialHabilidade
+            );
+
+            habilidade.disabled = !(dados.habilidades || []).length;
+
+            ajuda.className = "ajuda bncc-status sucesso";
+            ajuda.textContent = (dados.habilidades || []).length
+                ? `${dados.habilidades.length} habilidade(s) encontrada(s).`
+                : "Nenhuma habilidade foi encontrada para este objeto.";
+        } catch (erro) {
+            if (erro.name === "AbortError") return;
+            definirErro(erro);
+        }
+    }
+
+    [disciplina, etapa, anoSerie].forEach(campo => {
+        campo.addEventListener("change", () => {
+            iniciais.unidade = "";
+            iniciais.objeto = "";
+            iniciais.habilidade = "";
+            carregarUnidades();
+        });
+    });
+
+    unidade.addEventListener("change", () => {
+        iniciais.objeto = "";
+        iniciais.habilidade = "";
+        carregarObjetos({ unidadeSelecionada: unidade.value });
+    });
+
+    objeto.addEventListener("change", () => {
+        iniciais.habilidade = "";
+        carregarHabilidades({
+            unidadeSelecionada: unidade.value,
+            objetoSelecionado: objeto.value
+        });
+    });
+
+    carregarUnidades({ restaurarInicial: true });
 });
 </script>
 {% endblock %}

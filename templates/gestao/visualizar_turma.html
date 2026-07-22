@@ -680,6 +680,32 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
 }
 
+.vt-campo input[type="text"] {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+
+.vt-campo input[type="text"]:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.vt-ajuda-campo {
+    display: block;
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .vt-modal-acoes {
     display: flex;
     align-items: center;
@@ -1057,9 +1083,23 @@ body.vt-modal-aberto {
                 <div>
                     <h2>Estudantes</h2>
                     <p>
-                        Alunos atualmente vinculados a esta turma.
+                        Alunos atualmente matriculados nesta turma.
                     </p>
                 </div>
+
+                {% if pode_editar %}
+                    <button
+                        type="button"
+                        class="vt-btn-adicionar"
+                        data-abrir-modal="modal-matricular-aluno"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14"></path>
+                            <path d="M5 12h14"></path>
+                        </svg>
+                        Matricular aluno
+                    </button>
+                {% endif %}
 
             </div>
 
@@ -1125,7 +1165,7 @@ body.vt-modal-aberto {
 
                                     <td>
                                         <span class="vt-badge">
-                                            Ativo
+                                            {{ aluno["situacao"] or "Cursando" }}
                                         </span>
                                     </td>
 
@@ -1168,8 +1208,19 @@ body.vt-modal-aberto {
                     <h3>Nenhum estudante vinculado</h3>
 
                     <p>
-                        Esta turma ainda não possui estudantes cadastrados.
+                        Esta turma ainda não possui estudantes matriculados.
                     </p>
+
+                    {% if pode_editar %}
+                        <button
+                            type="button"
+                            class="vt-btn-adicionar"
+                            style="margin-top: 18px;"
+                            data-abrir-modal="modal-matricular-aluno"
+                        >
+                            Matricular primeiro aluno
+                        </button>
+                    {% endif %}
 
                 </div>
 
@@ -1204,7 +1255,7 @@ body.vt-modal-aberto {
                             <path d="M12 5v14"></path>
                             <path d="M5 12h14"></path>
                         </svg>
-                        Adicionar vínculo
+                        Vincular professor
                     </button>
                 {% endif %}
 
@@ -1463,6 +1514,92 @@ body.vt-modal-aberto {
 </div>
 
 
+{% if pode_editar %}
+
+<!-- MODAL: MATRICULAR ALUNO -->
+<div class="vt-modal-fundo" id="modal-matricular-aluno" aria-hidden="true">
+    <div class="vt-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-matricular-aluno">
+        <form method="POST" action="{{ url_for('cadastrar_aluno') }}">
+
+            <input type="hidden" name="turma_id" value="{{ turma['id'] }}">
+            <input type="hidden" name="escola_id" value="{{ turma['escola_id'] }}">
+            <input type="hidden" name="origem_turma_id" value="{{ turma['id'] }}">
+
+            <div class="vt-modal-topo">
+                <div>
+                    <h3 id="titulo-matricular-aluno">Matricular aluno</h3>
+                    <p>O estudante será matriculado diretamente nesta turma.</p>
+                </div>
+
+                <button type="button" class="vt-modal-fechar" data-fechar-modal aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="vt-modal-corpo">
+
+                <div class="vt-campo">
+                    <label for="matricular-aluno-nome">Nome completo</label>
+                    <input
+                        type="text"
+                        id="matricular-aluno-nome"
+                        name="nome"
+                        placeholder="Digite o nome completo do estudante"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+
+                <div class="vt-campo">
+                    <label for="matricular-aluno-modo">Número da matrícula</label>
+                    <select id="matricular-aluno-modo" name="modo_matricula" data-modo-matricula>
+                        <option value="automatica">Gerar automaticamente</option>
+                        <option value="manual">Informar manualmente</option>
+                    </select>
+                    <span class="vt-ajuda-campo">
+                        Na opção automática, o sistema cria o próximo número disponível.
+                    </span>
+                </div>
+
+                <div class="vt-campo" id="campo-matricula-manual" style="display: none;">
+                    <label for="matricular-aluno-matricula">Matrícula manual</label>
+                    <input
+                        type="text"
+                        id="matricular-aluno-matricula"
+                        name="matricula"
+                        placeholder="Digite o número da matrícula"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="vt-dado">
+                    <span>Turma selecionada</span>
+                    <strong>
+                        {{ turma["ano"] }} / {{ turma["nome"] }} — {{ turma["turno"] }}
+                    </strong>
+                </div>
+
+            </div>
+
+            <div class="vt-modal-acoes">
+                <button type="button" class="vt-btn-cancelar" data-fechar-modal>
+                    Cancelar
+                </button>
+                <button type="submit" class="vt-btn-salvar">
+                    Confirmar matrícula
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endif %}
+
+
 {% if pode_gerenciar_professores %}
 
 <!-- MODAL: ADICIONAR VÍNCULO -->
@@ -1472,7 +1609,7 @@ body.vt-modal-aberto {
 
             <div class="vt-modal-topo">
                 <div>
-                    <h3 id="titulo-adicionar-vinculo">Adicionar vínculo</h3>
+                    <h3 id="titulo-adicionar-vinculo">Vincular professor</h3>
                     <p>Selecione o professor e o componente curricular da turma.</p>
                 </div>
 
@@ -1715,6 +1852,28 @@ document.addEventListener("DOMContentLoaded", function () {
             fecharModal(document.querySelector(".vt-modal-fundo.aberto"));
         }
     });
+
+
+    const modoMatricula = document.querySelector("[data-modo-matricula]");
+    const campoMatriculaManual = document.getElementById("campo-matricula-manual");
+    const inputMatriculaManual = document.getElementById("matricular-aluno-matricula");
+
+    function atualizarCampoMatriculaManual() {
+        if (!modoMatricula || !campoMatriculaManual || !inputMatriculaManual) return;
+
+        const manual = modoMatricula.value === "manual";
+        campoMatriculaManual.style.display = manual ? "block" : "none";
+        inputMatriculaManual.required = manual;
+
+        if (!manual) {
+            inputMatriculaManual.value = "";
+        }
+    }
+
+    if (modoMatricula) {
+        modoMatricula.addEventListener("change", atualizarCampoMatriculaManual);
+        atualizarCampoMatriculaManual();
+    }
 
     const modalEditar = document.getElementById("modal-editar-vinculo");
     const formEditar = document.getElementById("form-editar-vinculo");

@@ -72,6 +72,221 @@
         white-space: normal;
     }
 
+
+    /* =====================================================
+       MODAL DE EXCLUSÃO — PADRÃO ARK EDU
+    ===================================================== */
+
+    .alunos-modal-fundo {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(15, 23, 42, 0.58);
+        backdrop-filter: blur(4px);
+    }
+
+    .alunos-modal-fundo.ativo {
+        display: flex;
+    }
+
+    .alunos-modal {
+        width: min(100%, 520px);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        background: #ffffff;
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+        animation: alunosModalEntrada 0.18s ease-out;
+    }
+
+    @keyframes alunosModalEntrada {
+        from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.985);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .alunos-modal-topo {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .alunos-modal-topo-conteudo {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .alunos-modal-icone {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border-radius: 13px;
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    .alunos-modal-icone svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .alunos-modal-topo h3 {
+        margin: 0 0 5px;
+        color: #123b82;
+        font-size: 21px;
+        line-height: 1.25;
+    }
+
+    .alunos-modal-topo p {
+        margin: 0;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .alunos-modal-fechar {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+        padding: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #64748b;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .alunos-modal-fechar:hover {
+        background: #f8fafc;
+        color: #0f172a;
+    }
+
+    .alunos-modal-fechar svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .alunos-modal-corpo {
+        padding: 22px 24px;
+    }
+
+    .alunos-modal-alerta {
+        padding: 16px;
+        border: 1px solid #fecaca;
+        border-radius: 13px;
+        background: #fef2f2;
+    }
+
+    .alunos-modal-alerta strong {
+        display: block;
+        margin-bottom: 7px;
+        color: #991b1b;
+        font-size: 14px;
+    }
+
+    .alunos-modal-alerta p {
+        margin: 0;
+        color: #7f1d1d;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .alunos-modal-nome {
+        font-weight: 900;
+    }
+
+    .alunos-modal-acoes {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 16px 24px 22px;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .alunos-modal-btn-cancelar,
+    .alunos-modal-btn-excluir {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 17px;
+        border-radius: 10px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .alunos-modal-btn-cancelar {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+    }
+
+    .alunos-modal-btn-cancelar:hover {
+        background: #f1f5f9;
+    }
+
+    .alunos-modal-btn-excluir {
+        border: 1px solid #dc2626;
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    .alunos-modal-btn-excluir:hover {
+        border-color: #b91c1c;
+        background: #b91c1c;
+        transform: translateY(-1px);
+    }
+
+    body.alunos-modal-aberto {
+        overflow: hidden;
+    }
+
+    @media (max-width: 560px) {
+        .alunos-modal-acoes {
+            flex-direction: column-reverse;
+        }
+
+        .alunos-modal-btn-cancelar,
+        .alunos-modal-btn-excluir {
+            width: 100%;
+        }
+    }
+
     @media (max-width: 1100px) {
         .alunos-tabela th,
         .alunos-tabela td {
@@ -84,6 +299,65 @@
             display: none;
         }
     }
+
+    /* CORREÇÃO DEFINITIVA DO BOTÃO EXCLUIR NO MENU */
+    .alunos-dropdown .alunos-acao-excluir {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        margin: 0 !important;
+        padding: 13px 16px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        color: #dc2626 !important;
+        font: inherit !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+        text-align: left !important;
+        text-decoration: none !important;
+        box-shadow: none !important;
+        cursor: pointer !important;
+        outline: none !important;
+    }
+
+    .alunos-dropdown .alunos-acao-excluir:hover,
+    .alunos-dropdown .alunos-acao-excluir:focus {
+        background: #fef2f2 !important;
+        color: #b91c1c !important;
+    }
+
+    .alunos-dropdown .alunos-acao-excluir svg {
+        width: 17px !important;
+        height: 17px !important;
+        flex: 0 0 17px !important;
+        fill: none !important;
+        stroke: currentColor !important;
+        stroke-width: 2 !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+    }
+
+    .alunos-dropdown .alunos-acao-excluir span {
+        display: inline-block !important;
+    }
+
+
+/* Força texto branco no botão Excluir */
+.alunos-modal-btn-excluir,
+.alunos-modal-btn-excluir:link,
+.alunos-modal-btn-excluir:visited,
+.alunos-modal-btn-excluir:hover,
+.alunos-modal-btn-excluir:focus,
+.alunos-modal-btn-excluir:active{
+    color:#fff !important;
+    text-decoration:none !important;
+}
+
 </style>
 {% endblock %}
 
@@ -494,13 +768,22 @@
 
                                             {% if not consultando_ano_antigo %}
 
-                                                <a
-                                                    href="/excluir_aluno/{{ aluno['id'] }}"
+                                                <button
+                                                    type="button"
                                                     class="alunos-acao-excluir"
-                                                    onclick="return confirm('Deseja realmente excluir este aluno?')"
+                                                    data-excluir-aluno
+                                                    data-aluno-id="{{ aluno['id'] }}"
+                                                    data-aluno-nome="{{ aluno['nome']|e }}"
                                                 >
-                                                    Excluir aluno
-                                                </a>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M3 6h18"></path>
+                                                        <path d="M8 6V4h8v2"></path>
+                                                        <path d="M19 6l-1 14H6L5 6"></path>
+                                                        <path d="M10 11v5"></path>
+                                                        <path d="M14 11v5"></path>
+                                                    </svg>
+                                                    <span>Excluir aluno</span>
+                                                </button>
 
                                             {% endif %}
 
@@ -545,6 +828,107 @@
 
     </section>
 
+</div>
+
+
+<!-- MODAL: EXCLUIR ALUNO -->
+<div
+    class="alunos-modal-fundo"
+    id="modal-excluir-aluno"
+    aria-hidden="true"
+>
+    <div
+        class="alunos-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal-excluir-aluno"
+    >
+
+        <div class="alunos-modal-topo">
+
+            <div class="alunos-modal-topo-conteudo">
+
+                <div class="alunos-modal-icone">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 6h18"></path>
+                        <path d="M8 6V4h8v2"></path>
+                        <path d="M19 6l-1 14H6L5 6"></path>
+                        <path d="M10 11v5"></path>
+                        <path d="M14 11v5"></path>
+                    </svg>
+                </div>
+
+                <div>
+                    <h3 id="titulo-modal-excluir-aluno">
+                        Excluir aluno
+                    </h3>
+
+                    <p>
+                        Confirme a exclusão permanente do cadastro.
+                    </p>
+                </div>
+
+            </div>
+
+            <button
+                type="button"
+                class="alunos-modal-fechar"
+                data-fechar-modal-aluno
+                aria-label="Fechar"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 6L6 18"></path>
+                    <path d="M6 6l12 12"></path>
+                </svg>
+            </button>
+
+        </div>
+
+
+        <div class="alunos-modal-corpo">
+
+            <div class="alunos-modal-alerta">
+
+                <strong>
+                    Esta ação não poderá ser desfeita.
+                </strong>
+
+                <p>
+                    O aluno
+                    <span
+                        id="nome-aluno-exclusao"
+                        class="alunos-modal-nome"
+                    ></span>
+                    será removido da plataforma. Matrículas e registros
+                    relacionados também poderão ser excluídos.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="alunos-modal-acoes">
+
+            <button
+                type="button"
+                class="alunos-modal-btn-cancelar"
+                data-fechar-modal-aluno
+            >
+                Cancelar
+            </button>
+
+            <a
+                href="#"
+                id="confirmar-exclusao-aluno"
+                class="alunos-modal-btn-excluir"
+            >
+                Excluir aluno
+            </a>
+
+        </div>
+
+    </div>
 </div>
 
 {% endblock %}
@@ -714,12 +1098,86 @@
     document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
             fecharMenusAlunos();
+            fecharModalExcluirAluno();
         }
     });
+
+
+    function abrirModalExcluirAluno(id, nome) {
+        const modal = document.getElementById("modal-excluir-aluno");
+        const nomeAluno = document.getElementById("nome-aluno-exclusao");
+        const confirmar = document.getElementById("confirmar-exclusao-aluno");
+
+        if (!modal || !nomeAluno || !confirmar) {
+            return;
+        }
+
+        nomeAluno.textContent = nome;
+        confirmar.href = `/excluir_aluno/${id}`;
+
+        modal.classList.add("ativo");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("alunos-modal-aberto");
+
+        fecharMenusAlunos();
+
+        const botaoCancelar = modal.querySelector(
+            ".alunos-modal-btn-cancelar"
+        );
+
+        if (botaoCancelar) {
+            setTimeout(() => botaoCancelar.focus(), 40);
+        }
+    }
+
+    function fecharModalExcluirAluno() {
+        const modal = document.getElementById("modal-excluir-aluno");
+
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove("ativo");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("alunos-modal-aberto");
+    }
+
+    function configurarModalExcluirAluno() {
+        const modal = document.getElementById("modal-excluir-aluno");
+
+        document
+            .querySelectorAll("[data-excluir-aluno]")
+            .forEach(botao => {
+                botao.addEventListener("click", function () {
+                    abrirModalExcluirAluno(
+                        botao.dataset.alunoId,
+                        botao.dataset.alunoNome
+                    );
+                });
+            });
+
+        document
+            .querySelectorAll("[data-fechar-modal-aluno]")
+            .forEach(botao => {
+                botao.addEventListener(
+                    "click",
+                    fecharModalExcluirAluno
+                );
+            });
+
+        if (modal) {
+            modal.addEventListener("click", function (event) {
+                if (event.target === modal) {
+                    fecharModalExcluirAluno();
+                }
+            });
+        }
+    }
 
     document.addEventListener("DOMContentLoaded", function () {
         configurarMatricula();
         configurarFiltroInstituicao();
+        configurarModalExcluirAluno();
     });
 </script>
 

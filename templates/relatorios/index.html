@@ -1,0 +1,1390 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Relatórios | ARK EDU{% endblock %}
+
+{% block estilos %}
+<style>
+.rel-topbar-titulo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rel-topbar-icone {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #cfe7ee;
+    border-radius: 12px;
+    background: #effbfc;
+    color: #123b82;
+}
+
+.rel-topbar-icone svg,
+.rel-botao svg,
+.rel-filtros-icone svg,
+.rel-indicador-icone svg,
+.rel-acao svg,
+.rel-atalhos svg {
+    width: 21px;
+    height: 21px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.rel-topbar-titulo > div {
+    display: grid;
+    gap: 2px;
+}
+
+.rel-topbar-titulo strong {
+    color: #17233a;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.rel-topbar-titulo > div > span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.rel-pagina {
+    display: grid;
+    gap: 22px;
+    padding: 28px;
+}
+
+.rel-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.rel-etiqueta,
+.rel-card-etiqueta {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border: 1px solid #bdeaf0;
+    border-radius: 999px;
+    background: #eefcfd;
+    color: #087f8c;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.rel-cabecalho h1 {
+    margin: 0;
+    color: #17233a;
+    font-size: clamp(25px, 3vw, 34px);
+    font-weight: 900;
+    letter-spacing: -.035em;
+}
+
+.rel-cabecalho p,
+.rel-card-cabecalho p {
+    max-width: 760px;
+    margin: 8px 0 0;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+.rel-cabecalho-acoes {
+    display: flex;
+    gap: 10px;
+}
+
+.rel-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 44px;
+    padding: 0 17px;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.rel-botao-primario {
+    border: 1px solid #123b82;
+    background: #123b82;
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(18, 59, 130, .18);
+}
+
+.rel-botao-primario:hover {
+    background: #0e3170;
+    transform: translateY(-1px);
+}
+
+.rel-botao-secundario {
+    border: 1px solid #d8e2ee;
+    background: #fff;
+    color: #334155;
+}
+
+.rel-botao-secundario:hover {
+    border-color: #b9cadc;
+    background: #f8fafc;
+}
+
+.rel-filtros,
+.rel-card {
+    border: 1px solid #dfe7f0;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .045);
+}
+
+.rel-filtros {
+    padding: 20px;
+}
+
+.rel-filtros-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.rel-filtros-cabecalho > div {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.rel-filtros-icone {
+    display: grid;
+    place-items: center;
+    width: 39px;
+    height: 39px;
+    border-radius: 11px;
+    background: #eff6ff;
+    color: #123b82;
+}
+
+.rel-filtros-cabecalho strong,
+.rel-filtros-cabecalho span {
+    display: block;
+}
+
+.rel-filtros-cabecalho strong {
+    color: #17233a;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.rel-filtros-cabecalho span {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.rel-limpar {
+    color: #0f6f7b;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.rel-filtros-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+    align-items: end;
+    gap: 13px;
+}
+
+.rel-campo {
+    display: grid;
+    gap: 7px;
+}
+
+.rel-campo > span {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.rel-campo select {
+    width: 100%;
+    height: 44px;
+    padding: 0 37px 0 12px;
+    border: 1px solid #d8e2ee;
+    border-radius: 11px;
+    outline: none;
+    background: #fff;
+    color: #17233a;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    transition: .2s ease;
+}
+
+.rel-campo select:focus {
+    border-color: #37bccb;
+    box-shadow: 0 0 0 3px rgba(55, 188, 203, .12);
+}
+
+.rel-indicadores {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.rel-indicador {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-height: 122px;
+    padding: 18px;
+    border: 1px solid #dfe7f0;
+    border-radius: 17px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
+}
+
+.rel-indicador-destaque {
+    border-color: #aee5eb;
+    background: linear-gradient(145deg, #f8feff, #edfafa);
+}
+
+.rel-indicador-icone {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 13px;
+    background: #eef4fb;
+    color: #123b82;
+}
+
+.rel-indicador > div {
+    min-width: 0;
+}
+
+.rel-indicador span,
+.rel-indicador small {
+    display: block;
+}
+
+.rel-indicador > div > span {
+    overflow: hidden;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rel-indicador strong {
+    display: block;
+    margin: 4px 0 2px;
+    color: #17233a;
+    font-size: 27px;
+    font-weight: 950;
+    letter-spacing: -.035em;
+}
+
+.rel-indicador small {
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.rel-grid-principal,
+.rel-grid-inferior {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(300px, .85fr);
+    gap: 18px;
+}
+
+.rel-card {
+    min-width: 0;
+    padding: 22px;
+}
+
+.rel-card-cabecalho {
+    margin-bottom: 19px;
+}
+
+.rel-card-cabecalho h2 {
+    margin: 0;
+    color: #17233a;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: -.02em;
+}
+
+.rel-card-etiqueta {
+    margin-bottom: 7px;
+    padding: 5px 9px;
+    font-size: 9px;
+}
+
+.rel-card-etiqueta-alerta {
+    border-color: #fed7aa;
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.rel-barras {
+    display: grid;
+    gap: 17px;
+}
+
+.rel-barra-item {
+    display: grid;
+    gap: 8px;
+}
+
+.rel-barra-info {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.rel-barra-info strong,
+.rel-barra-info span {
+    display: block;
+}
+
+.rel-barra-info strong {
+    color: #25324a;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.rel-barra-info span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.rel-barra-info b {
+    color: #123b82;
+    font-size: 16px;
+    font-weight: 950;
+}
+
+.rel-barra-trilho {
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eaf0f6;
+}
+
+.rel-barra-trilho span {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #123b82, #18adbe);
+}
+
+.rel-ranking {
+    display: grid;
+}
+
+.rel-ranking-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 0;
+    border-bottom: 1px solid #edf1f6;
+}
+
+.rel-ranking-item:last-child {
+    border-bottom: 0;
+}
+
+.rel-ranking-posicao {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #123b82;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.rel-ranking-item:first-child .rel-ranking-posicao {
+    background: #fff7d6;
+    color: #a16207;
+}
+
+.rel-ranking-item div {
+    min-width: 0;
+}
+
+.rel-ranking-item strong,
+.rel-ranking-item span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rel-ranking-item strong {
+    color: #25324a;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.rel-ranking-item span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.rel-ranking-item b {
+    color: #0f6f7b;
+    font-size: 14px;
+    font-weight: 950;
+}
+
+.rel-tabela-area {
+    overflow-x: auto;
+    border: 1px solid #e5ebf2;
+    border-radius: 13px;
+}
+
+.rel-tabela {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+}
+
+.rel-tabela th,
+.rel-tabela td {
+    padding: 13px 14px;
+    border-bottom: 1px solid #edf1f6;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.rel-tabela th {
+    background: #f7f9fc;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+}
+
+.rel-tabela td {
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.rel-tabela tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.rel-tabela tbody tr:hover {
+    background: #fbfdff;
+}
+
+.rel-tabela-principal strong,
+.rel-tabela-principal span {
+    display: block;
+}
+
+.rel-tabela-principal strong {
+    color: #25324a;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.rel-tabela-principal span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 9px;
+}
+
+.rel-nota {
+    display: inline-flex;
+    min-width: 42px;
+    justify-content: center;
+    padding: 6px 9px;
+    border-radius: 9px;
+    background: #eefbfc;
+    color: #087f8c;
+    font-weight: 950;
+}
+
+.rel-coluna-acoes {
+    text-align: right !important;
+    white-space: nowrap;
+}
+
+.rel-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid #cbd9e8;
+    border-radius: 9px;
+    background: #fff;
+    color: #123b82;
+    font-size: 10px;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.rel-acao svg {
+    width: 15px;
+    height: 15px;
+}
+
+.rel-acao:hover {
+    border-color: #123b82;
+    background: #f5f8fc;
+}
+
+.rel-acao-secundaria {
+    margin-left: 5px;
+    border-color: #bce6eb;
+    color: #087f8c;
+}
+
+.rel-questoes {
+    display: grid;
+    gap: 9px;
+}
+
+.rel-questao-item {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #e5ebf2;
+    border-radius: 12px;
+    color: inherit;
+    text-decoration: none;
+    transition: .2s ease;
+}
+
+.rel-questao-item:hover {
+    border-color: #f2b780;
+    background: #fffaf5;
+    transform: translateY(-1px);
+}
+
+.rel-questao-numero {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #fff3e8;
+    color: #c2410c;
+    font-size: 11px;
+    font-weight: 950;
+}
+
+.rel-questao-item div {
+    min-width: 0;
+}
+
+.rel-questao-item strong,
+.rel-questao-item div span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rel-questao-item strong {
+    color: #25324a;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.rel-questao-item div span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.rel-questao-item b {
+    color: #c2410c;
+    font-size: 11px;
+    font-weight: 950;
+    white-space: nowrap;
+}
+
+.rel-atalhos {
+    display: grid;
+    gap: 10px;
+}
+
+.rel-atalhos > a {
+    display: grid;
+    grid-template-columns: 43px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 13px;
+    border: 1px solid #e5ebf2;
+    border-radius: 12px;
+    color: inherit;
+    text-decoration: none;
+    transition: .2s ease;
+}
+
+.rel-atalhos > a:hover {
+    border-color: #bde7ec;
+    background: #f8feff;
+    transform: translateX(2px);
+}
+
+.rel-atalhos > a > span {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #eef4fb;
+    color: #123b82;
+}
+
+.rel-atalhos strong,
+.rel-atalhos small {
+    display: block;
+}
+
+.rel-atalhos strong {
+    color: #25324a;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.rel-atalhos small {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.rel-vazio {
+    display: grid;
+    place-items: center;
+    min-height: 180px;
+    padding: 26px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 13px;
+    background: #fafcff;
+    text-align: center;
+}
+
+.rel-vazio-menor {
+    min-height: 125px;
+}
+
+.rel-vazio strong {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.rel-vazio span {
+    margin-top: 5px;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+@media (max-width: 1260px) {
+    .rel-indicadores {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .rel-filtros-grid {
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 960px) {
+    .rel-grid-principal,
+    .rel-grid-inferior {
+        grid-template-columns: 1fr;
+    }
+
+    .rel-indicadores {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rel-filtros-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    .rel-pagina {
+        gap: 16px;
+        padding: 18px 14px;
+    }
+
+    .rel-cabecalho {
+        display: grid;
+    }
+
+    .rel-cabecalho-acoes,
+    .rel-cabecalho-acoes .rel-botao {
+        width: 100%;
+    }
+
+    .rel-indicadores,
+    .rel-filtros-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rel-indicador {
+        min-height: 105px;
+    }
+
+    .rel-card,
+    .rel-filtros {
+        padding: 17px;
+        border-radius: 15px;
+    }
+
+    .rel-questao-item {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .rel-questao-item b {
+        grid-column: 2;
+    }
+}
+
+@media print {
+    .sidebar,
+    .topbar,
+    .rel-filtros,
+    .rel-cabecalho-acoes,
+    .rel-coluna-acoes {
+        display: none !important;
+    }
+
+    .main {
+        margin: 0 !important;
+    }
+
+    .rel-pagina {
+        padding: 0;
+    }
+
+    .rel-card,
+    .rel-indicador {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+}
+
+
+/* =========================================================
+   AJUSTES DE DIAGRAMAÇÃO — RELATÓRIOS
+========================================================= */
+
+/* Evita que os textos dos indicadores sejam cortados */
+.rel-indicador {
+    align-items: flex-start;
+    min-width: 0;
+    min-height: 118px;
+}
+
+.rel-indicador > div {
+    width: 100%;
+    min-width: 0;
+}
+
+.rel-indicador > div > span {
+    overflow: visible;
+    text-overflow: initial;
+    white-space: normal;
+    line-height: 1.25;
+}
+
+.rel-indicador small {
+    line-height: 1.3;
+}
+
+/* Distribuição mais equilibrada dos cinco cards */
+.rel-indicadores {
+    grid-template-columns: repeat(5, minmax(155px, 1fr));
+}
+
+/* Mantém botão e campos bem alinhados */
+.rel-filtros-grid {
+    grid-template-columns:
+        repeat(4, minmax(170px, 1fr))
+        minmax(160px, auto);
+}
+
+.rel-filtros-grid .rel-botao {
+    width: 100%;
+    white-space: nowrap;
+}
+
+/* Evita excesso de largura e quebra de elementos */
+.rel-pagina,
+.rel-card,
+.rel-filtros,
+.rel-grid-principal,
+.rel-grid-inferior {
+    min-width: 0;
+}
+
+.rel-cabecalho {
+    align-items: center;
+}
+
+.rel-cabecalho > div:first-child {
+    min-width: 0;
+}
+
+.rel-tabela-area {
+    width: 100%;
+}
+
+/* Corrige links de ação e mantém a tabela mais organizada */
+.rel-coluna-acoes {
+    min-width: 145px;
+}
+
+.rel-acao {
+    justify-content: center;
+}
+
+/* Melhor adaptação em notebooks */
+@media (max-width: 1450px) {
+    .rel-indicadores {
+        grid-template-columns: repeat(5, minmax(135px, 1fr));
+        gap: 12px;
+    }
+
+    .rel-indicador {
+        padding: 15px;
+        gap: 10px;
+    }
+
+    .rel-indicador-icone {
+        width: 41px;
+        height: 41px;
+    }
+
+    .rel-indicador strong {
+        font-size: 24px;
+    }
+
+    .rel-filtros-grid {
+        grid-template-columns:
+            repeat(4, minmax(145px, 1fr))
+            minmax(150px, auto);
+        gap: 10px;
+    }
+}
+
+@media (max-width: 1180px) {
+    .rel-indicadores {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .rel-filtros-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rel-filtros-grid .rel-botao {
+        width: auto;
+        min-width: 170px;
+    }
+}
+
+@media (max-width: 760px) {
+    .rel-cabecalho {
+        align-items: stretch;
+    }
+
+    .rel-cabecalho-acoes {
+        width: 100%;
+    }
+
+    .rel-cabecalho-acoes .rel-botao {
+        width: 100%;
+    }
+
+    .rel-indicadores,
+    .rel-filtros-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rel-filtros-grid .rel-botao {
+        width: 100%;
+    }
+}
+
+</style>
+{% endblock %}
+
+{% block cabecalho %}{% endblock %}
+
+{% block conteudo %}
+
+<div class="rel-pagina">
+
+    <section class="rel-cabecalho">
+        <div>
+            <span class="rel-etiqueta">Visão geral</span>
+            <h1>Relatórios de desempenho</h1>
+            <p>
+                Acompanhe os resultados das avaliações, identifique dificuldades
+                e tome decisões pedagógicas com mais segurança.
+            </p>
+        </div>
+
+        <div class="rel-cabecalho-acoes">
+            <button type="button" class="rel-botao rel-botao-secundario" onclick="window.print()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 9V3H18V9"></path>
+                    <path d="M6 18H4A2 2 0 0 1 2 16V11A2 2 0 0 1 4 9H20A2 2 0 0 1 22 11V16A2 2 0 0 1 20 18H18"></path>
+                    <rect x="6" y="14" width="12" height="7"></rect>
+                </svg>
+                Imprimir
+            </button>
+        </div>
+    </section>
+
+    <form class="rel-filtros" method="GET" action="{{ url_for('relatorios') }}">
+        <div class="rel-filtros-cabecalho">
+            <div>
+                <span class="rel-filtros-icone">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 6H20"></path>
+                        <path d="M7 12H17"></path>
+                        <path d="M10 18H14"></path>
+                    </svg>
+                </span>
+                <div>
+                    <strong>Filtros do relatório</strong>
+                    <span>Refine os dados exibidos abaixo.</span>
+                </div>
+            </div>
+
+            {% if filtros.escola_id or filtros.turma_id or filtros.disciplina or filtros.prova_id %}
+                <a href="{{ url_for('relatorios') }}" class="rel-limpar">Limpar filtros</a>
+            {% endif %}
+        </div>
+
+        <div class="rel-filtros-grid">
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+            <label class="rel-campo">
+                <span>Instituição</span>
+                <select name="escola_id">
+                    <option value="">Todas as instituições</option>
+                    {% for escola in escolas %}
+                    <option
+                        value="{{ escola.id }}"
+                        {% if filtros.escola_id == escola.id %}selected{% endif %}
+                    >
+                        {{ escola.nome_instituicao }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+
+            <label class="rel-campo">
+                <span>Turma</span>
+                <select name="turma_id">
+                    <option value="">Todas as turmas</option>
+                    {% for turma in turmas %}
+                    <option
+                        value="{{ turma.id }}"
+                        {% if filtros.turma_id == turma.id %}selected{% endif %}
+                    >
+                        {{ turma.nome }}{% if turma.turno %} — {{ turma.turno }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="rel-campo">
+                <span>Componente curricular</span>
+                <select name="disciplina">
+                    <option value="">Todos os componentes</option>
+                    {% for disciplina in disciplinas %}
+                    <option
+                        value="{{ disciplina }}"
+                        {% if filtros.disciplina == disciplina %}selected{% endif %}
+                    >
+                        {{ disciplina }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="rel-campo">
+                <span>Avaliação</span>
+                <select name="prova_id">
+                    <option value="">Todas as avaliações</option>
+                    {% for prova in provas_filtro %}
+                    <option
+                        value="{{ prova.id }}"
+                        {% if filtros.prova_id == prova.id %}selected{% endif %}
+                    >
+                        {{ prova.nome }} — {{ prova.turma_nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <button type="submit" class="rel-botao rel-botao-primario">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="M20 20L16.5 16.5"></path>
+                </svg>
+                Aplicar filtros
+            </button>
+        </div>
+    </form>
+
+    <section class="rel-indicadores">
+        <article class="rel-indicador">
+            <span class="rel-indicador-icone">
+                <svg viewBox="0 0 24 24">
+                    <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                    <path d="M8 8H16"></path><path d="M8 12H16"></path>
+                </svg>
+            </span>
+            <div>
+                <span>Avaliações</span>
+                <strong>{{ indicadores.total_avaliacoes or 0 }}</strong>
+                <small>No período selecionado</small>
+            </div>
+        </article>
+
+        <article class="rel-indicador">
+            <span class="rel-indicador-icone">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="9" cy="8" r="4"></circle>
+                    <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                    <circle cx="18" cy="9" r="3"></circle>
+                </svg>
+            </span>
+            <div>
+                <span>Alunos avaliados</span>
+                <strong>{{ indicadores.alunos_avaliados or 0 }}</strong>
+                <small>Estudantes com resultado</small>
+            </div>
+        </article>
+
+        <article class="rel-indicador rel-indicador-destaque">
+            <span class="rel-indicador-icone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M4 19L9 14L13 17L20 8"></path>
+                    <path d="M15 8H20V13"></path>
+                </svg>
+            </span>
+            <div>
+                <span>Média geral</span>
+                <strong>{{ "%.1f"|format(indicadores.media_geral or 0) }}</strong>
+                <small>Escala de 0 a 10</small>
+            </div>
+        </article>
+
+        <article class="rel-indicador">
+            <span class="rel-indicador-icone">
+                <svg viewBox="0 0 24 24">
+                    <path d="M8 21H16"></path>
+                    <path d="M12 17V21"></path>
+                    <path d="M7 4H17V8A5 5 0 0 1 7 8Z"></path>
+                    <path d="M7 6H4V8A4 4 0 0 0 8 12"></path>
+                    <path d="M17 6H20V8A4 4 0 0 1 16 12"></path>
+                </svg>
+            </span>
+            <div>
+                <span>Maior nota</span>
+                <strong>{{ "%.1f"|format(indicadores.maior_nota or 0) }}</strong>
+                <small>Melhor resultado</small>
+            </div>
+        </article>
+
+        <article class="rel-indicador">
+            <span class="rel-indicador-icone">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M8 12L11 15L16 9"></path>
+                </svg>
+            </span>
+            <div>
+                <span>Taxa de aprovação</span>
+                <strong>{{ "%.1f"|format(taxa_aprovacao) }}%</strong>
+                <small>Avaliações com média definida</small>
+            </div>
+        </article>
+    </section>
+
+    <section class="rel-grid-principal">
+        <article class="rel-card rel-card-grafico">
+            <div class="rel-card-cabecalho">
+                <div>
+                    <span class="rel-card-etiqueta">Comparativo</span>
+                    <h2>Desempenho por turma</h2>
+                    <p>Média obtida nas avaliações do filtro atual.</p>
+                </div>
+            </div>
+
+            {% if desempenho_turmas %}
+            <div class="rel-barras">
+                {% for turma in desempenho_turmas %}
+                <div class="rel-barra-item">
+                    <div class="rel-barra-info">
+                        <div>
+                            <strong>{{ turma.turma_nome }}</strong>
+                            <span>
+                                {{ turma.total_avaliacoes }} avaliação(ões) ·
+                                {{ turma.alunos_avaliados }} aluno(s)
+                            </span>
+                        </div>
+                        <b>{{ "%.1f"|format(turma.media or 0) }}</b>
+                    </div>
+                    <div class="rel-barra-trilho">
+                        <span style="width: {{ ((turma.media or 0) * 10)|round(1) }}%"></span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+                <div class="rel-vazio">
+                    <strong>Nenhum resultado encontrado</strong>
+                    <span>Os dados aparecerão após a correção das avaliações.</span>
+                </div>
+            {% endif %}
+        </article>
+
+        <article class="rel-card">
+            <div class="rel-card-cabecalho">
+                <div>
+                    <span class="rel-card-etiqueta">Destaques</span>
+                    <h2>Ranking de alunos</h2>
+                    <p>Maiores médias no período selecionado.</p>
+                </div>
+            </div>
+
+            {% if ranking_alunos %}
+            <div class="rel-ranking">
+                {% for aluno in ranking_alunos %}
+                <div class="rel-ranking-item">
+                    <span class="rel-ranking-posicao">{{ loop.index }}</span>
+                    <div>
+                        <strong>{{ aluno.aluno_nome }}</strong>
+                        <span>{{ aluno.turma_nome }} · {{ aluno.avaliacoes_realizadas }} avaliação(ões)</span>
+                    </div>
+                    <b>{{ "%.1f"|format(aluno.media or 0) }}</b>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+                <div class="rel-vazio rel-vazio-menor">
+                    <strong>Ranking indisponível</strong>
+                    <span>Ainda não há resultados suficientes.</span>
+                </div>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="rel-card">
+        <div class="rel-card-cabecalho rel-card-cabecalho-linha">
+            <div>
+                <span class="rel-card-etiqueta">Avaliações</span>
+                <h2>Resultados recentes</h2>
+                <p>Resumo das últimas avaliações encontradas.</p>
+            </div>
+        </div>
+
+        {% if avaliacoes %}
+        <div class="rel-tabela-area">
+            <table class="rel-tabela">
+                <thead>
+                    <tr>
+                        <th>Avaliação</th>
+                        <th>Turma</th>
+                        <th>Componente</th>
+                        <th>Alunos</th>
+                        <th>Média</th>
+                        <th>Maior</th>
+                        <th>Menor</th>
+                        <th class="rel-coluna-acoes">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prova in avaliacoes %}
+                    <tr>
+                        <td>
+                            <div class="rel-tabela-principal">
+                                <strong>{{ prova.nome }}</strong>
+                                {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                                    <span>{{ prova.nome_instituicao or "Instituição não informada" }}</span>
+                                {% elif prova.data_aplicacao %}
+                                    <span>Aplicação: {{ prova.data_aplicacao }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ prova.turma_nome }}</td>
+                        <td>{{ prova.disciplina }}</td>
+                        <td>{{ prova.total_resultados or 0 }}</td>
+                        <td><span class="rel-nota">{{ "%.1f"|format(prova.media or 0) }}</span></td>
+                        <td>{{ "%.1f"|format(prova.maior_nota or 0) }}</td>
+                        <td>{{ "%.1f"|format(prova.menor_nota or 0) }}</td>
+                        <td class="rel-coluna-acoes">
+                            <a
+                                href="{{ url_for('resultados', prova_id=prova.id) }}"
+                                class="rel-acao"
+                                title="Ver resultados"
+                            >
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M2 12S5.5 5 12 5S22 12 22 12S18.5 19 12 19S2 12 2 12Z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                Ver
+                            </a>
+                            <a
+                                href="{{ url_for('relatorio_questoes', prova_id=prova.id) }}"
+                                class="rel-acao rel-acao-secundaria"
+                                title="Análise por questão"
+                            >
+                                Questões
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="rel-vazio">
+                <strong>Nenhuma avaliação encontrada</strong>
+                <span>Altere os filtros ou aguarde o lançamento de resultados.</span>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="rel-grid-inferior">
+        <article class="rel-card">
+            <div class="rel-card-cabecalho">
+                <div>
+                    <span class="rel-card-etiqueta rel-card-etiqueta-alerta">Atenção pedagógica</span>
+                    <h2>Questões com mais erros</h2>
+                    <p>Itens que podem exigir retomada do conteúdo.</p>
+                </div>
+            </div>
+
+            {% if questoes_criticas %}
+            <div class="rel-questoes">
+                {% for item in questoes_criticas %}
+                <a
+                    href="{{ url_for('questao_relatorio', prova_id=item.prova_id, numero=item.numero_questao) }}"
+                    class="rel-questao-item"
+                >
+                    <span class="rel-questao-numero">Q{{ item.numero_questao }}</span>
+                    <div>
+                        <strong>{{ item.prova_nome }}</strong>
+                        <span>{{ item.disciplina }} · {{ item.respondentes }} resposta(s)</span>
+                    </div>
+                    <b>{{ "%.1f"|format(item.percentual_erros or 0) }}% erros</b>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+                <div class="rel-vazio rel-vazio-menor">
+                    <strong>Sem dados por questão</strong>
+                    <span>Corrija cartões-resposta para gerar esta análise.</span>
+                </div>
+            {% endif %}
+        </article>
+
+        <article class="rel-card rel-card-navegacao">
+            <div class="rel-card-cabecalho">
+                <div>
+                    <span class="rel-card-etiqueta">Relatórios detalhados</span>
+                    <h2>Acessos rápidos</h2>
+                    <p>Entre diretamente nas análises disponíveis.</p>
+                </div>
+            </div>
+
+            <div class="rel-atalhos">
+                <a href="#resultados-recentes" onclick="document.querySelector('.rel-tabela-area')?.scrollIntoView({behavior:'smooth'})">
+                    <span>
+                        <svg viewBox="0 0 24 24">
+                            <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                            <path d="M8 8H16"></path><path d="M8 12H16"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <strong>Por avaliação</strong>
+                        <small>Notas, médias e aprovação</small>
+                    </div>
+                </a>
+
+                <a href="#desempenho-turmas" onclick="document.querySelector('.rel-card-grafico')?.scrollIntoView({behavior:'smooth'})">
+                    <span>
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3 21H21"></path>
+                            <path d="M5 21V8L12 3L19 8V21"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <strong>Por turma</strong>
+                        <small>Comparativo de desempenho</small>
+                    </div>
+                </a>
+
+                <a href="#questoes-criticas" onclick="document.querySelector('.rel-questoes')?.scrollIntoView({behavior:'smooth'})">
+                    <span>
+                        <svg viewBox="0 0 24 24">
+                            <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                            <path d="M14 2V8H20"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <strong>Por questão</strong>
+                        <small>Acertos e dificuldades</small>
+                    </div>
+                </a>
+            </div>
+        </article>
+    </section>
+
+</div>
+
+{% endblock %}

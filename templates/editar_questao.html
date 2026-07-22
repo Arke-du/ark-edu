@@ -8,7 +8,7 @@
 .editar-card{overflow:hidden;border:1px solid var(--borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
 .editar-cabecalho{padding:19px 24px;border-bottom:1px solid var(--borda)}.editar-cabecalho h2{margin:0;font-size:18px}
 .editar-form{padding:24px}.editar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.largo{grid-column:1/-1}
-.grupo{display:grid;gap:7px}.grupo label,.titulo{color:#334155;font-size:12px;font-weight:850}
+.grupo{display:grid;gap:7px}.grupo label,.titulo{color:#334155;font-size:12px;font-weight:850}.ajuda{color:#94a3b8;font-size:11px}
 .grupo input,.grupo select,.grupo textarea{width:100%;border:1px solid var(--borda);border-radius:12px;background:#fff;font:inherit;font-size:13px;outline:none}
 .grupo input,.grupo select{min-height:46px;padding:0 13px}.grupo textarea{min-height:130px;padding:14px;resize:vertical}
 .tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0}.tipo-opcao span{display:flex;min-height:52px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--borda);border-radius:12px;background:#f8fafc;font-size:12px;font-weight:800;text-align:center;cursor:pointer}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--azul)}
@@ -20,30 +20,33 @@
 {% block conteudo %}
 <div class="editar-pagina">
 <a class="editar-voltar" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">← Voltar</a>
-<header class="editar-topo"><h1>Editar questão</h1><p>Atualize o conteúdo e salve para retornar à avaliação.</p></header>
+<header class="editar-topo"><h1>Editar questão</h1><p>Atualize o conteúdo e a classificação pedagógica.</p></header>
 <form method="POST" action="/questoes/{{ questao['id'] }}/editar">
 {% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
 <section class="editar-card">
 <div class="editar-cabecalho"><h2>Informações da questão</h2></div>
 <div class="editar-form"><div class="editar-grid">
-<div class="grupo"><label>Componente curricular</label><select name="disciplina" required>{% if componentes %}{% for c in componentes %}<option value="{{ c }}" {% if questao['disciplina']==c %}selected{% endif %}>{{ c }}</option>{% endfor %}{% else %}<option selected>{{ questao['disciplina'] }}</option>{% endif %}</select></div>
+<div class="grupo"><label>Componente curricular</label><select id="disciplinaQuestao" name="disciplina" required>{% for c in componentes %}<option value="{{ c }}" {% if questao['disciplina']==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+<div class="grupo"><label>Etapa de ensino</label><select id="etapaEnsino" name="etapa_ensino"><option value="">Selecione</option>{% for e in ['Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio'] %}<option value="{{ e }}" {% if questao['etapa_ensino']==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+<div class="grupo"><label>Ano/Série</label><select id="anoSerie" name="ano_serie" data-valor="{{ questao['ano_serie'] or '' }}"><option value="">Selecione a etapa</option></select></div>
 <div class="grupo"><label>Assunto</label><input name="assunto" value="{{ questao['assunto'] or '' }}" required></div>
 <div class="grupo"><label>Dificuldade</label><select name="dificuldade">{% for d in ['Fácil','Média','Difícil'] %}<option value="{{ d }}" {% if questao['dificuldade']==d %}selected{% endif %}>{{ d }}</option>{% endfor %}</select></div>
 <div class="grupo largo"><span class="titulo">Tipo da questão</span><div class="tipo-grid">
-{% for valor,rotulo in [('multipla_escolha','Múltipla escolha'),('multiplas_respostas','Múltiplas respostas'),('verdadeiro_falso','Verdadeiro ou falso'),('discursiva','Discursiva'),('resposta_curta','Resposta curta'),('numerica','Numérica')] %}
-<label class="tipo-opcao"><input type="radio" name="tipo_questao" value="{{ valor }}" {% if questao['tipo_questao']==valor %}checked{% endif %}><span>{{ rotulo }}</span></label>
-{% endfor %}
+{% for valor,rotulo in [('multipla_escolha','Múltipla escolha'),('multiplas_respostas','Múltiplas respostas'),('verdadeiro_falso','Verdadeiro ou falso'),('discursiva','Discursiva'),('resposta_curta','Resposta curta'),('numerica','Numérica')] %}<label class="tipo-opcao"><input type="radio" name="tipo_questao" value="{{ valor }}" {% if questao['tipo_questao']==valor %}checked{% endif %}><span>{{ rotulo }}</span></label>{% endfor %}
 </div></div>
 <div class="grupo largo"><label>Enunciado</label><textarea name="enunciado" required>{{ questao['enunciado'] }}</textarea></div>
 <div class="grupo largo" id="blocoAlternativas"><span class="titulo">Alternativas</span><div class="alternativas">
-{% for i in range(4) %}{% set alt=alternativas[i] if i < alternativas|length else none %}{% set letra=['A','B','C','D'][i] %}
-<div class="alternativa"><span class="letra">{{ letra }}</span><input name="alternativas[]" value="{{ alt['texto'] if alt else '' }}"><label class="correta"><input type="{% if questao['tipo_questao']=='multiplas_respostas' %}checkbox{% else %}radio{% endif %}" name="corretas[]" value="{{ i }}" {% if letra in respostas %}checked{% endif %}>Correta</label></div>
-{% endfor %}
+{% for i in range(4) %}{% set alt=alternativas[i] if i < alternativas|length else none %}{% set letra=['A','B','C','D'][i] %}<div class="alternativa"><span class="letra">{{ letra }}</span><input name="alternativas[]" value="{{ alt['texto'] if alt else '' }}"><label class="correta"><input type="{% if questao['tipo_questao']=='multiplas_respostas' %}checkbox{% else %}radio{% endif %}" name="corretas[]" value="{{ i }}" {% if letra in respostas %}checked{% endif %}>Correta</label></div>{% endfor %}
 </div></div>
 <div class="grupo largo oculto" id="blocoVF"><span class="titulo">Resposta correta</span><div class="tipo-grid"><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="V" {% if 'V' in respostas %}checked{% endif %}><span>Verdadeiro</span></label><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="F" {% if 'F' in respostas %}checked{% endif %}><span>Falso</span></label></div></div>
 <div class="grupo largo oculto" id="blocoResposta"><label>Resposta esperada</label><textarea name="resposta_esperada">{{ questao['resposta_esperada'] or '' }}</textarea></div>
 <div class="grupo largo oculto" id="blocoCriterios"><label>Critérios de correção</label><textarea name="criterios_correcao">{{ questao['criterios_correcao'] or '' }}</textarea></div>
 <div class="grupo oculto" id="blocoLinhas"><label>Quantidade de linhas</label><input type="number" name="linhas_resposta" min="1" max="30" value="{{ questao['linhas_resposta'] or 5 }}"></div>
+
+<div class="grupo largo"><h3 style="margin:8px 0 0;color:#17468f">Classificação BNCC</h3></div>
+<div class="grupo"><label>Unidade temática / prática de linguagem</label><input id="unidadeTematica" name="unidade_tematica" list="listaUnidadesBncc" autocomplete="off" value="{{ questao['unidade_tematica'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaUnidadesBncc"></datalist><span class="ajuda" id="ajudaUnidadeBncc">Carregando catálogo...</span></div>
+<div class="grupo"><label>Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" list="listaObjetosBncc" autocomplete="off" value="{{ questao['objeto_conhecimento'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaObjetosBncc"></datalist></div>
+<div class="grupo largo"><label>Habilidade BNCC</label><input id="habilidadeBncc" name="habilidade_bncc" list="listaHabilidadesBncc" autocomplete="off" value="{{ questao['habilidade_bncc'] or '' }}" placeholder="Digite o código ou parte da descrição"><datalist id="listaHabilidadesBncc"></datalist><span class="ajuda">A lista apresenta código e descrição completos.</span></div>
 </div></div>
 <div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Salvar alterações</button></div>
 </section></form></div>
@@ -53,7 +56,17 @@
 document.addEventListener("DOMContentLoaded",function(){
 const tipos=document.querySelectorAll('input[name="tipo_questao"]'),a=document.getElementById("blocoAlternativas"),vf=document.getElementById("blocoVF"),r=document.getElementById("blocoResposta"),c=document.getElementById("blocoCriterios"),l=document.getElementById("blocoLinhas");
 function atualizar(){const s=document.querySelector('input[name="tipo_questao"]:checked'),t=s?s.value:"multipla_escolha",obj=["multipla_escolha","multiplas_respostas"].includes(t),disc=t==="discursiva";a.classList.toggle("oculto",!obj);vf.classList.toggle("oculto",t!=="verdadeiro_falso");r.classList.toggle("oculto",!["discursiva","resposta_curta","numerica"].includes(t));c.classList.toggle("oculto",!disc);l.classList.toggle("oculto",!disc);document.querySelectorAll('input[name="corretas[]"]').forEach(x=>x.type=t==="multiplas_respostas"?"checkbox":"radio")}
-tipos.forEach(x=>x.addEventListener("change",atual));atual();
+tipos.forEach(x=>x.addEventListener("change",atualizar));atualizar();
+
+const etapa=document.getElementById('etapaEnsino'),ano=document.getElementById('anoSerie');
+const series={"Ensino Fundamental - Anos Iniciais":["1º ano","2º ano","3º ano","4º ano","5º ano"],"Ensino Fundamental - Anos Finais":["6º ano","7º ano","8º ano","9º ano"],"Ensino Médio":["1ª série","2ª série","3ª série"]};
+function montarSeries(){const atual=ano.dataset.valor||ano.value;ano.innerHTML='<option value="">Selecione</option>';(series[etapa.value]||[]).forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;o.selected=v===atual;ano.appendChild(o)});ano.dataset.valor=''}
+etapa.addEventListener('change',montarSeries);montarSeries();
+
+const disciplina=document.getElementById('disciplinaQuestao'),unidade=document.getElementById('unidadeTematica'),objeto=document.getElementById('objetoConhecimento'),habilidade=document.getElementById('habilidadeBncc'),lu=document.getElementById('listaUnidadesBncc'),lo=document.getElementById('listaObjetosBncc'),lh=document.getElementById('listaHabilidadesBncc'),ajuda=document.getElementById('ajudaUnidadeBncc');let ctrl=null;
+function preencher(el,valores){el.innerHTML='';valores.forEach(v=>{const o=document.createElement('option');o.value=typeof v==='string'?v:v.valor;el.appendChild(o)})}
+async function carregar(preservar=true){if(!disciplina.value||!etapa.value||!ano.value){ajuda.textContent='Selecione componente, etapa e ano/série.';return}if(ctrl)ctrl.abort();ctrl=new AbortController();const q=new URLSearchParams({componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value});if(unidade.value)q.set('unidade',unidade.value);if(objeto.value)q.set('objeto',objeto.value);try{const res=await fetch('/api/bncc/opcoes?'+q,{signal:ctrl.signal});const d=await res.json();preencher(lu,d.unidades||[]);preencher(lo,d.objetos||[]);preencher(lh,d.habilidades||[]);ajuda.textContent=(d.unidades||[]).length?'Clique ou digite para pesquisar.':'Nenhum registro encontrado; importe a planilha oficial.'}catch(e){if(e.name!=='AbortError')ajuda.textContent='Erro ao carregar a BNCC.'}}
+[disciplina,etapa,ano].forEach(el=>el.addEventListener('change',()=>{unidade.value='';objeto.value='';habilidade.value='';carregar(false)}));unidade.addEventListener('change',()=>{objeto.value='';habilidade.value='';carregar(false)});objeto.addEventListener('change',()=>{habilidade.value='';carregar(true)});carregar(true);
 });
 </script>
 {% endblock %}
