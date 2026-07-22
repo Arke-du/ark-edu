@@ -6106,7 +6106,12 @@ def _pode_criar_prova(cargo):
     }
 
 
-def _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False):
+def _pode_gerenciar_prova(
+    cursor,
+    prova_id,
+    exigir_edicao=False,
+    permitir_finalizada=False
+):
     """
     Valida o acesso no backend. Assim, alterar manualmente a URL não
     permite acessar uma avaliação de outra instituição ou professor.
@@ -6135,8 +6140,13 @@ def _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False):
     if not prova:
         return False
 
-    # Avaliação finalizada é somente leitura para qualquer perfil.
-    if exigir_edicao and (prova["status"] or "rascunho").strip().lower() == "finalizada":
+    # A finalização bloqueia alterações na estrutura da avaliação, mas não
+    # impede criar, corrigir, importar ou excluir uma aplicação vinculada.
+    if (
+        exigir_edicao
+        and not permitir_finalizada
+        and (prova["status"] or "rascunho").strip().lower() == "finalizada"
+    ):
         return False
 
     if cargo == "Administrador Geral":
@@ -15961,7 +15971,12 @@ def nova_aplicacao(prova_id):
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
     try:
-        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
             return _redirecionar_acesso_negado_prova()
 
         cursor.execute("""
@@ -16072,6 +16087,11 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
             flash("Modelo de prova não encontrado.", "erro")
             return redirect("/provas")
 
+        if not _pode_gerenciar_prova(
+            cursor, aplicacao["prova_id"], exigir_edicao=False
+        ):
+            return _redirecionar_acesso_negado_prova()
+
         questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
         return render_template("aplicacoes/modelo_prova.html", aplicacao=aplicacao, questoes=questoes, modelo=modelo)
     finally:
@@ -16102,6 +16122,11 @@ def cartoes_aplicacao(aplicacao_id):
         if not aplicacao:
             flash("Aplicação não encontrada.", "erro")
             return redirect("/provas")
+
+        if not _pode_gerenciar_prova(
+            cursor, aplicacao["prova_id"], exigir_edicao=False
+        ):
+            return _redirecionar_acesso_negado_prova()
 
         cursor.execute("""
             SELECT aa.modelo, al.id, al.nome, COALESCE(al.matricula, '') AS matricula
@@ -16156,6 +16181,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
         if not aplicacao:
             flash("Aplicação não encontrada.", "erro")
             return redirect("/provas")
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            aplicacao["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return _redirecionar_acesso_negado_prova()
 
         if request.method == "POST":
             arquivos = request.files.getlist("arquivos")
@@ -16271,7 +16304,12 @@ def excluir_aplicacao(aplicacao_id):
         if not aplicacao:
             flash("Aplicação não encontrada.", "erro")
             return redirect("/provas")
-        if not _pode_gerenciar_prova(cursor, aplicacao["prova_id"], exigir_edicao=True):
+        if not _pode_gerenciar_prova(
+            cursor,
+            aplicacao["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
             return _redirecionar_acesso_negado_prova()
         cursor.execute("DELETE FROM aplicacoes WHERE id = ?", (aplicacao_id,))
         banco.commit()
