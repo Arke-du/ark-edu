@@ -1,1 +1,2016 @@
-{% extends "layout/base.html" %}{% block titulo %}Importar cartões | ARK EDUS{% endblock %}{% block estilos %}<style>.im{max-width:950px;display:grid;gap:18px}.im h1{color:#17468f}.card{background:#fff;border:1px solid #dbe4f0;border-radius:18px;padding:22px}.drop{border:2px dashed #93c5fd;border-radius:16px;padding:38px;text-align:center;background:#f8fbff}.btn{padding:13px 18px;border:0;border-radius:12px;background:linear-gradient(135deg,#123b82,#2563eb);color:#fff;font-weight:800;cursor:pointer}.linha{padding:12px 0;border-bottom:1px solid #edf2f7}</style>{% endblock %}{% block conteudo %}<div class="im"><a href="/provas/{{ aplicacao.prova_id }}/aplicacoes" style="color:#123b82;font-weight:800;text-decoration:none">← Voltar</a><div><h1>Importar cartões</h1><p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</p></div><form class="card" method="post" enctype="multipart/form-data"><div class="drop"><h2>Selecione os cartões digitalizados</h2><p>Envie imagens JPG ou PNG. O sistema identificará aluno, aplicação e modelo pelo QR Code.</p><input type="file" name="arquivos" accept="image/png,image/jpeg" multiple required></div><br><button class="btn">Importar e corrigir objetivas</button></form><section class="card"><h2>Histórico</h2>{% for item in importacoes %}<div class="linha"><strong>{{ item.aluno_nome or item.nome_arquivo }}</strong> · Modelo {{ item.modelo or '—' }}<br><small>{{ item.status }} — {{ item.mensagem }}</small></div>{% else %}<p>Nenhum cartão importado.</p>{% endfor %}</section></div>{% endblock %}
+{% extends "layout/base.html" %}
+
+{% block titulo %}Importação de Cartões | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.ic-page{
+    --ic-primary:#123b72;
+    --ic-primary-strong:#0c2e59;
+    --ic-primary-soft:#eef5fc;
+    --ic-text:#172033;
+    --ic-muted:#667085;
+    --ic-border:#e4e9f0;
+    --ic-success:#087a55;
+    --ic-success-soft:#eaf8f2;
+    --ic-warning:#b86408;
+    --ic-warning-soft:#fff7e8;
+    --ic-danger:#c93737;
+    max-width:1380px;
+    margin:0 auto;
+    padding:30px;
+    color:var(--ic-text);
+    font-family:inherit;
+    font-size:14px;
+}
+
+.ic-topbar{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:24px;
+    margin-bottom:24px;
+}
+.ic-back{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+    color:var(--ic-primary);
+    font-weight:750;
+    text-decoration:none;
+}
+.ic-title h1{margin:0;font-size:28px;line-height:1.2;font-weight:850}
+.ic-title p{margin:8px 0 0;color:var(--ic-muted);font-size:14px}
+
+.ic-summary{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:16px;
+    margin-bottom:20px;
+}
+.ic-summary-card{
+    background:#fff;
+    border:1px solid var(--ic-border);
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 8px 24px rgba(16,24,40,.05);
+}
+.ic-summary-card span{display:block;color:var(--ic-muted);font-size:13px;font-weight:650}
+.ic-summary-card strong{display:block;margin-top:7px;font-size:30px;line-height:1;color:var(--ic-primary)}
+.ic-summary-card.success strong{color:var(--ic-success)}
+.ic-summary-card.warning strong{color:var(--ic-warning)}
+
+.ic-card{
+    background:#fff;
+    border:1px solid var(--ic-border);
+    border-radius:18px;
+    box-shadow:0 8px 26px rgba(16,24,40,.05);
+}
+.ic-upload{
+    display:grid;
+    grid-template-columns:minmax(420px,1fr) auto;
+    align-items:center;
+    gap:32px;
+    padding:26px 28px;
+    margin-bottom:20px;
+}
+.ic-upload > div{min-width:0}
+.ic-upload h2{
+    white-space:nowrap;
+    color:var(--ic-text);
+}
+.ic-upload p{
+    max-width:720px;
+    margin-top:8px;
+}
+.ic-upload-note{
+    max-width:720px;
+}
+.ic-upload h2,.ic-list-head h2{margin:0;font-size:19px;font-weight:850}
+.ic-upload p,.ic-list-head p{margin:7px 0 0;color:var(--ic-muted);font-size:14px;line-height:1.55}
+.ic-upload-note{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-top:12px;
+    color:var(--ic-success);
+    font-size:13px;
+    font-weight:750;
+}
+.ic-upload-form{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:12px;
+    flex-shrink:0;
+    min-width:max-content;
+}
+.ic-file input{display:none}
+.ic-btn,.ic-file span{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:44px;
+    padding:10px 16px;
+    border-radius:10px;
+    font:inherit;
+    font-size:14px;
+    font-weight:750;
+    text-decoration:none;
+    cursor:pointer;
+    transition:.18s;
+}
+.ic-file span,.ic-btn-secondary{background:#fff;border:1px solid var(--ic-border);color:var(--ic-primary)}
+.ic-file span:hover,.ic-btn-secondary:hover{background:#f8fafc;border-color:#cbd5e1}
+.ic-btn-primary{background:var(--ic-primary);border:1px solid var(--ic-primary);color:#fff}
+.ic-btn-primary:hover{background:var(--ic-primary-strong)}
+.ic-btn:disabled{cursor:not-allowed;opacity:.58}
+
+.ic-list-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:22px 24px;
+    border-bottom:1px solid var(--ic-border);
+}
+.ic-filters{display:flex;gap:8px;flex-wrap:wrap}
+.ic-filter{
+    border:1px solid var(--ic-border);
+    background:#fff;
+    color:var(--ic-muted);
+    border-radius:999px;
+    padding:9px 13px;
+    font:inherit;
+    font-size:13px;
+    font-weight:750;
+    cursor:pointer;
+}
+.ic-filter.active{background:var(--ic-primary-soft);border-color:#cbdcf0;color:var(--ic-primary)}
+
+.ic-list{display:grid;gap:12px;padding:16px}
+.ic-row{
+    display:grid;
+    grid-template-columns:48px minmax(230px,1fr) minmax(180px,.48fr) auto;
+    align-items:center;
+    gap:16px;
+    padding:17px 18px;
+    border:1px solid var(--ic-border);
+    border-radius:14px;
+    background:#fff;
+}
+.ic-row:hover{box-shadow:0 7px 20px rgba(16,24,40,.06)}
+.ic-icon{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:46px;
+    height:46px;
+    border-radius:12px;
+    background:var(--ic-primary-soft);
+    color:var(--ic-primary);
+    font-size:21px;
+    font-weight:850;
+}
+.ic-main strong{display:block;font-size:15px;font-weight:850}
+.ic-main span{display:block;margin-top:4px;color:var(--ic-muted);font-size:13px}
+.ic-main small{display:block;margin-top:4px;color:#98a2b3;font-size:12px}
+.ic-meta{display:grid;gap:6px;color:var(--ic-muted);font-size:13px}
+.ic-status{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    width:max-content;
+    padding:8px 11px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:850;
+}
+.ic-status.success{background:var(--ic-success-soft);color:var(--ic-success)}
+.ic-status.warning{background:var(--ic-warning-soft);color:var(--ic-warning)}
+.ic-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.ic-message{grid-column:2/-1;padding:10px 12px;border-radius:9px;background:#f8fafc;color:var(--ic-muted);font-size:12px}
+.ic-empty{padding:55px 25px;text-align:center;color:var(--ic-muted)}
+.ic-empty strong{display:block;color:var(--ic-text);font-size:16px;margin-bottom:6px}
+
+/* DRAWER */
+.ic-overlay{
+    position:fixed;
+    inset:0;
+    z-index:998;
+    background:rgba(15,23,42,.58);
+    backdrop-filter:blur(2px);
+    opacity:0;
+    visibility:hidden;
+    transition:.2s;
+}
+.ic-overlay.open{opacity:1;visibility:visible}
+.ic-drawer{
+    position:fixed;
+    top:0;
+    right:0;
+    bottom:0;
+    z-index:999;
+    width:min(1240px,calc(100vw - 290px));
+    min-width:860px;
+    display:flex;
+    flex-direction:column;
+    background:#f3f6f9;
+    box-shadow:-24px 0 60px rgba(15,23,42,.28);
+    transform:translateX(102%);
+    transition:.25s ease;
+}
+.ic-drawer.open{transform:none}
+.ic-drawer-header{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:20px;
+    min-height:82px;
+    padding:17px 24px;
+    background:#fff;
+    border-bottom:1px solid var(--ic-border);
+}
+.ic-drawer-kicker{
+    display:block;
+    margin-bottom:4px;
+    color:var(--ic-primary);
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.09em;
+}
+.ic-drawer-titleline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ic-drawer-header h2{margin:0;font-size:21px;line-height:1.25}
+.ic-pending-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--ic-warning-soft);
+    color:var(--ic-warning);
+    font-size:12px;
+    font-weight:850;
+}
+.ic-close{
+    display:grid;
+    place-items:center;
+    width:42px;
+    height:42px;
+    padding:0;
+    border:1px solid transparent;
+    border-radius:11px;
+    background:#f2f4f7;
+    color:#344054;
+    font-size:25px;
+    line-height:1;
+    cursor:pointer;
+}
+.ic-close:hover{border-color:#d0d5dd;background:#fff}
+
+.ic-drawer-body{
+    display:grid;
+    grid-template-columns:minmax(420px,1.08fr) minmax(420px,.92fr);
+    gap:16px;
+    padding:16px;
+    overflow:hidden;
+    flex:1;
+    min-height:0;
+}
+.ic-panel{
+    min-height:0;
+    background:#fff;
+    border:1px solid var(--ic-border);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 8px 20px rgba(16,24,40,.035);
+}
+.ic-image-panel{display:flex;flex-direction:column}
+.ic-panel-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    min-height:54px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--ic-border);
+    font-size:13px;
+}
+.ic-panel-head a{color:var(--ic-primary);font-weight:750;text-decoration:none}
+.ic-image-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ic-tool{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:34px;
+    height:34px;
+    padding:0 10px;
+    border:1px solid var(--ic-border);
+    border-radius:9px;
+    background:#fff;
+    color:#344054;
+    font:inherit;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+}
+.ic-tool:hover{background:#f8fafc}
+.ic-zoom-label{min-width:48px;text-align:center;color:var(--ic-muted);font-size:12px;font-weight:750}
+.ic-image-stage{
+    position:relative;
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    padding:20px;
+    background:#e7ecf2;
+    text-align:center;
+}
+.ic-image-canvas{
+    display:inline-block;
+    min-width:100%;
+    transform-origin:top center;
+}
+.ic-image-stage img{
+    display:block;
+    max-width:100%;
+    height:auto;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 10px 32px rgba(16,24,40,.22);
+    transition:width .15s ease;
+}
+.ic-no-image{display:grid;place-items:center;min-height:300px;color:var(--ic-muted)}
+
+.ic-editor{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+}
+.ic-editor-scroll{
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    padding:18px;
+}
+.ic-alert{
+    display:grid;
+    grid-template-columns:32px minmax(0,1fr);
+    gap:11px;
+    align-items:start;
+    margin-bottom:16px;
+    padding:13px 14px;
+    border:1px solid #cfe0f2;
+    border-radius:12px;
+    background:#f3f8fd;
+    color:#244a73;
+    font-size:13px;
+    line-height:1.5;
+}
+.ic-alert-icon{
+    display:grid;
+    place-items:center;
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:#dceaf8;
+    color:var(--ic-primary);
+    font-weight:900;
+}
+.ic-student-card{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(150px,.55fr);
+    gap:12px;
+    margin-bottom:18px;
+    padding:15px;
+    border:1px solid var(--ic-border);
+    border-radius:13px;
+    background:#fafcff;
+}
+.ic-student-main small,.ic-info-box small{
+    display:block;
+    margin-bottom:5px;
+    color:var(--ic-muted);
+    font-size:11px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+.ic-student-main strong{display:block;font-size:16px;font-weight:850}
+.ic-student-meta{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:7px;color:var(--ic-muted);font-size:12px}
+.ic-info-box select{
+    width:100%;
+    min-height:42px;
+    padding:9px 11px;
+    border:1px solid var(--ic-border);
+    border-radius:9px;
+    background:#fff;
+    color:var(--ic-text);
+    font:inherit;
+    font-size:13px;
+    font-weight:700;
+}
+.ic-hidden-input{display:none}
+.ic-review-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:12px;
+}
+.ic-review-title{margin:0;font-size:15px;font-weight:850}
+.ic-review-progress{color:var(--ic-muted);font-size:12px;font-weight:750}
+.ic-questions{display:grid;gap:12px}
+.ic-question{
+    padding:15px;
+    border:1px solid var(--ic-border);
+    border-left:4px solid var(--ic-warning);
+    border-radius:13px;
+    background:#fff;
+    transition:.18s;
+}
+.ic-question:focus-within{
+    border-color:#9bbce0;
+    border-left-color:var(--ic-primary);
+    box-shadow:0 0 0 3px rgba(18,59,114,.08);
+}
+.ic-question-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:13px;
+}
+.ic-question-head strong{font-size:14px}
+.ic-issue{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 9px;
+    border-radius:999px;
+    background:var(--ic-warning-soft);
+    color:var(--ic-warning);
+    font-size:11px;
+    font-weight:850;
+}
+.ic-answer-caption{margin-bottom:9px;color:var(--ic-muted);font-size:12px;font-weight:700}
+.ic-answer-options{display:grid;grid-template-columns:repeat(4,42px) minmax(105px,1fr) minmax(130px,1fr);gap:8px}
+.ic-answer-options button{
+    min-height:40px;
+    padding:0 10px;
+    border:1px solid var(--ic-border);
+    border-radius:10px;
+    background:#fff;
+    color:var(--ic-text);
+    font:inherit;
+    font-size:13px;
+    font-weight:850;
+    cursor:pointer;
+}
+.ic-answer-options button:hover{border-color:#9bbce0;background:#f7fbff}
+.ic-answer-options button[data-answer]{
+    width:42px;
+    min-width:42px;
+    height:42px;
+    min-height:42px;
+    padding:0;
+    border-radius:50%;
+    appearance:none;
+    -webkit-appearance:none;
+    background:#fff !important;
+    color:var(--ic-text) !important;
+}
+.ic-answer-options button.selected,
+.ic-answer-options button[data-answer].selected{
+    background-color:var(--ic-primary) !important;
+    border-color:var(--ic-primary) !important;
+    color:#fff !important;
+    box-shadow:0 0 0 3px rgba(18,59,114,.16) !important;
+}
+.ic-answer-options .blank.selected{
+    background-color:#667085 !important;
+    border-color:#667085 !important;
+    color:#fff !important;
+}
+.ic-answer-options .double.selected{
+    background-color:var(--ic-warning) !important;
+    border-color:var(--ic-warning) !important;
+    color:#fff !important;
+}
+.ic-answer-options button.resolved{
+    background:var(--ic-success-soft);
+    border-color:#a9dfcc;
+    color:var(--ic-success);
+}
+.ic-no-pending{
+    padding:35px 18px;
+    border:1px dashed #cfd8e3;
+    border-radius:12px;
+    text-align:center;
+    color:var(--ic-muted);
+    line-height:1.6;
+}
+.ic-loading{padding:40px;text-align:center;color:var(--ic-muted)}
+
+.ic-drawer-footer{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto auto;
+    align-items:center;
+    gap:10px;
+    min-height:72px;
+    padding:13px 20px;
+    background:#fff;
+    border-top:1px solid var(--ic-border);
+}
+.ic-save-message{color:var(--ic-muted);font-size:13px;font-weight:650}
+.ic-save-message.error{color:var(--ic-danger)}
+.ic-save-message.success{color:var(--ic-success)}
+
+@media(max-width:1180px){
+    .ic-drawer{width:calc(100vw - 230px);min-width:760px}
+    .ic-drawer-body{grid-template-columns:minmax(360px,1fr) minmax(390px,1fr)}
+    .ic-answer-options{grid-template-columns:repeat(4,42px) 1fr 1fr}
+}
+@media(max-width:950px){
+    .ic-upload{grid-template-columns:1fr;align-items:start}
+    .ic-upload-form{justify-content:flex-start}
+    .ic-list-head{align-items:flex-start;flex-direction:column}
+    .ic-row{grid-template-columns:46px 1fr}
+    .ic-meta,.ic-actions,.ic-message{grid-column:2}
+    .ic-drawer{width:100vw;min-width:0}
+    .ic-drawer-body{grid-template-columns:1fr;overflow:auto}
+    .ic-image-panel{min-height:480px}
+    .ic-editor{min-height:560px}
+}
+@media(max-width:620px){
+    .ic-page{padding:16px}
+    .ic-summary{grid-template-columns:1fr}
+    .ic-upload-form{width:100%;flex-direction:column;align-items:stretch}
+    .ic-row{grid-template-columns:1fr}
+    .ic-icon,.ic-meta,.ic-actions,.ic-message{grid-column:1}
+    .ic-actions{justify-content:flex-start}
+    .ic-student-card{grid-template-columns:1fr}
+    .ic-answer-options{grid-template-columns:repeat(4,1fr)}
+    .ic-answer-options .blank,.ic-answer-options .double{grid-column:span 2}
+    .ic-drawer-footer{grid-template-columns:1fr 1fr}
+    .ic-save-message{grid-column:1/-1}
+}
+
+.ic-answer-options button[data-answer]{
+    display:inline-grid !important;
+    place-items:center !important;
+    width:42px !important;
+    min-width:42px !important;
+    max-width:42px !important;
+    height:42px !important;
+    min-height:42px !important;
+    max-height:42px !important;
+    padding:0 !important;
+    border:2px solid #cbd5e1 !important;
+    border-radius:50% !important;
+    background:#ffffff !important;
+    color:#172033 !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+    line-height:1 !important;
+}
+
+.ic-answer-options button[data-answer] span{
+    display:block !important;
+    color:inherit !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    line-height:1 !important;
+    pointer-events:none !important;
+}
+
+.ic-answer-options button[data-answer].selected{
+    background:#123b72 !important;
+    border-color:#123b72 !important;
+    color:#ffffff !important;
+    box-shadow:0 0 0 4px rgba(18,59,114,.16) !important;
+}
+
+.ic-answer-options button[data-answer].selected span{
+    color:#ffffff !important;
+}
+
+
+.ic-question.is-readonly{
+    border-left-color:#94a3b8;
+    background:#fbfdff;
+}
+.ic-question.is-readonly .ic-answer-options button{
+    cursor:default !important;
+    opacity:1 !important;
+}
+.ic-question.is-readonly .ic-answer-options button:not(.selected){
+    background:#f8fafc !important;
+    color:#64748b !important;
+}
+.ic-mode-note{
+    margin-bottom:16px;
+    padding:12px 14px;
+    border:1px solid #dbe4f0;
+    border-radius:11px;
+    background:#f8fafc;
+    color:#475569;
+    font-size:13px;
+    line-height:1.5;
+}
+
+
+.ic-drawer-footer{
+    position:relative;
+    z-index:5;
+}
+#salvarRevisao{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-width:120px !important;
+    min-height:44px !important;
+    border:1px solid #123b72 !important;
+    background:#123b72 !important;
+    background-image:none !important;
+    color:#ffffff !important;
+    opacity:1 !important;
+    visibility:visible !important;
+    box-shadow:0 8px 18px rgba(18,59,114,.18) !important;
+}
+#salvarRevisao:hover{
+    background:#0c2e59 !important;
+    border-color:#0c2e59 !important;
+    color:#ffffff !important;
+}
+#salvarRevisao:disabled{
+    background:#94a3b8 !important;
+    border-color:#94a3b8 !important;
+    color:#ffffff !important;
+    opacity:.75 !important;
+}
+.ic-btn-danger{
+    border:1px solid #fecaca !important;
+    background:#fff !important;
+    color:#b42318 !important;
+}
+.ic-btn-danger:hover{
+    background:#fff1f1 !important;
+    border-color:#fda4af !important;
+}
+.ic-question.changed{
+    border-left-color:var(--ic-primary);
+    box-shadow:0 0 0 3px rgba(18,59,114,.07);
+}
+.ic-question.pending{
+    border-left-color:var(--ic-warning);
+}
+.ic-issue.ok{
+    background:var(--ic-success-soft);
+    color:var(--ic-success);
+}
+.ic-model-required{
+    border-color:#f0b96a !important;
+    box-shadow:0 0 0 3px rgba(184,100,8,.10);
+}
+
+
+/* MODAL DE EXCLUSÃO */
+.ic-delete-modal-overlay{
+    position:fixed;
+    inset:0;
+    z-index:1200;
+    display:grid;
+    place-items:center;
+    padding:24px;
+    background:rgba(15,23,42,.58);
+    backdrop-filter:blur(6px);
+    opacity:0;
+    visibility:hidden;
+    transition:.2s ease;
+}
+.ic-delete-modal-overlay.open{
+    opacity:1;
+    visibility:visible;
+}
+.ic-delete-modal{
+    width:min(560px,100%);
+    overflow:hidden;
+    border:1px solid #e4e9f0;
+    border-radius:24px;
+    background:#fff;
+    box-shadow:0 28px 80px rgba(15,23,42,.28);
+    transform:translateY(14px) scale(.98);
+    transition:.2s ease;
+}
+.ic-delete-modal-overlay.open .ic-delete-modal{
+    transform:none;
+}
+.ic-delete-modal-body{
+    padding:32px 32px 26px;
+    text-align:center;
+}
+.ic-delete-modal-icon{
+    display:grid;
+    place-items:center;
+    width:78px;
+    height:78px;
+    margin:0 auto 20px;
+    border:1px solid #fecaca;
+    border-radius:22px;
+    background:#fff1f2;
+    color:#dc2626;
+}
+.ic-delete-modal-icon svg{
+    width:34px;
+    height:34px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+}
+.ic-delete-modal h3{
+    margin:0;
+    color:#123b72;
+    font-size:27px;
+    font-weight:900;
+}
+.ic-delete-modal-subtitle{
+    margin:9px 0 20px;
+    color:#667085;
+    font-size:14px;
+    line-height:1.55;
+}
+.ic-delete-modal-card{
+    padding:16px 18px;
+    border:1px solid #dbe7f5;
+    border-radius:14px;
+    background:#f8fbff;
+}
+.ic-delete-modal-card strong{
+    display:block;
+    color:#123b72;
+    font-size:17px;
+    font-weight:900;
+}
+.ic-delete-modal-card span{
+    display:block;
+    margin-top:4px;
+    color:#667085;
+    font-size:13px;
+}
+.ic-delete-modal-warning{
+    display:grid;
+    grid-template-columns:28px minmax(0,1fr);
+    gap:10px;
+    align-items:start;
+    margin-top:18px;
+    padding:14px 15px;
+    border-left:4px solid #f59e0b;
+    border-radius:12px;
+    background:#fff7ed;
+    color:#9a4b0c;
+    text-align:left;
+    font-size:13px;
+    line-height:1.5;
+}
+.ic-delete-modal-warning svg{
+    width:22px;
+    height:22px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+}
+.ic-delete-modal-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:17px 24px;
+    border-top:1px solid #e4e9f0;
+    background:#fbfcfe;
+}
+.ic-delete-modal-footer button{
+    min-height:44px;
+    padding:10px 18px;
+    border-radius:11px;
+    font:inherit;
+    font-size:14px;
+    font-weight:850;
+    cursor:pointer;
+}
+.ic-delete-cancel{
+    border:1px solid #d0d5dd;
+    background:#fff;
+    color:#344054;
+}
+.ic-delete-cancel:hover{
+    background:#f8fafc;
+}
+.ic-delete-confirm{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    border:1px solid #dc2626;
+    background:#dc2626;
+    color:#fff;
+    box-shadow:0 8px 18px rgba(220,38,38,.22);
+}
+.ic-delete-confirm:hover{
+    background:#b91c1c;
+    border-color:#b91c1c;
+}
+.ic-delete-confirm:disabled{
+    opacity:.65;
+    cursor:not-allowed;
+}
+@media(max-width:620px){
+    .ic-delete-modal-body{padding:26px 20px 22px}
+    .ic-delete-modal-footer{flex-direction:column-reverse}
+    .ic-delete-modal-footer button{width:100%}
+}
+
+
+/* =========================================================
+   CORES DOS BOTÕES DE RESPOSTA — PADRÃO ARK EDUS
+   Alternativas: azul | Em branco: verde | Dupla: laranja
+========================================================= */
+
+/* Alternativas A, B, C e D */
+.ic-answer-options button[data-answer]{
+    display:inline-grid !important;
+    place-items:center !important;
+    width:42px !important;
+    min-width:42px !important;
+    max-width:42px !important;
+    height:42px !important;
+    min-height:42px !important;
+    max-height:42px !important;
+    padding:0 !important;
+    border:2px solid #123b72 !important;
+    border-radius:50% !important;
+    background:#eef5fc !important;
+    color:#123b72 !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+    line-height:1 !important;
+    transition:.18s ease !important;
+}
+
+.ic-answer-options button[data-answer] span{
+    color:inherit !important;
+    font-weight:900 !important;
+    pointer-events:none !important;
+}
+
+.ic-answer-options button[data-answer]:hover{
+    background:#dceaf8 !important;
+    border-color:#0c2e59 !important;
+    color:#0c2e59 !important;
+    transform:translateY(-1px);
+}
+
+.ic-answer-options button[data-answer].selected{
+    background:#123b72 !important;
+    border-color:#123b72 !important;
+    color:#ffffff !important;
+    box-shadow:0 0 0 4px rgba(18,59,114,.16) !important;
+}
+
+/* Em branco */
+.ic-answer-options .blank{
+    border:2px solid #087a55 !important;
+    background:#eaf8f2 !important;
+    color:#087a55 !important;
+    box-shadow:none !important;
+    transition:.18s ease !important;
+}
+
+.ic-answer-options .blank:hover{
+    background:#d9f3e8 !important;
+    border-color:#066243 !important;
+    color:#066243 !important;
+    transform:translateY(-1px);
+}
+
+.ic-answer-options .blank.selected{
+    background:#087a55 !important;
+    border-color:#087a55 !important;
+    color:#ffffff !important;
+    box-shadow:0 0 0 4px rgba(8,122,85,.15) !important;
+}
+
+/* Dupla marcação */
+.ic-answer-options .double{
+    border:2px solid #b86408 !important;
+    background:#fff7e8 !important;
+    color:#b86408 !important;
+    box-shadow:none !important;
+    transition:.18s ease !important;
+}
+
+.ic-answer-options .double:hover{
+    background:#ffedc9 !important;
+    border-color:#965006 !important;
+    color:#965006 !important;
+    transform:translateY(-1px);
+}
+
+.ic-answer-options .double.selected{
+    background:#b86408 !important;
+    border-color:#b86408 !important;
+    color:#ffffff !important;
+    box-shadow:0 0 0 4px rgba(184,100,8,.15) !important;
+}
+
+/* Mantém as cores visíveis mesmo quando a questão estiver destacada */
+.ic-question.changed .ic-answer-options button:not(.selected),
+.ic-question.pending .ic-answer-options button:not(.selected){
+    opacity:1 !important;
+}
+
+
+.ic-summary-five{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+}
+.ic-summary-card.absent strong{color:#64748b}
+.ic-status.pending{background:#eef5fc;color:#123b72}
+.ic-status.absent{background:#f1f5f9;color:#475569}
+.ic-btn-absence{
+    border:1px solid #f0b96a !important;
+    background:#fff7e8 !important;
+    color:#9a4b0c !important;
+}
+.ic-btn-absence:hover{
+    background:#ffedc9 !important;
+    border-color:#d97706 !important;
+}
+.ic-icon-pendente{background:#eef5fc;color:#123b72}
+.ic-icon-ausente{background:#f1f5f9;color:#64748b}
+@media(max-width:1250px){
+    .ic-summary-five{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+    .ic-summary-five{grid-template-columns:1fr}
+}
+
+/* Modal de presença */
+.ic-attendance-overlay{
+    position:fixed;
+    inset:0;
+    z-index:1250;
+    display:grid;
+    place-items:center;
+    padding:24px;
+    background:rgba(15,23,42,.58);
+    backdrop-filter:blur(6px);
+    opacity:0;
+    visibility:hidden;
+    transition:.2s ease;
+}
+.ic-attendance-overlay.open{opacity:1;visibility:visible}
+.ic-attendance-modal{
+    width:min(520px,100%);
+    overflow:hidden;
+    border:1px solid #e4e9f0;
+    border-radius:22px;
+    background:#fff;
+    box-shadow:0 28px 80px rgba(15,23,42,.28);
+    transform:translateY(12px) scale(.98);
+    transition:.2s ease;
+}
+.ic-attendance-overlay.open .ic-attendance-modal{transform:none}
+.ic-attendance-body{padding:30px;text-align:center}
+.ic-attendance-icon{
+    display:grid;
+    place-items:center;
+    width:72px;
+    height:72px;
+    margin:0 auto 18px;
+    border-radius:20px;
+    background:#fff7e8;
+    color:#b86408;
+    font-size:30px;
+    font-weight:900;
+}
+.ic-attendance-modal h3{
+    margin:0;
+    color:#123b72;
+    font-size:25px;
+    font-weight:900;
+}
+.ic-attendance-modal p{
+    margin:10px 0 18px;
+    color:#667085;
+    line-height:1.55;
+}
+.ic-attendance-student{
+    padding:15px;
+    border:1px solid #dbe7f5;
+    border-radius:13px;
+    background:#f8fbff;
+    color:#123b72;
+    font-size:17px;
+    font-weight:900;
+}
+.ic-attendance-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:16px 22px;
+    border-top:1px solid #e4e9f0;
+    background:#fbfcfe;
+}
+.ic-attendance-footer button{
+    min-height:44px;
+    padding:10px 17px;
+    border-radius:10px;
+    font:inherit;
+    font-weight:850;
+    cursor:pointer;
+}
+.ic-attendance-cancel{
+    border:1px solid #d0d5dd;
+    background:#fff;
+    color:#344054;
+}
+.ic-attendance-confirm{
+    border:1px solid #b86408;
+    background:#b86408;
+    color:#fff;
+}
+.ic-attendance-confirm.undo{
+    border-color:#123b72;
+    background:#123b72;
+}
+
+</style>
+{% endblock %}
+
+{% block cabecalho %}{% endblock %}
+
+{% block conteudo %}
+<div class="ic-page" data-aplicacao-id="{{ aplicacao.id }}">
+    <header class="ic-topbar">
+        <div class="ic-title">
+            <a class="ic-back" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar para aplicações</a>
+            <h1>Importação de Cartões</h1>
+            <p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }} · {{ aplicacao.disciplina }}</p>
+        </div>
+    </header>
+
+    <section class="ic-summary ic-summary-five">
+        <article class="ic-summary-card">
+            <span>Alunos da aplicação</span>
+            <strong>{{ resumo.alunos }}</strong>
+        </article>
+        <article class="ic-summary-card">
+            <span>Cartões importados</span>
+            <strong>{{ resumo.total }}</strong>
+        </article>
+        <article class="ic-summary-card success">
+            <span>Corrigidos</span>
+            <strong>{{ resumo.processados }}</strong>
+        </article>
+        <article class="ic-summary-card warning">
+            <span>Pendentes / revisão</span>
+            <strong>{{ resumo.pendentes + resumo.revisao }}</strong>
+        </article>
+        <article class="ic-summary-card absent">
+            <span>Ausentes</span>
+            <strong>{{ resumo.ausentes }}</strong>
+        </article>
+    </section>
+
+    <section class="ic-card ic-upload">
+        <div>
+            <h2>Importar cartões-resposta</h2>
+            <p>Envie um ou vários arquivos em PDF, JPG, JPEG ou PNG. Cada página do PDF será processada como um cartão.</p>
+            <div class="ic-upload-note">✓ Arquivos e páginas com falha são descartados automaticamente.</div>
+        </div>
+        <form method="post" enctype="multipart/form-data" class="ic-upload-form">
+            <label class="ic-file">
+                <input id="arquivosInput" type="file" name="arquivos" multiple
+                       accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+                <span id="arquivoLabel">Selecionar arquivos</span>
+            </label>
+            <button type="submit" class="ic-btn ic-btn-primary">Importar e corrigir</button>
+        </form>
+    </section>
+
+    <section class="ic-card">
+        <div class="ic-list-head">
+            <div>
+                <h2>Acompanhamento da turma</h2>
+                <p>Todos os alunos da aplicação aparecem aqui. A situação é atualizada conforme os cartões são importados.</p>
+            </div>
+            <div class="ic-filters">
+                <button type="button" class="ic-filter active" data-filter="todos">Todos</button>
+                <button type="button" class="ic-filter" data-filter="Pendente">Pendentes</button>
+                <button type="button" class="ic-filter" data-filter="Processado">Corrigidos</button>
+                <button type="button" class="ic-filter" data-filter="Revisão necessária">Revisão</button>
+                <button type="button" class="ic-filter" data-filter="Ausente">Ausentes</button>
+            </div>
+        </div>
+
+        <div class="ic-list">
+            {% for item in alunos_cartoes %}
+            <article class="ic-row"
+                     data-status="{{ item.status_lista }}"
+                     data-aluno-id="{{ item.aluno_id }}"
+                     {% if item.importacao_id %}data-id="{{ item.importacao_id }}"{% endif %}>
+                <div class="ic-icon ic-icon-{{ item.status_lista|lower|replace(' ', '-')|replace('ã','a') }}">
+                    {% if item.status_lista == 'Processado' %}
+                        ✓
+                    {% elif item.status_lista == 'Revisão necessária' %}
+                        !
+                    {% elif item.status_lista == 'Ausente' %}
+                        A
+                    {% else %}
+                        …
+                    {% endif %}
+                </div>
+
+                <div class="ic-main">
+                    <strong>{{ item.aluno_nome }}</strong>
+                    {% if item.importacao_id %}
+                        <span>{{ item.nome_arquivo }}</span>
+                        <small>{{ item.importado_em }}</small>
+                    {% else %}
+                        <span>Matrícula: {{ item.aluno_matricula or '—' }}</span>
+                        <small>
+                            {% if item.status_lista == 'Ausente' %}
+                                Aluno marcado como ausente
+                            {% else %}
+                                Aguardando importação do cartão
+                            {% endif %}
+                        </small>
+                    {% endif %}
+                </div>
+
+                <div class="ic-meta">
+                    {% if item.importacao_id %}
+                        <span>Modelo {{ item.modelo_importacao or item.modelo_aluno or '—' }}</span>
+                        {% if item.total_objetivas %}
+                            <span>{{ item.acertos_objetivos }}/{{ item.total_objetivas }} corretas</span>
+                        {% endif %}
+                    {% else %}
+                        <span>Modelo —</span>
+                    {% endif %}
+
+                    <span class="ic-status
+                        {% if item.status_lista == 'Processado' %}success
+                        {% elif item.status_lista == 'Revisão necessária' %}warning
+                        {% elif item.status_lista == 'Ausente' %}absent
+                        {% else %}pending{% endif %}">
+                        {% if item.status_lista == 'Processado' %}
+                            ✓ Corrigido
+                        {% elif item.status_lista == 'Revisão necessária' %}
+                            ⚠ Revisão necessária
+                        {% elif item.status_lista == 'Ausente' %}
+                            Ausente
+                        {% else %}
+                            Pendente
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div class="ic-actions">
+                    {% if item.importacao_id %}
+                        <button type="button"
+                                class="ic-btn {% if item.status_lista == 'Revisão necessária' %}ic-btn-primary{% else %}ic-btn-secondary{% endif %} ic-open-card">
+                            {% if item.status_lista == 'Revisão necessária' %}
+                                Revisar cartão
+                            {% else %}
+                                Ver e editar
+                            {% endif %}
+                        </button>
+                        <button type="button"
+                                class="ic-btn ic-btn-danger ic-delete-import">
+                            Excluir
+                        </button>
+                    {% elif item.status_lista == 'Ausente' %}
+                        <button type="button"
+                                class="ic-btn ic-btn-secondary ic-attendance"
+                                data-ausente="false">
+                            Desfazer falta
+                        </button>
+                    {% else %}
+                        <button type="button"
+                                class="ic-btn ic-btn-absence ic-attendance"
+                                data-ausente="true">
+                            Marcar falta
+                        </button>
+                    {% endif %}
+                </div>
+
+                <div class="ic-message">
+                    {% if item.mensagem %}
+                        {{ item.mensagem }}
+                    {% elif item.status_lista == 'Pendente' %}
+                        O cartão deste aluno ainda não foi importado.
+                    {% elif item.status_lista == 'Ausente' %}
+                        O aluno não participou desta aplicação.
+                    {% endif %}
+                </div>
+            </article>
+            {% else %}
+            <div class="ic-empty">
+                <strong>Nenhum aluno vinculado à aplicação</strong>
+                <span>Confira a turma e os alunos incluídos nesta aplicação.</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<div class="ic-overlay" id="icOverlay"></div>
+
+<aside class="ic-drawer" id="icDrawer" aria-hidden="true">
+    <header class="ic-drawer-header">
+        <div>
+            <span class="ic-drawer-kicker">REVISÃO DO CARTÃO</span>
+            <div class="ic-drawer-titleline">
+                <h2 id="drawerAluno">Carregando...</h2>
+                <span class="ic-pending-badge" id="pendingBadge">0 pendências</span>
+            </div>
+        </div>
+        <button type="button" class="ic-close" id="fecharDrawer" aria-label="Fechar">×</button>
+    </header>
+
+    <div class="ic-drawer-body">
+        <section class="ic-panel ic-image-panel">
+            <div class="ic-panel-head">
+                <strong>Imagem do cartão</strong>
+                <div class="ic-image-tools">
+                    <button type="button" class="ic-tool" id="zoomMenos" aria-label="Diminuir zoom">−</button>
+                    <span class="ic-zoom-label" id="zoomLabel">100%</span>
+                    <button type="button" class="ic-tool" id="zoomMais" aria-label="Aumentar zoom">+</button>
+                    <button type="button" class="ic-tool" id="ajustarImagem">Ajustar</button>
+                    <a id="abrirImagem" href="#" target="_blank">Abrir em nova aba</a>
+                </div>
+            </div>
+
+            <div class="ic-image-stage" id="imageStage">
+                <div class="ic-image-canvas" id="imageCanvas">
+                    <img id="cartaoImagem" alt="Cartão importado">
+                </div>
+                <div id="semImagem" class="ic-no-image" hidden>Imagem indisponível</div>
+            </div>
+        </section>
+
+        <section class="ic-panel ic-editor">
+            <div class="ic-editor-scroll">
+                <div class="ic-alert">
+                    <span class="ic-alert-icon">i</span>
+                    <div>
+                        <strong>Revise apenas as pendências destacadas.</strong><br>
+                        Você pode completar pendências ou corrigir qualquer informação antes de salvar.
+                    </div>
+                </div>
+
+                <div class="ic-student-card">
+                    <div class="ic-student-main">
+                        <small>Estudante</small>
+                        <strong id="studentName">—</strong>
+                        <div class="ic-student-meta">
+                            <span id="studentClass">Turma: —</span>
+                            <span id="studentEnrollment">Matrícula: —</span>
+                        </div>
+                    </div>
+
+                    <label class="ic-info-box">
+                        <small>Modelo da prova</small>
+                        <select id="modeloSelect"></select>
+                    </label>
+                </div>
+
+                <input class="ic-hidden-input" id="alunoId" type="number" readonly>
+
+                <div class="ic-review-head">
+                    <h3 class="ic-review-title">Questões para conferência</h3>
+                    <span class="ic-review-progress" id="reviewProgress">0 de 0 revisadas</span>
+                </div>
+
+                <div id="questoesEditor" class="ic-questions"></div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="ic-drawer-footer">
+        <span class="ic-save-message" id="salvarMensagem"></span>
+        <button type="button" class="ic-btn ic-btn-secondary" id="cancelarDrawer">Cancelar</button>
+        <button type="button" class="ic-btn ic-btn-primary" id="salvarRevisao">
+            Salvar
+        </button>
+    </footer>
+</aside>
+
+<div class="ic-attendance-overlay" id="attendanceOverlay" aria-hidden="true">
+    <div class="ic-attendance-modal" role="dialog" aria-modal="true">
+        <div class="ic-attendance-body">
+            <div class="ic-attendance-icon" id="attendanceIcon">A</div>
+            <h3 id="attendanceTitle">Marcar falta</h3>
+            <p id="attendanceText">
+                Confirme a ausência deste aluno na aplicação.
+            </p>
+            <div class="ic-attendance-student" id="attendanceStudent">
+                Aluno
+            </div>
+        </div>
+        <div class="ic-attendance-footer">
+            <button type="button"
+                    class="ic-attendance-cancel"
+                    id="attendanceCancel">
+                Cancelar
+            </button>
+            <button type="button"
+                    class="ic-attendance-confirm"
+                    id="attendanceConfirm">
+                Marcar falta
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+<div class="ic-delete-modal-overlay" id="deleteModalOverlay" aria-hidden="true">
+    <div class="ic-delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="ic-delete-modal-body">
+            <div class="ic-delete-modal-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 6H21"></path>
+                    <path d="M8 6V4H16V6"></path>
+                    <path d="M19 6L18 21H6L5 6"></path>
+                    <path d="M10 11V16"></path>
+                    <path d="M14 11V16"></path>
+                </svg>
+            </div>
+
+            <h3 id="deleteModalTitle">Excluir importação</h3>
+            <p class="ic-delete-modal-subtitle">
+                Você está prestes a excluir permanentemente este cartão importado.
+            </p>
+
+            <div class="ic-delete-modal-card">
+                <strong id="deleteModalStudent">Aluno</strong>
+                <span id="deleteModalFile">Arquivo importado</span>
+            </div>
+
+            <div class="ic-delete-modal-warning">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 8V13"></path>
+                    <path d="M12 17H12.01"></path>
+                </svg>
+                <div>
+                    <strong>Atenção:</strong> a imagem, as respostas e o resultado objetivo
+                    vinculados a esta importação serão removidos. Esta ação não poderá ser desfeita.
+                </div>
+            </div>
+        </div>
+
+        <div class="ic-delete-modal-footer">
+            <button type="button" class="ic-delete-cancel" id="deleteModalCancel">
+                Cancelar
+            </button>
+            <button type="button" class="ic-delete-confirm" id="deleteModalConfirm">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6H21"></path>
+                    <path d="M8 6V4H16V6"></path>
+                    <path d="M19 6L18 21H6L5 6"></path>
+                </svg>
+                Excluir importação
+            </button>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+{% block scripts %}
+<script>
+(() => {
+    const page = document.querySelector('.ic-page');
+    const aplicacaoId = page.dataset.aplicacaoId;
+    const drawer = document.getElementById('icDrawer');
+    const overlay = document.getElementById('icOverlay');
+    const editor = document.getElementById('questoesEditor');
+    const respostasAtuais = new Map();
+
+    let importacaoAtual = null;
+    let zoomAtual = 100;
+    let alterado = false;
+
+    function abrirDrawer() {
+        drawer.classList.add('open');
+        overlay.classList.add('open');
+        drawer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function fecharDrawer(forcar=false) {
+        if (!forcar && alterado &&
+            !confirm('Existem alterações não salvas. Deseja fechar mesmo assim?')) {
+            return;
+        }
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+        drawer.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        alterado = false;
+    }
+
+    function marcarAlterado() {
+        alterado = true;
+        const mensagem = document.getElementById('salvarMensagem');
+        mensagem.textContent = 'Há alterações não salvas.';
+        mensagem.className = 'ic-save-message';
+    }
+
+    function atualizarZoom(valor) {
+        zoomAtual = Math.max(50, Math.min(220, valor));
+        const imagem = document.getElementById('cartaoImagem');
+        imagem.style.width = `${zoomAtual}%`;
+        imagem.style.maxWidth = 'none';
+        document.getElementById('zoomLabel').textContent = `${zoomAtual}%`;
+    }
+
+    function ajustarImagem() {
+        zoomAtual = 100;
+        const imagem = document.getElementById('cartaoImagem');
+        imagem.style.width = '100%';
+        imagem.style.maxWidth = '100%';
+        document.getElementById('zoomLabel').textContent = 'Ajustado';
+        document.getElementById('imageStage').scrollTo({
+            top:0, left:0, behavior:'smooth'
+        });
+    }
+
+    function atualizarResumo() {
+        const itens = [...respostasAtuais.values()];
+        const pendentes = itens.filter(item =>
+            ['em_branco', 'dupla_marcacao'].includes(item.situacao)
+        ).length;
+        const modelo = Number(
+            document.getElementById('modeloSelect').value || 0
+        );
+
+        const totalPendencias = pendentes + (modelo ? 0 : 1);
+        document.getElementById('pendingBadge').textContent =
+            totalPendencias
+                ? `${totalPendencias} ${totalPendencias === 1 ? 'pendência' : 'pendências'}`
+                : 'Cartão completo';
+        document.getElementById('reviewProgress').textContent =
+            `${itens.length} questões objetivas`;
+    }
+
+    function criarQuestao(item) {
+        const numero = Number(item.numero_questao);
+        const atual = {...item};
+        respostasAtuais.set(numero, atual);
+
+        const bloco = document.createElement('article');
+        const pendente = ['em_branco', 'dupla_marcacao'].includes(
+            atual.situacao
+        );
+        bloco.className = `ic-question${pendente ? ' pending' : ''}`;
+        bloco.dataset.numero = numero;
+
+        function descricao() {
+            if (atual.situacao === 'respondida') {
+                return `Resposta marcada: ${atual.resposta || '—'}`;
+            }
+            if (atual.situacao === 'dupla_marcacao') {
+                return 'Dupla marcação detectada';
+            }
+            if (atual.situacao === 'anulada') {
+                return 'Questão anulada';
+            }
+            return 'Resposta em branco';
+        }
+
+        bloco.innerHTML = `
+            <div class="ic-question-head">
+                <strong>Questão ${String(numero).padStart(2, '0')}</strong>
+                <span class="ic-issue ${pendente ? '' : 'ok'}">
+                    ${pendente ? '⚠' : '✓'} ${descricao()}
+                </span>
+            </div>
+            <div class="ic-answer-caption">
+                Confira no cartão e altere quando necessário:
+            </div>
+            <div class="ic-answer-options">
+                ${['A','B','C','D'].map(letra => `
+                    <button type="button"
+                            data-answer="${letra}"
+                            class="${atual.situacao === 'respondida' &&
+                                    atual.resposta === letra ? 'selected' : ''}">
+                        <span>${letra}</span>
+                    </button>
+                `).join('')}
+                <button type="button"
+                        class="blank ${atual.situacao === 'em_branco' ? 'selected' : ''}"
+                        data-state="em_branco">
+                    Em branco
+                </button>
+                <button type="button"
+                        class="double ${atual.situacao === 'dupla_marcacao' ? 'selected' : ''}"
+                        data-state="dupla_marcacao">
+                    Dupla marcação
+                </button>
+            </div>
+        `;
+
+        if (atual.situacao === 'anulada') {
+            bloco.querySelectorAll('button').forEach(botao => {
+                botao.disabled = true;
+            });
+            return bloco;
+        }
+
+        bloco.querySelectorAll('button').forEach(botao => {
+            botao.addEventListener('click', () => {
+                bloco.querySelectorAll('button').forEach(
+                    b => b.classList.remove('selected')
+                );
+                botao.classList.add('selected');
+
+                if (botao.dataset.answer) {
+                    atual.situacao = 'respondida';
+                    atual.resposta = botao.dataset.answer;
+                } else {
+                    atual.situacao = botao.dataset.state;
+                    atual.resposta = '';
+                }
+
+                respostasAtuais.set(numero, atual);
+                bloco.classList.add('changed');
+                bloco.classList.toggle(
+                    'pending',
+                    ['em_branco', 'dupla_marcacao'].includes(atual.situacao)
+                );
+
+                const issue = bloco.querySelector('.ic-issue');
+                const aindaPendente = ['em_branco', 'dupla_marcacao'].includes(
+                    atual.situacao
+                );
+                issue.classList.toggle('ok', !aindaPendente);
+                issue.textContent = aindaPendente
+                    ? `⚠ ${atual.situacao === 'em_branco'
+                        ? 'Resposta em branco'
+                        : 'Dupla marcação detectada'}`
+                    : `✓ Resposta marcada: ${atual.resposta}`;
+
+                marcarAlterado();
+                atualizarResumo();
+            });
+        });
+
+        return bloco;
+    }
+
+    async function carregarImportacao(id) {
+        importacaoAtual = id;
+        respostasAtuais.clear();
+        alterado = false;
+
+        editor.innerHTML =
+            '<div class="ic-loading">Carregando cartão...</div>';
+        const mensagem = document.getElementById('salvarMensagem');
+        const salvar = document.getElementById('salvarRevisao');
+        mensagem.textContent = '';
+        mensagem.className = 'ic-save-message';
+        salvar.disabled = false;
+
+        abrirDrawer();
+
+        try {
+            const resposta = await fetch(
+                `/aplicacoes/${aplicacaoId}/importacoes/${id}/dados`
+            );
+            const dados = await resposta.json();
+
+            if (!resposta.ok) {
+                throw new Error(
+                    dados.erro || 'Não foi possível abrir o cartão.'
+                );
+            }
+
+            const item = dados.importacao;
+            const nomeAluno = item.aluno_nome || 'Aluno não identificado';
+
+            document.querySelector('.ic-drawer-kicker').textContent =
+                item.status === 'Revisão necessária'
+                    ? 'REVISÃO DO CARTÃO'
+                    : 'EDIÇÃO DO CARTÃO';
+            document.getElementById('drawerAluno').textContent = nomeAluno;
+            document.getElementById('studentName').textContent = nomeAluno;
+            document.getElementById('studentClass').textContent =
+                `Turma: ${item.turma_nome || '—'}`;
+            document.getElementById('studentEnrollment').textContent =
+                `Matrícula: ${item.aluno_matricula || '—'}`;
+            document.getElementById('alunoId').value = item.aluno_id || '';
+
+            const alerta = document.querySelector('.ic-alert div');
+            alerta.innerHTML =
+                '<strong>Confira o cartão antes de salvar.</strong><br>' +
+                'Você pode escolher o modelo e alterar qualquer resposta. ' +
+                'Questões mantidas em branco ou com dupla marcação valerão zero. ' +
+                'O resultado será recalculado automaticamente.';
+
+            const select = document.getElementById('modeloSelect');
+            select.innerHTML =
+                '<option value="">Selecione o modelo</option>';
+
+            for (let i = 1; i <= Number(item.quantidade_modelos || 1); i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Modelo ${i}`;
+                option.selected = Number(item.modelo || 0) === i;
+                select.appendChild(option);
+            }
+
+            select.classList.toggle('ic-model-required', !item.modelo);
+            select.onchange = () => {
+                select.classList.toggle(
+                    'ic-model-required',
+                    !select.value
+                );
+                marcarAlterado();
+                atualizarResumo();
+            };
+
+            const imagem = document.getElementById('cartaoImagem');
+            const canvas = document.getElementById('imageCanvas');
+            const semImagem = document.getElementById('semImagem');
+            const link = document.getElementById('abrirImagem');
+
+            if (item.imagem_url) {
+                imagem.src = item.imagem_url;
+                canvas.hidden = false;
+                semImagem.hidden = true;
+                link.href = item.imagem_url;
+                link.hidden = false;
+                ajustarImagem();
+            } else {
+                canvas.hidden = true;
+                semImagem.hidden = false;
+                link.hidden = true;
+            }
+
+            editor.innerHTML = '';
+            dados.respostas.forEach(itemResposta => {
+                editor.appendChild(criarQuestao(itemResposta));
+            });
+
+            atualizarResumo();
+        } catch (erro) {
+            editor.innerHTML = `
+                <div class="ic-no-pending">
+                    <strong>Não foi possível abrir o cartão.</strong><br>
+                    ${erro.message}
+                </div>
+            `;
+            salvar.disabled = true;
+        }
+    }
+
+    async function salvarCartao() {
+        const mensagem = document.getElementById('salvarMensagem');
+        console.log('ARK EDUS: botão Salvar acionado');
+        const botao = document.getElementById('salvarRevisao');
+        const modelo = Number(
+            document.getElementById('modeloSelect').value || 0
+        );
+
+        if (!modelo) {
+            mensagem.textContent = 'Selecione o modelo da prova.';
+            mensagem.className = 'ic-save-message error';
+            document.getElementById('modeloSelect').focus();
+            return;
+        }
+
+        mensagem.textContent = 'Salvando a conferência e recalculando...';
+        mensagem.className = 'ic-save-message';
+        botao.disabled = true;
+
+        const respostas = [...respostasAtuais.values()].map(item => ({
+            numero: Number(item.numero_questao),
+            situacao: item.situacao,
+            resposta: item.resposta || ''
+        }));
+
+        try {
+            const retorno = await fetch(
+                `/aplicacoes/${aplicacaoId}/importacoes/${importacaoAtual}/salvar`,
+                {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        aluno_id:Number(
+                            document.getElementById('alunoId').value
+                        ),
+                        modelo,
+                        respostas
+                    })
+                }
+            );
+            const dados = await retorno.json();
+
+            if (!retorno.ok) {
+                throw new Error(
+                    dados.erro || 'Não foi possível salvar.'
+                );
+            }
+
+            alterado = false;
+            mensagem.textContent =
+                `Salvo: ${dados.acertos}/${dados.total} corretas · ` +
+                `Nota ${dados.nota}`;
+            mensagem.className = 'ic-save-message success';
+
+            setTimeout(() => window.location.reload(), 850);
+        } catch (erro) {
+            mensagem.textContent = erro.message;
+            mensagem.className = 'ic-save-message error';
+            botao.disabled = false;
+        }
+    }
+
+    let linhaParaExcluir = null;
+
+    function abrirModalExclusao(row) {
+        linhaParaExcluir = row;
+
+        const nome = row.querySelector('.ic-main strong')?.textContent?.trim()
+            || 'Aluno não identificado';
+        const arquivo = row.querySelector('.ic-main span')?.textContent?.trim()
+            || 'Arquivo importado';
+
+        document.getElementById('deleteModalStudent').textContent = nome;
+        document.getElementById('deleteModalFile').textContent = arquivo;
+
+        const modal = document.getElementById('deleteModalOverlay');
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function fecharModalExclusao() {
+        const modal = document.getElementById('deleteModalOverlay');
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        linhaParaExcluir = null;
+
+        if (!drawer.classList.contains('open')) {
+            document.body.style.overflow = '';
+        }
+    }
+
+    async function confirmarExclusao() {
+        if (!linhaParaExcluir) return;
+
+        const botao = document.getElementById('deleteModalConfirm');
+        const row = linhaParaExcluir;
+        const id = row.dataset.id;
+
+        botao.disabled = true;
+        botao.lastChild.textContent = ' Excluindo...';
+
+        try {
+            const resposta = await fetch(
+                `/aplicacoes/${aplicacaoId}/importacoes/${id}/excluir`,
+                {method:'POST'}
+            );
+            const dados = await resposta.json();
+
+            if (!resposta.ok) {
+                throw new Error(
+                    dados.erro || 'Não foi possível excluir a importação.'
+                );
+            }
+
+            fecharModalExclusao();
+            row.remove();
+            window.location.reload();
+        } catch (erro) {
+            alert(erro.message);
+            botao.disabled = false;
+            botao.lastChild.textContent = ' Excluir importação';
+        }
+    }
+
+    // Liga primeiro os controles principais do drawer.
+    // Assim, mesmo que algum elemento opcional da página não exista,
+    // Salvar, Cancelar e Fechar continuam funcionando.
+    document.getElementById('salvarRevisao')?.addEventListener(
+        'click', salvarCartao
+    );
+    document.getElementById('fecharDrawer')?.addEventListener(
+        'click', () => fecharDrawer()
+    );
+    document.getElementById('cancelarDrawer')?.addEventListener(
+        'click', () => fecharDrawer()
+    );
+    overlay?.addEventListener('click', () => fecharDrawer());
+
+    document.querySelectorAll('.ic-open-card').forEach(botao => {
+        botao.addEventListener('click', () => {
+            carregarImportacao(
+                botao.closest('.ic-row').dataset.id
+            );
+        });
+    });
+
+    document.querySelectorAll('.ic-delete-import').forEach(botao => {
+        botao.addEventListener('click', () => {
+            abrirModalExclusao(botao.closest('.ic-row'));
+        });
+    });
+
+    document.getElementById('deleteModalCancel')?.addEventListener(
+        'click', fecharModalExclusao
+    );
+    document.getElementById('deleteModalConfirm')?.addEventListener(
+        'click', confirmarExclusao
+    );
+    document.getElementById('deleteModalOverlay')?.addEventListener(
+        'click',
+        event => {
+            if (event.target.id === 'deleteModalOverlay') {
+                fecharModalExclusao();
+            }
+        }
+    );
+
+
+    let linhaPresenca = null;
+    let marcarComoAusente = true;
+
+    function abrirModalPresenca(row, ausente) {
+        linhaPresenca = row;
+        marcarComoAusente = ausente;
+
+        const nome = row.querySelector('.ic-main strong')?.textContent?.trim()
+            || 'Aluno';
+
+        const modal = document.getElementById('attendanceOverlay');
+        const aluno = document.getElementById('attendanceStudent');
+        const titulo = document.getElementById('attendanceTitle');
+        const texto = document.getElementById('attendanceText');
+        const icone = document.getElementById('attendanceIcon');
+        const confirmar = document.getElementById('attendanceConfirm');
+
+        if (!modal || !aluno || !titulo || !texto || !icone || !confirmar) {
+            alert('Não foi possível abrir a janela de presença. Atualize a página com Ctrl + F5.');
+            return;
+        }
+
+        aluno.textContent = nome;
+        titulo.textContent =
+            ausente ? 'Marcar falta' : 'Desfazer falta';
+        texto.textContent =
+            ausente
+                ? 'O aluno será registrado como ausente nesta aplicação e deixará de aparecer entre os pendentes.'
+                : 'O aluno voltará para a lista de pendentes, aguardando a importação do cartão.';
+        icone.textContent = ausente ? 'A' : '↶';
+
+        confirmar.textContent = ausente ? 'Marcar falta' : 'Desfazer falta';
+        confirmar.classList.toggle('undo', !ausente);
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function fecharModalPresenca() {
+        const modal = document.getElementById('attendanceOverlay');
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        linhaPresenca = null;
+        document.body.style.overflow = '';
+    }
+
+    async function confirmarPresenca() {
+        if (!linhaPresenca) return;
+
+        const botao = document.getElementById('attendanceConfirm');
+        const alunoId = linhaPresenca.dataset.alunoId;
+        botao.disabled = true;
+
+        try {
+            const resposta = await fetch(
+                `/aplicacoes/${aplicacaoId}/alunos/${alunoId}/ausencia`,
+                {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({ausente:marcarComoAusente})
+                }
+            );
+            const dados = await resposta.json();
+
+            if (!resposta.ok) {
+                throw new Error(
+                    dados.erro || 'Não foi possível atualizar a presença.'
+                );
+            }
+
+            fecharModalPresenca();
+            window.location.reload();
+        } catch (erro) {
+            alert(erro.message);
+            botao.disabled = false;
+        }
+    }
+
+    document.querySelectorAll('.ic-attendance').forEach(botao => {
+        botao.addEventListener('click', () => {
+            abrirModalPresenca(
+                botao.closest('.ic-row'),
+                botao.dataset.ausente === 'true'
+            );
+        });
+    });
+
+    document.getElementById('attendanceCancel')?.addEventListener(
+        'click', fecharModalPresenca
+    );
+    document.getElementById('attendanceConfirm')?.addEventListener(
+        'click', confirmarPresenca
+    );
+    document.getElementById('attendanceOverlay')?.addEventListener(
+        'click',
+        event => {
+            if (event.target.id === 'attendanceOverlay') {
+                fecharModalPresenca();
+            }
+        }
+    );
+
+    document.querySelectorAll('.ic-filter').forEach(botao => {
+        botao.addEventListener('click', () => {
+            document.querySelectorAll('.ic-filter').forEach(
+                b => b.classList.remove('active')
+            );
+            botao.classList.add('active');
+
+            document.querySelectorAll('.ic-row').forEach(row => {
+                row.hidden =
+                    botao.dataset.filter !== 'todos' &&
+                    row.dataset.status !== botao.dataset.filter;
+            });
+        });
+    });
+
+    document.getElementById('arquivosInput').addEventListener(
+        'change',
+        event => {
+            const total = event.target.files.length;
+            document.getElementById('arquivoLabel').textContent =
+                total
+                    ? `${total} arquivo(s) selecionado(s)`
+                    : 'Selecionar arquivos';
+        }
+    );
+
+    document.getElementById('zoomMenos').addEventListener(
+        'click', () => atualizarZoom(zoomAtual - 15)
+    );
+    document.getElementById('zoomMais').addEventListener(
+        'click', () => atualizarZoom(zoomAtual + 15)
+    );
+    document.getElementById('ajustarImagem').addEventListener(
+        'click', ajustarImagem
+    );
+    document.addEventListener('keydown', event => {
+        const modalPresenca =
+            document.getElementById('attendanceOverlay');
+        if (modalPresenca?.classList.contains('open') &&
+            event.key === 'Escape') {
+            fecharModalPresenca();
+            return;
+        }
+
+        const modalExclusao =
+            document.getElementById('deleteModalOverlay');
+
+        if (modalExclusao?.classList.contains('open') &&
+            event.key === 'Escape') {
+            fecharModalExclusao();
+            return;
+        }
+
+        if (drawer.classList.contains('open') && event.key === 'Escape') {
+            fecharDrawer();
+        }
+    });
+})();
+</script>
+{% endblock %}

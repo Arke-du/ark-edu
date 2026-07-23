@@ -1,1 +1,1020 @@
-<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Cartões-resposta</title><style>@page{size:A4;margin:8mm}*{box-sizing:border-box}body{font-family:Arial;color:#000;margin:0}.pagina{min-height:277mm;page-break-after:always;padding:4mm}.cab{display:grid;grid-template-columns:1fr 28mm;gap:8mm;border:1px solid #000;border-radius:4mm;padding:4mm}.qr{width:25mm}.dados{display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px}.area{position:relative;border:1px solid #000;border-radius:3mm;margin-top:5mm;padding:10mm}.marca{position:absolute;width:6mm;height:6mm;background:#000}.tl{top:2mm;left:2mm}.tr{top:2mm;right:2mm}.bl{bottom:2mm;left:2mm}.br{bottom:2mm;right:2mm}.grade{max-width:90mm;margin:auto}.linha{display:grid;grid-template-columns:12mm repeat(4,1fr);align-items:center;min-height:8mm;border-bottom:1px solid #ddd;text-align:center}.bolha{display:inline-flex;width:5.5mm;height:5.5mm;border:1.2px solid #000;border-radius:50%;align-items:center;justify-content:center;font-size:8px}.disc{grid-column:2/6;font-weight:bold;font-size:9px}.folha-disc{margin-top:8mm}.resp{margin:7mm 0;break-inside:avoid}.linha-escrita{height:7mm;border-bottom:1px solid #777}.print{position:fixed;right:20px;top:20px}@media print{.print{display:none}}</style></head><body><button class="print" onclick="print()">Salvar em PDF</button>{% for c in cartoes %}<section class="pagina"><header class="cab"><div><h2 style="margin:0">{{ aplicacao.nome_instituicao }}</h2><h3>{{ aplicacao.prova_nome }} — Cartão-resposta</h3><div class="dados"><span><b>Aluno(a):</b> {{ c.aluno.nome }}</span><span><b>Matrícula:</b> {{ c.aluno.matricula or '—' }}</span><span><b>Turma:</b> {{ aplicacao.turma_nome }}</span><span><b>Modelo:</b> {{ c.aluno.modelo }}</span></div></div><img class="qr" src="data:image/png;base64,{{ c.qr_base64 }}"></header><div class="area"><i class="marca tl"></i><i class="marca tr"></i><i class="marca bl"></i><i class="marca br"></i><div class="grade">{% for q in c.questoes %}<div class="linha"><b>{{ '%02d'|format(q.numero) }}</b>{% if q.discursiva %}<span class="disc">DISCURSIVA</span>{% else %}{% for letra in ['A','B','C','D'] %}<span class="bolha">{{ letra }}</span>{% endfor %}{% endif %}</div>{% endfor %}</div></div></section>{% if c.discursivas %}<section class="pagina"><header class="cab"><div><h2 style="margin:0">{{ aplicacao.nome_instituicao }}</h2><h3>Respostas discursivas</h3><div class="dados"><span><b>Aluno(a):</b> {{ c.aluno.nome }}</span><span><b>Modelo:</b> {{ c.aluno.modelo }}</span></div></div><img class="qr" src="data:image/png;base64,{{ c.qr_base64 }}"></header><div class="folha-disc">{% for q in c.discursivas %}<div class="resp"><b>Questão {{ '%02d'|format(q.numero) }}</b>{% for x in range(q.linhas) %}<div class="linha-escrita"></div>{% endfor %}</div>{% endfor %}</div></section>{% endif %}{% endfor %}</body></html>
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cartões-resposta | {{ aplicacao.prova_nome }}</title>
+
+<style>
+@page{
+    size:A4 portrait;
+    margin:7mm;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+    margin:0;
+    padding:0;
+    background:#edf1f5;
+    color:#111;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+.print{
+    position:fixed;
+    top:18px;
+    right:22px;
+    z-index:50;
+    border:0;
+    border-radius:10px;
+    padding:11px 18px;
+    background:#123f88;
+    color:#fff;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 8px 22px rgba(0,0,0,.18);
+}
+
+.pagina{
+    position:relative;
+    width:196mm;
+    min-height:283mm;
+    margin:10mm auto;
+    padding:7mm;
+    background:#fff;
+    page-break-after:always;
+    overflow:hidden;
+}
+
+.pagina:last-of-type{page-break-after:auto}
+
+/* =========================================================
+   CABEÇALHO
+========================================================= */
+.cabecalho{
+    display:grid;
+    grid-template-columns:54mm 1fr 31mm;
+    gap:6mm;
+    align-items:center;
+    min-height:43mm;
+    padding:1mm 0 5mm;
+    border-bottom:1.8px solid #111;
+}
+
+.marcas{
+    display:grid;
+    grid-template-columns:1.35fr 1fr;
+    align-items:center;
+    min-height:31mm;
+}
+
+.logo-escola,
+.logo-arke{
+    min-width:0;
+    min-height:31mm;
+    padding:2.5mm;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.logo-escola{
+    border-right:1.8px solid #111;
+}
+
+.logo-escola img{
+    max-width:100%;
+    max-height:24mm;
+    object-fit:contain;
+}
+
+.logo-placeholder{
+    font-size:9px;
+    font-weight:800;
+    line-height:1.2;
+    text-align:center;
+}
+
+.logo-arke{
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+    padding-left:5mm;
+    font-size:18px;
+    line-height:.92;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-align:left;
+}
+
+.logo-arke small{
+    display:block;
+    margin-top:2.2mm;
+    font-size:7.5px;
+    line-height:1.08;
+    font-weight:900;
+    letter-spacing:.03em;
+}
+
+.centro-cabecalho{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    text-align:center;
+}
+
+.centro-cabecalho h1{
+    margin:0;
+    max-width:100%;
+    font-size:19px;
+    line-height:1.15;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.nome-avaliacao{
+    max-width:100%;
+    margin-top:2mm;
+    font-size:11px;
+    font-weight:700;
+    line-height:1.2;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.titulo-cartao{
+    width:82mm;
+    margin-top:4mm;
+    padding:2.4mm 5mm;
+    border:1.6px solid #111;
+    border-radius:4.5mm;
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:.025em;
+    text-align:center;
+}
+
+.qr-area{
+    min-height:34mm;
+    padding:2mm;
+    border:1px dashed #777;
+    border-radius:3mm;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+}
+
+.qr-area img{
+    width:21mm;
+    height:21mm;
+    object-fit:contain;
+}
+
+.qr-area strong{
+    margin-top:.8mm;
+    font-size:6px;
+    font-weight:500;
+}
+
+.qr-area .codigo{
+    margin-top:.5mm;
+    font-family:"Courier New",monospace;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.12em;
+}
+
+/* =========================================================
+   IDENTIFICAÇÃO
+========================================================= */
+.faixa-identificacao{
+    display:grid;
+    grid-template-columns:1fr 46mm;
+    gap:4mm;
+    margin-top:4mm;
+}
+
+.dados{
+    border:1.6px solid #111;
+    border-radius:3mm;
+    padding:4mm 4mm 3mm;
+}
+
+.linha-dados{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 53mm;
+    min-height:9.2mm;
+    border-bottom:1.3px solid #a9a9a9;
+}
+
+.linha-dados:last-child{border-bottom:0}
+
+.campo{
+    min-width:0;
+    padding:1.8mm 1mm;
+    display:flex;
+    align-items:center;
+    gap:2.5mm;
+    overflow:hidden;
+    font-size:10px;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+}
+
+.campo b{
+    min-width:19mm;
+    font-size:9px;
+    font-weight:800;
+}
+
+.modelo{
+    border:1.6px solid #111;
+    border-radius:3mm;
+    padding:7mm 3mm 5mm;
+    text-align:center;
+}
+
+.modelo strong{
+    display:block;
+    margin-bottom:1.2mm;
+    font-size:11px;
+    font-weight:900;
+}
+
+.modelo::after{
+    content:"Preencha apenas uma opção.";
+    display:block;
+    margin-top:1mm;
+    font-size:7px;
+    color:#333;
+}
+
+.opcoes-modelo{
+    display:flex;
+    justify-content:center;
+    gap:4.5mm;
+    margin-top:4mm;
+}
+
+.opcao-modelo{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1.8mm;
+    font-size:9px;
+    font-weight:800;
+}
+
+.bolha-modelo{
+    width:5.8mm;
+    height:5.8mm;
+    border:1.6px solid #111;
+    border-radius:50%;
+    background:#fff;
+}
+
+/* =========================================================
+   INSTRUÇÕES
+========================================================= */
+.instrucoes{
+    margin-top:4mm;
+    border:1.6px solid #111;
+    border-radius:3mm;
+    padding:3.5mm 4mm 3mm;
+}
+
+.instrucoes-titulo{
+    padding:0 0 2.5mm;
+    font-size:11px;
+    font-weight:900;
+    text-align:center;
+    text-transform:uppercase;
+    letter-spacing:.02em;
+}
+
+.instrucoes-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+}
+
+.instrucao{
+    min-height:13mm;
+    padding:1.5mm 3.5mm;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:8px;
+    line-height:1.35;
+    text-align:center;
+}
+
+.instrucao + .instrucao{
+    border-left:1.3px solid #999;
+}
+
+/* =========================================================
+   ÁREA DE RESPOSTAS
+========================================================= */
+.area-cartao{
+    position:relative;
+    min-height:145mm;
+    margin-top:4mm;
+    padding:6mm 8mm 10mm;
+    border:1.8px solid #111;
+    border-radius:3mm;
+}
+
+.marca{
+    position:absolute;
+    width:5.5mm;
+    height:5.5mm;
+    background:#000;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+}
+
+.tl{top:3mm;left:3mm}
+.tr{top:3mm;right:3mm}
+.bl{bottom:3mm;left:3mm}
+.br{bottom:3mm;right:3mm}
+
+.grade{
+    width:78mm;
+    margin:0 auto;
+    border:1.3px solid #999;
+    border-radius:1.8mm;
+    overflow:hidden;
+    box-shadow:0 0 0 .2mm #eee inset;
+}
+
+.cab-grade{
+    display:grid;
+    grid-template-columns:18mm 1fr;
+    min-height:9mm;
+    align-items:center;
+    background:#111;
+    color:#fff;
+    font-size:8px;
+    font-weight:900;
+    text-align:center;
+}
+
+.cab-grade .cab-alternativas{
+    border-left:1.3px solid rgba(255,255,255,.75);
+    color:#fff !important;
+    letter-spacing:.05em;
+}
+
+.linha{
+    display:grid;
+    grid-template-columns:18mm repeat(4,1fr);
+    align-items:center;
+    min-height:7mm;
+    border-bottom:1px solid #ddd;
+    text-align:center;
+}
+
+.linha:nth-child(even){
+    background:#fafafa;
+}
+
+.linha:last-child{border-bottom:0}
+
+.numero{
+    font-size:8.5px;
+    font-weight:900;
+}
+
+.bolha{
+    width:4.9mm;
+    height:4.9mm;
+    margin:auto;
+    border:1.25px solid #111;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    font-size:7.5px;
+    font-weight:700;
+}
+
+.discursiva{
+    grid-column:2/6;
+    font-size:8px;
+    font-weight:900;
+    letter-spacing:.03em;
+}
+
+
+.assinatura-cartao{
+    position:absolute;
+    left:8mm;
+    right:8mm;
+    bottom:20mm;
+    display:flex;
+    align-items:flex-end;
+    gap:4mm;
+    font-size:9px;
+    font-weight:800;
+}
+
+.assinatura-cartao .rotulo{
+    white-space:nowrap;
+}
+
+.assinatura-cartao .linha-assinatura{
+    flex:1;
+    height:7mm;
+    border-bottom:1.5px solid #111;
+}
+
+/* =========================================================
+   ASSINATURA
+========================================================= */
+.assinatura{
+    position:absolute;
+    left:7mm;
+    right:7mm;
+    bottom:5mm;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.assinatura-bloco{
+    width:64mm;
+    text-align:center;
+    font-size:8px;
+}
+
+.assinatura-linha{
+    height:8mm;
+    border-bottom:1px solid #111;
+    margin-bottom:1.2mm;
+}
+
+/* =========================================================
+   FOLHA DISCURSIVA
+========================================================= */
+.identificacao-discursiva{
+    margin-top:4mm;
+    padding:3mm 4mm;
+    border:1.6px solid #111;
+    border-radius:3mm;
+    font-size:8px;
+}
+
+.respostas-discursivas{
+    margin-top:4mm;
+    padding-bottom:22mm;
+}
+
+.questao-discursiva{
+    margin-bottom:7mm;
+    break-inside:avoid;
+}
+
+.questao-discursiva h3{
+    margin:0 0 2mm;
+    font-size:10px;
+}
+
+.linha-escrita{
+    height:7mm;
+    border-bottom:1px solid #777;
+}
+
+
+/* =========================================================
+   FOLHA DISCURSIVA — LAYOUT APRIMORADO
+========================================================= */
+.pagina-discursiva{
+    display:flex;
+    flex-direction:column;
+}
+
+.bloco-identificacao-discursiva{
+    margin-top:4mm;
+    padding:4mm;
+    border:1.6px solid #111;
+    border-radius:3mm;
+}
+
+.identificacao-discursiva{
+    margin:0;
+    padding:0;
+    border:0;
+    display:grid;
+    grid-template-columns:minmax(0,1.8fr) minmax(0,.8fr) minmax(0,.95fr);
+    gap:3mm;
+    font-size:8px;
+}
+
+.info-discursiva{
+    min-width:0;
+    padding:1.8mm 2mm;
+    border-bottom:1px solid #aaa;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.modelo-discursiva{
+    margin-top:3mm;
+    padding-top:3mm;
+    border-top:1px solid #bbb;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:5mm;
+}
+
+.modelo-discursiva strong{
+    font-size:8px;
+}
+
+.modelo-discursiva-opcoes{
+    display:flex;
+    align-items:center;
+    gap:4mm;
+}
+
+.modelo-discursiva-item{
+    display:flex;
+    align-items:center;
+    gap:1.2mm;
+    font-size:9px;
+    font-weight:800;
+}
+
+.modelo-discursiva-bolha{
+    width:5.5mm;
+    height:5.5mm;
+    border:1.1px solid #111;
+    border-radius:50%;
+    display:inline-block;
+}
+
+.respostas-discursivas{
+    flex:1;
+    margin-top:5mm;
+    padding:0 0 18mm;
+}
+
+.questao-discursiva{
+    margin-bottom:7mm;
+    break-inside:avoid;
+}
+
+.questao-discursiva h3{
+    margin:0 0 3mm;
+    padding:2.6mm 3mm;
+    border:1.1px solid #111;
+    border-radius:2.5mm;
+    background:#f7f7f7;
+    font-size:11px;
+    font-weight:900;
+}
+
+.area-linhas-discursivas{
+    padding:0 1mm;
+}
+
+.linha-escrita{
+    height:8mm;
+    border-bottom:1px solid #888;
+}
+
+.assinatura-discursiva{
+    margin-top:auto;
+    padding-top:4mm;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.assinatura-discursiva .assinatura-bloco{
+    width:70mm;
+}
+
+
+/* =========================================================
+   FOLHA DISCURSIVA PARA IMPORTAÇÃO E CORREÇÃO DIGITAL
+========================================================= */
+.pagina-discursiva{display:flex;flex-direction:column}
+
+.disc-identificacao{
+    margin-top:4mm;
+    padding:3.5mm 4mm;
+    border:1.6px solid #111;
+    border-radius:3mm;
+}
+
+.disc-dados{
+    display:grid;
+    grid-template-columns:minmax(0,1.7fr) minmax(0,.8fr) minmax(0,.8fr);
+    gap:3mm;
+}
+
+.disc-campo{
+    min-width:0;
+    padding:1.8mm 2mm;
+    border-bottom:1.2px solid #999;
+    font-size:9px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.disc-campo b{margin-right:1.5mm;font-weight:900}
+
+.disc-modelo{
+    margin-top:3mm;
+    padding-top:3mm;
+    border-top:1.2px solid #aaa;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:5mm;
+}
+
+.disc-modelo-titulo{font-size:9px;font-weight:900}
+.disc-modelo-opcoes{display:flex;align-items:center;gap:4mm}
+
+.disc-modelo-item{
+    display:flex;
+    align-items:center;
+    gap:1.2mm;
+    font-size:9px;
+    font-weight:900;
+}
+
+.disc-modelo-bolha{
+    width:5.5mm;
+    height:5.5mm;
+    border:1.3px solid #111;
+    border-radius:50%;
+    background:#fff;
+}
+
+.disc-area-digital{
+    position:relative;
+    flex:1;
+    margin-top:4mm;
+    padding:9mm 7mm 18mm;
+    border:1.8px solid #111;
+    border-radius:3mm;
+}
+
+.disc-marca{
+    position:absolute;
+    width:5.5mm;
+    height:5.5mm;
+    background:#000;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+}
+
+.disc-tl{top:3mm;left:3mm}
+.disc-tr{top:3mm;right:3mm}
+.disc-bl{bottom:3mm;left:3mm}
+.disc-br{bottom:3mm;right:3mm}
+
+.disc-instrucao{
+    margin:0 0 3mm;
+    padding:0 2mm;
+    font-size:8px;
+    color:#333;
+    text-align:center;
+}
+
+.disc-questao{
+    position:relative;
+    margin-bottom:6mm;
+    border:1.5px solid #111;
+    border-radius:2.8mm;
+    overflow:hidden;
+    background:#fff;
+    break-inside:avoid;
+}
+
+.disc-questao:last-of-type{margin-bottom:0}
+
+.disc-questao-cab{
+    min-height:10mm;
+    padding:2.4mm 3mm;
+    background:#111;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:4mm;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+}
+
+.disc-questao-numero{font-size:11px;font-weight:900}
+
+.disc-questao-id{
+    padding:1mm 2mm;
+    border:1px solid rgba(255,255,255,.75);
+    border-radius:1.5mm;
+    font-family:"Courier New",monospace;
+    font-size:7px;
+    font-weight:900;
+}
+
+.disc-resposta{position:relative;padding:4mm}
+
+.disc-resposta::before,
+.disc-resposta::after{
+    content:"";
+    position:absolute;
+    top:2mm;
+    width:3mm;
+    height:3mm;
+    background:#000;
+}
+
+.disc-resposta::before{left:2mm}
+.disc-resposta::after{right:2mm}
+.disc-linha{height:8mm;border-bottom:1px solid #888}
+
+.disc-assinatura{
+    position:absolute;
+    left:8mm;
+    right:8mm;
+    bottom:7mm;
+    display:flex;
+    align-items:flex-end;
+    gap:4mm;
+    font-size:9px;
+    font-weight:900;
+}
+
+.disc-assinatura-linha{
+    flex:1;
+    height:7mm;
+    border-bottom:1.5px solid #111;
+}
+
+@media print{
+    *{
+        -webkit-print-color-adjust:exact !important;
+        print-color-adjust:exact !important;
+    }
+    html,body{background:#fff}
+    .print{display:none}
+    .pagina{
+        width:auto;
+        min-height:283mm;
+        margin:0;
+        padding:0;
+    }
+}
+</style>
+</head>
+
+<body>
+<button class="print" type="button" onclick="window.print()">Salvar em PDF</button>
+
+{% for c in cartoes %}
+<section class="pagina">
+
+    <header class="cabecalho">
+        <div class="marcas">
+            <div class="logo-escola">
+                {% if aplicacao.logo %}
+                    {% set logo_src = aplicacao.logo %}
+                    {% if not logo_src.startswith('http') and not logo_src.startswith('/') %}
+                        {% set logo_src = url_for('static', filename='uploads/' ~ logo_src) %}
+                    {% endif %}
+                    <img src="{{ logo_src }}" alt="Logo da instituição">
+                {% else %}
+                    <div class="logo-placeholder">{{ aplicacao.nome_instituicao }}</div>
+                {% endif %}
+            </div>
+
+            <div class="logo-arke">
+                <span>ARK<br>EDUS</span>
+                <small>TECNOLOGIA<br>PARA A<br>EDUCAÇÃO</small>
+            </div>
+        </div>
+
+        <div class="centro-cabecalho">
+            <h1>{{ aplicacao.nome_instituicao }}</h1>
+            <div class="nome-avaliacao">{{ aplicacao.prova_nome }}</div>
+            <div class="titulo-cartao">CARTÃO DE RESPOSTAS</div>
+        </div>
+
+        <div class="qr-area">
+            <img src="data:image/png;base64,{{ c.qr_base64 }}" alt="QR Code">
+            <strong>Código da prova</strong>
+            <div class="codigo">{{ c.codigo_prova }}</div>
+        </div>
+    </header>
+
+    <div class="faixa-identificacao">
+        <div class="dados">
+            <div class="linha-dados">
+                <div class="campo"><b>Aluno(a):</b>{{ c.aluno.nome }}</div>
+                <div class="campo"><b>Matrícula:</b>{{ c.aluno.matricula or '—' }}</div>
+            </div>
+
+            <div class="linha-dados">
+                <div class="campo"><b>Turma:</b>{{ aplicacao.turma_nome }}</div>
+                <div class="campo">
+                    <b>Data:</b>
+                    {% if aplicacao.data_aplicacao %}
+                        {% set data = aplicacao.data_aplicacao|string %}
+                        {% if '-' in data %}
+                            {% set p = data.split('-') %}
+                            {{ p[2][:2] }}/{{ p[1] }}/{{ p[0] }}
+                        {% else %}
+                            {{ data }}
+                        {% endif %}
+                    {% else %}
+                        ____/____/________
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="linha-dados">
+                <div class="campo"><b>Componente:</b>{{ aplicacao.disciplina }}</div>
+                <div class="campo"><b>Código:</b><span class="codigo">{{ c.codigo_prova }}</span></div>
+            </div>
+
+            <div class="linha-dados">
+                <div class="campo"><b>Professor(a):</b>{{ aplicacao.professor_nome }}</div>
+                <div class="campo"><b>Ano letivo:</b>{{ aplicacao.ano_letivo or '—' }}</div>
+            </div>
+        </div>
+
+        <aside class="modelo">
+            <strong>MODELO DA PROVA</strong>
+            <div class="opcoes-modelo">
+                {% for numero_modelo in range(1, aplicacao.quantidade_modelos + 1) %}
+                <div class="opcao-modelo">
+                    <span>{{ numero_modelo }}</span>
+                    <span class="bolha-modelo"></span>
+                </div>
+                {% endfor %}
+            </div>
+        </aside>
+    </div>
+
+    <div class="instrucoes">
+        <div class="instrucoes-titulo">Instruções de preenchimento</div>
+        <div class="instrucoes-grid">
+            <div class="instrucao">Utilize caneta esferográfica azul ou preta.</div>
+            <div class="instrucao">Preencha completamente o círculo escolhido.</div>
+            <div class="instrucao">Não faça rasuras, marcas duplas ou fora das bolhas.</div>
+            <div class="instrucao">Marque somente uma alternativa por questão.</div>
+        </div>
+    </div>
+
+    <main class="area-cartao">
+        <i class="marca tl"></i>
+        <i class="marca tr"></i>
+        <i class="marca bl"></i>
+        <i class="marca br"></i>
+
+        <div class="grade">
+            <div class="cab-grade">
+                <span>QUESTÃO</span>
+                <span class="cab-alternativas">ALTERNATIVAS</span>
+            </div>
+
+            {% for q in c.questoes %}
+            <div class="linha">
+                <span class="numero">{{ '%02d'|format(q.numero) }}</span>
+
+                {% if q.discursiva %}
+                    <span class="discursiva">DISCURSIVA</span>
+                {% else %}
+                    {% for letra in ['A','B','C','D'] %}
+                        <span class="bolha">{{ letra }}</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="assinatura-cartao">
+            <span class="rotulo">Assinatura do(a) aluno(a):</span>
+            <span class="linha-assinatura"></span>
+        </div>
+    </main>
+</section>
+
+{% if c.discursivas %}
+<section class="pagina pagina-discursiva">
+    <header class="cabecalho">
+        <div class="marcas">
+            <div class="logo-escola">
+                {% if aplicacao.logo %}
+                    {% set logo_src_disc = aplicacao.logo %}
+                    {% if not logo_src_disc.startswith('http') and not logo_src_disc.startswith('/') %}
+                        {% set logo_src_disc = url_for('static', filename='uploads/' ~ logo_src_disc) %}
+                    {% endif %}
+                    <img src="{{ logo_src_disc }}" alt="Logo da instituição">
+                {% else %}
+                    <div class="logo-placeholder">{{ aplicacao.nome_instituicao }}</div>
+                {% endif %}
+            </div>
+
+            <div class="logo-arke">
+                <span>ARK<br>EDUS</span>
+                <small>TECNOLOGIA<br>PARA A<br>EDUCAÇÃO</small>
+            </div>
+        </div>
+
+        <div class="centro-cabecalho">
+            <h1>{{ aplicacao.nome_instituicao }}</h1>
+            <div class="nome-avaliacao">{{ aplicacao.prova_nome }}</div>
+            <div class="titulo-cartao">RESPOSTAS DISCURSIVAS</div>
+        </div>
+
+        <div class="qr-area">
+            <img src="data:image/png;base64,{{ c.qr_discursiva_base64 }}"
+                 alt="QR Code da folha discursiva">
+            <strong>Código da prova</strong>
+            <div class="codigo">{{ c.codigo_prova }}</div>
+        </div>
+    </header>
+
+    <div class="disc-identificacao">
+        <div class="disc-dados">
+            <div class="disc-campo"><b>Aluno(a):</b>{{ c.aluno.nome }}</div>
+            <div class="disc-campo"><b>Turma:</b>{{ aplicacao.turma_nome }}</div>
+            <div class="disc-campo"><b>Código:</b>{{ c.codigo_prova }}</div>
+        </div>
+
+        <div class="disc-modelo">
+            <span class="disc-modelo-titulo">
+                MODELO DA PROVA — marque apenas uma opção:
+            </span>
+
+            <div class="disc-modelo-opcoes">
+                {% for numero_modelo in range(1, aplicacao.quantidade_modelos + 1) %}
+                <span class="disc-modelo-item">
+                    {{ numero_modelo }}
+                    <i class="disc-modelo-bolha"></i>
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <main class="disc-area-digital"
+          data-codigo-prova="{{ c.codigo_prova }}"
+          data-aluno-id="{{ c.aluno.id }}"
+          data-mapa-questoes="{{ c.mapa_discursivas }}">
+        <i class="disc-marca disc-tl"></i>
+        <i class="disc-marca disc-tr"></i>
+        <i class="disc-marca disc-bl"></i>
+        <i class="disc-marca disc-br"></i>
+
+        <p class="disc-instrucao">
+            Escreva somente dentro do espaço correspondente a cada questão.
+        </p>
+
+        {% for q in c.discursivas %}
+        <article class="disc-questao"
+                 data-numero-questao="{{ q.numero }}"
+                 data-questao-id="{{ q.questao_id }}">
+            <header class="disc-questao-cab">
+                <span class="disc-questao-numero">
+                    QUESTÃO {{ '%02d'|format(q.numero) }}
+                </span>
+                <span class="disc-questao-id">
+                    QID {{ q.questao_id }}
+                </span>
+            </header>
+
+            <div class="disc-resposta">
+                {% for x in range(q.linhas) %}
+                    <div class="disc-linha"></div>
+                {% endfor %}
+            </div>
+        </article>
+        {% endfor %}
+
+        <div class="disc-assinatura">
+            <span>Assinatura do(a) aluno(a):</span>
+            <span class="disc-assinatura-linha"></span>
+        </div>
+    </main>
+</section>
+{% endif %}
+
+{% endfor %}
+</body>
+</html>

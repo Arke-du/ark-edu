@@ -7,3 +7,4 @@ pyzbar
 numpy
 opencv-python-headless
 Werkzeug
+PyMuPDF

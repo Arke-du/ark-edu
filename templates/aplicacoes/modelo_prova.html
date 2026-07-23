@@ -1,1 +1,120 @@
-<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>{{ aplicacao.prova_nome }} - Modelo {{ modelo }}</title><style>@page{size:A4;margin:14mm}body{font-family:Arial;color:#111}.top{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:20px}.top h1{margin:0;font-size:20px}.meta{display:flex;justify-content:space-between;margin-top:10px;font-size:12px}.q{margin:0 0 18px;break-inside:avoid}.q h3{font-size:14px;margin:0 0 8px}.alt{margin:6px 0}.print{position:fixed;right:20px;top:20px;padding:10px 15px}@media print{.print{display:none}}</style></head><body><button class="print" onclick="print()">Salvar em PDF</button><header class="top"><h1>{{ aplicacao.nome_instituicao }}</h1><strong>{{ aplicacao.prova_nome }} — Modelo {{ modelo }}</strong><div class="meta"><span>Turma: {{ aplicacao.turma_nome }}</span><span>Componente: {{ aplicacao.disciplina }}</span><span>Professor(a): {{ aplicacao.professor_nome }}</span></div></header>{% for q in questoes %}<section class="q"><h3>{{ loop.index }}. {{ q.enunciado }}</h3>{% if q.tipo_questao not in ['discursiva','dissertativa','resposta_aberta'] %}<div class="alt">A) {{ q.alternativa_a }}</div><div class="alt">B) {{ q.alternativa_b }}</div><div class="alt">C) {{ q.alternativa_c }}</div><div class="alt">D) {{ q.alternativa_d }}</div>{% else %}<div style="height:45mm;border-bottom:1px solid #aaa"></div>{% endif %}</section>{% endfor %}</body></html>
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ aplicacao.prova_nome }} - Modelo {{ modelo }}</title>
+<style>
+@page{size:A4 portrait;margin:10mm 12mm 12mm}
+*{box-sizing:border-box}
+body{margin:0;background:#ececec;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.32}
+.toolbar{position:sticky;top:0;z-index:10;padding:12px;text-align:center;background:#fff;border-bottom:1px solid #ddd}
+.print{border:0;border-radius:8px;padding:10px 18px;background:#123f88;color:#fff;font-weight:700;cursor:pointer}
+.page{width:210mm;min-height:297mm;margin:12px auto;padding:10mm 12mm 12mm;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.exam-header{border:1px solid #555;border-radius:12px;padding:5mm 6mm;margin-bottom:4mm}
+.header-main{display:grid;grid-template-columns:42mm 1fr;gap:5mm;align-items:center}
+.logo-box{height:28mm;display:flex;align-items:center;justify-content:center;border-right:1px solid #777;padding-right:5mm}
+.logo-box img{display:block;max-width:100%;max-height:25mm;object-fit:contain}
+.logo-placeholder{font-weight:700;text-align:center;color:#555}
+.school-block{text-align:center}
+.school-name{margin:0 0 3mm;font-size:17pt;font-weight:800;text-transform:uppercase}
+.meta-grid{display:grid;grid-template-columns:1.05fr 1.35fr 1.05fr 1fr .85fr;border-top:1px solid #777;text-align:left}
+.meta-item{min-height:17mm;padding:2.5mm 3mm;border-right:1px solid #888;font-size:10.5pt}
+.meta-item:last-child{border-right:0}
+.meta-label{display:block;margin-bottom:1.5mm;font-size:8pt;font-weight:700}
+.student-row{display:grid;grid-template-columns:1fr 45mm;gap:9mm;margin-top:4mm;align-items:end}
+.line-field{display:flex;gap:3mm;align-items:flex-end;font-weight:700}
+.line{height:6mm;flex:1;border-bottom:1px solid #000}
+.exam-title{margin-top:3mm;padding-top:2mm;border-top:1px solid #000;text-align:center;font-size:13pt;font-weight:800;text-transform:uppercase}
+.instructions{margin-bottom:4mm;padding:3mm 4mm;border:1px solid #777;border-left:3px solid #000;border-radius:7px}
+.instructions-title{margin:0 0 1mm;font-size:11pt;font-weight:800}
+.instructions ol{margin:0;padding-left:6mm;font-size:10.5pt}
+.instructions li{margin:.6mm 0}
+.question{margin:0 0 5mm;break-inside:avoid;page-break-inside:avoid}
+.question-title{margin:0 0 2.5mm;font-size:12pt;font-weight:800}
+.statement{margin:0 0 3mm;text-align:justify;white-space:pre-line;font-size:12pt}
+.question-image{display:block;max-width:150mm;max-height:90mm;margin:3mm auto;object-fit:contain}
+.alternatives{display:grid;gap:1.5mm}
+.alternative{display:flex;align-items:flex-start;gap:3mm;min-height:7mm}
+.alt-letter{width:6.5mm;height:6.5mm;border:1px solid #000;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 6.5mm;font-size:9pt;font-weight:700;line-height:1}
+.alt-text{padding-top:.35mm;white-space:pre-line}
+.discursive-space{margin-top:3mm}
+.discursive-line{height:8mm;border-bottom:1px solid #aaa}
+.model-tag{font-weight:700}
+@media print{
+ body{background:#fff}
+ .toolbar{display:none!important}
+ .page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="toolbar"><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button></div>
+<main class="page">
+<header class="exam-header">
+    <div class="header-main">
+        <div class="logo-box">
+            {% if aplicacao.logo %}
+                <img src="/static/uploads/{{ aplicacao.logo }}" alt="Logo da instituição">
+            {% else %}
+                <div class="logo-placeholder">{{ aplicacao.nome_instituicao }}</div>
+            {% endif %}
+        </div>
+        <div class="school-block">
+            <h1 class="school-name">{{ aplicacao.nome_instituicao }}</h1>
+            <div class="meta-grid">
+                <div class="meta-item"><span class="meta-label">Turma</span>{{ aplicacao.turma_nome }}</div>
+                <div class="meta-item"><span class="meta-label">Componente curricular</span>{{ aplicacao.disciplina }}</div>
+                <div class="meta-item"><span class="meta-label">Professor(a)</span>{{ aplicacao.professor_nome }}</div>
+                <div class="meta-item"><span class="meta-label">Cidade/UF</span>{{ aplicacao.cidade or '' }}{% if aplicacao.estado %} - {{ aplicacao.estado }}{% endif %}</div>
+                <div class="meta-item"><span class="meta-label">Data</span>{% if aplicacao.data_aplicacao %}{{ aplicacao.data_aplicacao[8:10] }}/{{ aplicacao.data_aplicacao[5:7] }}/{{ aplicacao.data_aplicacao[0:4] }}{% else %}___/___/____{% endif %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="student-row">
+        <div class="line-field">Estudante:<span class="line"></span></div>
+        <div class="line-field">Nota:<span class="line"></span></div>
+    </div>
+    <div class="exam-title">{{ aplicacao.prova_nome }} — <span class="model-tag">Modelo {{ modelo }}</span></div>
+</header>
+
+<section class="instructions">
+    <h2 class="instructions-title">ⓘ INSTRUÇÕES PARA REALIZAR A AVALIAÇÃO</h2>
+    <ol>
+        <li>Verifique se sua prova está completa, observando a quantidade de questões e páginas.</li>
+        <li>Leia com calma e atenção todas as questões antes de registrar suas respostas.</li>
+        <li>Marque as respostas no cartão-resposta utilizando caneta azul ou preta.</li>
+        <li>Preencha corretamente seu nome, turma e demais informações solicitadas.</li>
+        <li>Revise suas respostas antes de entregar a avaliação.</li>
+    </ol>
+</section>
+
+{% for q in questoes %}
+<section class="question">
+    <h2 class="question-title">Questão {{ '%02d'|format(loop.index) }}</h2>
+    <div class="statement">{{ q.enunciado }}</div>
+
+    {% if q.imagem %}
+        <img class="question-image" src="/static/uploads/{{ q.imagem }}" alt="Imagem da questão {{ loop.index }}">
+    {% endif %}
+
+    {% if q.tipo_questao not in ['discursiva','dissertativa','resposta_aberta','resposta aberta'] %}
+        <div class="alternatives">
+            {% for alternativa in q.alternativas %}
+            <div class="alternative">
+                <span class="alt-letter">{{ alternativa.letra }}</span>
+                <span class="alt-text">{{ alternativa.texto }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="discursive-space">
+            {% set total_linhas = q.linhas_resposta|default(5, true)|int %}
+            {% for linha in range(total_linhas) %}<div class="discursive-line"></div>{% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endfor %}
+</main>
+</body>
+</html>

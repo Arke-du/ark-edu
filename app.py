@@ -10,9 +10,11 @@ from datetime import datetime
 from io import BytesIO
 
 import cv2
+import numpy as np
 import qrcode
 from PIL import Image
-from flask import Flask, flash, redirect, render_template, request, session, jsonify
+from pyzbar.pyzbar import decode
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -2152,6 +2154,7 @@ def criar_tabelas():
     garantir_coluna("provas", "tipo_peso", "TEXT DEFAULT 'automatico'")
     garantir_coluna("prova_questoes", "peso", "REAL DEFAULT 0")
     garantir_coluna("prova_questoes", "ordem", "INTEGER DEFAULT 0")
+    garantir_coluna("prova_questoes", "anulada", "INTEGER NOT NULL DEFAULT 0")
     garantir_coluna("instituicao", "logo", "TEXT")
     garantir_coluna("permissoes", "pode_acessar", "INTEGER DEFAULT 0")
 
@@ -9695,6 +9698,138 @@ def ler_respostas_cartao(caminho_imagem, quantidade):
 
     return respostas
 
+
+def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
+    """Lê o modelo no layout atual do cartão ARK EDUS.
+
+    O cartão é normalizado para o tamanho-base do modelo impresso e a leitura
+    considera apenas o miolo das quatro bolhas do quadro "MODELO DA PROVA".
+    """
+    imagem = cv2.imread(caminho_imagem)
+    if imagem is None:
+        return None
+
+    quantidade_modelos = max(1, min(4, int(quantidade_modelos or 1)))
+
+    # Normaliza o cartão para as mesmas proporções do arquivo gerado.
+    largura_base, altura_base = 1449, 2048
+    normalizada = cv2.resize(imagem, (largura_base, altura_base))
+    cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
+
+    centros_x = [1134, 1204, 1274, 1344]
+    centro_y = 515
+    raio = 16
+
+    preenchimentos = []
+    yy, xx = np.ogrid[:altura_base, :largura_base]
+
+    for x in centros_x[:quantidade_modelos]:
+        mascara = (xx - x) ** 2 + (yy - centro_y) ** 2 <= raio ** 2
+        pixels = cinza[mascara]
+        if pixels.size == 0:
+            preenchimentos.append(0.0)
+        else:
+            preenchimentos.append(float(np.mean(pixels < 120)))
+
+    if not preenchimentos:
+        return None
+
+    ordem = np.argsort(preenchimentos)[::-1]
+    melhor = preenchimentos[int(ordem[0])]
+    segundo = preenchimentos[int(ordem[1])] if len(ordem) > 1 else 0.0
+
+    # Uma bolha preenchida fica muito mais escura do que as vazias.
+    if melhor < 0.45 or (melhor - segundo) < 0.22:
+        return None
+
+    return int(ordem[0]) + 1
+
+
+def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
+    """Lê as respostas objetivas no layout atual do cartão ARK EDUS.
+
+    A imagem é normalizada para o tamanho-base do cartão. Cada alternativa é
+    medida somente em seu miolo, evitando que a letra e o contorno da bolha
+    sejam interpretados como marcação.
+    """
+    imagem = cv2.imread(caminho_imagem)
+    if imagem is None:
+        raise ValueError("Não foi possível abrir a imagem enviada.")
+
+    quantidade = max(0, int(quantidade or 0))
+    if quantidade == 0:
+        return {}
+
+    largura_base, altura_base = 1449, 2048
+    normalizada = cv2.resize(imagem, (largura_base, altura_base))
+    cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
+
+    # Centros calibrados no cartão gerado pela plataforma.
+    centros_x = [636, 739, 843, 946]
+    primeiro_y = 1032
+    passo_y = 49
+    raio = 14
+    letras = ["A", "B", "C", "D"]
+
+    yy, xx = np.ogrid[:altura_base, :largura_base]
+    resultado = {}
+
+    for indice in range(quantidade):
+        centro_y = primeiro_y + (indice * passo_y)
+        preenchimentos = []
+
+        for centro_x in centros_x:
+            mascara = (
+                (xx - centro_x) ** 2
+                + (yy - centro_y) ** 2
+                <= raio ** 2
+            )
+            pixels = cinza[mascara]
+            taxa_escura = (
+                float(np.mean(pixels < 120))
+                if pixels.size else 0.0
+            )
+            preenchimentos.append(taxa_escura)
+
+        maior = max(preenchimentos)
+        ordem = np.argsort(preenchimentos)[::-1]
+        segundo = preenchimentos[int(ordem[1])]
+
+        marcadas_indices = [
+            i for i, valor in enumerate(preenchimentos)
+            if valor >= 0.45
+        ]
+
+        if maior < 0.45:
+            situacao = "em_branco"
+            resposta = ""
+            marcadas = []
+        elif len(marcadas_indices) >= 2:
+            situacao = "dupla_marcacao"
+            resposta = ""
+            marcadas = [letras[i] for i in marcadas_indices]
+        elif (maior - segundo) < 0.20:
+            situacao = "dupla_marcacao"
+            resposta = ""
+            marcadas = [
+                letras[int(ordem[0])],
+                letras[int(ordem[1])]
+            ]
+        else:
+            situacao = "respondida"
+            resposta = letras[int(ordem[0])]
+            marcadas = [resposta]
+
+        resultado[indice + 1] = {
+            "resposta": resposta,
+            "situacao": situacao,
+            "marcadas": marcadas,
+            "preenchimentos": [round(v, 4) for v in preenchimentos],
+        }
+
+    return resultado
+
+
 @app.route("/corrigir_cartoes/<int:prova_id>", methods=["POST"])
 def corrigir_cartoes(prova_id):
 
@@ -15871,15 +16006,80 @@ def _garantir_tabelas_aplicacoes():
             UNIQUE (aplicacao_id, aluno_id, questao_id)
         );
 
+        CREATE TABLE IF NOT EXISTS aplicacao_respostas_objetivas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aplicacao_id INTEGER NOT NULL,
+            aluno_id INTEGER NOT NULL,
+            numero_questao INTEGER NOT NULL,
+            questao_id INTEGER NOT NULL,
+            modelo INTEGER NOT NULL,
+            resposta TEXT,
+            situacao TEXT NOT NULL DEFAULT 'em_branco',
+            resposta_correta TEXT,
+            acertou INTEGER NOT NULL DEFAULT 0,
+            origem TEXT NOT NULL DEFAULT 'automatica',
+            atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (aplicacao_id) REFERENCES aplicacoes(id) ON DELETE CASCADE,
+            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
+            FOREIGN KEY (questao_id) REFERENCES questoes(id) ON DELETE CASCADE,
+            UNIQUE (aplicacao_id, aluno_id, numero_questao)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_aplicacoes_prova ON aplicacoes(prova_id);
         CREATE INDEX IF NOT EXISTS idx_aplicacao_alunos_app ON aplicacao_alunos(aplicacao_id);
+        CREATE INDEX IF NOT EXISTS idx_app_resp_objetivas
+            ON aplicacao_respostas_objetivas(aplicacao_id, aluno_id);
     """)
+
+    def garantir_coluna_importacao(nome, definicao):
+        cursor.execute("PRAGMA table_info(aplicacao_importacoes)")
+        existentes = {linha[1] for linha in cursor.fetchall()}
+        if nome not in existentes:
+            cursor.execute(
+                f"ALTER TABLE aplicacao_importacoes ADD COLUMN {nome} {definicao}"
+            )
+
+    garantir_coluna_importacao("qr_texto", "TEXT")
+    garantir_coluna_importacao("tipo_folha", "TEXT")
+    garantir_coluna_importacao("revisado", "INTEGER NOT NULL DEFAULT 0")
+    garantir_coluna_importacao("revisado_por", "INTEGER")
+    garantir_coluna_importacao("revisado_em", "TEXT")
+
+    def garantir_coluna_resposta_objetiva(nome, definicao):
+        cursor.execute("PRAGMA table_info(aplicacao_respostas_objetivas)")
+        existentes = {linha[1] for linha in cursor.fetchall()}
+        if nome not in existentes:
+            cursor.execute(
+                f"ALTER TABLE aplicacao_respostas_objetivas ADD COLUMN {nome} {definicao}"
+            )
+
+    garantir_coluna_resposta_objetiva(
+        "anulada", "INTEGER NOT NULL DEFAULT 0"
+    )
+
+    # Garante compatibilidade com provas antigas. Uma questão anulada recebe
+    # crédito automático para todos os alunos e nunca exige revisão do cartão.
+    cursor.execute("PRAGMA table_info(prova_questoes)")
+    colunas_pq = {linha[1] for linha in cursor.fetchall()}
+    if "anulada" not in colunas_pq:
+        cursor.execute(
+            "ALTER TABLE prova_questoes "
+            "ADD COLUMN anulada INTEGER NOT NULL DEFAULT 0"
+        )
+
     banco.commit()
     banco.close()
 
 
 def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
+    """Monta um modelo estável, embaralhando questões e alternativas.
+
+    A mesma aplicação/modelo sempre produz exatamente a mesma ordem. Isso é
+    essencial para que a impressão, o cartão-resposta e a correção automática
+    utilizem o mesmo gabarito.
+    """
     import random
+
     cursor.execute("""
         SELECT a.prova_id
         FROM aplicacoes a
@@ -15893,19 +16093,94 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
         SELECT
             q.*,
             COALESCE(NULLIF(pq.ordem, 0), pq.id) AS ordem_original,
-            COALESCE(pq.peso, 0) AS peso
+            COALESCE(pq.peso, 0) AS peso,
+            COALESCE(pq.anulada, 0) AS anulada
         FROM prova_questoes pq
         INNER JOIN questoes q ON q.id = pq.questao_id
         WHERE pq.prova_id = ?
         ORDER BY COALESCE(NULLIF(pq.ordem, 0), pq.id), pq.id
     """, (app_reg["prova_id"],))
-    questoes = list(cursor.fetchall())
 
-    # Modelo 1 mantém a ordem original. Os demais usam uma ordem estável,
-    # reproduzível a partir da aplicação e do número do modelo.
-    if int(modelo) > 1:
-        gerador = random.Random(f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}")
-        gerador.shuffle(questoes)
+    # sqlite3.Row é somente leitura. Transformamos cada registro em dicionário
+    # para poder atualizar a letra correta após o embaralhamento.
+    questoes = [dict(registro) for registro in cursor.fetchall()]
+
+    modelo = int(modelo)
+
+    # Separa as questões por tipo. As objetivas são embaralhadas entre si,
+    # enquanto as discursivas permanecem sempre nas últimas posições.
+    #
+    # Exemplo: prova com 12 questões e 2 discursivas:
+    #   01 a 10 = objetivas embaralhadas
+    #   11 e 12 = discursivas
+    #
+    # Essa regra vale igualmente para todos os modelos da aplicação.
+    questoes_objetivas = [
+        questao for questao in questoes
+        if not _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
+    ]
+    questoes_discursivas = [
+        questao for questao in questoes
+        if _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
+    ]
+
+    # Mantém o embaralhamento estável por aplicação e modelo.
+    gerador_questoes = random.Random(
+        f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}:QUESTOES"
+    )
+    gerador_questoes.shuffle(questoes_objetivas)
+
+    # As discursivas ficam no final e preservam a ordem original cadastrada.
+    questoes = questoes_objetivas + questoes_discursivas
+
+    letras = ["A", "B", "C", "D"]
+
+    for questao in questoes:
+        if _tipo_discursivo_aplicacao(questao.get("tipo_questao")):
+            questao["alternativas"] = []
+            continue
+
+        correta_original = (questao.get("correta") or "").strip().upper()
+        alternativas = []
+
+        for letra in letras:
+            texto_alternativa = questao.get(f"alternativa_{letra.lower()}") or ""
+            if str(texto_alternativa).strip():
+                alternativas.append({
+                    "letra_original": letra,
+                    "texto": texto_alternativa
+                })
+
+        gerador_alternativas = random.Random(
+            f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}:QUESTAO:{questao['id']}:ALTERNATIVAS"
+        )
+        gerador_alternativas.shuffle(alternativas)
+
+        alternativas_exibicao = []
+        nova_correta = ""
+
+        for indice, alternativa in enumerate(alternativas):
+            nova_letra = letras[indice]
+            alternativas_exibicao.append({
+                "letra": nova_letra,
+                "texto": alternativa["texto"]
+            })
+
+            if alternativa["letra_original"] == correta_original:
+                nova_correta = nova_letra
+
+        questao["alternativas"] = alternativas_exibicao
+        questao["correta_original"] = correta_original
+        questao["correta"] = nova_correta
+
+        # Mantém compatibilidade com trechos antigos que ainda leem os campos
+        # alternativa_a, alternativa_b, alternativa_c e alternativa_d.
+        for indice, letra in enumerate(letras):
+            questao[f"alternativa_{letra.lower()}"] = (
+                alternativas_exibicao[indice]["texto"]
+                if indice < len(alternativas_exibicao)
+                else ""
+            )
 
     return questoes
 
@@ -16074,6 +16349,7 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
         cursor.execute("""
             SELECT a.*, p.nome AS prova_nome, p.disciplina, p.professor_id,
                    t.nome AS turma_nome, e.nome_instituicao, e.logo,
+                   e.cidade, e.estado,
                    COALESCE(pr.nome, 'Não informado') AS professor_nome
             FROM aplicacoes a
             INNER JOIN provas p ON p.id = a.prova_id
@@ -16148,36 +16424,189 @@ def cartoes_aplicacao(aplicacao_id):
                 if item["discursiva"]:
                     discursivas.append(item)
 
-            conteudo_qr = f"PROVA:{aplicacao['prova_id']}|ALUNO:{aluno['id']}|APLICACAO:{aplicacao_id}|MODELO:{aluno['modelo']}"
-            qr = qrcode.QRCode(version=2, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=5, border=2)
-            qr.add_data(conteudo_qr)
-            qr.make(fit=True)
-            imagem_qr = qr.make_image(fill_color="black", back_color="white")
-            buffer = BytesIO()
-            imagem_qr.save(buffer, format="PNG")
-            qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            cartoes.append({"aluno": aluno, "questoes": itens, "discursivas": discursivas, "qr_base64": qr_base64})
+            # Código visual da prova sempre com seis algarismos.
+            codigo_prova = f"{int(aplicacao['prova_id']):06d}"
 
-        return render_template("aplicacoes/cartoes.html", aplicacao=aplicacao, cartoes=cartoes)
+            # Mapa para vincular cada área discursiva à questão correta.
+            mapa_discursivas = ",".join(
+                f"{item['numero']}:{item['questao_id']}"
+                for item in discursivas
+            )
+
+            def gerar_qr_cartao(tipo_folha):
+                conteudo_qr = (
+                    f"CODIGO:{codigo_prova}|PROVA:{aplicacao['prova_id']}|"
+                    f"ALUNO:{aluno['id']}|APLICACAO:{aplicacao_id}|"
+                    f"MODELO:{aluno['modelo']}|FOLHA:{tipo_folha}"
+                )
+
+                if tipo_folha == "DISCURSIVAS" and mapa_discursivas:
+                    conteudo_qr += f"|QUESTOES:{mapa_discursivas}"
+
+                qr = qrcode.QRCode(
+                    version=None,
+                    error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    box_size=5,
+                    border=2
+                )
+                qr.add_data(conteudo_qr)
+                qr.make(fit=True)
+                imagem_qr = qr.make_image(
+                    fill_color="black",
+                    back_color="white"
+                )
+                buffer = BytesIO()
+                imagem_qr.save(buffer, format="PNG")
+                return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+            cartoes.append({
+                "aluno": aluno,
+                "questoes": itens,
+                "discursivas": discursivas,
+                "mapa_discursivas": mapa_discursivas,
+                "codigo_prova": codigo_prova,
+                "qr_base64": gerar_qr_cartao("OBJETIVAS"),
+                "qr_discursiva_base64": gerar_qr_cartao("DISCURSIVAS")
+            })
+
+        return render_template(
+            "aplicacoes/cartoes.html",
+            aplicacao=aplicacao,
+            cartoes=cartoes,
+            codigo_prova=f"{int(aplicacao['prova_id']):06d}"
+        )
     finally:
         banco.close()
 
 
+
+def _decodificar_qr_cartao(caminho_imagem):
+    """Lê o QR Code com tentativas extras para PDFs digitalizados."""
+    imagem = cv2.imread(caminho_imagem)
+    if imagem is None:
+        return None
+
+    try:
+        codigos = decode(cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB))
+        if codigos:
+            return codigos[0].data.decode("utf-8")
+    except Exception:
+        pass
+
+    altura, largura = imagem.shape[:2]
+    recorte = imagem[
+        0:int(altura * 0.24),
+        int(largura * 0.67):largura
+    ]
+
+    if recorte.size == 0:
+        return None
+
+    detector = cv2.QRCodeDetector()
+
+    for escala in (1.0, 1.5, 2.0, 3.0, 4.0):
+        candidata = recorte if escala == 1 else cv2.resize(
+            recorte,
+            None,
+            fx=escala,
+            fy=escala,
+            interpolation=cv2.INTER_CUBIC
+        )
+        cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY)
+
+        versoes = [cinza]
+        _, otsu = cv2.threshold(
+            cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+        versoes.append(otsu)
+        versoes.append(cv2.adaptiveThreshold(
+            cinza,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            31,
+            5
+        ))
+
+        for versao in versoes:
+            texto, _, _ = detector.detectAndDecode(versao)
+            if texto:
+                return texto.strip()
+
+            try:
+                codigos = decode(versao)
+                if codigos:
+                    return codigos[0].data.decode("utf-8")
+            except Exception:
+                pass
+
+    return None
+
+
+def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
+    """Converte cada página de um PDF em PNG usando PyMuPDF.
+
+    Instale a dependência com: pip install PyMuPDF
+    """
+    try:
+        import fitz
+    except ImportError as erro:
+        raise RuntimeError(
+            "Para importar PDF, instale a dependência PyMuPDF: "
+            "pip install PyMuPDF"
+        ) from erro
+
+    caminhos = []
+    documento = fitz.open(caminho_pdf)
+    try:
+        if documento.page_count < 1:
+            raise ValueError("O PDF não possui páginas.")
+
+        for indice in range(documento.page_count):
+            pagina = documento.load_page(indice)
+            matriz = fitz.Matrix(2.2, 2.2)
+            pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
+            nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
+            caminho = os.path.join(pasta_destino, nome)
+            pixmap.save(caminho)
+            caminhos.append((caminho, indice + 1))
+    finally:
+        documento.close()
+
+    return caminhos
+
+
+def _remover_arquivo_silenciosamente(caminho):
+    try:
+        if caminho and os.path.isfile(caminho):
+            os.remove(caminho)
+    except OSError as erro:
+        print(f"Não foi possível remover o arquivo {caminho}: {erro}")
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/importar", methods=["GET", "POST"])
 def importar_cartoes_aplicacao(aplicacao_id):
+    """Importa cartões objetivos.
+
+    Ausência de modelo, questão em branco ou dupla marcação nunca descarta o
+    cartão. Esses casos são registrados como revisão necessária.
+    """
     _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
+
     try:
         cursor.execute("""
-            SELECT a.*, p.nome AS prova_nome, p.disciplina, t.nome AS turma_nome
+            SELECT a.*, p.nome AS prova_nome, p.disciplina,
+                   t.nome AS turma_nome
             FROM aplicacoes a
             INNER JOIN provas p ON p.id = a.prova_id
             INNER JOIN turmas t ON t.id = a.turma_id
             WHERE a.id = ?
         """, (aplicacao_id,))
         aplicacao = cursor.fetchone()
+
         if not aplicacao:
             flash("Aplicação não encontrada.", "erro")
             return redirect("/provas")
@@ -16191,106 +16620,903 @@ def importar_cartoes_aplicacao(aplicacao_id):
             return _redirecionar_acesso_negado_prova()
 
         if request.method == "POST":
-            arquivos = request.files.getlist("arquivos")
-            arquivos = [a for a in arquivos if a and a.filename]
-            if not arquivos:
-                flash("Selecione pelo menos uma imagem de cartão-resposta.", "erro")
-                return redirect(request.url)
+            arquivos = [
+                arquivo for arquivo in request.files.getlist("arquivos")
+                if arquivo and arquivo.filename
+            ]
 
-            pasta = os.path.join(app.config["UPLOAD_FOLDER"], "aplicacoes", str(aplicacao_id))
+            if not arquivos:
+                flash("Selecione pelo menos um PDF ou uma imagem.", "erro")
+                return redirect(url_for(
+                    "importar_cartoes_aplicacao",
+                    aplicacao_id=aplicacao_id
+                ))
+
+            extensoes_permitidas = {".pdf", ".jpg", ".jpeg", ".png"}
+            pasta = os.path.join(
+                app.config["UPLOAD_FOLDER"], "aplicacoes", str(aplicacao_id)
+            )
             os.makedirs(pasta, exist_ok=True)
-            processados = 0
-            erros = 0
+
+            importados = 0
+            revisoes = 0
+            descartados = 0
 
             for arquivo in arquivos:
-                nome = f"{uuid.uuid4().hex}_{secure_filename(arquivo.filename)}"
-                caminho = os.path.join(pasta, nome)
-                arquivo.save(caminho)
-                aluno_id = None
-                modelo = None
-                mensagem = "QR Code não identificado."
-                status = "Erro"
+                nome_original = secure_filename(arquivo.filename)
+                extensao = os.path.splitext(nome_original)[1].lower()
+
+                if extensao not in extensoes_permitidas:
+                    descartados += 1
+                    continue
+
+                nome_temporario = f"{uuid.uuid4().hex}_{nome_original}"
+                caminho_temporario = os.path.join(pasta, nome_temporario)
+                arquivo.save(caminho_temporario)
+
                 try:
-                    imagem_pil = Image.open(caminho).convert("RGB")
-                    codigos = decode(np.array(imagem_pil))
-                    if codigos:
-                        texto = codigos[0].data.decode("utf-8")
-                        dados = {}
-                        for parte in texto.split("|"):
+                    if extensao == ".pdf":
+                        paginas = _converter_pdf_em_imagens(
+                            caminho_temporario, pasta
+                        )
+                        _remover_arquivo_silenciosamente(caminho_temporario)
+                    else:
+                        paginas = [(caminho_temporario, None)]
+                except Exception as erro:
+                    print(f"ERRO AO ABRIR {arquivo.filename}: {erro}")
+                    _remover_arquivo_silenciosamente(caminho_temporario)
+                    descartados += 1
+                    continue
+
+                for caminho, numero_pagina in paginas:
+                    cursor.execute("SAVEPOINT importar_pagina")
+
+                    try:
+                        qr_texto = _decodificar_qr_cartao(caminho)
+                        if not qr_texto:
+                            raise ValueError("QR Code não identificado.")
+
+                        dados_qr = {}
+                        for parte in qr_texto.split("|"):
                             if ":" in parte:
                                 chave, valor = parte.split(":", 1)
-                                dados[chave] = valor
-                        if int(dados.get("APLICACAO", 0)) != aplicacao_id:
-                            raise ValueError("O cartão pertence a outra aplicação.")
-                        aluno_id = int(dados["ALUNO"])
-                        modelo = int(dados.get("MODELO", 1))
-                        questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
-                        respostas = ler_respostas_cartao(caminho, len(questoes))
+                                dados_qr[chave.strip().upper()] = valor.strip()
+
+                        if int(dados_qr.get("APLICACAO", 0)) != aplicacao_id:
+                            raise ValueError(
+                                "O cartão pertence a outra aplicação."
+                            )
+
+                        aluno_id = int(dados_qr["ALUNO"])
+                        modelo_qr = int(dados_qr.get("MODELO", 1))
+                        modelo_visual = ler_modelo_cartao(
+                            caminho,
+                            aplicacao["quantidade_modelos"] or 1
+                        )
+
+                        # O QR é usado somente para conseguir montar a leitura
+                        # provisória. Se a bolha do modelo estiver vazia, o
+                        # professor obrigatoriamente escolherá o modelo na revisão.
+                        modelo_calculo = modelo_visual or modelo_qr
+                        tipo_folha = dados_qr.get(
+                            "FOLHA", "OBJETIVAS"
+                        ).upper()
+
+                        if tipo_folha != "OBJETIVAS":
+                            raise ValueError(
+                                "A página não é um cartão objetivo."
+                            )
+
+                        quantidade_modelos = int(
+                            aplicacao["quantidade_modelos"] or 1
+                        )
+                        if not 1 <= modelo_calculo <= quantidade_modelos:
+                            raise ValueError("Modelo de prova inválido.")
+
+                        cursor.execute("""
+                            SELECT 1
+                            FROM aplicacao_alunos
+                            WHERE aplicacao_id = ? AND aluno_id = ?
+                        """, (aplicacao_id, aluno_id))
+                        if not cursor.fetchone():
+                            raise ValueError(
+                                "O aluno não pertence a esta aplicação."
+                            )
+
+                        questoes = _questoes_modelo_aplicacao(
+                            cursor, aplicacao_id, modelo_calculo
+                        )
+                        objetivas = [
+                            (numero, questao)
+                            for numero, questao in enumerate(questoes, 1)
+                            if not _tipo_discursivo_aplicacao(
+                                questao["tipo_questao"]
+                            )
+                        ]
+                        if not objetivas:
+                            raise ValueError(
+                                "Esta aplicação não possui questões objetivas."
+                            )
+
+                        leitura = ler_respostas_cartao_detalhado(
+                            caminho, len(objetivas)
+                        )
+
+                        cursor.execute("""
+                            DELETE FROM aplicacao_respostas_objetivas
+                            WHERE aplicacao_id = ? AND aluno_id = ?
+                        """, (aplicacao_id, aluno_id))
+                        cursor.execute("""
+                            DELETE FROM respostas_alunos
+                            WHERE prova_id = ? AND aluno_id = ?
+                        """, (aplicacao["prova_id"], aluno_id))
+
                         acertos = 0
-                        total_objetivas = 0
+                        total_objetivas = len(objetivas)
                         total_discursivas = 0
+                        ambiguas = 0
+                        brancas = 0
+                        indice_leitura = 0
+
                         for numero, questao in enumerate(questoes, 1):
-                            if _tipo_discursivo_aplicacao(questao["tipo_questao"]):
+                            if _tipo_discursivo_aplicacao(
+                                questao["tipo_questao"]
+                            ):
                                 total_discursivas += 1
                                 cursor.execute("""
-                                    INSERT OR IGNORE INTO respostas_discursivas_aplicacao
-                                    (aplicacao_id, aluno_id, questao_id, numero_exibicao)
+                                    INSERT OR IGNORE INTO
+                                    respostas_discursivas_aplicacao
+                                    (aplicacao_id, aluno_id, questao_id,
+                                     numero_exibicao)
                                     VALUES (?, ?, ?, ?)
-                                """, (aplicacao_id, aluno_id, questao["id"], numero))
+                                """, (
+                                    aplicacao_id,
+                                    aluno_id,
+                                    questao["id"],
+                                    numero
+                                ))
                                 continue
-                            total_objetivas += 1
-                            resposta = respostas.get(numero)
-                            correta = (questao["correta"] or "").strip().upper()
-                            acertou = 1 if resposta and resposta == correta else 0
+
+                            indice_leitura += 1
+                            dado = leitura.get(indice_leitura, {
+                                "resposta": "",
+                                "situacao": "em_branco"
+                            })
+                            resposta = dado.get("resposta", "")
+                            situacao = dado.get(
+                                "situacao", "em_branco"
+                            )
+                            correta = (
+                                questao["correta"] or ""
+                            ).strip().upper()
+                            anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
+
+                            if anulada:
+                                situacao = "anulada"
+                                acertou = 1
+                            else:
+                                acertou = int(
+                                    situacao == "respondida"
+                                    and resposta == correta
+                                )
+                                if situacao == "dupla_marcacao":
+                                    ambiguas += 1
+                                elif situacao == "em_branco":
+                                    brancas += 1
+
                             acertos += acertou
+
+                            cursor.execute("""
+                                INSERT INTO aplicacao_respostas_objetivas
+                                (aplicacao_id, aluno_id, numero_questao,
+                                 questao_id, modelo, resposta, situacao,
+                                 resposta_correta, acertou, origem,
+                                 atualizado_em, anulada)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                aplicacao_id,
+                                aluno_id,
+                                numero,
+                                questao["id"],
+                                modelo_calculo,
+                                resposta,
+                                situacao,
+                                correta,
+                                acertou,
+                                "automatica",
+                                datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                anulada
+                            ))
+
+                            resposta_legada = (
+                                "__ANULADA__" if anulada
+                                else resposta
+                                if situacao == "respondida"
+                                else "__DUPLA__"
+                                if situacao == "dupla_marcacao"
+                                else "__BRANCO__"
+                            )
                             cursor.execute("""
                                 INSERT INTO respostas_alunos
-                                (prova_id, aluno_id, numero_questao, resposta_aluno, resposta_correta, acertou)
+                                (prova_id, aluno_id, numero_questao,
+                                 resposta_aluno, resposta_correta, acertou)
                                 VALUES (?, ?, ?, ?, ?, ?)
-                            """, (aplicacao["prova_id"], aluno_id, numero, resposta or "", correta, acertou))
+                            """, (
+                                aplicacao["prova_id"],
+                                aluno_id,
+                                numero,
+                                resposta_legada,
+                                "ANULADA" if anulada else correta,
+                                acertou
+                            ))
 
-                        nota_objetiva = round((acertos / total_objetivas) * 10, 2) if total_objetivas else 0
+                        modelo_pendente = modelo_visual is None
+                        precisa_revisao = bool(
+                            modelo_pendente or ambiguas or brancas
+                        )
+                        status_importacao = (
+                            "Revisão necessária"
+                            if precisa_revisao else "Processado"
+                        )
+
+                        partes_mensagem = [
+                            f"{acertos}/{total_objetivas} corretas",
+                            f"{brancas} em branco",
+                            f"{ambiguas} com dupla marcação"
+                        ]
+                        if modelo_pendente:
+                            partes_mensagem.append("modelo não marcado")
+                        mensagem = "; ".join(partes_mensagem) + "."
+
+                        nota_objetiva = round(
+                            (acertos / total_objetivas) * 10, 2
+                        ) if total_objetivas else 0
+
                         cursor.execute("""
                             UPDATE aplicacao_alunos
-                            SET objetiva_corrigida = 1,
+                            SET modelo = ?,
+                                objetiva_corrigida = ?,
                                 discursiva_pendente = ?,
-                                acertos_objetivos = ?, total_objetivas = ?,
+                                acertos_objetivos = ?,
+                                total_objetivas = ?,
                                 nota_objetiva = ?,
                                 status = ?
                             WHERE aplicacao_id = ? AND aluno_id = ?
-                        """, (1 if total_discursivas else 0, acertos, total_objetivas, nota_objetiva,
-                              "Aguardando correção discursiva" if total_discursivas else "Corrigido",
-                              aplicacao_id, aluno_id))
-                        status = "Processado"
-                        mensagem = f"{acertos}/{total_objetivas} objetivas corretas."
-                        processados += 1
-                except Exception as erro:
-                    mensagem = str(erro)
-                    erros += 1
+                        """, (
+                            modelo_calculo,
+                            0 if precisa_revisao else 1,
+                            1 if total_discursivas else 0,
+                            acertos,
+                            total_objetivas,
+                            nota_objetiva,
+                            "Revisão necessária"
+                            if precisa_revisao
+                            else (
+                                "Aguardando correção discursiva"
+                                if total_discursivas else "Corrigido"
+                            ),
+                            aplicacao_id,
+                            aluno_id
+                        ))
 
-                cursor.execute("""
-                    INSERT INTO aplicacao_importacoes
-                    (aplicacao_id, aluno_id, modelo, nome_arquivo, caminho_arquivo, status, mensagem)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (aplicacao_id, aluno_id, modelo, arquivo.filename, caminho, status, mensagem))
+                        nome_exibicao = nome_original
+                        if numero_pagina is not None:
+                            nome_exibicao = (
+                                f"{nome_original} · página {numero_pagina}"
+                            )
 
-            cursor.execute("UPDATE aplicacoes SET status = 'Aguardando correção' WHERE id = ?", (aplicacao_id,))
+                        cursor.execute("""
+                            INSERT INTO aplicacao_importacoes
+                            (aplicacao_id, aluno_id, modelo, nome_arquivo,
+                             caminho_arquivo, status, mensagem, qr_texto,
+                             tipo_folha, revisado, revisado_em)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OBJETIVAS', ?, ?)
+                        """, (
+                            aplicacao_id,
+                            aluno_id,
+                            modelo_visual,
+                            nome_exibicao,
+                            caminho,
+                            status_importacao,
+                            mensagem,
+                            qr_texto,
+                            0 if precisa_revisao else 1,
+                            None if precisa_revisao else
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+
+                        if precisa_revisao:
+                            revisoes += 1
+                        else:
+                            importados += 1
+
+                        cursor.execute(
+                            "RELEASE SAVEPOINT importar_pagina"
+                        )
+
+                    except Exception as erro:
+                        cursor.execute(
+                            "ROLLBACK TO SAVEPOINT importar_pagina"
+                        )
+                        cursor.execute(
+                            "RELEASE SAVEPOINT importar_pagina"
+                        )
+                        print(
+                            f"ERRO AO IMPORTAR {arquivo.filename}"
+                            f"{f' PÁGINA {numero_pagina}' if numero_pagina else ''}: "
+                            f"{erro}"
+                        )
+                        _remover_arquivo_silenciosamente(caminho)
+                        descartados += 1
+
+            cursor.execute("""
+                UPDATE aplicacoes
+                SET status = 'Aguardando correção'
+                WHERE id = ?
+            """, (aplicacao_id,))
             banco.commit()
-            flash(f"Importação concluída: {processados} cartão(ões) processado(s) e {erros} com erro.", "sucesso" if not erros else "aviso")
-            return redirect(f"/provas/{aplicacao['prova_id']}/aplicacoes")
 
+            flash(
+                f"Importação concluída: {importados} corrigido(s), "
+                f"{revisoes} para revisão e {descartados} descartado(s).",
+                "sucesso" if not descartados else "aviso"
+            )
+            return redirect(url_for(
+                "importar_cartoes_aplicacao",
+                aplicacao_id=aplicacao_id
+            ))
+
+        # Exibe todos os alunos da aplicação, inclusive aqueles que ainda
+        # não tiveram cartão importado.
         cursor.execute("""
-            SELECT ai.*, al.nome AS aluno_nome
-            FROM aplicacao_importacoes ai
-            LEFT JOIN alunos al ON al.id = ai.aluno_id
-            WHERE ai.aplicacao_id = ?
-            ORDER BY ai.importado_em DESC
+            SELECT
+                aa.id AS aplicacao_aluno_id,
+                aa.aluno_id,
+                aa.modelo AS modelo_aluno,
+                aa.status AS aluno_status,
+                aa.objetiva_corrigida,
+                aa.nota_objetiva,
+                aa.acertos_objetivos,
+                aa.total_objetivas,
+                al.nome AS aluno_nome,
+                al.matricula AS aluno_matricula,
+                ai.id AS importacao_id,
+                ai.modelo AS modelo_importacao,
+                ai.nome_arquivo,
+                ai.importado_em,
+                ai.status AS importacao_status,
+                ai.mensagem,
+                CASE
+                    WHEN aa.status = 'Ausente' THEN 'Ausente'
+                    WHEN ai.id IS NULL THEN 'Pendente'
+                    WHEN ai.status = 'Revisão necessária'
+                        THEN 'Revisão necessária'
+                    ELSE 'Processado'
+                END AS status_lista
+            FROM aplicacao_alunos aa
+            INNER JOIN alunos al ON al.id = aa.aluno_id
+            LEFT JOIN aplicacao_importacoes ai
+              ON ai.id = (
+                    SELECT MAX(ai2.id)
+                    FROM aplicacao_importacoes ai2
+                    WHERE ai2.aplicacao_id = aa.aplicacao_id
+                      AND ai2.aluno_id = aa.aluno_id
+                      AND ai2.tipo_folha = 'OBJETIVAS'
+                      AND ai2.status <> 'Erro'
+                )
+            WHERE aa.aplicacao_id = ?
+            ORDER BY al.nome COLLATE NOCASE
         """, (aplicacao_id,))
-        importacoes = cursor.fetchall()
-        return render_template("aplicacoes/importar.html", aplicacao=aplicacao, importacoes=importacoes)
+        alunos_cartoes = cursor.fetchall()
+
+        resumo = {
+            "alunos": len(alunos_cartoes),
+            "total": sum(
+                1 for item in alunos_cartoes
+                if item["importacao_id"] is not None
+            ),
+            "processados": sum(
+                1 for item in alunos_cartoes
+                if item["status_lista"] == "Processado"
+            ),
+            "revisao": sum(
+                1 for item in alunos_cartoes
+                if item["status_lista"] == "Revisão necessária"
+            ),
+            "pendentes": sum(
+                1 for item in alunos_cartoes
+                if item["status_lista"] == "Pendente"
+            ),
+            "ausentes": sum(
+                1 for item in alunos_cartoes
+                if item["status_lista"] == "Ausente"
+            )
+        }
+
+        return render_template(
+            "aplicacoes/importar.html",
+            aplicacao=aplicacao,
+            alunos_cartoes=alunos_cartoes,
+            resumo=resumo
+        )
+
     finally:
         banco.close()
 
+
+@app.route(
+    "/aplicacoes/<int:aplicacao_id>/importacoes/<int:importacao_id>/dados"
+)
+def dados_importacao_cartao(aplicacao_id, importacao_id):
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT ai.*, al.nome AS aluno_nome,
+                   al.matricula AS aluno_matricula,
+                   a.quantidade_modelos, a.prova_id,
+                   t.nome AS turma_nome
+            FROM aplicacao_importacoes ai
+            INNER JOIN aplicacoes a ON a.id = ai.aplicacao_id
+            INNER JOIN turmas t ON t.id = a.turma_id
+            LEFT JOIN alunos al ON al.id = ai.aluno_id
+            WHERE ai.id = ? AND ai.aplicacao_id = ?
+        """, (importacao_id, aplicacao_id))
+        importacao = cursor.fetchone()
+
+        if not importacao:
+            return jsonify({"erro": "Importação não encontrada."}), 404
+
+        respostas = []
+        if importacao["aluno_id"]:
+            cursor.execute("""
+                SELECT numero_questao, questao_id, modelo, resposta,
+                       situacao, resposta_correta, acertou, origem, anulada
+                FROM aplicacao_respostas_objetivas
+                WHERE aplicacao_id = ? AND aluno_id = ?
+                ORDER BY numero_questao
+            """, (aplicacao_id, importacao["aluno_id"]))
+            respostas = [dict(item) for item in cursor.fetchall()]
+
+        caminho = importacao["caminho_arquivo"] or ""
+        relativo = ""
+        try:
+            relativo = os.path.relpath(
+                caminho, app.config["UPLOAD_FOLDER"]
+            ).replace(os.sep, "/")
+        except ValueError:
+            relativo = ""
+
+        return jsonify({
+            "importacao": {
+                **dict(importacao),
+                "imagem_url": (
+                    f"/static/uploads/{relativo}" if relativo else ""
+                )
+            },
+            "respostas": respostas
+        })
+
+    finally:
+        banco.close()
+
+
+@app.route(
+    "/aplicacoes/<int:aplicacao_id>/importacoes/<int:importacao_id>/salvar",
+    methods=["POST"]
+)
+def salvar_revisao_cartao(aplicacao_id, importacao_id):
+    """Salva qualquer ajuste feito pelo professor e recalcula o resultado."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT ai.*, a.prova_id, a.quantidade_modelos
+            FROM aplicacao_importacoes ai
+            INNER JOIN aplicacoes a ON a.id = ai.aplicacao_id
+            WHERE ai.id = ? AND ai.aplicacao_id = ?
+        """, (importacao_id, aplicacao_id))
+        importacao = cursor.fetchone()
+
+        if not importacao:
+            return jsonify({"erro": "Importação não encontrada."}), 404
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            importacao["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return jsonify({
+                "erro": "Você não possui permissão para editar este cartão."
+            }), 403
+
+        dados = request.get_json(silent=True) or {}
+        aluno_id = dados.get("aluno_id") or importacao["aluno_id"]
+
+        try:
+            modelo = int(dados.get("modelo") or 0)
+        except (TypeError, ValueError):
+            modelo = 0
+
+        if not aluno_id:
+            return jsonify({
+                "erro": "Não foi possível identificar o aluno."
+            }), 400
+
+        quantidade_modelos = int(importacao["quantidade_modelos"] or 1)
+        if modelo < 1 or modelo > quantidade_modelos:
+            return jsonify({
+                "erro": "Selecione o modelo correto da prova."
+            }), 400
+
+        respostas_enviadas = {
+            int(item["numero"]): item
+            for item in dados.get("respostas", [])
+            if item.get("numero") is not None
+        }
+
+        questoes = _questoes_modelo_aplicacao(
+            cursor, aplicacao_id, modelo
+        )
+
+        cursor.execute("""
+            DELETE FROM aplicacao_respostas_objetivas
+            WHERE aplicacao_id = ? AND aluno_id = ?
+        """, (aplicacao_id, aluno_id))
+        cursor.execute("""
+            DELETE FROM respostas_alunos
+            WHERE prova_id = ? AND aluno_id = ?
+        """, (importacao["prova_id"], aluno_id))
+
+        acertos = 0
+        total_objetivas = 0
+        total_discursivas = 0
+
+        for numero, questao in enumerate(questoes, 1):
+            if _tipo_discursivo_aplicacao(questao["tipo_questao"]):
+                total_discursivas += 1
+                cursor.execute("""
+                    INSERT OR IGNORE INTO respostas_discursivas_aplicacao
+                    (aplicacao_id, aluno_id, questao_id, numero_exibicao)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    aplicacao_id,
+                    aluno_id,
+                    questao["id"],
+                    numero
+                ))
+                continue
+
+            total_objetivas += 1
+            anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
+            recebido = respostas_enviadas.get(numero, {})
+            situacao = recebido.get("situacao", "em_branco")
+            resposta = (
+                recebido.get("resposta", "").strip().upper()
+                if situacao == "respondida" else ""
+            )
+
+            if situacao not in {
+                "respondida", "em_branco", "dupla_marcacao"
+            }:
+                situacao = "em_branco"
+                resposta = ""
+
+            if situacao == "respondida":
+                if resposta not in {"A", "B", "C", "D"}:
+                    situacao = "em_branco"
+                    resposta = ""
+            elif situacao not in {"em_branco", "dupla_marcacao"}:
+                situacao = "em_branco"
+                resposta = ""
+
+            correta = (questao["correta"] or "").strip().upper()
+
+            if anulada:
+                situacao = "anulada"
+                acertou = 1
+            elif situacao == "respondida":
+                acertou = int(resposta == correta)
+            else:
+                # Questão em branco ou com dupla marcação vale zero.
+                acertou = 0
+
+            acertos += acertou
+
+            cursor.execute("""
+                INSERT INTO aplicacao_respostas_objetivas
+                (aplicacao_id, aluno_id, numero_questao, questao_id,
+                 modelo, resposta, situacao, resposta_correta,
+                 acertou, origem, atualizado_em, anulada)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)
+            """, (
+                aplicacao_id,
+                aluno_id,
+                numero,
+                questao["id"],
+                modelo,
+                resposta,
+                situacao,
+                correta,
+                acertou,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                anulada
+            ))
+
+            resposta_legada = (
+                "__ANULADA__" if anulada
+                else resposta if situacao == "respondida"
+                else "__DUPLA__" if situacao == "dupla_marcacao"
+                else "__BRANCO__"
+            )
+
+            cursor.execute("""
+                INSERT INTO respostas_alunos
+                (prova_id, aluno_id, numero_questao, resposta_aluno,
+                 resposta_correta, acertou)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                importacao["prova_id"],
+                aluno_id,
+                numero,
+                resposta_legada,
+                "ANULADA" if anulada else correta,
+                acertou
+            ))
+
+        nota = round(
+            (acertos / total_objetivas) * 10, 2
+        ) if total_objetivas else 0
+
+        cursor.execute("""
+            UPDATE aplicacao_alunos
+            SET modelo = ?,
+                objetiva_corrigida = 1,
+                discursiva_pendente = ?,
+                acertos_objetivos = ?,
+                total_objetivas = ?,
+                nota_objetiva = ?,
+                status = ?
+            WHERE aplicacao_id = ? AND aluno_id = ?
+        """, (
+            modelo,
+            1 if total_discursivas else 0,
+            acertos,
+            total_objetivas,
+            nota,
+            "Aguardando correção discursiva"
+            if total_discursivas else "Corrigido",
+            aplicacao_id,
+            aluno_id
+        ))
+
+        cursor.execute("""
+            UPDATE aplicacao_importacoes
+            SET aluno_id = ?,
+                modelo = ?,
+                status = 'Processado',
+                mensagem = ?,
+                revisado = 1,
+                revisado_por = ?,
+                revisado_em = ?
+            WHERE id = ? AND aplicacao_id = ?
+        """, (
+            aluno_id,
+            modelo,
+            (
+                f"Conferência concluída pelo professor: "
+                f"{acertos}/{total_objetivas} corretas."
+            ),
+            session.get("usuario_id"),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            importacao_id,
+            aplicacao_id
+        ))
+
+        banco.commit()
+        return jsonify({
+            "sucesso": True,
+            "acertos": acertos,
+            "total": total_objetivas,
+            "nota": nota
+        })
+
+    except Exception as erro:
+        banco.rollback()
+        return jsonify({"erro": str(erro)}), 400
+
+    finally:
+        banco.close()
+
+
+
+@app.route(
+    "/aplicacoes/<int:aplicacao_id>/alunos/<int:aluno_id>/ausencia",
+    methods=["POST"]
+)
+def alterar_ausencia_aplicacao(aplicacao_id, aluno_id):
+    """Marca ou desfaz a ausência de um aluno na aplicação."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT a.prova_id, aa.status
+            FROM aplicacao_alunos aa
+            INNER JOIN aplicacoes a ON a.id = aa.aplicacao_id
+            WHERE aa.aplicacao_id = ? AND aa.aluno_id = ?
+        """, (aplicacao_id, aluno_id))
+        registro = cursor.fetchone()
+
+        if not registro:
+            return jsonify({
+                "erro": "Aluno não encontrado nesta aplicação."
+            }), 404
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            registro["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return jsonify({
+                "erro": "Você não possui permissão para alterar a presença."
+            }), 403
+
+        dados = request.get_json(silent=True) or {}
+        ausente = bool(dados.get("ausente"))
+
+        if ausente:
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM aplicacao_importacoes
+                WHERE aplicacao_id = ?
+                  AND aluno_id = ?
+                  AND tipo_folha = 'OBJETIVAS'
+                  AND status <> 'Erro'
+            """, (aplicacao_id, aluno_id))
+
+            if int(cursor.fetchone()["total"] or 0) > 0:
+                return jsonify({
+                    "erro": (
+                        "Este aluno já possui cartão importado. "
+                        "Exclua a importação antes de marcar falta."
+                    )
+                }), 409
+
+            cursor.execute("""
+                UPDATE aplicacao_alunos
+                SET status = 'Ausente',
+                    objetiva_corrigida = 0,
+                    acertos_objetivos = 0,
+                    total_objetivas = 0,
+                    nota_objetiva = NULL
+                WHERE aplicacao_id = ? AND aluno_id = ?
+            """, (aplicacao_id, aluno_id))
+            mensagem = "Aluno marcado como ausente."
+        else:
+            cursor.execute("""
+                UPDATE aplicacao_alunos
+                SET status = 'Aguardando aplicação',
+                    objetiva_corrigida = 0,
+                    acertos_objetivos = 0,
+                    total_objetivas = 0,
+                    nota_objetiva = NULL
+                WHERE aplicacao_id = ? AND aluno_id = ?
+            """, (aplicacao_id, aluno_id))
+            mensagem = "Ausência desfeita. O aluno voltou para pendentes."
+
+        banco.commit()
+        return jsonify({
+            "sucesso": True,
+            "ausente": ausente,
+            "mensagem": mensagem
+        })
+
+    except Exception as erro:
+        banco.rollback()
+        return jsonify({"erro": str(erro)}), 400
+
+    finally:
+        banco.close()
+
+
+@app.route(
+    "/aplicacoes/<int:aplicacao_id>/importacoes/<int:importacao_id>/excluir",
+    methods=["POST"]
+)
+def excluir_importacao_cartao(aplicacao_id, importacao_id):
+    """Exclui a importação, a imagem e o resultado ligado a ela."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    caminho_arquivo = None
+
+    try:
+        cursor.execute("""
+            SELECT ai.*, a.prova_id
+            FROM aplicacao_importacoes ai
+            INNER JOIN aplicacoes a ON a.id = ai.aplicacao_id
+            WHERE ai.id = ? AND ai.aplicacao_id = ?
+        """, (importacao_id, aplicacao_id))
+        importacao = cursor.fetchone()
+
+        if not importacao:
+            return jsonify({"erro": "Importação não encontrada."}), 404
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            importacao["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return jsonify({
+                "erro": "Você não possui permissão para excluir este cartão."
+            }), 403
+
+        aluno_id = importacao["aluno_id"]
+        caminho_arquivo = importacao["caminho_arquivo"]
+
+        cursor.execute("""
+            DELETE FROM aplicacao_importacoes
+            WHERE id = ? AND aplicacao_id = ?
+        """, (importacao_id, aplicacao_id))
+
+        if aluno_id:
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM aplicacao_importacoes
+                WHERE aplicacao_id = ?
+                  AND aluno_id = ?
+                  AND tipo_folha = 'OBJETIVAS'
+            """, (aplicacao_id, aluno_id))
+            possui_outra = int(cursor.fetchone()["total"] or 0) > 0
+
+            if not possui_outra:
+                cursor.execute("""
+                    DELETE FROM aplicacao_respostas_objetivas
+                    WHERE aplicacao_id = ? AND aluno_id = ?
+                """, (aplicacao_id, aluno_id))
+                cursor.execute("""
+                    DELETE FROM respostas_alunos
+                    WHERE prova_id = ? AND aluno_id = ?
+                """, (importacao["prova_id"], aluno_id))
+                cursor.execute("""
+                    UPDATE aplicacao_alunos
+                    SET objetiva_corrigida = 0,
+                        acertos_objetivos = 0,
+                        total_objetivas = 0,
+                        nota_objetiva = NULL,
+                        status = 'Aguardando aplicação'
+                    WHERE aplicacao_id = ? AND aluno_id = ?
+                """, (aplicacao_id, aluno_id))
+
+        banco.commit()
+        _remover_arquivo_silenciosamente(caminho_arquivo)
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": "Importação excluída com sucesso."
+        })
+
+    except Exception as erro:
+        banco.rollback()
+        return jsonify({"erro": str(erro)}), 400
+
+    finally:
+        banco.close()
 
 @app.route("/aplicacoes/<int:aplicacao_id>/excluir", methods=["POST"])
 def excluir_aplicacao(aplicacao_id):
