@@ -6,7 +6,8 @@ import uuid
 import re
 import unicodedata
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from io import BytesIO
 
 import cv2
@@ -34,6 +35,77 @@ UPLOAD_FOLDER = os.environ.get(
 )
 
 app = Flask(__name__)
+
+# Fuso horário oficial da plataforma (Guaraí/Tocantins).
+FUSO_HORARIO_SISTEMA = ZoneInfo("America/Araguaina")
+
+
+def agora_local():
+    """Retorna a data e hora atuais de Guaraí/Tocantins."""
+    return datetime.now(FUSO_HORARIO_SISTEMA)
+
+
+@app.template_filter("formatar_data_hora_local")
+def formatar_data_hora_local(valor):
+    """
+    Converte datas salvas pelo SQLite em UTC para o horário de Tocantins
+    e exibe no formato DD/MM/AAAA às HH:mm.
+    """
+    if valor in (None, ""):
+        return "—"
+
+    if isinstance(valor, datetime):
+        data = valor
+    else:
+        texto = str(valor).strip()
+        try:
+            data = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+        except ValueError:
+            formatos = (
+                "%Y-%m-%d %H:%M:%S.%f",
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S.%f",
+                "%Y-%m-%dT%H:%M:%S",
+            )
+            data = None
+            for formato in formatos:
+                try:
+                    data = datetime.strptime(texto, formato)
+                    break
+                except ValueError:
+                    continue
+            if data is None:
+                return texto
+
+    # CURRENT_TIMESTAMP do SQLite é UTC. Quando o valor não traz fuso,
+    # tratamos como UTC antes de converter para America/Araguaina.
+    if data.tzinfo is None:
+        data = data.replace(tzinfo=timezone.utc)
+
+    data_local = data.astimezone(FUSO_HORARIO_SISTEMA)
+    return data_local.strftime("%d/%m/%Y às %H:%M")
+
+
+@app.template_filter("formatar_data_br")
+def formatar_data_br(valor):
+    """Exibe uma data no formato DD/MM/AAAA."""
+    if valor in (None, ""):
+        return "—"
+
+    if isinstance(valor, datetime):
+        data = valor
+    else:
+        texto = str(valor).strip()
+        for formato in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y"):
+            try:
+                data = datetime.strptime(texto, formato)
+                break
+            except ValueError:
+                data = None
+        if data is None:
+            return texto
+
+    return data.strftime("%d/%m/%Y")
 app.secret_key = os.environ.get(
     "SECRET_KEY",
     "chave-temporaria-local-altere-no-render"
@@ -6568,23 +6640,23 @@ def provas():
                 except ValueError:
                     continue
 
-            status_banco = (
-                registro["status"] or "rascunho"
-            ).strip().lower()
+            status_banco = _sincronizar_status_prova(
+                cursor,
+                registro["id"]
+            ) or (registro["status"] or "rascunho").strip().lower()
 
-            if status_banco == "finalizada":
-                if data_objeto and data_objeto > hoje:
-                    status = "Agendada"
-                    status_slug = "agendada"
-                elif data_aplicacao:
-                    status = "Aplicada"
-                    status_slug = "aplicada"
-                else:
-                    status = "Finalizada"
-                    status_slug = "aplicada"
-            else:
-                status = "Rascunho"
-                status_slug = "rascunho"
+            mapa_status = {
+                "rascunho": ("Rascunho", "rascunho"),
+                "agendada": ("Agendada", "agendada"),
+                "em_correcao": ("Em correção", "em-correcao"),
+                "em correção": ("Em correção", "em-correcao"),
+                "aguardando correção": ("Em correção", "em-correcao"),
+                "finalizada": ("Finalizada", "finalizada")
+            }
+            status, status_slug = mapa_status.get(
+                status_banco,
+                ("Rascunho", "rascunho")
+            )
 
             lista_provas.append({
                 "id": registro["id"],
@@ -6610,10 +6682,16 @@ def provas():
                 "instituicao": registro["nome_instituicao"]
             })
 
+        banco.commit()
+
         indicadores = {
             "total": len(lista_provas),
-            "aplicadas": sum(
-                item["status_slug"] == "aplicada"
+            "finalizadas": sum(
+                item["status_slug"] == "finalizada"
+                for item in lista_provas
+            ),
+            "em_correcao": sum(
+                item["status_slug"] == "em-correcao"
                 for item in lista_provas
             ),
             "agendadas": sum(
@@ -8282,7 +8360,7 @@ def finalizar_prova(prova_id):
             UPDATE provas
             SET
                 quantidade = ?,
-                status = 'finalizada',
+                status = 'agendada',
                 atualizado_em = ?
             WHERE id = ?
         """, (
@@ -8294,7 +8372,7 @@ def finalizar_prova(prova_id):
         ))
 
         banco.commit()
-        flash("Avaliação finalizada com sucesso.", "sucesso")
+        flash("Avaliação finalizada e agendada com sucesso.", "sucesso")
 
         return redirect(f"/prova/{prova_id}")
 
@@ -10015,86 +10093,256 @@ def corrigir_cartoes(prova_id):
 
 @app.route("/resultados/<int:prova_id>")
 def resultados(prova_id):
+    """Centro completo de resultados de uma avaliação."""
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Professor"
+    ]):
+        return redirect("/login")
 
+    _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT id, nome, media_ativa, media_aprovacao
-        FROM provas
-        WHERE id = ?
-    """, (prova_id,))
-    prova = cursor.fetchone()
+    def colunas(tabela):
+        cursor.execute(f"PRAGMA table_info({tabela})")
+        return {linha["name"] for linha in cursor.fetchall()}
 
-    if not prova:
-        banco.close()
-        flash("Avaliação não encontrada.", "erro")
-        return redirect("/provas")
+    try:
+        cols_q = colunas("questoes")
+        cols_pq = colunas("prova_questoes")
+        cols_aa = colunas("aplicacao_alunos")
 
-    cursor.execute("""
-        SELECT
-            alunos.nome,
-            resultados.acertos,
-            resultados.erros,
-            resultados.nota
-        FROM resultados
-        JOIN alunos ON resultados.aluno_id = alunos.id
-        WHERE resultados.prova_id = ?
-        ORDER BY resultados.nota DESC
-    """, (prova_id,))
-    lista_resultados = cursor.fetchall()
-
-    cursor.execute("""
-        SELECT COUNT(*) AS total, ROUND(AVG(nota), 1) AS media,
-               MAX(nota) AS maior, MIN(nota) AS menor
-        FROM resultados
-        WHERE prova_id = ?
-    """, (prova_id,))
-    estatisticas = cursor.fetchone()
-
-    total_alunos = estatisticas["total"] or 0
-    media_turma = estatisticas["media"] or 0
-    maior_nota = estatisticas["maior"] or 0
-    menor_nota = estatisticas["menor"] or 0
-
-    media_ativa = bool(prova["media_ativa"])
-    media_aprovacao = prova["media_aprovacao"] if media_ativa else None
-    aprovados = 0
-    reprovados = 0
-    taxa_aprovacao = 0
-
-    if media_ativa and media_aprovacao is not None:
         cursor.execute("""
             SELECT
-                SUM(CASE WHEN nota >= ? THEN 1 ELSE 0 END) AS aprovados,
-                SUM(CASE WHEN nota < ? THEN 1 ELSE 0 END) AS reprovados
-            FROM resultados
-            WHERE prova_id = ?
-        """, (media_aprovacao, media_aprovacao, prova_id))
-        contagem = cursor.fetchone()
-        aprovados = contagem["aprovados"] or 0
-        reprovados = contagem["reprovados"] or 0
+                p.*,
+                t.nome AS turma_nome,
+                t.ano AS turma_ano,
+                t.turno AS turma_turno,
+                e.nome_instituicao,
+                e.logo,
+                e.cidade,
+                e.estado,
+                COALESCE(al.ano, p.ano_letivo_id) AS ano_letivo,
+                COALESCE(u.nome, prof.nome, '—') AS professor_nome
+            FROM provas p
+            LEFT JOIN turmas t ON t.id = p.turma_id
+            LEFT JOIN escolas e ON e.id = p.escola_id
+            LEFT JOIN anos_letivos al ON al.id = p.ano_letivo_id
+            LEFT JOIN usuarios u ON u.id = p.professor_id
+            LEFT JOIN professores prof ON prof.id = p.professor_id
+            WHERE p.id = ?
+            LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
 
-        if total_alunos > 0:
-            taxa_aprovacao = round((aprovados / total_alunos) * 100, 1)
+        if not prova:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
 
-    banco.close()
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False, permitir_finalizada=True):
+            return redirect("/acesso_negado")
 
-    return render_template(
-        "resultados.html",
-        prova=prova,
-        resultados=lista_resultados,
-        total_alunos=total_alunos,
-        media_turma=media_turma,
-        maior_nota=maior_nota,
-        menor_nota=menor_nota,
-        media_ativa=media_ativa,
-        media_aprovacao=media_aprovacao,
-        aprovados=aprovados,
-        reprovados=reprovados,
-        taxa_aprovacao=taxa_aprovacao
-    )
+        _recalcular_notas_aplicacoes_por_peso(cursor, prova_id=prova_id)
+        banco.commit()
+
+        nota_final_expr = "aa.nota_final" if "nota_final" in cols_aa else "NULL"
+        nota_disc_expr = "aa.nota_discursiva" if "nota_discursiva" in cols_aa else "NULL"
+
+        cursor.execute(f"""
+            WITH atuais AS (
+                SELECT
+                    aa.aluno_id,
+                    aa.aplicacao_id,
+                    aa.status,
+                    COALESCE(aa.acertos_objetivos, 0) AS acertos,
+                    MAX(COALESCE(aa.total_objetivas, 0) - COALESCE(aa.acertos_objetivos, 0), 0) AS erros,
+                    COALESCE(aa.total_objetivas, 0) AS total_objetivas,
+                    aa.nota_objetiva,
+                    {nota_disc_expr} AS nota_discursiva,
+                    COALESCE({nota_final_expr},
+                        CASE WHEN aa.objetiva_corrigida = 1 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                             THEN aa.nota_objetiva ELSE NULL END) AS nota,
+                    ap.data_aplicacao,
+                    1 AS origem_nova
+                FROM aplicacoes ap
+                JOIN aplicacao_alunos aa ON aa.aplicacao_id = ap.id
+                WHERE ap.prova_id = ?
+            ), legados AS (
+                SELECT r.aluno_id, NULL aplicacao_id, 'Corrigido' status,
+                       COALESCE(r.acertos,0) acertos, COALESCE(r.erros,0) erros,
+                       COALESCE(r.acertos,0)+COALESCE(r.erros,0) total_objetivas,
+                       r.nota nota_objetiva, NULL nota_discursiva, r.nota nota,
+                       NULL data_aplicacao, 0 origem_nova
+                FROM resultados r
+                WHERE r.prova_id = ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM atuais a WHERE a.aluno_id = r.aluno_id
+                  )
+            )
+            SELECT a.id AS aluno_id, a.nome, a.matricula,
+                   c.aplicacao_id, c.status, c.acertos, c.erros,
+                   c.total_objetivas, c.nota_objetiva, c.nota_discursiva,
+                   ROUND(c.nota,2) nota, c.data_aplicacao, c.origem_nova
+            FROM (SELECT * FROM atuais UNION ALL SELECT * FROM legados) c
+            JOIN alunos a ON a.id = c.aluno_id
+            ORDER BY CASE WHEN c.nota IS NULL THEN 1 ELSE 0 END, c.nota DESC, a.nome COLLATE NOCASE
+        """, (prova_id, prova_id))
+        todos_registros = [dict(r) for r in cursor.fetchall()]
+
+        ausentes = [r for r in todos_registros if (r.get("status") or "").strip().lower() in {"ausente", "faltou"}]
+        resultados_lista = [r for r in todos_registros if r.get("nota") is not None and r not in ausentes]
+        pendentes = [r for r in todos_registros if r.get("nota") is None and r not in ausentes]
+
+        notas = [float(r["nota"]) for r in resultados_lista]
+        total_alunos = len(resultados_lista)
+        total_turma = len(todos_registros)
+        presentes = total_turma - len(ausentes)
+        media_turma = round(sum(notas) / len(notas), 2) if notas else 0
+        maior_nota = round(max(notas), 2) if notas else 0
+        menor_nota = round(min(notas), 2) if notas else 0
+
+        notas_ordenadas = sorted(notas)
+        if notas_ordenadas:
+            meio = len(notas_ordenadas) // 2
+            mediana = (notas_ordenadas[meio] if len(notas_ordenadas) % 2 else
+                       (notas_ordenadas[meio - 1] + notas_ordenadas[meio]) / 2)
+            variancia = sum((n - media_turma) ** 2 for n in notas) / len(notas)
+            desvio_padrao = variancia ** 0.5
+        else:
+            mediana = desvio_padrao = 0
+
+        media_ativa = bool(prova["media_ativa"]) if "media_ativa" in prova.keys() else False
+        media_aprovacao = float(prova["media_aprovacao"]) if media_ativa and prova["media_aprovacao"] is not None else None
+        aprovados = sum(1 for n in notas if media_aprovacao is not None and n >= media_aprovacao)
+        reprovados = sum(1 for n in notas if media_aprovacao is not None and n < media_aprovacao)
+        taxa_aprovacao = round(aprovados / len(notas) * 100, 1) if notas and media_aprovacao is not None else 0
+
+        total_acertos = sum(int(r.get("acertos") or 0) for r in resultados_lista)
+        total_itens = sum(int(r.get("total_objetivas") or 0) for r in resultados_lista)
+        percentual_medio = round(total_acertos / total_itens * 100, 1) if total_itens else 0
+
+        # Questões e indicadores pedagógicos
+        habilidade_expr = "q.habilidade" if "habilidade" in cols_q else "NULL"
+        descritor_expr = "q.descritor" if "descritor" in cols_q else "NULL"
+        peso_expr = "pq.peso" if "peso" in cols_pq else ("pq.valor" if "valor" in cols_pq else "1.0")
+        anulada_expr = "COALESCE(pq.anulada,0)" if "anulada" in cols_pq else "0"
+        ordem_expr = "COALESCE(NULLIF(pq.ordem,0), pq.id)" if "ordem" in cols_pq else "pq.id"
+
+        cursor.execute(f"""
+            SELECT pq.questao_id, {ordem_expr} ordem,
+                   q.tipo_questao, q.enunciado, {habilidade_expr} habilidade,
+                   {descritor_expr} descritor, {peso_expr} peso, {anulada_expr} anulada
+            FROM prova_questoes pq
+            JOIN questoes q ON q.id = pq.questao_id
+            WHERE pq.prova_id = ?
+            ORDER BY {ordem_expr}, pq.id
+        """, (prova_id,))
+        questoes = [dict(q) for q in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT aro.questao_id,
+                   COUNT(*) respondentes,
+                   SUM(CASE WHEN aro.acertou = 1 THEN 1 ELSE 0 END) acertos,
+                   SUM(CASE WHEN aro.situacao = 'em_branco' OR TRIM(COALESCE(aro.resposta,'')) = '' THEN 1 ELSE 0 END) em_branco
+            FROM aplicacao_respostas_objetivas aro
+            JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
+            WHERE ap.prova_id = ?
+            GROUP BY aro.questao_id
+        """, (prova_id,))
+        obj_stats = {r["questao_id"]: dict(r) for r in cursor.fetchall()}
+
+        relatorio_questoes = []
+        for numero, q in enumerate(questoes, 1):
+            st = obj_stats.get(q["questao_id"], {})
+            respondentes = int(st.get("respondentes") or 0)
+            acertos_q = int(st.get("acertos") or 0)
+            brancos = int(st.get("em_branco") or 0)
+            erros_q = max(respondentes - acertos_q - brancos, 0)
+            percentual = round(acertos_q / respondentes * 100, 1) if respondentes else 0
+            q.update(numero=numero, respondentes=respondentes, acertos=acertos_q,
+                     erros=erros_q, em_branco=brancos, percentual=percentual)
+            relatorio_questoes.append(q)
+
+        validas = [q for q in relatorio_questoes if q["respondentes"] > 0 and not q["anulada"]]
+        questao_mais_facil = max(validas, key=lambda x: x["percentual"]) if validas else None
+        questao_mais_dificil = min(validas, key=lambda x: x["percentual"]) if validas else None
+        anuladas = [q for q in relatorio_questoes if q["anulada"]]
+
+        def agrupar_indicador(campo):
+            grupos = {}
+            for q in relatorio_questoes:
+                valor = (q.get(campo) or "").strip()
+                if not valor:
+                    continue
+                item = grupos.setdefault(valor, {"codigo": valor, "questoes": [], "acertos": 0, "respondentes": 0})
+                item["questoes"].append(q["numero"])
+                item["acertos"] += q["acertos"]
+                item["respondentes"] += q["respondentes"]
+            saida = []
+            for item in grupos.values():
+                item["percentual"] = round(item["acertos"] / item["respondentes"] * 100, 1) if item["respondentes"] else 0
+                item["nivel"] = "Avançado" if item["percentual"] >= 80 else "Adequado" if item["percentual"] >= 60 else "Básico" if item["percentual"] >= 40 else "Abaixo do básico"
+                saida.append(item)
+            return sorted(saida, key=lambda x: x["percentual"], reverse=True)
+
+        habilidades = agrupar_indicador("habilidade")
+        descritores = agrupar_indicador("descritor")
+
+        # Resumo das discursivas
+        cursor.execute("""
+            SELECT rda.questao_id, COUNT(*) total,
+                   SUM(CASE WHEN rda.corrigida = 1 THEN 1 ELSE 0 END) corrigidas,
+                   AVG(CASE WHEN rda.corrigida = 1 THEN rda.nota END) media
+            FROM respostas_discursivas_aplicacao rda
+            JOIN aplicacoes ap ON ap.id = rda.aplicacao_id
+            WHERE ap.prova_id = ?
+            GROUP BY rda.questao_id
+        """, (prova_id,))
+        disc_stats = {r["questao_id"]: dict(r) for r in cursor.fetchall()}
+        discursivas = []
+        for q in relatorio_questoes:
+            tipo = (q.get("tipo_questao") or "").lower()
+            if tipo in {"discursiva", "dissertativa", "resposta_aberta", "resposta aberta"}:
+                st = disc_stats.get(q["questao_id"], {})
+                total = int(st.get("total") or 0)
+                corrigidas_q = int(st.get("corrigidas") or 0)
+                discursivas.append({**q, "total_respostas": total, "corrigidas": corrigidas_q,
+                                    "pendentes": max(total-corrigidas_q,0), "media_discursiva": round(float(st.get("media") or 0),2)})
+
+        # Ranking e situação
+        for posicao, item in enumerate(resultados_lista, 1):
+            item["posicao"] = posicao
+            item["percentual"] = round((item["acertos"] / item["total_objetivas"] * 100), 1) if item["total_objetivas"] else 0
+            item["situacao_final"] = ("Aprovado" if media_aprovacao is not None and item["nota"] >= media_aprovacao else
+                                      "Abaixo da média" if media_aprovacao is not None else "Resultado disponível")
+
+        return render_template(
+            "resultados.html", prova=prova, resultados=resultados_lista,
+            todos_registros=todos_registros, total_alunos=total_alunos,
+            total_turma=total_turma, presentes=presentes, ausentes=ausentes,
+            pendentes=pendentes, media_turma=media_turma, maior_nota=maior_nota,
+            menor_nota=menor_nota, mediana=round(mediana,2), desvio_padrao=round(desvio_padrao,2),
+            media_ativa=media_ativa, media_aprovacao=media_aprovacao,
+            aprovados=aprovados, reprovados=reprovados, taxa_aprovacao=taxa_aprovacao,
+            percentual_medio=percentual_medio, relatorio_questoes=relatorio_questoes,
+            habilidades=habilidades, descritores=descritores, discursivas=discursivas,
+            anuladas=anuladas, questao_mais_facil=questao_mais_facil,
+            questao_mais_dificil=questao_mais_dificil,
+            gerado_em=agora_local().strftime("%d/%m/%Y às %H:%M")
+        )
+
+    except sqlite3.Error as erro:
+        import traceback
+        traceback.print_exc()
+        flash(f"Não foi possível carregar os resultados: {erro}", "erro")
+        return redirect("/provas")
+    finally:
+        banco.close()
+
 
 @app.route("/questao_relatorio/<int:prova_id>/<int:numero>")
 def questao_relatorio(prova_id, numero):
@@ -15565,10 +15813,146 @@ def reabrir_ano_letivo(ano_letivo_id):
 # if __name__ == "__main__":
 # =========================================================
 
+
+def _recalcular_notas_aplicacoes_por_peso(
+    cursor,
+    prova_id=None,
+    aplicacao_id=None,
+    aluno_id=None
+):
+    """
+    Recalcula notas objetivas usando prova_questoes.peso.
+
+    Também atualiza a nota final quando não há discursivas ou quando todas
+    as discursivas do aluno já foram corrigidas. Isso corrige registros
+    antigos que foram gravados com a fórmula proporcional por quantidade.
+    """
+    condicoes = ["aa.objetiva_corrigida = 1"]
+    parametros = []
+
+    if prova_id is not None:
+        condicoes.append("ap.prova_id = ?")
+        parametros.append(prova_id)
+
+    if aplicacao_id is not None:
+        condicoes.append("aa.aplicacao_id = ?")
+        parametros.append(aplicacao_id)
+
+    if aluno_id is not None:
+        condicoes.append("aa.aluno_id = ?")
+        parametros.append(aluno_id)
+
+    cursor.execute(f"""
+        SELECT
+            aa.aplicacao_id,
+            aa.aluno_id,
+            ap.prova_id,
+            ROUND(
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN COALESCE(aro.acertou, 0) = 1
+                                THEN COALESCE(pq.peso, 0)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ),
+                2
+            ) AS nota_objetiva_calculada,
+            COUNT(aro.id) AS total_respostas_objetivas,
+            COALESCE(aa.nota_discursiva, 0) AS nota_discursiva
+        FROM aplicacao_alunos AS aa
+        INNER JOIN aplicacoes AS ap
+            ON ap.id = aa.aplicacao_id
+        INNER JOIN aplicacao_respostas_objetivas AS aro
+            ON aro.aplicacao_id = aa.aplicacao_id
+           AND aro.aluno_id = aa.aluno_id
+        LEFT JOIN prova_questoes AS pq
+            ON pq.prova_id = ap.prova_id
+           AND pq.questao_id = aro.questao_id
+        WHERE {" AND ".join(condicoes)}
+        GROUP BY
+            aa.aplicacao_id,
+            aa.aluno_id,
+            ap.prova_id,
+            aa.nota_discursiva
+        HAVING COUNT(aro.id) > 0
+    """, parametros)
+
+    registros = cursor.fetchall()
+
+    for registro in registros:
+        aplicacao_atual = registro["aplicacao_id"]
+        aluno_atual = registro["aluno_id"]
+        nota_objetiva = round(
+            float(registro["nota_objetiva_calculada"] or 0),
+            2
+        )
+        nota_discursiva = round(
+            float(registro["nota_discursiva"] or 0),
+            2
+        )
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(
+                    CASE
+                        WHEN corrigida = 1 THEN 1
+                        ELSE 0
+                    END
+                ) AS corrigidas
+            FROM respostas_discursivas_aplicacao
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+              AND TRIM(COALESCE(imagem_resposta, '')) <> ''
+        """, (aplicacao_atual, aluno_atual))
+
+        discursivas = cursor.fetchone()
+        total_discursivas = int(discursivas["total"] or 0)
+        corrigidas = int(discursivas["corrigidas"] or 0)
+
+        if total_discursivas == 0:
+            nota_final = nota_objetiva
+        elif corrigidas == total_discursivas:
+            nota_final = round(
+                nota_objetiva + nota_discursiva,
+                2
+            )
+        else:
+            nota_final = None
+
+        cursor.execute("""
+            UPDATE aplicacao_alunos
+            SET nota_objetiva = ?,
+                nota_final = ?
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+        """, (
+            nota_objetiva,
+            nota_final,
+            aplicacao_atual,
+            aluno_atual
+        ))
+
+
 @app.route("/relatorios")
 def relatorios():
+    """
+    Visão geral dos resultados.
+
+    Consolida:
+    1. resultados das novas aplicações, armazenados em aplicacao_alunos;
+    2. resultados legados da tabela resultados, quando ainda não existir
+       um resultado equivalente nas novas aplicações.
+    """
     if not permissao_modulo("Relatórios"):
         return redirect("/acesso_negado")
+
+    # Garante que as tabelas e colunas das aplicações existam antes
+    # de montar as consultas consolidadas.
+    _garantir_tabelas_aplicacoes()
 
     contexto = obter_contexto_plataforma()
     cargo = contexto["cargo"]
@@ -15587,8 +15971,11 @@ def relatorios():
     cursor = banco.cursor()
 
     try:
+        _recalcular_notas_aplicacoes_por_peso(cursor)
+        banco.commit()
+
         # ---------------------------------------------------------
-        # Restrições de acesso
+        # Restrições de acesso e filtros
         # ---------------------------------------------------------
         condicoes = ["1 = 1"]
         parametros = []
@@ -15598,14 +15985,17 @@ def relatorios():
                 condicoes.append("COALESCE(p.escola_id, t.escola_id) = ?")
                 parametros.append(escola_filtro)
 
-            # O Administrador Geral trabalha com o número do ano,
-            # pois cada instituição possui um ID diferente.
+            # Para o Administrador Geral, o ano é comparado pelo número,
+            # pois cada instituição possui um ano_letivo_id diferente.
             if ano_contexto is not None:
                 condicoes.append("al.ano = ?")
                 parametros.append(ano_contexto)
         else:
             if not escola_usuario_id:
-                flash("Não foi possível identificar sua instituição.", "erro")
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
                 return redirect("/")
 
             condicoes.append("COALESCE(p.escola_id, t.escola_id) = ?")
@@ -15615,7 +16005,6 @@ def relatorios():
                 condicoes.append("p.ano_letivo_id = ?")
                 parametros.append(ano_letivo_id)
 
-            # Professor visualiza apenas as avaliações sob sua responsabilidade.
             if cargo == "Professor":
                 condicoes.append("p.professor_id = ?")
                 parametros.append(usuario_id)
@@ -15625,7 +16014,9 @@ def relatorios():
             parametros.append(turma_filtro)
 
         if disciplina_filtro:
-            condicoes.append("LOWER(TRIM(p.disciplina)) = LOWER(TRIM(?))")
+            condicoes.append(
+                "LOWER(TRIM(p.disciplina)) = LOWER(TRIM(?))"
+            )
             parametros.append(disciplina_filtro)
 
         if prova_filtro:
@@ -15642,6 +16033,101 @@ def relatorios():
                 ON e.id = COALESCE(p.escola_id, t.escola_id)
             LEFT JOIN anos_letivos AS al
                 ON al.id = p.ano_letivo_id
+        """
+
+        # Um aluno entra no relatório quando possui nota final ou quando
+        # concluiu uma aplicação somente objetiva.
+        resultados_cte = """
+            WITH resultados_consolidados AS (
+                SELECT
+                    ap.prova_id,
+                    aa.aluno_id,
+                    ap.id AS aplicacao_id,
+                    CASE
+                        WHEN aa.nota_final IS NOT NULL
+                            THEN aa.nota_final
+                        WHEN aa.objetiva_corrigida = 1
+                         AND COALESCE(aa.discursiva_pendente, 0) = 0
+                            THEN aa.nota_objetiva
+                        ELSE NULL
+                    END AS nota
+                FROM aplicacoes AS ap
+                INNER JOIN aplicacao_alunos AS aa
+                    ON aa.aplicacao_id = ap.id
+                WHERE
+                    CASE
+                        WHEN aa.nota_final IS NOT NULL
+                            THEN aa.nota_final
+                        WHEN aa.objetiva_corrigida = 1
+                         AND COALESCE(aa.discursiva_pendente, 0) = 0
+                            THEN aa.nota_objetiva
+                        ELSE NULL
+                    END IS NOT NULL
+                  AND LOWER(TRIM(COALESCE(aa.status, ''))) NOT IN (
+                      'ausente',
+                      'faltou'
+                  )
+
+                UNION ALL
+
+                SELECT
+                    rl.prova_id,
+                    rl.aluno_id,
+                    NULL AS aplicacao_id,
+                    rl.nota
+                FROM resultados AS rl
+                WHERE rl.nota IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM aplicacoes AS ap2
+                      INNER JOIN aplicacao_alunos AS aa2
+                          ON aa2.aplicacao_id = ap2.id
+                      WHERE ap2.prova_id = rl.prova_id
+                        AND aa2.aluno_id = rl.aluno_id
+                        AND (
+                            aa2.nota_final IS NOT NULL
+                            OR (
+                                aa2.objetiva_corrigida = 1
+                                AND COALESCE(
+                                    aa2.discursiva_pendente,
+                                    0
+                                ) = 0
+                                AND aa2.nota_objetiva IS NOT NULL
+                            )
+                        )
+                  )
+            )
+        """
+
+        respostas_cte = """
+            WITH respostas_consolidadas AS (
+                SELECT
+                    ap.prova_id,
+                    aro.aluno_id,
+                    aro.numero_questao,
+                    aro.acertou
+                FROM aplicacoes AS ap
+                INNER JOIN aplicacao_respostas_objetivas AS aro
+                    ON aro.aplicacao_id = ap.id
+
+                UNION ALL
+
+                SELECT
+                    ra.prova_id,
+                    ra.aluno_id,
+                    ra.numero_questao,
+                    ra.acertou
+                FROM respostas_alunos AS ra
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM aplicacoes AS ap2
+                    INNER JOIN aplicacao_respostas_objetivas AS aro2
+                        ON aro2.aplicacao_id = ap2.id
+                    WHERE ap2.prova_id = ra.prova_id
+                      AND aro2.aluno_id = ra.aluno_id
+                      AND aro2.numero_questao = ra.numero_questao
+                )
+            )
         """
 
         # ---------------------------------------------------------
@@ -15670,12 +16156,14 @@ def relatorios():
             if escola_filtro:
                 opcoes_condicoes.append("t.escola_id = ?")
                 opcoes_parametros.append(escola_filtro)
+
             if ano_contexto is not None:
                 opcoes_condicoes.append("al.ano = ?")
                 opcoes_parametros.append(ano_contexto)
         else:
             opcoes_condicoes.append("t.escola_id = ?")
             opcoes_parametros.append(escola_usuario_id)
+
             if ano_letivo_id:
                 opcoes_condicoes.append("t.ano_letivo_id = ?")
                 opcoes_parametros.append(ano_letivo_id)
@@ -15701,7 +16189,9 @@ def relatorios():
             LEFT JOIN anos_letivos AS al
                 ON al.id = t.ano_letivo_id
             WHERE {" AND ".join(opcoes_condicoes)}
-            ORDER BY t.ano COLLATE NOCASE, t.nome COLLATE NOCASE
+            ORDER BY
+                t.ano COLLATE NOCASE,
+                t.nome COLLATE NOCASE
         """, opcoes_parametros)
         turmas = cursor.fetchall()
 
@@ -15724,6 +16214,7 @@ def relatorios():
             if condicao != "p.id = ?"
         ]
         parametros_provas = list(parametros)
+
         if prova_filtro:
             parametros_provas.pop()
 
@@ -15736,7 +16227,11 @@ def relatorios():
             {base_joins}
             WHERE {" AND ".join(condicoes_provas)}
             ORDER BY
-                COALESCE(p.data_aplicacao, p.data_geracao, p.id) DESC,
+                COALESCE(
+                    p.data_aplicacao,
+                    p.data_geracao,
+                    p.id
+                ) DESC,
                 p.id DESC
         """, parametros_provas)
         provas_filtro = cursor.fetchall()
@@ -15744,39 +16239,49 @@ def relatorios():
         # ---------------------------------------------------------
         # Indicadores gerais
         # ---------------------------------------------------------
-        cursor.execute(f"""
+        cursor.execute(
+            resultados_cte + f"""
             SELECT
                 COUNT(DISTINCT p.id) AS total_avaliacoes,
-                COUNT(DISTINCT r.aluno_id) AS alunos_avaliados,
-                ROUND(AVG(r.nota), 1) AS media_geral,
-                ROUND(MAX(r.nota), 1) AS maior_nota,
-                ROUND(MIN(r.nota), 1) AS menor_nota,
+                COUNT(DISTINCT rc.aluno_id) AS alunos_avaliados,
+                ROUND(AVG(rc.nota), 1) AS media_geral,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota,
                 SUM(
                     CASE
                         WHEN p.media_ativa = 1
                          AND p.media_aprovacao IS NOT NULL
-                         AND r.nota >= p.media_aprovacao
-                        THEN 1 ELSE 0
+                         AND rc.nota >= p.media_aprovacao
+                        THEN 1
+                        ELSE 0
                     END
                 ) AS aprovados_com_media,
                 SUM(
                     CASE
                         WHEN p.media_ativa = 1
                          AND p.media_aprovacao IS NOT NULL
-                        THEN 1 ELSE 0
+                         AND rc.nota IS NOT NULL
+                        THEN 1
+                        ELSE 0
                     END
                 ) AS resultados_com_media
             {base_joins}
-            LEFT JOIN resultados AS r
-                ON r.prova_id = p.id
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
             WHERE {where_sql}
-        """, parametros)
+            """,
+            parametros
+        )
         indicadores = cursor.fetchone()
 
         total_com_media = indicadores["resultados_com_media"] or 0
         aprovados_com_media = indicadores["aprovados_com_media"] or 0
+
         taxa_aprovacao = (
-            round((aprovados_com_media / total_com_media) * 100, 1)
+            round(
+                (aprovados_com_media / total_com_media) * 100,
+                1
+            )
             if total_com_media > 0
             else 0
         )
@@ -15784,47 +16289,62 @@ def relatorios():
         # ---------------------------------------------------------
         # Desempenho por turma
         # ---------------------------------------------------------
-        cursor.execute(f"""
+        cursor.execute(
+            resultados_cte + f"""
             SELECT
                 t.id AS turma_id,
                 t.nome AS turma_nome,
                 t.ano AS turma_ano,
                 COUNT(DISTINCT p.id) AS total_avaliacoes,
-                COUNT(DISTINCT r.aluno_id) AS alunos_avaliados,
-                ROUND(AVG(r.nota), 1) AS media,
-                ROUND(MAX(r.nota), 1) AS maior_nota,
-                ROUND(MIN(r.nota), 1) AS menor_nota
+                COUNT(DISTINCT rc.aluno_id) AS alunos_avaliados,
+                ROUND(AVG(rc.nota), 1) AS media,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota
             {base_joins}
-            LEFT JOIN resultados AS r
-                ON r.prova_id = p.id
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
             WHERE {where_sql}
-            GROUP BY t.id, t.nome, t.ano
-            ORDER BY media DESC, t.nome COLLATE NOCASE
+            GROUP BY
+                t.id,
+                t.nome,
+                t.ano
+            HAVING COUNT(rc.aluno_id) > 0
+            ORDER BY
+                media DESC,
+                t.nome COLLATE NOCASE
             LIMIT 12
-        """, parametros)
+            """,
+            parametros
+        )
         desempenho_turmas = cursor.fetchall()
 
         # ---------------------------------------------------------
         # Avaliações recentes
         # ---------------------------------------------------------
-        cursor.execute(f"""
+        cursor.execute(
+            resultados_cte + f"""
             SELECT
                 p.id,
                 p.nome,
                 p.disciplina,
-                p.data_aplicacao,
+                COALESCE(
+                    MAX(ap_recente.data_aplicacao),
+                    p.data_aplicacao
+                ) AS data_aplicacao,
                 p.status,
                 p.media_ativa,
                 p.media_aprovacao,
                 t.nome AS turma_nome,
                 e.nome_instituicao,
-                COUNT(r.id) AS total_resultados,
-                ROUND(AVG(r.nota), 1) AS media,
-                ROUND(MAX(r.nota), 1) AS maior_nota,
-                ROUND(MIN(r.nota), 1) AS menor_nota
+                COUNT(rc.aluno_id) AS total_resultados,
+                ROUND(AVG(rc.nota), 1) AS media,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota
             {base_joins}
-            LEFT JOIN resultados AS r
-                ON r.prova_id = p.id
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            LEFT JOIN aplicacoes AS ap_recente
+                ON ap_recente.prova_id = p.id
             WHERE {where_sql}
             GROUP BY
                 p.id,
@@ -15837,65 +16357,93 @@ def relatorios():
                 t.nome,
                 e.nome_instituicao
             ORDER BY
-                COALESCE(p.data_aplicacao, p.data_geracao, p.id) DESC,
+                COALESCE(
+                    MAX(ap_recente.data_aplicacao),
+                    p.data_aplicacao,
+                    p.data_geracao,
+                    p.id
+                ) DESC,
                 p.id DESC
             LIMIT 10
-        """, parametros)
+            """,
+            parametros
+        )
         avaliacoes = cursor.fetchall()
 
         # ---------------------------------------------------------
-        # Questões com maior índice de erro
+        # Questões objetivas com maior índice de erro
         # ---------------------------------------------------------
-        cursor.execute(f"""
+        cursor.execute(
+            respostas_cte + f"""
             SELECT
-                ra.prova_id,
-                ra.numero_questao,
+                rq.prova_id,
+                rq.numero_questao,
                 p.nome AS prova_nome,
                 p.disciplina,
-                COUNT(ra.id) AS respondentes,
-                SUM(CASE WHEN ra.acertou = 1 THEN 1 ELSE 0 END) AS acertos,
-                SUM(CASE WHEN ra.acertou = 0 THEN 1 ELSE 0 END) AS erros,
+                COUNT(*) AS respondentes,
+                SUM(
+                    CASE WHEN rq.acertou = 1 THEN 1 ELSE 0 END
+                ) AS acertos,
+                SUM(
+                    CASE WHEN rq.acertou = 0 THEN 1 ELSE 0 END
+                ) AS erros,
                 ROUND(
-                    100.0 * SUM(CASE WHEN ra.acertou = 0 THEN 1 ELSE 0 END)
-                    / NULLIF(COUNT(ra.id), 0),
+                    100.0
+                    * SUM(
+                        CASE WHEN rq.acertou = 0 THEN 1 ELSE 0 END
+                    )
+                    / NULLIF(COUNT(*), 0),
                     1
                 ) AS percentual_erros
             {base_joins}
-            INNER JOIN respostas_alunos AS ra
-                ON ra.prova_id = p.id
+            INNER JOIN respostas_consolidadas AS rq
+                ON rq.prova_id = p.id
             WHERE {where_sql}
             GROUP BY
-                ra.prova_id,
-                ra.numero_questao,
+                rq.prova_id,
+                rq.numero_questao,
                 p.nome,
                 p.disciplina
-            HAVING COUNT(ra.id) > 0
-            ORDER BY percentual_erros DESC, respondentes DESC
+            HAVING COUNT(*) > 0
+            ORDER BY
+                percentual_erros DESC,
+                respondentes DESC
             LIMIT 8
-        """, parametros)
+            """,
+            parametros
+        )
         questoes_criticas = cursor.fetchall()
 
         # ---------------------------------------------------------
         # Ranking de alunos
         # ---------------------------------------------------------
-        cursor.execute(f"""
+        cursor.execute(
+            resultados_cte + f"""
             SELECT
-                a.id AS aluno_id,
-                a.nome AS aluno_nome,
+                alu.id AS aluno_id,
+                alu.nome AS aluno_nome,
                 t.nome AS turma_nome,
-                COUNT(r.id) AS avaliacoes_realizadas,
-                ROUND(AVG(r.nota), 1) AS media
+                COUNT(rc.nota) AS avaliacoes_realizadas,
+                ROUND(AVG(rc.nota), 1) AS media
             {base_joins}
-            INNER JOIN resultados AS r
-                ON r.prova_id = p.id
-            INNER JOIN alunos AS a
-                ON a.id = r.aluno_id
+            INNER JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            INNER JOIN alunos AS alu
+                ON alu.id = rc.aluno_id
             WHERE {where_sql}
-            GROUP BY a.id, a.nome, t.nome
-            HAVING COUNT(r.id) > 0
-            ORDER BY media DESC, avaliacoes_realizadas DESC, a.nome COLLATE NOCASE
+            GROUP BY
+                alu.id,
+                alu.nome,
+                t.nome
+            HAVING COUNT(rc.nota) > 0
+            ORDER BY
+                media DESC,
+                avaliacoes_realizadas DESC,
+                alu.nome COLLATE NOCASE
             LIMIT 5
-        """, parametros)
+            """,
+            parametros
+        )
         ranking_alunos = cursor.fetchall()
 
         return render_template(
@@ -15921,11 +16469,15 @@ def relatorios():
     except sqlite3.Error as erro:
         import traceback
         traceback.print_exc()
-        flash(f"Não foi possível carregar os relatórios: {erro}", "erro")
+        flash(
+            f"Não foi possível carregar os relatórios: {erro}",
+            "erro"
+        )
         return redirect("/")
 
     finally:
         banco.close()
+
 
 # =========================================================
 # MÓDULO DE APLICAÇÕES DE AVALIAÇÕES — ARK EDUS
@@ -16056,6 +16608,17 @@ def _garantir_tabelas_aplicacoes():
     garantir_coluna_resposta_objetiva(
         "anulada", "INTEGER NOT NULL DEFAULT 0"
     )
+
+    def garantir_coluna_aplicacao_aluno(nome, definicao):
+        cursor.execute("PRAGMA table_info(aplicacao_alunos)")
+        existentes = {linha[1] for linha in cursor.fetchall()}
+        if nome not in existentes:
+            cursor.execute(
+                f"ALTER TABLE aplicacao_alunos ADD COLUMN {nome} {definicao}"
+            )
+
+    garantir_coluna_aplicacao_aluno("nota_discursiva", "REAL")
+    garantir_coluna_aplicacao_aluno("nota_final", "REAL")
 
     # Garante compatibilidade com provas antigas. Uma questão anulada recebe
     # crédito automático para todos os alunos e nunca exige revisão do cartão.
@@ -16190,6 +16753,140 @@ def _tipo_discursivo_aplicacao(tipo):
     return valor in {"discursiva", "dissertativa", "resposta_aberta", "resposta aberta"}
 
 
+
+def _sincronizar_status_prova(cursor, prova_id):
+    """Recalcula o status da prova sem alterar avaliações em rascunho."""
+    cursor.execute("""
+        SELECT LOWER(TRIM(COALESCE(status, 'rascunho'))) AS status
+        FROM provas
+        WHERE id = ?
+    """, (prova_id,))
+    prova = cursor.fetchone()
+
+    if not prova:
+        return None
+
+    status_atual = prova["status"] or "rascunho"
+    if status_atual == "rascunho":
+        return "rascunho"
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS total_aplicacoes,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'corrigida'
+                     THEN 1 ELSE 0 END) AS corrigidas,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'em correção'
+                          OR LOWER(TRIM(COALESCE(status, ''))) = 'aguardando correção'
+                     THEN 1 ELSE 0 END) AS em_correcao
+        FROM aplicacoes
+        WHERE prova_id = ?
+    """, (prova_id,))
+    resumo = cursor.fetchone()
+
+    total = int(resumo["total_aplicacoes"] or 0)
+    corrigidas = int(resumo["corrigidas"] or 0)
+    em_correcao = int(resumo["em_correcao"] or 0)
+
+    if total > 0 and corrigidas == total:
+        novo_status = "finalizada"
+    elif em_correcao > 0:
+        novo_status = "em_correcao"
+    else:
+        novo_status = "agendada"
+
+    cursor.execute("""
+        UPDATE provas
+        SET status = ?, atualizado_em = ?
+        WHERE id = ?
+    """, (
+        novo_status,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        prova_id
+    ))
+    return novo_status
+
+
+def _sincronizar_status_aplicacao(cursor, aplicacao_id):
+    """
+    Atualiza a aplicação e, em seguida, o status geral da prova.
+
+    Agendada: nenhum cartão foi importado e nenhuma ausência foi marcada.
+    Em correção: o processamento começou, mas há aluno presente pendente.
+    Corrigida: todos os presentes foram resolvidos e os demais estão ausentes.
+    """
+    cursor.execute("""
+        SELECT a.prova_id,
+               SUM(CASE WHEN LOWER(TRIM(COALESCE(q.tipo_questao, ''))) IN (
+                    'discursiva', 'dissertativa', 'resposta_aberta',
+                    'resposta aberta'
+               ) THEN 1 ELSE 0 END) AS total_discursivas,
+               SUM(CASE WHEN LOWER(TRIM(COALESCE(q.tipo_questao, ''))) NOT IN (
+                    'discursiva', 'dissertativa', 'resposta_aberta',
+                    'resposta aberta'
+               ) THEN 1 ELSE 0 END) AS total_objetivas
+        FROM aplicacoes a
+        LEFT JOIN prova_questoes pq ON pq.prova_id = a.prova_id
+        LEFT JOIN questoes q ON q.id = pq.questao_id
+        WHERE a.id = ?
+        GROUP BY a.id, a.prova_id
+    """, (aplicacao_id,))
+    dados = cursor.fetchone()
+
+    if not dados:
+        return None
+
+    prova_id = dados["prova_id"]
+    possui_objetivas = int(dados["total_objetivas"] or 0) > 0
+    possui_discursivas = int(dados["total_discursivas"] or 0) > 0
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS importacoes,
+            EXISTS (
+                SELECT 1 FROM aplicacao_alunos aa
+                WHERE aa.aplicacao_id = ?
+                  AND LOWER(TRIM(COALESCE(aa.status, ''))) = 'ausente'
+            ) AS possui_ausencia
+        FROM aplicacao_importacoes ai
+        WHERE ai.aplicacao_id = ?
+          AND LOWER(TRIM(COALESCE(ai.status, ''))) <> 'erro'
+    """, (aplicacao_id, aplicacao_id))
+    atividade = cursor.fetchone()
+    iniciou = (
+        int(atividade["importacoes"] or 0) > 0
+        or int(atividade["possui_ausencia"] or 0) == 1
+    )
+
+    if not iniciou:
+        novo_status = "Agendada"
+    else:
+        cursor.execute("""
+            SELECT COUNT(*) AS pendentes
+            FROM aplicacao_alunos aa
+            WHERE aa.aplicacao_id = ?
+              AND LOWER(TRIM(COALESCE(aa.status, ''))) <> 'ausente'
+              AND (
+                    (? = 1 AND COALESCE(aa.objetiva_corrigida, 0) = 0)
+                 OR (? = 1 AND COALESCE(aa.discursiva_pendente, 1) = 1)
+              )
+        """, (
+            aplicacao_id,
+            1 if possui_objetivas else 0,
+            1 if possui_discursivas else 0
+        ))
+        pendentes = int(cursor.fetchone()["pendentes"] or 0)
+        novo_status = "Aguardando correção" if pendentes else "Corrigida"
+
+    cursor.execute("""
+        UPDATE aplicacoes
+        SET status = ?
+        WHERE id = ?
+    """, (novo_status, aplicacao_id))
+
+    _sincronizar_status_prova(cursor, prova_id)
+    return novo_status
+
+
 @app.route("/provas/<int:prova_id>/aplicacoes")
 def aplicacoes_prova(prova_id):
     if not permissao_modulo("Provas"):
@@ -16219,10 +16916,50 @@ def aplicacoes_prova(prova_id):
             return redirect("/provas")
 
         cursor.execute("""
+            SELECT id
+            FROM aplicacoes
+            WHERE prova_id = ?
+        """, (prova_id,))
+        for item_aplicacao in cursor.fetchall():
+            _sincronizar_status_aplicacao(
+                cursor,
+                item_aplicacao["id"]
+            )
+        banco.commit()
+
+        cursor.execute("""
             SELECT a.*,
                    COUNT(aa.id) AS total_alunos,
-                   SUM(CASE WHEN aa.objetiva_corrigida = 1 THEN 1 ELSE 0 END) AS objetivas_corrigidas,
-                   SUM(CASE WHEN aa.discursiva_pendente = 1 THEN 1 ELSE 0 END) AS discursivas_pendentes
+                   SUM(
+                       CASE
+                           WHEN LOWER(TRIM(COALESCE(aa.status, ''))) <> 'ausente'
+                            AND aa.objetiva_corrigida = 1
+                           THEN 1 ELSE 0
+                       END
+                   ) AS objetivas_corrigidas,
+                   SUM(
+                       CASE
+                           WHEN LOWER(TRIM(COALESCE(aa.status, ''))) <> 'ausente'
+                            AND aa.discursiva_pendente = 1
+                           THEN 1 ELSE 0
+                       END
+                   ) AS discursivas_pendentes,
+                   SUM(
+                       CASE
+                           WHEN LOWER(TRIM(COALESCE(aa.status, ''))) = 'ausente'
+                           THEN 1 ELSE 0
+                       END
+                   ) AS total_ausentes,
+                   EXISTS (
+                       SELECT 1
+                       FROM prova_questoes pq
+                       INNER JOIN questoes q ON q.id = pq.questao_id
+                       WHERE pq.prova_id = a.prova_id
+                         AND LOWER(TRIM(COALESCE(q.tipo_questao, ''))) IN (
+                             'discursiva', 'dissertativa',
+                             'resposta_aberta', 'resposta aberta'
+                         )
+                   ) AS possui_discursivas
             FROM aplicacoes a
             LEFT JOIN aplicacao_alunos aa ON aa.aplicacao_id = a.id
             WHERE a.prova_id = ?
@@ -16599,7 +17336,17 @@ def importar_cartoes_aplicacao(aplicacao_id):
     try:
         cursor.execute("""
             SELECT a.*, p.nome AS prova_nome, p.disciplina,
-                   t.nome AS turma_nome
+                   t.nome AS turma_nome,
+                   EXISTS (
+                       SELECT 1
+                       FROM prova_questoes pq
+                       INNER JOIN questoes q ON q.id = pq.questao_id
+                       WHERE pq.prova_id = a.prova_id
+                         AND LOWER(TRIM(COALESCE(q.tipo_questao, ''))) IN (
+                             'discursiva', 'dissertativa',
+                             'resposta_aberta', 'resposta aberta'
+                         )
+                   ) AS possui_discursivas
             FROM aplicacoes a
             INNER JOIN provas p ON p.id = a.prova_id
             INNER JOIN turmas t ON t.id = a.turma_id
@@ -16702,9 +17449,134 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             "FOLHA", "OBJETIVAS"
                         ).upper()
 
+                        if tipo_folha == "DISCURSIVAS":
+                            cursor.execute("""
+                                SELECT 1
+                                FROM aplicacao_alunos
+                                WHERE aplicacao_id = ? AND aluno_id = ?
+                            """, (aplicacao_id, aluno_id))
+                            if not cursor.fetchone():
+                                raise ValueError(
+                                    "O aluno não pertence a esta aplicação."
+                                )
+
+                            questoes_mapeadas = []
+                            mapa_qr = dados_qr.get("QUESTOES", "")
+                            for item_mapa in mapa_qr.split(","):
+                                item_mapa = item_mapa.strip()
+                                if not item_mapa or ":" not in item_mapa:
+                                    continue
+                                numero_texto, questao_texto = item_mapa.split(":", 1)
+                                try:
+                                    questoes_mapeadas.append(
+                                        (int(numero_texto), int(questao_texto))
+                                    )
+                                except (TypeError, ValueError):
+                                    continue
+
+                            if not questoes_mapeadas:
+                                questoes_modelo = _questoes_modelo_aplicacao(
+                                    cursor, aplicacao_id, modelo_calculo
+                                )
+                                questoes_mapeadas = [
+                                    (numero, questao["id"])
+                                    for numero, questao in enumerate(
+                                        questoes_modelo, start=1
+                                    )
+                                    if _tipo_discursivo_aplicacao(
+                                        questao["tipo_questao"]
+                                    )
+                                ]
+
+                            if not questoes_mapeadas:
+                                raise ValueError(
+                                    "Esta aplicação não possui questões discursivas."
+                                )
+
+                            nome_exibicao = nome_original
+                            if numero_pagina is not None:
+                                nome_exibicao = (
+                                    f"{nome_original} · página {numero_pagina}"
+                                )
+
+                            for numero_exibicao, questao_id in questoes_mapeadas:
+                                cursor.execute("""
+                                    INSERT INTO respostas_discursivas_aplicacao
+                                    (
+                                        aplicacao_id, aluno_id, questao_id,
+                                        numero_exibicao, imagem_resposta,
+                                        corrigida
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, 0)
+                                    ON CONFLICT(
+                                        aplicacao_id, aluno_id, questao_id
+                                    ) DO UPDATE SET
+                                        numero_exibicao = excluded.numero_exibicao,
+                                        imagem_resposta = excluded.imagem_resposta,
+                                        nota = NULL,
+                                        comentario = NULL,
+                                        corrigida = 0,
+                                        corrigido_por = NULL,
+                                        corrigido_em = NULL
+                                """, (
+                                    aplicacao_id,
+                                    aluno_id,
+                                    questao_id,
+                                    numero_exibicao,
+                                    caminho
+                                ))
+
+                            cursor.execute("""
+                                INSERT INTO aplicacao_importacoes
+                                (
+                                    aplicacao_id, aluno_id, modelo,
+                                    nome_arquivo, caminho_arquivo,
+                                    status, mensagem, qr_texto,
+                                    tipo_folha, revisado, revisado_em
+                                )
+                                VALUES (
+                                    ?, ?, ?, ?, ?, 'Processado', ?, ?,
+                                    'DISCURSIVAS', 1, ?
+                                )
+                            """, (
+                                aplicacao_id,
+                                aluno_id,
+                                modelo_calculo,
+                                nome_exibicao,
+                                caminho,
+                                (
+                                    f"Folha discursiva reconhecida com "
+                                    f"{len(questoes_mapeadas)} questão(ões)."
+                                ),
+                                qr_texto,
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ))
+
+                            cursor.execute("""
+                                UPDATE aplicacao_alunos
+                                SET modelo = ?,
+                                    discursiva_pendente = 1,
+                                    status = CASE
+                                        WHEN objetiva_corrigida = 1
+                                            THEN 'Aguardando correção discursiva'
+                                        ELSE status
+                                    END
+                                WHERE aplicacao_id = ? AND aluno_id = ?
+                            """, (
+                                modelo_calculo,
+                                aplicacao_id,
+                                aluno_id
+                            ))
+
+                            importados += 1
+                            cursor.execute(
+                                "RELEASE SAVEPOINT importar_pagina"
+                            )
+                            continue
+
                         if tipo_folha != "OBJETIVAS":
                             raise ValueError(
-                                "A página não é um cartão objetivo."
+                                "Tipo de folha não reconhecido."
                             )
 
                         quantidade_modelos = int(
@@ -16752,6 +17624,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         """, (aplicacao["prova_id"], aluno_id))
 
                         acertos = 0
+                        nota_objetiva = 0.0
+                        valor_total_objetivas = round(
+                            sum(
+                                float(questao.get("peso") or 0)
+                                for _, questao in objetivas
+                            ),
+                            2
+                        )
                         total_objetivas = len(objetivas)
                         total_discursivas = 0
                         ambiguas = 0
@@ -16805,6 +17685,21 @@ def importar_cartoes_aplicacao(aplicacao_id):
                                     brancas += 1
 
                             acertos += acertou
+
+                            peso_questao = round(
+                                float(questao.get("peso") or 0),
+                                2
+                            )
+
+                            # Cada questão objetiva vale exatamente o peso
+                            # cadastrado na prova. Questão errada, em branco
+                            # ou com dupla marcação soma zero. Questão anulada
+                            # recebe o peso integral.
+                            if acertou:
+                                nota_objetiva = round(
+                                    nota_objetiva + peso_questao,
+                                    2
+                                )
 
                             cursor.execute("""
                                 INSERT INTO aplicacao_respostas_objetivas
@@ -16868,11 +17763,16 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         ]
                         if modelo_pendente:
                             partes_mensagem.append("modelo não marcado")
+                        partes_mensagem.append(
+                            f"nota objetiva {nota_objetiva:.2f}/"
+                            f"{valor_total_objetivas:.2f}"
+                        )
                         mensagem = "; ".join(partes_mensagem) + "."
 
                         nota_objetiva = round(
-                            (acertos / total_objetivas) * 10, 2
-                        ) if total_objetivas else 0
+                            nota_objetiva,
+                            2
+                        )
 
                         cursor.execute("""
                             UPDATE aplicacao_alunos
@@ -16951,11 +17851,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         _remover_arquivo_silenciosamente(caminho)
                         descartados += 1
 
-            cursor.execute("""
-                UPDATE aplicacoes
-                SET status = 'Aguardando correção'
-                WHERE id = ?
-            """, (aplicacao_id,))
+            _sincronizar_status_aplicacao(cursor, aplicacao_id)
             banco.commit()
 
             flash(
@@ -17178,6 +18074,8 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
         """, (importacao["prova_id"], aluno_id))
 
         acertos = 0
+        nota_objetiva = 0.0
+        valor_total_objetivas = 0.0
         total_objetivas = 0
         total_discursivas = 0
 
@@ -17197,6 +18095,16 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
                 continue
 
             total_objetivas += 1
+
+            peso_questao = round(
+                float(questao.get("peso") or 0),
+                2
+            )
+            valor_total_objetivas = round(
+                valor_total_objetivas + peso_questao,
+                2
+            )
+
             anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
             recebido = respostas_enviadas.get(numero, {})
             situacao = recebido.get("situacao", "em_branco")
@@ -17231,6 +18139,14 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
                 acertou = 0
 
             acertos += acertou
+
+            # Soma o peso cadastrado somente quando a questão estiver
+            # correta ou anulada.
+            if acertou:
+                nota_objetiva = round(
+                    nota_objetiva + peso_questao,
+                    2
+                )
 
             cursor.execute("""
                 INSERT INTO aplicacao_respostas_objetivas
@@ -17273,9 +18189,7 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
                 acertou
             ))
 
-        nota = round(
-            (acertos / total_objetivas) * 10, 2
-        ) if total_objetivas else 0
+        nota = round(nota_objetiva, 2)
 
         cursor.execute("""
             UPDATE aplicacao_alunos
@@ -17314,7 +18228,9 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
             modelo,
             (
                 f"Conferência concluída pelo professor: "
-                f"{acertos}/{total_objetivas} corretas."
+                f"{acertos}/{total_objetivas} corretas; "
+                f"nota objetiva {nota:.2f}/"
+                f"{valor_total_objetivas:.2f}."
             ),
             session.get("usuario_id"),
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -17417,6 +18333,7 @@ def alterar_ausencia_aplicacao(aplicacao_id, aluno_id):
             """, (aplicacao_id, aluno_id))
             mensagem = "Ausência desfeita. O aluno voltou para pendentes."
 
+        _sincronizar_status_aplicacao(cursor, aplicacao_id)
         banco.commit()
         return jsonify({
             "sucesso": True,
@@ -17520,16 +18437,33 @@ def excluir_importacao_cartao(aplicacao_id, importacao_id):
 
 @app.route("/aplicacoes/<int:aplicacao_id>/excluir", methods=["POST"])
 def excluir_aplicacao(aplicacao_id):
+    """
+    Exclui a aplicação e todos os registros vinculados.
+
+    A remoção é feita explicitamente para também funcionar em bancos antigos
+    nos quais as chaves estrangeiras com ON DELETE CASCADE podem não ter sido
+    criadas corretamente.
+    """
     _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
+    arquivos_para_excluir = []
+
     try:
-        cursor.execute("SELECT prova_id FROM aplicacoes WHERE id = ?", (aplicacao_id,))
+        cursor.execute("PRAGMA foreign_keys = ON")
+
+        cursor.execute("""
+            SELECT prova_id
+            FROM aplicacoes
+            WHERE id = ?
+        """, (aplicacao_id,))
         aplicacao = cursor.fetchone()
+
         if not aplicacao:
             flash("Aplicação não encontrada.", "erro")
             return redirect("/provas")
+
         if not _pode_gerenciar_prova(
             cursor,
             aplicacao["prova_id"],
@@ -17537,10 +18471,395 @@ def excluir_aplicacao(aplicacao_id):
             permitir_finalizada=True
         ):
             return _redirecionar_acesso_negado_prova()
-        cursor.execute("DELETE FROM aplicacoes WHERE id = ?", (aplicacao_id,))
+
+        prova_id = aplicacao["prova_id"]
+
+        # Guarda os caminhos antes de remover os registros do banco.
+        cursor.execute("""
+            SELECT caminho_arquivo
+            FROM aplicacao_importacoes
+            WHERE aplicacao_id = ?
+              AND TRIM(COALESCE(caminho_arquivo, '')) <> ''
+        """, (aplicacao_id,))
+        arquivos_para_excluir.extend(
+            linha["caminho_arquivo"] for linha in cursor.fetchall()
+        )
+
+        cursor.execute("""
+            SELECT imagem_resposta
+            FROM respostas_discursivas_aplicacao
+            WHERE aplicacao_id = ?
+              AND TRIM(COALESCE(imagem_resposta, '')) <> ''
+        """, (aplicacao_id,))
+        arquivos_para_excluir.extend(
+            linha["imagem_resposta"] for linha in cursor.fetchall()
+        )
+
+        # Remove primeiro as tabelas filhas, garantindo compatibilidade
+        # com estruturas antigas sem cascata ativa.
+        tabelas_filhas = (
+            "aplicacao_respostas_objetivas",
+            "respostas_discursivas_aplicacao",
+            "aplicacao_importacoes",
+            "aplicacao_alunos",
+        )
+
+        for tabela in tabelas_filhas:
+            cursor.execute(
+                f"DELETE FROM {tabela} WHERE aplicacao_id = ?",
+                (aplicacao_id,)
+            )
+
+        cursor.execute(
+            "DELETE FROM aplicacoes WHERE id = ?",
+            (aplicacao_id,)
+        )
+
+        if cursor.rowcount == 0:
+            raise RuntimeError("A aplicação não foi excluída.")
+
         banco.commit()
+
+        # Exclui os arquivos somente depois de confirmar a transação.
+        for caminho in set(arquivos_para_excluir):
+            _remover_arquivo_silenciosamente(caminho)
+
         flash("Aplicação excluída com sucesso.", "sucesso")
-        return redirect(f"/provas/{aplicacao['prova_id']}/aplicacoes")
+        return redirect(f"/provas/{prova_id}/aplicacoes")
+
+    except Exception as erro:
+        banco.rollback()
+        print("ERRO AO EXCLUIR APLICAÇÃO:", erro)
+        flash(
+            f"Não foi possível excluir a aplicação: {erro}",
+            "erro"
+        )
+        destino = request.referrer
+        if not destino:
+            if 'aplicacao' in locals() and aplicacao:
+                destino = f"/provas/{aplicacao['prova_id']}/aplicacoes"
+            else:
+                destino = "/provas"
+        return redirect(destino)
+
+    finally:
+        banco.close()
+
+@app.route("/aplicacoes/<int:aplicacao_id>/discursivas")
+def corrigir_discursivas_aplicacao(aplicacao_id):
+    """Exibe as respostas discursivas digitalizadas para correção."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                a.*,
+                p.nome AS prova_nome,
+                p.disciplina,
+                COALESCE(p.peso_total, 10) AS peso_total,
+                t.nome AS turma_nome
+            FROM aplicacoes a
+            INNER JOIN provas p ON p.id = a.prova_id
+            INNER JOIN turmas t ON t.id = a.turma_id
+            WHERE a.id = ?
+        """, (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+
+        if not aplicacao:
+            flash("Aplicação não encontrada.", "erro")
+            return redirect("/provas")
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            aplicacao["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT
+                rd.id,
+                rd.aluno_id,
+                rd.questao_id,
+                rd.numero_exibicao,
+                rd.imagem_resposta,
+                rd.nota,
+                rd.comentario,
+                rd.corrigida,
+                al.nome AS aluno_nome,
+                COALESCE(al.matricula, '') AS aluno_matricula,
+                q.enunciado,
+                COALESCE(q.resposta_esperada, '') AS resposta_esperada,
+                COALESCE(q.criterios_correcao, '') AS criterios_correcao,
+                ROUND(COALESCE(pq.peso, 0), 2) AS peso
+            FROM respostas_discursivas_aplicacao rd
+            INNER JOIN alunos al ON al.id = rd.aluno_id
+            INNER JOIN questoes q ON q.id = rd.questao_id
+            INNER JOIN prova_questoes pq
+              ON pq.prova_id = ?
+             AND pq.questao_id = rd.questao_id
+            WHERE rd.aplicacao_id = ?
+              AND TRIM(COALESCE(rd.imagem_resposta, '')) <> ''
+            ORDER BY
+                al.nome COLLATE NOCASE,
+                rd.numero_exibicao
+        """, (aplicacao["prova_id"], aplicacao_id))
+        respostas = [dict(item) for item in cursor.fetchall()]
+
+        # Totais atuais por aluno, exibidos durante a correção.
+        cursor.execute("""
+            SELECT
+                aa.aluno_id,
+                aa.nota_objetiva,
+                aa.nota_discursiva,
+                aa.nota_final
+            FROM aplicacao_alunos aa
+            WHERE aa.aplicacao_id = ?
+        """, (aplicacao_id,))
+        totais_alunos = {
+            item["aluno_id"]: dict(item)
+            for item in cursor.fetchall()
+        }
+
+        for resposta in respostas:
+            totais = totais_alunos.get(resposta["aluno_id"], {})
+            resposta["nota_objetiva"] = totais.get("nota_objetiva")
+            resposta["nota_discursiva_aluno"] = totais.get("nota_discursiva")
+            resposta["nota_final"] = totais.get("nota_final")
+
+            caminho = resposta.get("imagem_resposta") or ""
+            caminho_normalizado = caminho.replace("\\", "/")
+            marcador = "/static/"
+
+            if marcador in caminho_normalizado:
+                resposta["imagem_url"] = (
+                    "/static/" + caminho_normalizado.split(marcador, 1)[1]
+                )
+            elif caminho_normalizado.startswith("static/"):
+                resposta["imagem_url"] = "/" + caminho_normalizado
+            else:
+                resposta["imagem_url"] = ""
+
+            resposta["peso"] = round(float(resposta.get("peso") or 0), 2)
+            if resposta.get("nota") is not None:
+                resposta["nota"] = round(float(resposta["nota"]), 2)
+
+        total = len(respostas)
+        corrigidas = sum(1 for item in respostas if item["corrigida"])
+        pendentes = total - corrigidas
+        valor_total_discursivas = round(
+            sum(float(item.get("peso") or 0) for item in respostas), 2
+        )
+
+        return render_template(
+            "aplicacoes/corrigir_discursivas.html",
+            aplicacao=aplicacao,
+            respostas=respostas,
+            resumo={
+                "total": total,
+                "corrigidas": corrigidas,
+                "pendentes": pendentes,
+                "valor_total": valor_total_discursivas
+            }
+        )
+
+    finally:
+        banco.close()
+
+
+@app.route(
+    "/aplicacoes/<int:aplicacao_id>/discursivas/<int:resposta_id>/salvar",
+    methods=["POST"]
+)
+def salvar_correcao_discursiva(aplicacao_id, resposta_id):
+    """Salva a pontuação da discursiva e recalcula a nota final do aluno."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        dados = request.get_json(silent=True) or request.form
+        nota_texto = str(dados.get("nota", "")).replace(",", ".").strip()
+        comentario = str(dados.get("comentario", "")).strip()
+
+        try:
+            nota = round(float(nota_texto), 2)
+        except (TypeError, ValueError):
+            return jsonify({"erro": "Informe uma pontuação válida."}), 400
+
+        cursor.execute("""
+            SELECT
+                rd.aluno_id,
+                rd.questao_id,
+                a.prova_id,
+                ROUND(COALESCE(pq.peso, 0), 2) AS peso
+            FROM respostas_discursivas_aplicacao rd
+            INNER JOIN aplicacoes a ON a.id = rd.aplicacao_id
+            INNER JOIN prova_questoes pq
+              ON pq.prova_id = a.prova_id
+             AND pq.questao_id = rd.questao_id
+            WHERE rd.id = ?
+              AND rd.aplicacao_id = ?
+        """, (resposta_id, aplicacao_id))
+        resposta = cursor.fetchone()
+
+        if not resposta:
+            return jsonify({"erro": "Resposta não encontrada."}), 404
+
+        if not _pode_gerenciar_prova(
+            cursor,
+            resposta["prova_id"],
+            exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return jsonify({
+                "erro": "Você não possui permissão para corrigir."
+            }), 403
+
+        peso_questao = round(float(resposta["peso"] or 0), 2)
+
+        if peso_questao <= 0:
+            return jsonify({
+                "erro": (
+                    "Esta questão não possui peso válido na prova. "
+                    "Configure os pesos antes de corrigir."
+                )
+            }), 400
+
+        if nota < 0 or nota > peso_questao:
+            return jsonify({
+                "erro": (
+                    f"A pontuação deve estar entre 0 e "
+                    f"{peso_questao:.2f} pontos."
+                )
+            }), 400
+
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+            UPDATE respostas_discursivas_aplicacao
+            SET nota = ?,
+                comentario = ?,
+                corrigida = 1,
+                corrigido_por = ?,
+                corrigido_em = ?
+            WHERE id = ?
+              AND aplicacao_id = ?
+        """, (
+            nota,
+            comentario,
+            session.get("usuario_id"),
+            agora,
+            resposta_id,
+            aplicacao_id
+        ))
+
+        aluno_id = resposta["aluno_id"]
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN rd.corrigida = 1 THEN 1 ELSE 0 END) AS corrigidas,
+                ROUND(SUM(
+                    CASE
+                        WHEN rd.corrigida = 1 THEN COALESCE(rd.nota, 0)
+                        ELSE 0
+                    END
+                ), 2) AS nota_discursiva,
+                ROUND(SUM(COALESCE(pq.peso, 0)), 2) AS valor_discursivas
+            FROM respostas_discursivas_aplicacao rd
+            INNER JOIN aplicacoes a ON a.id = rd.aplicacao_id
+            INNER JOIN prova_questoes pq
+              ON pq.prova_id = a.prova_id
+             AND pq.questao_id = rd.questao_id
+            WHERE rd.aplicacao_id = ?
+              AND rd.aluno_id = ?
+              AND TRIM(COALESCE(rd.imagem_resposta, '')) <> ''
+        """, (aplicacao_id, aluno_id))
+        consolidado = cursor.fetchone()
+
+        total = int(consolidado["total"] or 0)
+        corrigidas = int(consolidado["corrigidas"] or 0)
+        nota_discursiva = round(
+            float(consolidado["nota_discursiva"] or 0), 2
+        )
+        valor_discursivas = round(
+            float(consolidado["valor_discursivas"] or 0), 2
+        )
+        concluiu = total > 0 and corrigidas == total
+
+        cursor.execute("""
+            SELECT
+                nota_objetiva,
+                objetiva_corrigida
+            FROM aplicacao_alunos
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+        """, (aplicacao_id, aluno_id))
+        aluno_aplicacao = cursor.fetchone()
+
+        nota_objetiva = (
+            round(float(aluno_aplicacao["nota_objetiva"]), 2)
+            if aluno_aplicacao
+            and aluno_aplicacao["nota_objetiva"] is not None
+            else None
+        )
+
+        # As questões já possuem pesos próprios. Portanto, a nota final é
+        # a soma da parte objetiva com a soma das pontuações discursivas.
+        if nota_objetiva is not None:
+            nota_final = round(nota_objetiva + nota_discursiva, 2)
+        elif corrigidas > 0:
+            nota_final = nota_discursiva
+        else:
+            nota_final = None
+
+        cursor.execute("""
+            UPDATE aplicacao_alunos
+            SET nota_discursiva = ?,
+                nota_final = ?,
+                discursiva_pendente = ?,
+                status = CASE
+                    WHEN ? = 1 AND objetiva_corrigida = 1 THEN 'Corrigido'
+                    WHEN ? = 1 THEN 'Discursivas corrigidas'
+                    ELSE 'Aguardando correção discursiva'
+                END
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+        """, (
+            nota_discursiva,
+            nota_final,
+            0 if concluiu else 1,
+            1 if concluiu else 0,
+            1 if concluiu else 0,
+            aplicacao_id,
+            aluno_id
+        ))
+
+        _sincronizar_status_aplicacao(cursor, aplicacao_id)
+
+        banco.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "nota": nota,
+            "peso": peso_questao,
+            "nota_objetiva": nota_objetiva,
+            "nota_discursiva": nota_discursiva,
+            "valor_discursivas": valor_discursivas,
+            "nota_final": nota_final,
+            "aluno_concluido": concluiu,
+            "mensagem": "Correção salva com sucesso."
+        })
+
+    except Exception as erro:
+        banco.rollback()
+        return jsonify({"erro": str(erro)}), 400
+
     finally:
         banco.close()
 

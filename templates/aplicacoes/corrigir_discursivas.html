@@ -1,0 +1,1030 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Correção de Discursivas | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.cd-page{
+    --azul:#123b82;
+    --azul-escuro:#0d2f68;
+    --azul-claro:#eef5fc;
+    --azul-borda:#d7e4f3;
+    --texto:#172033;
+    --muted:#667085;
+    --borda:#dfe6ef;
+    --fundo:#f5f8fc;
+    --sucesso:#15803d;
+    --sucesso-fundo:#ecfdf3;
+    --aviso:#b45309;
+    --aviso-fundo:#fff7ed;
+    max-width:1520px;
+    margin:0 auto;
+    padding:26px 28px 36px;
+    color:var(--texto);
+}
+.cd-cabecalho{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:end;
+    gap:24px;
+    margin-bottom:20px;
+}
+.cd-voltar{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    margin-bottom:9px;
+    color:var(--azul);
+    font-size:14px;
+    font-weight:850;
+    text-decoration:none;
+}
+.cd-voltar:hover{text-decoration:underline}
+.cd-cabecalho h1{
+    margin:0;
+    color:var(--azul-escuro);
+    font-size:32px;
+    line-height:1.15;
+    letter-spacing:-.5px;
+}
+.cd-cabecalho p{
+    margin:7px 0 0;
+    color:var(--muted);
+    font-size:15px;
+}
+.cd-resumo{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+.cd-resumo-card{
+    min-width:132px;
+    padding:13px 15px;
+    border:1px solid var(--borda);
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 5px 16px rgba(15,23,42,.035);
+}
+.cd-resumo-card small{
+    display:block;
+    margin-bottom:3px;
+    color:#64748b;
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.45px;
+    text-transform:uppercase;
+}
+.cd-resumo-card strong{
+    display:block;
+    color:var(--azul);
+    font-size:22px;
+    line-height:1.15;
+}
+.cd-painel{
+    overflow:hidden;
+    border:1px solid var(--borda);
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 12px 34px rgba(15,23,42,.055);
+}
+.cd-filtros{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--borda);
+    background:#fff;
+}
+.cd-busca{
+    width:100%;
+    max-width:460px;
+    padding:11px 13px;
+    border:1px solid #cfd8e5;
+    border-radius:10px;
+    outline:none;
+    background:#fff;
+    font:inherit;
+    transition:.18s ease;
+}
+.cd-busca:focus{
+    border-color:#8fb1df;
+    box-shadow:0 0 0 3px rgba(18,59,130,.08);
+}
+.cd-tabela-wrap{
+    max-height:210px;
+    overflow:auto;
+    border-bottom:1px solid var(--borda);
+}
+.cd-tabela{
+    width:100%;
+    border-collapse:collapse;
+}
+.cd-tabela th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    padding:11px 15px;
+    background:#f8fafc;
+    color:#475569;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.35px;
+    text-align:left;
+    text-transform:uppercase;
+}
+.cd-tabela td{
+    padding:12px 15px;
+    border-top:1px solid #edf1f5;
+    font-size:13px;
+    vertical-align:middle;
+}
+.cd-linha{
+    cursor:pointer;
+    transition:.15s ease;
+}
+.cd-linha:hover{background:#f8fbff}
+.cd-linha.ativa{
+    position:relative;
+    background:var(--azul-claro);
+}
+.cd-linha.ativa td:first-child{
+    box-shadow:inset 4px 0 0 var(--azul);
+}
+.cd-status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+}
+.cd-status-pendente{
+    background:var(--aviso-fundo);
+    color:var(--aviso);
+}
+.cd-status-corrigida{
+    background:var(--sucesso-fundo);
+    color:var(--sucesso);
+}
+.cd-area{
+    display:grid;
+    grid-template-columns:minmax(560px,1.42fr) minmax(370px,.58fr);
+    min-height:0;
+}
+.cd-documento{
+    min-width:0;
+    padding:18px;
+    border-right:1px solid var(--borda);
+    background:#f2f5f9;
+}
+.cd-documento-topo,
+.cd-correcao-topo{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:12px;
+}
+.cd-documento-topo h2,
+.cd-correcao-topo h2{
+    margin:0;
+    color:#172033;
+    font-size:17px;
+}
+#legendaDocumento{
+    color:var(--muted);
+    font-size:13px;
+    font-weight:700;
+}
+.cd-imagem{
+    width:100%;
+    height:auto;
+    max-height:none;
+    overflow:visible;
+    padding:14px;
+    border:1px solid #d6dee8;
+    border-radius:13px;
+    background:#dfe5ec;
+    text-align:center;
+}
+.cd-imagem img{
+    display:block;
+    width:100%;
+    max-width:none;
+    height:auto;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 12px 30px rgba(15,23,42,.18);
+}
+.cd-correcao{
+    min-width:0;
+    padding:18px;
+    background:#fff;
+}
+.cd-correcao-inner{
+    position:sticky;
+    top:16px;
+}
+.cd-identificacao{
+    margin-bottom:14px;
+    padding-bottom:13px;
+    border-bottom:1px solid #edf1f5;
+}
+.cd-identificacao strong{
+    display:block;
+    color:var(--azul-escuro);
+    font-size:21px;
+    line-height:1.2;
+}
+.cd-identificacao span{
+    display:block;
+    margin-top:4px;
+    color:var(--muted);
+    font-size:13px;
+}
+.cd-bloco{
+    margin-bottom:11px;
+    padding:12px 13px;
+    border:1px solid var(--borda);
+    border-radius:11px;
+    background:#fbfcfe;
+}
+.cd-bloco h3{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin:0 0 7px;
+    color:var(--azul);
+    font-size:13px;
+}
+.cd-bloco-conteudo{
+    color:#334155;
+    font-size:14px;
+    line-height:1.55;
+}
+.cd-valor{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin:13px 0;
+    padding:12px 13px;
+    border:1px solid var(--azul-borda);
+    border-radius:11px;
+    background:var(--azul-claro);
+}
+.cd-valor span{
+    color:#475569;
+    font-size:13px;
+    font-weight:750;
+}
+.cd-valor strong{
+    color:var(--azul-escuro);
+    font-size:18px;
+}
+.cd-campo{
+    margin-top:13px;
+}
+.cd-campo label{
+    display:block;
+    margin-bottom:6px;
+    color:#1e293b;
+    font-size:13px;
+    font-weight:850;
+}
+.cd-nota-wrap{position:relative}
+.cd-nota-wrap input{
+    width:100%;
+    padding:11px 86px 11px 12px;
+    border:1px solid #cfd8e5;
+    border-radius:10px;
+    outline:none;
+    background:#fff;
+    font:inherit;
+    font-weight:800;
+}
+.cd-nota-wrap input:focus,
+.cd-campo textarea:focus{
+    border-color:#8fb1df;
+    box-shadow:0 0 0 3px rgba(18,59,130,.08);
+}
+.cd-nota-wrap span{
+    position:absolute;
+    top:50%;
+    right:12px;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:800;
+    transform:translateY(-50%);
+}
+.cd-campo textarea{
+    width:100%;
+    min-height:88px;
+    padding:11px 12px;
+    border:1px solid #cfd8e5;
+    border-radius:10px;
+    outline:none;
+    font:inherit;
+    resize:vertical;
+}
+.cd-resultado{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-top:14px;
+}
+.cd-resultado div{
+    padding:10px;
+    border:1px solid var(--borda);
+    border-radius:10px;
+    background:#f8fafc;
+}
+.cd-resultado small{
+    display:block;
+    color:var(--muted);
+    font-size:9px;
+    font-weight:900;
+    letter-spacing:.35px;
+    text-transform:uppercase;
+}
+.cd-resultado strong{
+    display:block;
+    margin-top:3px;
+    color:var(--azul);
+    font-size:16px;
+}
+.cd-acoes{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid #edf1f5;
+}
+.cd-grupo-acoes{
+    display:flex;
+    gap:8px;
+}
+.cd-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:41px;
+    padding:9px 14px;
+    border:1px solid var(--borda);
+    border-radius:10px;
+    background:#fff;
+    color:var(--azul);
+    font-weight:850;
+    cursor:pointer;
+    transition:.18s ease;
+}
+.cd-btn:hover:not(:disabled){
+    border-color:#b9c8da;
+    background:#f8fafc;
+}
+.cd-btn-principal{
+    border-color:var(--azul);
+    background:var(--azul);
+    color:#fff;
+}
+.cd-btn-principal:hover:not(:disabled){
+    border-color:var(--azul-escuro);
+    background:var(--azul-escuro);
+}
+.cd-btn:disabled{
+    opacity:.48;
+    cursor:not-allowed;
+}
+.cd-vazio{
+    padding:70px 25px;
+    text-align:center;
+    color:var(--muted);
+}
+.cd-escondido{display:none!important}
+@media(max-width:1240px){
+    .cd-cabecalho{grid-template-columns:1fr}
+    .cd-resumo{justify-content:flex-start}
+    .cd-area{grid-template-columns:1fr}
+    .cd-documento{
+        border-right:0;
+        border-bottom:1px solid var(--borda);
+    }
+    .cd-correcao-inner{position:static}
+}
+@media(max-width:760px){
+    .cd-page{padding:18px}
+    .cd-resumo{display:grid;grid-template-columns:repeat(2,1fr)}
+    .cd-resumo-card{min-width:0}
+    .cd-tabela-wrap{max-height:300px}
+    .cd-tabela{min-width:760px}
+    .cd-imagem{height:auto;max-height:none;overflow:visible}
+    .cd-resultado{grid-template-columns:1fr}
+    .cd-acoes{flex-direction:column}
+    .cd-grupo-acoes{width:100%}
+    .cd-btn{flex:1}
+}
+
+/* NOTIFICAÇÃO LATERAL — PADRÃO ARK EDUS */
+.cd-toast-container{
+    position:fixed;
+    top:92px;
+    right:28px;
+    z-index:3000;
+    display:grid;
+    gap:12px;
+    width:min(430px,calc(100vw - 32px));
+    pointer-events:none;
+}
+.cd-toast{
+    position:relative;
+    display:grid;
+    grid-template-columns:46px minmax(0,1fr) 34px;
+    align-items:center;
+    gap:12px;
+    min-height:76px;
+    padding:13px 14px 13px 20px;
+    overflow:hidden;
+    border:1px solid #dbe4ee;
+    border-radius:16px;
+    background:#fff;
+    box-shadow:0 18px 45px rgba(15,23,42,.18);
+    opacity:0;
+    pointer-events:auto;
+    transform:translateX(38px);
+    transition:opacity .24s ease,transform .24s ease;
+}
+.cd-toast.cd-toast-show{opacity:1;transform:translateX(0)}
+.cd-toast::before{
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:5px;
+    background:#16a34a;
+}
+.cd-toast.cd-toast-error::before{background:#dc2626}
+.cd-toast-icone{
+    display:grid;
+    place-items:center;
+    width:44px;
+    height:44px;
+    border-radius:13px;
+    background:#eafbf1;
+    color:#159447;
+}
+.cd-toast-error .cd-toast-icone{
+    background:#fff1f2;
+    color:#dc2626;
+}
+.cd-toast-icone svg{width:23px;height:23px}
+.cd-toast-conteudo{min-width:0}
+.cd-toast-conteudo strong{
+    display:block;
+    color:#123b72;
+    font-size:15px;
+    font-weight:900;
+    line-height:1.25;
+}
+.cd-toast-conteudo span{
+    display:block;
+    margin-top:5px;
+    color:#475467;
+    font-size:13px;
+    line-height:1.4;
+}
+.cd-toast-fechar{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    padding:0;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    color:#667085;
+    font-size:24px;
+    line-height:1;
+    cursor:pointer;
+}
+.cd-toast-fechar:hover{
+    background:#f2f4f7;
+    color:#344054;
+}
+@media(max-width:620px){
+    .cd-toast-container{
+        top:76px;
+        right:16px;
+        left:16px;
+        width:auto;
+    }
+}
+
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<main class="cd-page">
+    <header class="cd-cabecalho">
+        <div>
+            <a class="cd-voltar"
+               href="{{ url_for('aplicacoes_prova', prova_id=aplicacao.prova_id) }}">
+                ← Voltar para aplicações
+            </a>
+            <h1>Correção de discursivas</h1>
+            <p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }} · {{ aplicacao.disciplina }}</p>
+        </div>
+
+        <div class="cd-resumo">
+            <div class="cd-resumo-card">
+                <small>Respostas</small>
+                <strong>{{ resumo.total }}</strong>
+            </div>
+            <div class="cd-resumo-card">
+                <small>Pendentes</small>
+                <strong id="totalPendentes">{{ resumo.pendentes }}</strong>
+            </div>
+            <div class="cd-resumo-card">
+                <small>Corrigidas</small>
+                <strong id="totalCorrigidas">{{ resumo.corrigidas }}</strong>
+            </div>
+            <div class="cd-resumo-card">
+                <small>Valor discursivas</small>
+                <strong>{{ '%.2f'|format(resumo.valor_total or 0)|replace('.', ',') }}</strong>
+            </div>
+        </div>
+    </header>
+
+    {% if respostas %}
+    <section class="cd-painel">
+        <div class="cd-filtros">
+            <input
+                class="cd-busca"
+                id="buscaResposta"
+                type="search"
+                placeholder="Buscar por aluno ou questão..."
+            >
+        </div>
+
+        <div class="cd-tabela-wrap">
+            <table class="cd-tabela">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Matrícula</th>
+                        <th>Questão</th>
+                        <th>Valor</th>
+                        <th>Pontuação</th>
+                        <th>Situação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resposta in respostas %}
+                    <tr
+                        class="cd-linha {{ 'ativa' if loop.first else '' }}"
+                        data-index="{{ loop.index0 }}"
+                        data-busca="{{ resposta.aluno_nome|lower }} questão {{ resposta.numero_exibicao }}"
+                    >
+                        <td><strong>{{ resposta.aluno_nome }}</strong></td>
+                        <td>{{ resposta.aluno_matricula or '—' }}</td>
+                        <td>Questão {{ resposta.numero_exibicao }}</td>
+                        <td>{{ '%.2f'|format(resposta.peso or 0)|replace('.', ',') }}</td>
+                        <td class="cd-celula-nota">
+                            {% if resposta.nota is not none %}
+                                {{ '%.2f'|format(resposta.nota)|replace('.', ',') }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="cd-status {{ 'cd-status-corrigida' if resposta.corrigida else 'cd-status-pendente' }}">
+                                {{ 'Corrigida' if resposta.corrigida else 'Pendente' }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="cd-area">
+            <section class="cd-documento">
+                <div class="cd-documento-topo">
+                    <h2>Resposta digitalizada</h2>
+                    <span id="legendaDocumento"></span>
+                </div>
+                <div class="cd-imagem">
+                    <img id="imagemResposta" alt="Resposta discursiva digitalizada">
+                </div>
+            </section>
+
+            <section class="cd-correcao">
+                <div class="cd-correcao-inner">
+                <div class="cd-correcao-topo">
+                    <h2>Avaliação do professor</h2>
+                    <span class="cd-status" id="statusAtual"></span>
+                </div>
+
+                <div class="cd-identificacao">
+                    <strong id="alunoAtual"></strong>
+                    <span id="questaoAtual"></span>
+                </div>
+
+                <div class="cd-bloco">
+                    <h3>Enunciado</h3>
+                    <div class="cd-bloco-conteudo" id="enunciadoQuestao"></div>
+                </div>
+
+                <div class="cd-bloco" id="blocoRespostaEsperada">
+                    <h3>Resposta esperada</h3>
+                    <div class="cd-bloco-conteudo" id="respostaEsperada"></div>
+                </div>
+
+                <div class="cd-bloco" id="blocoCriterios">
+                    <h3>Critérios de correção</h3>
+                    <div class="cd-bloco-conteudo" id="criteriosCorrecao"></div>
+                </div>
+
+                <div class="cd-valor">
+                    <span>Valor da questão</span>
+                    <strong id="pesoQuestao"></strong>
+                </div>
+
+                <div class="cd-campo">
+                    <label for="notaResposta">Pontuação atribuída</label>
+                    <div class="cd-nota-wrap">
+                        <input
+                            id="notaResposta"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                        >
+                        <span id="limiteNota"></span>
+                    </div>
+                </div>
+
+                <div class="cd-campo">
+                    <label for="comentarioResposta">Comentário do professor</label>
+                    <textarea
+                        id="comentarioResposta"
+                        placeholder="Registre uma devolutiva para o estudante."
+                    ></textarea>
+                </div>
+
+                <div class="cd-resultado">
+                    <div>
+                        <small>Objetivas</small>
+                        <strong id="notaObjetivaAluno">—</strong>
+                    </div>
+                    <div>
+                        <small>Discursivas</small>
+                        <strong id="notaDiscursivaAluno">—</strong>
+                    </div>
+                    <div>
+                        <small>Nota final</small>
+                        <strong id="notaFinalAluno">—</strong>
+                    </div>
+                </div>
+
+                <div class="cd-acoes">
+                    <button type="button" class="cd-btn" id="anteriorBtn">
+                        ← Anterior
+                    </button>
+                    <div class="cd-grupo-acoes">
+                        <button type="button" class="cd-btn" id="proximoBtn">
+                            Próxima
+                        </button>
+                        <button type="button" class="cd-btn cd-btn-principal" id="salvarBtn">
+                            Salvar correção
+                        </button>
+                    </div>
+                </div>
+                </div>
+            </section>
+        </div>
+    </section>
+    {% else %}
+    <section class="cd-painel cd-vazio">
+        <h2>Nenhuma folha discursiva importada</h2>
+        <p>Importe as folhas pela tela de cartões para iniciar a correção.</p>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+{% if respostas %}
+<script>
+const respostas = {{ respostas|tojson }};
+let indiceAtual = 0;
+
+const linhas = [...document.querySelectorAll(".cd-linha")];
+const buscaResposta = document.getElementById("buscaResposta");
+const imagemResposta = document.getElementById("imagemResposta");
+const legendaDocumento = document.getElementById("legendaDocumento");
+const statusAtual = document.getElementById("statusAtual");
+const alunoAtual = document.getElementById("alunoAtual");
+const questaoAtual = document.getElementById("questaoAtual");
+const enunciadoQuestao = document.getElementById("enunciadoQuestao");
+const respostaEsperada = document.getElementById("respostaEsperada");
+const criteriosCorrecao = document.getElementById("criteriosCorrecao");
+const blocoRespostaEsperada = document.getElementById("blocoRespostaEsperada");
+const blocoCriterios = document.getElementById("blocoCriterios");
+const pesoQuestao = document.getElementById("pesoQuestao");
+const limiteNota = document.getElementById("limiteNota");
+const notaResposta = document.getElementById("notaResposta");
+const comentarioResposta = document.getElementById("comentarioResposta");
+const notaObjetivaAluno = document.getElementById("notaObjetivaAluno");
+const notaDiscursivaAluno = document.getElementById("notaDiscursivaAluno");
+const notaFinalAluno = document.getElementById("notaFinalAluno");
+const anteriorBtn = document.getElementById("anteriorBtn");
+const proximoBtn = document.getElementById("proximoBtn");
+const salvarBtn = document.getElementById("salvarBtn");
+
+function formatarNota(valor){
+    if(valor === null || valor === undefined || valor === ""){
+        return "—";
+    }
+    return Number(valor).toFixed(2).replace(".", ",");
+}
+
+
+function mostrarNotificacao(mensagem, tipo="success"){
+    if(typeof window.arkToast === "function"){
+        window.arkToast(mensagem, tipo);
+        return;
+    }
+
+    let container = document.getElementById("cdToastContainer");
+
+    if(!container){
+        container = document.createElement("div");
+        container.id = "cdToastContainer";
+        container.className = "cd-toast-container";
+        container.setAttribute("aria-live", "polite");
+        container.setAttribute("aria-atomic", "true");
+        document.body.appendChild(container);
+    }
+
+    const ehErro = tipo === "error" || tipo === "danger";
+    const toast = document.createElement("div");
+    toast.className = "cd-toast" + (ehErro ? " cd-toast-error" : "");
+
+    const titulo = ehErro
+        ? "Não foi possível concluir"
+        : "Operação realizada";
+
+    const icone = ehErro
+        ? `
+            <svg viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M12 8V13"></path>
+                <path d="M12 17H12.01"></path>
+            </svg>
+        `
+        : `
+            <svg viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M8 12L11 15L16 9"></path>
+            </svg>
+        `;
+
+    toast.innerHTML = `
+        <div class="cd-toast-icone">${icone}</div>
+        <div class="cd-toast-conteudo">
+            <strong>${titulo}</strong>
+            <span></span>
+        </div>
+        <button type="button"
+                class="cd-toast-fechar"
+                aria-label="Fechar notificação">×</button>
+    `;
+
+    toast.querySelector(".cd-toast-conteudo span").textContent =
+        mensagem || (
+            ehErro
+                ? "Ocorreu um erro inesperado."
+                : "A operação foi concluída com sucesso."
+        );
+
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.classList.add("cd-toast-show");
+    });
+
+    let removendo = false;
+
+    function removerToast(){
+        if(removendo) return;
+        removendo = true;
+        toast.classList.remove("cd-toast-show");
+
+        window.setTimeout(() => {
+            toast.remove();
+            if(container && !container.children.length){
+                container.remove();
+            }
+        }, 250);
+    }
+
+    toast.querySelector(".cd-toast-fechar")
+        .addEventListener("click", removerToast);
+
+    window.setTimeout(removerToast, ehErro ? 6000 : 4500);
+}
+
+
+function renderizar(){
+    const r = respostas[indiceAtual];
+
+    linhas.forEach((linha, indice) => {
+        linha.classList.toggle("ativa", indice === indiceAtual);
+    });
+
+    alunoAtual.textContent = r.aluno_nome;
+    questaoAtual.textContent =
+        `Questão ${r.numero_exibicao} · Matrícula ${r.aluno_matricula || "—"}`;
+
+    legendaDocumento.textContent =
+        `${r.aluno_nome} · Questão ${r.numero_exibicao}`;
+
+    statusAtual.textContent = r.corrigida ? "Corrigida" : "Pendente";
+    statusAtual.className =
+        "cd-status " +
+        (r.corrigida ? "cd-status-corrigida" : "cd-status-pendente");
+
+    enunciadoQuestao.innerHTML = r.enunciado || "Enunciado não informado.";
+
+    respostaEsperada.innerHTML =
+        r.resposta_esperada || "Nenhuma resposta esperada foi cadastrada.";
+    blocoRespostaEsperada.classList.toggle(
+        "cd-escondido",
+        !String(r.resposta_esperada || "").trim()
+    );
+
+    criteriosCorrecao.innerHTML =
+        r.criterios_correcao || "Nenhum critério de correção foi cadastrado.";
+    blocoCriterios.classList.toggle(
+        "cd-escondido",
+        !String(r.criterios_correcao || "").trim()
+    );
+
+    imagemResposta.src = r.imagem_url || "";
+    imagemResposta.style.display = r.imagem_url ? "inline-block" : "none";
+
+    const peso = Number(r.peso || 0);
+    pesoQuestao.textContent = `${formatarNota(peso)} pontos`;
+    limiteNota.textContent = `máx. ${formatarNota(peso)}`;
+    notaResposta.max = peso.toFixed(2);
+    notaResposta.value =
+        r.nota === null || r.nota === undefined ? "" : Number(r.nota).toFixed(2);
+    comentarioResposta.value = r.comentario || "";
+
+    notaObjetivaAluno.textContent = formatarNota(r.nota_objetiva);
+    notaDiscursivaAluno.textContent = formatarNota(r.nota_discursiva_aluno);
+    notaFinalAluno.textContent = formatarNota(r.nota_final);
+
+    anteriorBtn.disabled = indiceAtual === 0;
+    proximoBtn.disabled = indiceAtual === respostas.length - 1;
+}
+
+async function salvar(){
+    const r = respostas[indiceAtual];
+    const valorTexto = String(notaResposta.value || "").replace(",", ".").trim();
+    const nota = Number(valorTexto);
+    const peso = Number(r.peso || 0);
+
+    if(valorTexto === "" || Number.isNaN(nota)){
+        mostrarNotificacao("Informe uma pontuação válida.", "error");
+        notaResposta.focus();
+        return;
+    }
+
+    if(nota < 0 || nota > peso){
+        mostrarNotificacao(
+            `A pontuação deve estar entre 0 e ${formatarNota(peso)}.`,
+            "error"
+        );
+        notaResposta.focus();
+        return;
+    }
+
+    salvarBtn.disabled = true;
+    salvarBtn.textContent = "Salvando...";
+
+    try{
+        const retorno = await fetch(
+            `/aplicacoes/{{ aplicacao.id }}/discursivas/${r.id}/salvar`,
+            {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({
+                    nota:nota,
+                    comentario:comentarioResposta.value
+                })
+            }
+        );
+
+        const dados = await retorno.json();
+
+        if(!retorno.ok){
+            throw new Error(dados.erro || "Não foi possível salvar.");
+        }
+
+        const jaCorrigida = Boolean(r.corrigida);
+        r.nota = dados.nota;
+        r.comentario = comentarioResposta.value;
+        r.corrigida = 1;
+        r.nota_objetiva = dados.nota_objetiva;
+        r.nota_discursiva_aluno = dados.nota_discursiva;
+        r.nota_final = dados.nota_final;
+
+        const linha = linhas[indiceAtual];
+        linha.querySelector(".cd-celula-nota").textContent =
+            formatarNota(dados.nota);
+
+        const selo = linha.querySelector(".cd-status");
+        selo.textContent = "Corrigida";
+        selo.className = "cd-status cd-status-corrigida";
+
+        if(!jaCorrigida){
+            const corrigidas = document.getElementById("totalCorrigidas");
+            const pendentes = document.getElementById("totalPendentes");
+            corrigidas.textContent = Number(corrigidas.textContent) + 1;
+            pendentes.textContent = Math.max(
+                0,
+                Number(pendentes.textContent) - 1
+            );
+        }
+
+        renderizar();
+        mostrarNotificacao(dados.mensagem || "Correção salva.", "success");
+
+        if(indiceAtual < respostas.length - 1){
+            indiceAtual += 1;
+            renderizar();
+        }
+    }catch(erro){
+        mostrarNotificacao(erro.message, "error");
+    }finally{
+        salvarBtn.disabled = false;
+        salvarBtn.textContent = "Salvar correção";
+    }
+}
+
+linhas.forEach((linha) => {
+    linha.addEventListener("click", () => {
+        indiceAtual = Number(linha.dataset.index);
+        renderizar();
+    });
+});
+
+buscaResposta.addEventListener("input", () => {
+    const termo = buscaResposta.value.trim().toLowerCase();
+
+    linhas.forEach((linha) => {
+        linha.style.display =
+            !termo || linha.dataset.busca.includes(termo) ? "" : "none";
+    });
+});
+
+notaResposta.addEventListener("input", () => {
+    const peso = Number(respostas[indiceAtual].peso || 0);
+    if(Number(notaResposta.value) > peso){
+        notaResposta.setCustomValidity(
+            `A pontuação máxima é ${formatarNota(peso)}.`
+        );
+    }else{
+        notaResposta.setCustomValidity("");
+    }
+});
+
+anteriorBtn.addEventListener("click", () => {
+    if(indiceAtual > 0){
+        indiceAtual -= 1;
+        renderizar();
+    }
+});
+
+proximoBtn.addEventListener("click", () => {
+    if(indiceAtual < respostas.length - 1){
+        indiceAtual += 1;
+        renderizar();
+    }
+});
+
+salvarBtn.addEventListener("click", salvar);
+renderizar();
+</script>
+{% endif %}
+{% endblock %}

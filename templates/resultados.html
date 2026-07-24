@@ -1,1425 +1,638 @@
 {% extends "layout/base.html" %}
-
-{% block titulo %}Resultados da Prova | ARK EDU{% endblock %}
-
+{% block titulo %}Resultados da Prova | ARK EDUS{% endblock %}
 {% block estilos %}
 <style>
-.resultados-page {
-            --ark-primary: #173f73;
-            --ark-primary-hover: #12345f;
-            --ark-primary-light: #edf4fb;
+.resultados-page{--azul:#123b82;--azul2:#2563eb;--texto:#172033;--muted:#667085;--borda:#dfe6ef;--fundo:#f5f8fc;--verde:#15803d;--vermelho:#c93737;--laranja:#b45309;max-width:1540px;margin:0 auto;padding:26px;color:var(--texto)}
+.r-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.r-acoes{display:flex;gap:9px;flex-wrap:wrap}.r-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid var(--borda);border-radius:10px;background:#fff;color:var(--azul);font:inherit;font-weight:800;text-decoration:none;cursor:pointer}.r-btn.primary{background:var(--azul);border-color:var(--azul);color:#fff}.r-titulo h1{margin:14px 0 5px;font-size:31px;color:#0f2f63}.r-titulo p{margin:0;color:var(--muted)}
+.r-card{background:#fff;border:1px solid var(--borda);border-radius:17px;box-shadow:0 10px 30px rgba(15,23,42,.05);margin-bottom:18px;overflow:hidden}.r-prova{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:22px}.r-logo{width:74px;height:74px;border:1px solid var(--borda);border-radius:14px;display:grid;place-items:center;padding:8px;background:#fff}.r-logo img{max-width:100%;max-height:100%;object-fit:contain}.r-prova h2{margin:0 0 5px;font-size:22px}.r-prova-meta{display:flex;gap:8px 18px;flex-wrap:wrap;color:var(--muted);font-size:13px}.r-status{padding:8px 12px;border-radius:999px;background:#eaf8f2;color:var(--verde);font-size:12px;font-weight:900}
+.r-section{padding:22px}.r-section+.r-section{border-top:1px solid #edf1f5}.r-section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:16px}.r-section-head h3{margin:0;font-size:18px}.r-section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.r-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.r-kpi{padding:15px;border:1px solid var(--borda);border-radius:12px;background:#fff;min-height:106px}.r-kpi small{display:block;color:var(--muted);font-weight:800;font-size:11px}.r-kpi strong{display:block;margin-top:15px;font-size:25px}.r-kpi span{display:block;margin-top:5px;color:#98a2b3;font-size:11pt}.r-kpi.ok strong{color:var(--verde)}.r-kpi.bad strong{color:var(--vermelho)}.r-kpi.warn strong{color:var(--laranja)}
+.r-dupla{display:grid;grid-template-columns:1fr 1fr;gap:18px}.r-insight{padding:16px;border:1px solid var(--borda);border-radius:12px;background:#f8fafc}.r-insight b{display:block;margin-bottom:6px}.r-insight span{color:var(--muted);font-size:13px}
+.r-table-wrap{overflow:auto;border:1px solid var(--borda);border-radius:12px}.r-table{width:100%;min-width:980px;border-collapse:collapse}.r-table th{padding:12px 13px;background:#f7f9fc;color:#475569;font-size:11pt;text-transform:uppercase;letter-spacing:.04em;text-align:left}.r-table td{padding:12px 13px;border-top:1px solid #edf1f5;font-size:12px;vertical-align:middle}.r-table tbody tr:hover{background:#fbfdff}.center{text-align:center!important}.tag{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:11pt;font-weight:900}.tag.ok{background:#eaf8f2;color:var(--verde)}.tag.bad{background:#fff0f0;color:var(--vermelho)}.tag.warn{background:#fff7ed;color:var(--laranja)}.nota{font-size:15px;font-weight:900;color:var(--azul)}
+.r-bars{display:grid;gap:10px}.r-bar-row{display:grid;grid-template-columns:minmax(180px,1fr) 3fr 58px;gap:12px;align-items:center}.r-bar-row label{font-size:12px}.r-bar{height:10px;background:#e8edf4;border-radius:999px;overflow:hidden}.r-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--azul),var(--azul2));border-radius:inherit}.r-bar-row strong{font-size:12px;text-align:right}
+.r-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.r-tab{border:1px solid var(--borda);background:#fff;color:var(--muted);padding:8px 12px;border-radius:999px;font-weight:800;cursor:pointer}.r-tab.active{background:#edf4ff;color:var(--azul);border-color:#bfd2ef}.r-tab-panel{display:none}.r-tab-panel.active{display:block}
+.r-table tbody tr:nth-child(even){background:#fbfcfe}
+.r-type{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:900;text-transform:capitalize}
+.r-type.objetiva{background:#eef4ff;color:#123b82}
+.r-type.discursiva{background:#f3efff;color:#6b46c1}
+.r-type.anulada{background:#fff7ed;color:#b45309}
+.r-performance{display:flex;align-items:center;gap:8px;min-width:110px}
+.r-performance-track{height:7px;flex:1;background:#e8edf4;border-radius:999px;overflow:hidden}
+.r-performance-fill{display:block;height:100%;background:linear-gradient(90deg,var(--azul),var(--azul2));border-radius:inherit}
+.r-performance strong{min-width:42px;text-align:right;font-size:11px}
+.print-summary-table{display:none}
+.print-footer{display:none}
 
-            --ark-secondary: #c9973f;
-            --ark-secondary-light: #fff8e9;
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:1000;padding:20px}.modal-overlay.open{display:grid}.modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 80px rgba(0,0,0,.25)}.modal-head{padding:20px 22px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0}.modal-body{padding:20px 22px}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal-option{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--borda);border-radius:11px}.modal-option input{margin-top:3px}.modal-option strong{display:block;font-size:13px}.modal-option span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.modal-foot{padding:16px 22px;border-top:1px solid var(--borda);display:flex;justify-content:flex-end;gap:9px}.print-header{display:none}.print-only{display:none}
+@media(max-width:1200px){.r-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.resultados-page{padding:14px}.r-topo,.r-prova{grid-template-columns:1fr;display:grid}.r-grid{grid-template-columns:repeat(2,1fr)}.r-dupla,.modal-grid{grid-template-columns:1fr}}
 
-            --ark-success: #17845f;
-            --ark-success-light: #eaf8f2;
+@media print{
+  @page{size:A4;margin:10mm}
+  html,body{
+    background:#fff!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important
+  }
+  body{
+    font-family:Arial,Helvetica,sans-serif!important;
+    font-size:12pt!important;
+    color:#111!important;
+    overflow:visible!important
+  }
 
-            --ark-danger: #d74747;
-            --ark-danger-light: #fff0f0;
+  /* Remove os recuos e limites herdados do layout principal */
+  main,
+  #main,
+  #content,
+  .main,
+  .main-content,
+  .content,
+  .page-content,
+  .app-content,
+  .layout-content,
+  .conteudo,
+  .conteudo-principal,
+  .container,
+  .container-fluid{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    left:0!important;
+    transform:none!important
+  }
 
-            --ark-warning: #c98218;
-            --ark-warning-light: #fff6e7;
+  .sidebar,.topbar,.r-topo,.r-tabs,.no-print,.modal-overlay{display:none!important}.print-only{display:inline!important}
 
-            --ark-purple: #7556c6;
-            --ark-purple-light: #f2efff;
+  .resultados-page{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important
+  }
+  .print-header{
+    display:grid!important;
+    grid-template-columns:54px 1fr;
+    align-items:center;
+    gap:12px;
+    padding:0 0 8px!important;
+    margin:0 0 9px!important;
+    border-bottom:1.5px solid #111!important
+  }
+  .print-header img{width:48px!important;height:48px!important;object-fit:contain}
+  .print-header strong{font-size:15pt!important;line-height:1.15;letter-spacing:.01em}
+  .print-header span{font-size:10pt!important;color:#333!important;line-height:1.35}
+  .r-card{margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}
+  .r-prova{display:none!important}
+  .r-section{padding:0!important;border:0!important;margin:0 0 10px!important;break-inside:auto}
+  .r-section+.r-section{border-top:0!important}
+  .r-section-head{display:block!important;margin:0 0 5px!important;padding:0 0 3px!important;border-bottom:1px solid #9f9f9f;break-after:avoid}
+  .r-section-head h3{font-size:12pt!important;margin:0!important;color:#111!important}
+  .r-section-head p{display:none!important}
+  .r-grid,.r-dupla{display:none!important}
+  .print-summary-table{display:table!important;width:100%;border-collapse:collapse;margin:0 0 8px}
+  .print-summary-table th{padding:4px 5px;border:1px solid #c8c8c8;background:#efefef;font-size:9pt;text-transform:uppercase;text-align:center}
+  .print-summary-table td{padding:5px;border:1px solid #d6d6d6;font-size:11pt;font-weight:700;text-align:center}
+  .print-insights{display:grid!important;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+  .print-insight{padding:5px 7px;border:1px solid #d3d3d3;font-size:9pt}
+  .print-insight b{display:block;margin-bottom:2px;font-size:9pt;text-transform:uppercase}
+  .r-table-wrap{overflow:visible!important;border:1px solid #bdbdbd!important;border-radius:0!important;break-inside:auto}
+  .r-table{
+    min-width:0!important;
+    width:100%!important;
+    max-width:none!important;
+    table-layout:fixed!important;
+    border-collapse:collapse!important
+  }
+  .r-table thead{display:table-header-group}
+  .r-table tr{break-inside:avoid}
+  .r-table tbody tr:nth-child(even){background:#f7f7f7!important}
+  .r-table th{padding:4px 5px!important;background:#e9e9e9!important;color:#111!important;border:1px solid #bdbdbd!important;font-size:8.5pt!important;letter-spacing:0!important;text-transform:uppercase!important}
+  .r-table td{
+    padding:4px 5px!important;
+    border:1px solid #d3d3d3!important;
+    font-size:9pt!important;
+    line-height:1.2!important;
+    color:#111!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important
+  }
+  .tag,.r-type{padding:1px 4px!important;border-radius:2px!important;background:transparent!important;color:#111!important;border:1px solid #aaa!important;font-size:8pt!important}
+  .nota{font-size:10pt!important;color:#111!important}
+  .r-performance{gap:4px!important;min-width:80px!important}
+  .r-performance-track{height:4px!important;background:#ddd!important}
+  .r-performance-fill{background:#555!important}
+  .r-performance strong{min-width:30px!important;font-size:9pt!important}
+  .r-bars{gap:4px!important}
+  .r-bar-row{grid-template-columns:minmax(150px,1fr) 3fr 38px!important;gap:6px!important}
+  .r-bar-row label,.r-bar-row strong{font-size:9pt!important}
+  .r-bar{height:4px!important;background:#ddd!important}
+  .r-bar i{background:#555!important}
+  .print-hidden{display:none!important}
+  .r-tab-panel{display:block!important}
 
-            --ark-background: #f5f7fa;
-            --ark-surface: #ffffff;
+  #tabelaAlunos th:nth-child(1),#tabelaAlunos td:nth-child(1){width:5%}
+  #tabelaAlunos th:nth-child(2),#tabelaAlunos td:nth-child(2){width:20%}
+  #tabelaAlunos th:nth-child(3),#tabelaAlunos td:nth-child(3){width:10%}
+  #tabelaAlunos th:nth-child(4),#tabelaAlunos td:nth-child(4),
+  #tabelaAlunos th:nth-child(5),#tabelaAlunos td:nth-child(5){width:7%}
+  #tabelaAlunos th:nth-child(6),#tabelaAlunos td:nth-child(6),
+  #tabelaAlunos th:nth-child(7),#tabelaAlunos td:nth-child(7),
+  #tabelaAlunos th:nth-child(8),#tabelaAlunos td:nth-child(8){width:9%}
+  #tabelaAlunos th:nth-child(9),#tabelaAlunos td:nth-child(9){width:13%}
+  #tabelaAlunos th:nth-child(10),#tabelaAlunos td:nth-child(10){width:11%}
 
-            --ark-text: #182230;
-            --ark-text-secondary: #667085;
-            --ark-text-light: #98a2b3;
+  #tab-questoes .r-table th:nth-child(1),#tab-questoes .r-table td:nth-child(1){width:6%}
+  #tab-questoes .r-table th:nth-child(2),#tab-questoes .r-table td:nth-child(2){width:10%}
+  #tab-questoes .r-table th:nth-child(3),#tab-questoes .r-table td:nth-child(3){width:6%}
+  #tab-questoes .r-table th:nth-child(4),#tab-questoes .r-table td:nth-child(4),
+  #tab-questoes .r-table th:nth-child(5),#tab-questoes .r-table td:nth-child(5),
+  #tab-questoes .r-table th:nth-child(6),#tab-questoes .r-table td:nth-child(6){width:6%}
+  #tab-questoes .r-table th:nth-child(7),#tab-questoes .r-table td:nth-child(7){width:12%}
+  #tab-questoes .r-table th:nth-child(8),#tab-questoes .r-table td:nth-child(8){width:48%}
 
-            --ark-border: #e4e8ef;
-            --ark-border-light: #eef1f5;
+  .print-footer{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:8px;
+    padding-top:4px;
+    border-top:1px solid #aaa;
+    color:#555;
+    font-size:9pt
+  }
+  .resultados-page>div:last-child:not(.print-footer){display:none!important}
+}
 
-            --ark-shadow:
-                0 1px 2px rgba(16, 24, 40, 0.03),
-                0 5px 18px rgba(16, 24, 40, 0.05);
 
-            --ark-radius: 12px;
-        }
+
 /* =========================================================
-           PÁGINA
-        ========================================================= */
-
-        .ark-page {
-            width: 100%;
-            max-width: none;
-            padding: 24px 22px 34px;
-        }
-
-        .ark-page-container {
-            width: 100%;
-            max-width: none;
-            margin: 0;
-        }
-
-        /* =========================================================
-           CABEÇALHO DA PÁGINA
-        ========================================================= */
-
-        .ark-page-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .ark-page-heading {
-            min-width: 0;
-        }
-.ark-page-title-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .ark-page-icon {
-            display: flex;
-            width: 44px;
-            min-width: 44px;
-            height: 44px;
-            align-items: center;
-            justify-content: center;
-            background: var(--ark-primary-light);
-            border-radius: 11px;
-            color: var(--ark-primary);
-        }
-
-        .ark-page-icon i {
-            width: 22px;
-            height: 22px;
-        }
-
-        .ark-page-title {
-            color: var(--ark-text);
-            font-size: 25px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-
-        .ark-page-description {
-            margin-top: 6px;
-            color: var(--ark-text-secondary);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .ark-page-actions {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 9px;
-        }
-
-        .ark-page-header-stacked {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 18px;
-        }
-
-        .ark-page-actions-top {
-            justify-content: flex-start;
-        }
-
-        .ark-page-heading {
-            width: 100%;
-        }
-
-        /* =========================================================
-           BOTÕES ARK EDU
-        ========================================================= */
-
-        .ark-btn {
-            display: inline-flex;
-            min-height: 40px;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 9px 14px;
-            border: 1px solid transparent;
-            border-radius: 9px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-            transition:
-                background-color 0.2s ease,
-                border-color 0.2s ease,
-                color 0.2s ease,
-                transform 0.2s ease,
-                box-shadow 0.2s ease;
-        }
-
-        .ark-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .ark-btn i {
-            width: 16px;
-            height: 16px;
-        }
-
-        .ark-btn-secondary {
-            background: var(--ark-surface);
-            border-color: var(--ark-border);
-            color: var(--ark-text-secondary);
-        }
-
-        .ark-btn-secondary:hover {
-            border-color: #cbd2dc;
-            color: var(--ark-primary);
-        }
-
-        .ark-btn-primary {
-            background: var(--ark-primary);
-            border-color: var(--ark-primary);
-            color: #ffffff;
-            box-shadow: 0 3px 8px rgba(23, 63, 115, 0.15);
-        }
-
-        .ark-btn-primary:hover {
-            background: var(--ark-primary-hover);
-            border-color: var(--ark-primary-hover);
-        }
-
-        /* =========================================================
-           CARD PRINCIPAL
-        ========================================================= */
-
-        .ark-card {
-            width: 100%;
-            max-width: none;
-            overflow: hidden;
-            background: var(--ark-surface);
-            border: 1px solid #dfe5ed;
-            border-radius: 14px;
-            box-shadow: 0 8px 24px rgba(23, 63, 115, 0.06);
-        }
-
-        .ark-card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            padding: 20px 22px;
-            border-bottom: 1px solid var(--ark-border-light);
-        }
-
-        .ark-exam-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 0;
-        }
-
-        .ark-exam-icon {
-            display: flex;
-            width: 42px;
-            min-width: 42px;
-            height: 42px;
-            align-items: center;
-            justify-content: center;
-            background: var(--ark-primary-light);
-            border-radius: 10px;
-            color: var(--ark-primary);
-        }
-
-        .ark-exam-icon i {
-            width: 20px;
-            height: 20px;
-        }
-
-        .ark-exam-label {
-            margin-bottom: 3px;
-            color: var(--ark-text-light);
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .ark-exam-title {
-            overflow: hidden;
-            color: var(--ark-text);
-            font-size: 17px;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .ark-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 7px 10px;
-            background: var(--ark-success-light);
-            border: 1px solid #ccecdf;
-            border-radius: 999px;
-            color: var(--ark-success);
-            font-size: 10px;
-            font-weight: 800;
-            white-space: nowrap;
-        }
-
-        .ark-status::before {
-            content: "";
-            width: 7px;
-            height: 7px;
-            background: var(--ark-success);
-            border-radius: 50%;
-        }
-
-        .ark-card-body {
-            padding: 22px;
-        }
-
-        /* =========================================================
-           CABEÇALHO DAS SEÇÕES
-        ========================================================= */
-
-        .ark-section-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 18px;
-            margin-bottom: 16px;
-        }
-
-        .ark-section-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--ark-text);
-            font-size: 15px;
-            font-weight: 800;
-        }
-
-        .ark-section-title i {
-            width: 18px;
-            height: 18px;
-            color: var(--ark-primary);
-        }
-
-        .ark-section-description {
-            margin-top: 4px;
-            color: var(--ark-text-secondary);
-            font-size: 11px;
-        }
-
-        /* =========================================================
-           RESUMO DOS RESULTADOS
-        ========================================================= */
-
-        .ark-summary-grid {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            gap: 12px;
-            width: 100%;
-            margin-bottom: 22px;
-        }
-
-        .ark-summary-card {
-            position: relative;
-            overflow: hidden;
-            min-height: 118px;
-            padding: 16px;
-            background: #ffffff;
-            border: 1px solid var(--ark-border);
-            border-radius: 11px;
-            transition:
-                border-color 0.2s ease,
-                box-shadow 0.2s ease,
-                transform 0.2s ease;
-        }
-
-        .ark-summary-card:hover {
-            transform: translateY(-2px);
-            border-color: #d5dbe5;
-            box-shadow: 0 5px 14px rgba(16, 24, 40, 0.05);
-        }
-
-        .ark-summary-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 17px;
-        }
-
-        .ark-summary-label {
-            color: var(--ark-text-secondary);
-            font-size: 10px;
-            font-weight: 700;
-            line-height: 1.3;
-        }
-
-        .ark-summary-icon {
-            display: flex;
-            width: 30px;
-            min-width: 30px;
-            height: 30px;
-            align-items: center;
-            justify-content: center;
-            background: var(--ark-primary-light);
-            border-radius: 8px;
-            color: var(--ark-primary);
-        }
-
-        .ark-summary-icon i {
-            width: 15px;
-            height: 15px;
-        }
-
-        .ark-summary-value {
-            color: var(--ark-text);
-            font-size: 25px;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-            line-height: 1;
-        }
-
-        .ark-summary-description {
-            margin-top: 7px;
-            color: var(--ark-text-light);
-            font-size: 9px;
-            font-weight: 500;
-        }
-
-        .ark-summary-card.success .ark-summary-icon {
-            background: var(--ark-success-light);
-            color: var(--ark-success);
-        }
-
-        .ark-summary-card.success .ark-summary-value {
-            color: var(--ark-success);
-        }
-
-        .ark-summary-card.danger .ark-summary-icon {
-            background: var(--ark-danger-light);
-            color: var(--ark-danger);
-        }
-
-        .ark-summary-card.danger .ark-summary-value {
-            color: var(--ark-danger);
-        }
-
-        .ark-summary-card.warning .ark-summary-icon {
-            background: var(--ark-warning-light);
-            color: var(--ark-warning);
-        }
-
-        .ark-summary-card.warning .ark-summary-value {
-            color: var(--ark-warning);
-        }
-
-        .ark-summary-card.purple .ark-summary-icon {
-            background: var(--ark-purple-light);
-            color: var(--ark-purple);
-        }
-
-        .ark-summary-card.purple .ark-summary-value {
-            color: var(--ark-purple);
-        }
-
-        /* =========================================================
-           TAXA DE APROVAÇÃO
-        ========================================================= */
-
-        .ark-approval-box {
-            margin-bottom: 28px;
-            padding: 16px 18px;
-            background: #f9fafc;
-            border: 1px solid var(--ark-border-light);
-            border-radius: 10px;
-        }
-
-        .ark-approval-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            margin-bottom: 10px;
-        }
-
-        .ark-approval-title {
-            color: var(--ark-text-secondary);
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .ark-approval-value {
-            color: var(--ark-success);
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .ark-progress {
-            width: 100%;
-            height: 8px;
-            overflow: hidden;
-            background: #e7ebf0;
-            border-radius: 999px;
-        }
-
-        .ark-progress-bar {
-            height: 100%;
-            background: var(--ark-success);
-            border-radius: inherit;
-            transition: width 0.4s ease;
-        }
-
-        /* =========================================================
-           RANKING
-        ========================================================= */
-
-        .ark-ranking-count {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 10px;
-            background: var(--ark-primary-light);
-            border-radius: 999px;
-            color: var(--ark-primary);
-            font-size: 10px;
-            font-weight: 800;
-        }
-
-        .ark-ranking-count i {
-            width: 14px;
-            height: 14px;
-        }
-
-        .ark-table-wrapper {
-            overflow-x: auto;
-            border: 1px solid var(--ark-border);
-            border-radius: 10px;
-        }
-
-        .ark-table {
-            width: 100%;
-            min-width: 800px;
-            border-collapse: collapse;
-            background: #ffffff;
-        }
-
-        .ark-table thead {
-            background: #f7f9fb;
-        }
-
-        .ark-table th {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--ark-border);
-            color: var(--ark-text-secondary);
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 0.07em;
-            text-align: left;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        .ark-table th.center,
-        .ark-table td.center {
-            text-align: center;
-        }
-
-        .ark-table tbody tr {
-            transition: background-color 0.2s ease;
-        }
-
-        .ark-table tbody tr:hover {
-            background: #f9fbfd;
-        }
-
-        .ark-table tbody tr:not(:last-child) td {
-            border-bottom: 1px solid var(--ark-border-light);
-        }
-
-        .ark-table td {
-            padding: 13px 15px;
-            color: var(--ark-text-secondary);
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        /* =========================================================
-           POSIÇÃO
-        ========================================================= */
-
-        .ark-position {
-            display: inline-flex;
-            min-width: 36px;
-            height: 28px;
-            align-items: center;
-            justify-content: center;
-            padding: 0 8px;
-            background: #f4f6f8;
-            border: 1px solid var(--ark-border);
-            border-radius: 7px;
-            color: var(--ark-text-secondary);
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .ark-position.first {
-            background: #fff8e8;
-            border-color: #efd99e;
-            color: #95620c;
-        }
-
-        .ark-position.second {
-            background: #f4f5f7;
-            border-color: #d9dde3;
-            color: #667085;
-        }
-
-        .ark-position.third {
-            background: #fff2e9;
-            border-color: #ebc9b0;
-            color: #9b582d;
-        }
-
-        /* =========================================================
-           ALUNO
-        ========================================================= */
-
-        .ark-student {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 240px;
-        }
-
-        .ark-student-avatar {
-            display: flex;
-            width: 34px;
-            min-width: 34px;
-            height: 34px;
-            align-items: center;
-            justify-content: center;
-            background: var(--ark-primary-light);
-            border-radius: 50%;
-            color: var(--ark-primary);
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        .ark-student-name {
-            color: var(--ark-text);
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        /* =========================================================
-           ACERTOS, ERROS E NOTA
-        ========================================================= */
-
-        .ark-correct {
-            color: var(--ark-success);
-            font-weight: 800;
-        }
-
-        .ark-incorrect {
-            color: var(--ark-danger);
-            font-weight: 800;
-        }
-
-        .ark-grade {
-            display: inline-flex;
-            min-width: 56px;
-            align-items: center;
-            justify-content: center;
-            padding: 6px 9px;
-            border-radius: 7px;
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .ark-grade.approved {
-            background: var(--ark-success-light);
-            border: 1px solid #ccecdf;
-            color: var(--ark-success);
-        }
-
-        .ark-grade.failed {
-            background: var(--ark-danger-light);
-            border: 1px solid #ffd1d1;
-            color: var(--ark-danger);
-        }
-
-        .ark-result-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 9px;
-            border-radius: 999px;
-            font-size: 9px;
-            font-weight: 800;
-            white-space: nowrap;
-        }
-
-        .ark-result-status::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-
-        .ark-result-status.approved {
-            background: var(--ark-success-light);
-            color: var(--ark-success);
-        }
-
-        .ark-result-status.approved::before {
-            background: var(--ark-success);
-        }
-
-        .ark-result-status.failed {
-            background: var(--ark-danger-light);
-            color: var(--ark-danger);
-        }
-
-        .ark-result-status.failed::before {
-            background: var(--ark-danger);
-        }
-
-        /* =========================================================
-           SEM RESULTADOS
-        ========================================================= */
-
-        .ark-empty {
-            padding: 55px 20px;
-            text-align: center;
-        }
-
-        .ark-empty-icon {
-            display: flex;
-            width: 58px;
-            height: 58px;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            background: var(--ark-primary-light);
-            border-radius: 15px;
-            color: var(--ark-primary);
-        }
-
-        .ark-empty-icon i {
-            width: 26px;
-            height: 26px;
-        }
-
-        .ark-empty-title {
-            margin-bottom: 5px;
-            color: var(--ark-text);
-            font-size: 14px;
-            font-weight: 800;
-        }
-
-        .ark-empty-description {
-            color: var(--ark-text-secondary);
-            font-size: 11px;
-        }
-
-        /* =========================================================
-           RODAPÉ DO CARD
-        ========================================================= */
-
-        .ark-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 17px 22px;
-            background: #fbfcfd;
-            border-top: 1px solid var(--ark-border-light);
-        }
-
-        .ark-footer-note {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            color: var(--ark-text-light);
-            font-size: 10px;
-            font-weight: 500;
-        }
-
-        .ark-footer-note i {
-            width: 14px;
-            height: 14px;
-        }
-
-        /* =========================================================
-           RESPONSIVIDADE
-        ========================================================= */
-
-        @media (max-width: 1450px) {
-            .ark-summary-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 900px) {
-            .ark-page {
-                padding: 18px;
-            }
-
-            .ark-page-header {
-                flex-direction: column;
-            }
-
-            .ark-page-actions {
-                justify-content: flex-start;
-            }
-
-            .ark-page-actions-top {
-                width: 100%;
-            }
-
-            .ark-summary-grid {
-                grid-template-columns: repeat(2, minmax(145px, 1fr));
-            }
-        }
-
-        @media (max-width: 620px) {
-            .ark-page {
-                padding: 14px;
-            }
-
-            .ark-page-title {
-                font-size: 21px;
-            }
-
-            .ark-page-actions {
-                width: 100%;
-            }
-
-            .ark-page-actions .ark-btn {
-                flex: 1 1 100%;
-                width: 100%;
-            }
-
-            .ark-card-header {
-                align-items: flex-start;
-                flex-direction: column;
-                padding: 18px;
-            }
-
-            .ark-exam-title {
-                white-space: normal;
-            }
-
-            .ark-card-body {
-                padding: 18px 13px;
-            }
-
-            .ark-summary-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-
-            .ark-summary-card {
-                min-height: auto;
-            }
-
-            .ark-section-header {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .ark-card-footer {
-                align-items: flex-start;
-                flex-direction: column;
-                padding: 16px 18px;
-            }
-
-            .ark-card-footer .ark-btn {
-                width: 100%;
-            }
-        }
-
-        /* =========================================================
-           IMPRESSÃO
-        ========================================================= */
-
-        @media print {
-            @page {
-                size: A4 landscape;
-                margin: 10mm;
-            }
-
-
-            .ark-page {
-                padding: 0;
-            }
-
-            .ark-page-actions,
-            .ark-card-footer {
-                display: none !important;
-            }
-
-            .ark-page-header {
-                margin-bottom: 16px;
-            }
-
-            .ark-card {
-                border: 1px solid #cccccc;
-                box-shadow: none;
-            }
-
-            .ark-summary-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-
-            .ark-summary-card {
-                break-inside: avoid;
-                box-shadow: none;
-            }
-
-            .ark-table tbody tr {
-                break-inside: avoid;
-            }
-        }
+   IMPRESSÃO CONTROLADA PELO MODAL
+   A orientação escolhida aplica uma classe ao body antes de imprimir.
+========================================================= */
+@media print{
+  body.print-retrato .print-header{
+    grid-template-columns:46px 1fr!important;
+    gap:10px!important;
+  }
+
+  body.print-retrato .print-header img{
+    width:42px!important;
+    height:42px!important;
+  }
+
+  body.print-retrato .print-header strong{
+    font-size:14pt!important;
+  }
+
+  body.print-retrato .print-header span{
+    font-size:9pt!important;
+    line-height:1.35!important;
+  }
+
+  body.print-retrato .print-summary-table{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:6px!important;
+    border:0!important;
+  }
+
+  body.print-retrato .print-summary-table thead{
+    display:none!important;
+  }
+
+  body.print-retrato .print-summary-table tbody,
+  body.print-retrato .print-summary-table tr{
+    display:contents!important;
+  }
+
+  body.print-retrato .print-summary-table td{
+    display:block!important;
+    width:auto!important;
+    padding:8px!important;
+    border:1px solid #cfd4dc!important;
+    border-radius:5px!important;
+    background:#fff!important;
+    font-size:11pt!important;
+    text-align:left!important;
+    break-inside:avoid!important;
+  }
+
+  body.print-retrato .print-summary-table td::before{
+    display:block!important;
+    margin-bottom:3px!important;
+    color:#667085!important;
+    font-size:8pt!important;
+    font-weight:700!important;
+    text-transform:uppercase!important;
+  }
+
+  body.print-retrato .print-summary-table td:nth-child(1)::before{content:"Alunos"}
+  body.print-retrato .print-summary-table td:nth-child(2)::before{content:"Presentes"}
+  body.print-retrato .print-summary-table td:nth-child(3)::before{content:"Ausentes"}
+  body.print-retrato .print-summary-table td:nth-child(4)::before{content:"Concluídos"}
+  body.print-retrato .print-summary-table td:nth-child(5)::before{content:"Média"}
+  body.print-retrato .print-summary-table td:nth-child(6)::before{content:"Maior nota"}
+  body.print-retrato .print-summary-table td:nth-child(7)::before{content:"Menor nota"}
+  body.print-retrato .print-summary-table td:nth-child(8)::before{content:"Mediana"}
+  body.print-retrato .print-summary-table td:nth-child(9)::before{content:"Acerto médio"}
+  body.print-retrato .print-summary-table td:nth-child(10)::before{content:"Média definida"}
+  body.print-retrato .print-summary-table td:nth-child(11)::before{content:"Aprovados"}
+  body.print-retrato .print-summary-table td:nth-child(12)::before{content:"Abaixo da média"}
+
+  body.print-retrato .print-insights{
+    grid-template-columns:1fr!important;
+  }
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
+
+  
+
+  body.print-retrato .r-bar-row{
+    grid-template-columns:1fr!important;
+    gap:4px!important;
+    padding:7px 0!important;
+    border-bottom:1px solid #e1e5ea!important;
+  }
+
+  body.print-retrato .r-bar-row strong{
+    text-align:left!important;
+  }
+
+  body.print-retrato #tab-discursivas .r-table,
+  body.print-retrato #tab-ausentes .r-table{
+    table-layout:auto!important;
+  }
+
+  body.print-paisagem .print-summary-table{
+    display:table!important;
+    width:100%!important;
+    table-layout:fixed!important;
+  }
+
+  body.print-paisagem #tabelaAlunos,
+  body.print-paisagem #tab-questoes .r-table{
+    display:table!important;
+    width:100%!important;
+    table-layout:fixed!important;
+  }
+
+  body.print-paisagem #tabelaAlunos thead,
+  body.print-paisagem #tab-questoes .r-table thead{
+    display:table-header-group!important;
+  }
+
+  body.print-paisagem #tabelaAlunos tbody,
+  body.print-paisagem #tab-questoes .r-table tbody{
+    display:table-row-group!important;
+  }
+
+  body.print-paisagem #tabelaAlunos tr,
+  body.print-paisagem #tab-questoes .r-table tr{
+    display:table-row!important;
+  }
+
+  body.print-paisagem #tabelaAlunos th,
+  body.print-paisagem #tabelaAlunos td,
+  body.print-paisagem #tab-questoes .r-table th,
+  body.print-paisagem #tab-questoes .r-table td{
+    display:table-cell!important;
+  }
+}
+
+
+@media print{
+  body.print-retrato #tabelaAlunos,
+  body.print-retrato #tab-questoes .r-table{
+    display:table!important;
+    width:100%!important;
+    max-width:100%!important;
+    table-layout:fixed!important;
+    border-collapse:collapse!important;
+  }
+
+  body.print-retrato #tabelaAlunos thead,
+  body.print-retrato #tab-questoes .r-table thead{
+    display:table-header-group!important;
+  }
+
+  body.print-retrato #tabelaAlunos tbody,
+  body.print-retrato #tab-questoes .r-table tbody{
+    display:table-row-group!important;
+  }
+
+  body.print-retrato #tabelaAlunos tr,
+  body.print-retrato #tab-questoes .r-table tr{
+    display:table-row!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  body.print-retrato #tabelaAlunos th,
+  body.print-retrato #tabelaAlunos td,
+  body.print-retrato #tab-questoes .r-table th,
+  body.print-retrato #tab-questoes .r-table td{
+    display:table-cell!important;
+    min-width:0!important;
+    padding:4px 3px!important;
+    font-size:8.3pt!important;
+    line-height:1.2!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    vertical-align:middle!important;
+  }
+
+  body.print-retrato #tabelaAlunos th,
+  body.print-retrato #tab-questoes .r-table th{
+    font-size:7.3pt!important;
+    text-align:center!important;
+  }
+
+  body.print-retrato #tabelaAlunos td:nth-child(1),
+  body.print-retrato #tabelaAlunos td:nth-child(3),
+  body.print-retrato #tabelaAlunos td:nth-child(n+4):nth-child(-n+9){
+    text-align:center!important;
+  }
+
+  body.print-retrato #tabelaAlunos th:nth-child(1),
+  body.print-retrato #tabelaAlunos td:nth-child(1){width:5%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(2),
+  body.print-retrato #tabelaAlunos td:nth-child(2){width:23%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(3),
+  body.print-retrato #tabelaAlunos td:nth-child(3){width:11%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(4),
+  body.print-retrato #tabelaAlunos td:nth-child(4),
+  body.print-retrato #tabelaAlunos th:nth-child(5),
+  body.print-retrato #tabelaAlunos td:nth-child(5){width:6%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(6),
+  body.print-retrato #tabelaAlunos td:nth-child(6),
+  body.print-retrato #tabelaAlunos th:nth-child(7),
+  body.print-retrato #tabelaAlunos td:nth-child(7){width:9%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(8),
+  body.print-retrato #tabelaAlunos td:nth-child(8){width:8%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(9),
+  body.print-retrato #tabelaAlunos td:nth-child(9){width:11%!important}
+  body.print-retrato #tabelaAlunos th:nth-child(10),
+  body.print-retrato #tabelaAlunos td:nth-child(10){width:12%!important}
+
+  body.print-retrato #tab-questoes .r-table th:nth-child(1),
+  body.print-retrato #tab-questoes .r-table td:nth-child(1){width:6%!important}
+  body.print-retrato #tab-questoes .r-table th:nth-child(2),
+  body.print-retrato #tab-questoes .r-table td:nth-child(2){width:12%!important}
+  body.print-retrato #tab-questoes .r-table th:nth-child(3),
+  body.print-retrato #tab-questoes .r-table td:nth-child(3){width:7%!important}
+  body.print-retrato #tab-questoes .r-table th:nth-child(4),
+  body.print-retrato #tab-questoes .r-table td:nth-child(4),
+  body.print-retrato #tab-questoes .r-table th:nth-child(5),
+  body.print-retrato #tab-questoes .r-table td:nth-child(5),
+  body.print-retrato #tab-questoes .r-table th:nth-child(6),
+  body.print-retrato #tab-questoes .r-table td:nth-child(6){width:7%!important}
+  body.print-retrato #tab-questoes .r-table th:nth-child(7),
+  body.print-retrato #tab-questoes .r-table td:nth-child(7){width:12%!important}
+  body.print-retrato #tab-questoes .r-table th:nth-child(8),
+  body.print-retrato #tab-questoes .r-table td:nth-child(8){width:42%!important}
+
+  body.print-retrato .r-performance{
+    min-width:0!important;
+    gap:4px!important;
+  }
+
+  body.print-retrato .r-performance-track{
+    height:4px!important;
+  }
+
+  body.print-retrato .r-performance strong{
+    min-width:30px!important;
+    font-size:7.2pt!important;
+  }
+
+  body.print-retrato .r-type,
+  body.print-retrato .tag{
+    font-size:7pt!important;
+    padding:1px 3px!important;
+  }
+}
+
 </style>
 {% endblock %}
-
 {% block cabecalho %}{% endblock %}
-
 {% block conteudo %}
-<div class="resultados-page ark-page">
+<div class="resultados-page">
+  <div class="print-header">
+    <div>
+      {% if prova['logo'] %}
+        <img src="{{ url_for('static', filename='uploads/' ~ prova['logo']) }}" alt="Logo da instituição">
+      {% endif %}
+    </div>
+    <div>
+      <strong style="letter-spacing:.01em">{{ prova['nome_instituicao'] or 'ARK EDUS' }}</strong><br>
+      <span><b>Relatório de resultados:</b> {{ prova['nome'] }}</span><br>
+      <span>
+        <b>Turma:</b> {{ prova['turma_nome'] or '—' }} ·
+        <b>Componente:</b> {{ prova['disciplina'] or '—' }} ·
+        <b>Professor:</b> {{ prova['professor_nome'] or '—' }} ·
+        <b>Aplicação:</b> {{ prova['data_aplicacao']|formatar_data_br }} ·
+        <b>Ano letivo:</b> {{ prova['ano_letivo'] or '—' }}
+      </span>
+    </div>
+  </div>
+
+  <header class="r-topo">
+    <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button><a href="/relatorio_questoes/{{ prova['id'] }}" class="r-btn primary">Relatório por questão</a></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
+  </header>
+
+  <section class="r-card">
+    <div class="r-prova">
+      <div class="r-logo">{% if prova['logo'] %}<img src="{{ url_for('static', filename='uploads/' ~ prova['logo']) }}">{% else %}<strong>ARK</strong>{% endif %}</div>
+      <div><small style="color:#98a2b3;font-weight:900">AVALIAÇÃO SELECIONADA</small><h2>{{ prova['nome'] }}</h2><div class="r-prova-meta"><span><b>Instituição:</b> {{ prova['nome_instituicao'] or '—' }}</span><span><b>Turma:</b> {{ prova['turma_nome'] or '—' }}</span><span><b>Componente:</b> {{ prova['disciplina'] or '—' }}</span><span><b>Professor:</b> {{ prova['professor_nome'] or '—' }}</span><span><b>Aplicação:</b> {{ prova['data_aplicacao']|formatar_data_br }}</span><span><b>Ano letivo:</b> {{ prova['ano_letivo'] or '—' }}</span></div></div>
+      <span class="r-status">Resultados disponíveis</span>
+    </div>
+
+    <div class="r-section report-section" data-report="resumo">
+      <div class="r-section-head"><div><h3>Resumo geral</h3><p>Esta seção é obrigatória no relatório.</p></div></div>
+      
+      <table class="print-summary-table">
+        <thead>
+          <tr>
+            <th>Alunos</th>
+            <th>Presentes</th>
+            <th>Ausentes</th>
+            <th>Concluídos</th>
+            <th>Média</th>
+            <th>Maior</th>
+            <th>Menor</th>
+            <th>Mediana</th>
+            <th>Acerto médio</th>
+            {% if media_ativa %}<th>Média definida</th><th>Aprovados</th><th>Abaixo da média</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ total_turma }}</td>
+            <td>{{ presentes }}</td>
+            <td>{{ ausentes|length }}</td>
+            <td>{{ total_alunos }}</td>
+            <td>{{ '%.1f'|format(media_turma) }}</td>
+            <td>{{ '%.1f'|format(maior_nota) }}</td>
+            <td>{{ '%.1f'|format(menor_nota) }}</td>
+            <td>{{ '%.1f'|format(mediana) }}</td>
+            <td>{{ '%.1f'|format(percentual_medio) }}%</td>
+            {% if media_ativa %}<td>{{ '%.1f'|format(media_aprovacao) }}</td><td>{{ aprovados }}</td><td>{{ reprovados }}</td>{% endif %}
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="r-grid">
+        <div class="r-kpi"><small>Alunos da turma</small><strong>{{ total_turma }}</strong><span>{{ presentes }} presentes</span></div>
+        <div class="r-kpi"><small>Resultados concluídos</small><strong>{{ total_alunos }}</strong><span>{{ pendentes|length }} pendentes</span></div>
+        <div class="r-kpi"><small>Média da turma</small><strong>{{ '%.1f'|format(media_turma) }}</strong><span>Desvio padrão {{ '%.2f'|format(desvio_padrao) }}</span></div>
+        <div class="r-kpi ok"><small>Maior nota</small><strong>{{ '%.1f'|format(maior_nota) }}</strong><span>Melhor resultado</span></div>
+        <div class="r-kpi warn"><small>Menor nota</small><strong>{{ '%.1f'|format(menor_nota) }}</strong><span>Menor resultado</span></div>
+        <div class="r-kpi"><small>Mediana</small><strong>{{ '%.1f'|format(mediana) }}</strong><span>Centro da distribuição</span></div>
+        <div class="r-kpi"><small>Acerto médio</small><strong>{{ '%.1f'|format(percentual_medio) }}%</strong><span>Questões objetivas</span></div>
+        <div class="r-kpi bad"><small>Ausentes</small><strong>{{ ausentes|length }}</strong><span>Marcados no sistema</span></div>
+        {% if media_ativa %}<div class="r-kpi"><small>Média definida</small><strong>{{ '%.1f'|format(media_aprovacao) }}</strong><span>Critério da avaliação</span></div><div class="r-kpi ok"><small>Aprovados</small><strong>{{ aprovados }}</strong><span>{{ '%.1f'|format(taxa_aprovacao) }}% da turma</span></div><div class="r-kpi bad"><small>Abaixo da média</small><strong>{{ reprovados }}</strong><span>Nota inferior à média</span></div>{% endif %}
+      </div>
+      <div class="r-dupla" style="margin-top:14px">
+        <div class="r-insight"><b>Questão com maior acerto</b><span>{% if questao_mais_facil %}Questão {{ questao_mais_facil.numero }} — {{ questao_mais_facil.percentual }}%{% else %}Sem dados suficientes{% endif %}</span></div>
+        <div class="r-insight"><b>Questão com menor acerto</b><span>{% if questao_mais_dificil %}Questão {{ questao_mais_dificil.numero }} — {{ questao_mais_dificil.percentual }}%{% else %}Sem dados suficientes{% endif %}</span></div>
+      </div>
+      <div class="print-insights">
+        <div class="print-insight"><b>Maior índice de acerto</b>{% if questao_mais_facil %}Questão {{ questao_mais_facil.numero }} — {{ questao_mais_facil.percentual }}%{% else %}Sem dados suficientes{% endif %}</div>
+        <div class="print-insight"><b>Menor índice de acerto</b>{% if questao_mais_dificil %}Questão {{ questao_mais_dificil.numero }} — {{ questao_mais_dificil.percentual }}%{% else %}Sem dados suficientes{% endif %}</div>
+      </div>
+    </div>
+
+    <div class="r-section">
+      <div class="r-tabs no-print"><button class="r-tab active" data-tab="alunos">Alunos</button><button class="r-tab" data-tab="questoes">Questões</button><button class="r-tab" data-tab="habilidades">Habilidades</button><button class="r-tab" data-tab="descritores">Descritores</button><button class="r-tab" data-tab="discursivas">Discursivas</button><button class="r-tab" data-tab="ausentes">Ausentes</button></div>
+
+      <div id="tab-alunos" class="r-tab-panel active report-section" data-report="alunos">
+        <div class="r-section-head"><div><h3>Resultados individuais</h3><p>Acertos, erros, notas e situação de cada estudante.</p></div><input id="buscaAluno" class="r-btn no-print" style="font-weight:500" placeholder="Buscar aluno..."></div>
+        <div class="r-table-wrap"><table class="r-table" id="tabelaAlunos"><thead><tr><th>Pos.</th><th>Aluno</th><th>Matrícula</th><th class="center">Acertos</th><th class="center">Erros</th><th class="center">Nota objetiva</th><th class="center">Nota discursiva</th><th class="center">Nota final</th><th>Desempenho</th><th>Situação</th></tr></thead><tbody>{% for r in resultados %}<tr><td>{{ r.posicao }}º</td><td><b>{{ r.nome }}</b></td><td>{{ r.matricula or '—' }}</td><td class="center" style="color:#15803d;font-weight:900">{{ r.acertos }}</td><td class="center" style="color:#c93737;font-weight:900">{{ r.erros }}</td><td class="center">{{ '%.2f'|format(r.nota_objetiva or 0) }}</td><td class="center">{{ '%.2f'|format(r.nota_discursiva or 0) }}</td><td class="center"><span class="nota">{{ '%.2f'|format(r.nota) }}</span></td><td><div class="r-performance"><div class="r-performance-track"><span class="r-performance-fill" style="width:{{ r.percentual }}%"></span></div><strong>{{ '%.1f'|format(r.percentual) }}%</strong></div></td><td><span class="tag {% if r.situacao_final == 'Aprovado' %}ok{% elif r.situacao_final == 'Abaixo da média' %}bad{% else %}warn{% endif %}">{{ r.situacao_final }}</span></td></tr>{% else %}<tr><td colspan="10" class="center">Nenhum resultado concluído.</td></tr>{% endfor %}</tbody></table></div>
+      </div>
+
+      <div id="tab-questoes" class="r-tab-panel report-section" data-report="questoes"><div class="r-section-head"><div><h3>Desempenho por questão</h3><p>Índices de acerto, erro e respostas em branco.</p></div></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Questão</th><th>Tipo</th><th class="center">Peso</th><th class="center">Acertos</th><th class="center">Erros</th><th class="center">Em branco</th><th class="center">Desempenho</th><th>Habilidade / descritor</th></tr></thead><tbody>{% for q in relatorio_questoes %}<tr><td><b>Q{{ q.numero }}</b>{% if q.anulada %} <span class="r-type anulada">Anulada</span>{% endif %}</td><td><span class="r-type {% if 'discurs' in (q.tipo_questao or '')|lower %}discursiva{% else %}objetiva{% endif %}">
+      <span class="no-print">{{ q.tipo_questao }}</span>
+      <span class="print-only">{% if 'discurs' in (q.tipo_questao or '')|lower %}Discursiva{% else %}Objetiva{% endif %}</span>
+    </span></td><td class="center">{{ q.peso }}</td><td class="center">{{ q.acertos }}</td><td class="center">{{ q.erros }}</td><td class="center">{{ q.em_branco }}</td><td><div class="r-performance"><div class="r-performance-track"><span class="r-performance-fill" style="width:{{ q.percentual }}%"></span></div><strong>{{ q.percentual }}%</strong></div></td><td>{{ q.habilidade or q.descritor or '—' }}</td></tr>{% endfor %}</tbody></table></div></div>
+
+      <div id="tab-habilidades" class="r-tab-panel report-section" data-report="habilidades"><div class="r-section-head"><div><h3>Desempenho por habilidade</h3><p>Consolidação das habilidades vinculadas às questões.</p></div></div>{% if habilidades %}<div class="r-bars">{% for h in habilidades %}<div class="r-bar-row"><label><b>{{ h.codigo }}</b><br><small>Questões {{ h.questoes|join(', ') }} · {{ h.nivel }}</small></label><div class="r-bar"><i style="width:{{ h.percentual }}%"></i></div><strong>{{ h.percentual }}%</strong></div>{% endfor %}</div>{% else %}<p>Nenhuma habilidade cadastrada nas questões desta avaliação.</p>{% endif %}</div>
+
+      <div id="tab-descritores" class="r-tab-panel report-section" data-report="descritores"><div class="r-section-head"><div><h3>Desempenho por descritor</h3><p>Consolidação dos descritores cadastrados.</p></div></div>{% if descritores %}<div class="r-bars">{% for d in descritores %}<div class="r-bar-row"><label><b>{{ d.codigo }}</b><br><small>Questões {{ d.questoes|join(', ') }} · {{ d.nivel }}</small></label><div class="r-bar"><i style="width:{{ d.percentual }}%"></i></div><strong>{{ d.percentual }}%</strong></div>{% endfor %}</div>{% else %}<p>Nenhum descritor cadastrado nas questões desta avaliação.</p>{% endif %}</div>
 
-        <div class="ark-page-container">
+      <div id="tab-discursivas" class="r-tab-panel report-section" data-report="discursivas"><div class="r-section-head"><div><h3>Questões discursivas</h3><p>Médias e andamento da correção.</p></div></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Questão</th><th class="center">Respostas</th><th class="center">Corrigidas</th><th class="center">Pendentes</th><th class="center">Média</th></tr></thead><tbody>{% for q in discursivas %}<tr><td><b>Questão {{ q.numero }}</b></td><td class="center">{{ q.total_respostas }}</td><td class="center">{{ q.corrigidas }}</td><td class="center">{{ q.pendentes }}</td><td class="center">{{ '%.2f'|format(q.media_discursiva) }}</td></tr>{% else %}<tr><td colspan="5" class="center">A avaliação não possui questões discursivas.</td></tr>{% endfor %}</tbody></table></div></div>
 
-            <!-- Cabeçalho -->
-            <header class="ark-page-header ark-page-header-stacked">
-
-                <div class="ark-page-actions ark-page-actions-top">
-
-                    <a
-                        href="/provas"
-                        class="ark-btn ark-btn-secondary"
-                    >
-                        <i data-lucide="arrow-left"></i>
-                        Voltar
-                    </a>
-
-                    <button
-                        type="button"
-                        class="ark-btn ark-btn-secondary"
-                        onclick="window.print()"
-                    >
-                        <i data-lucide="printer"></i>
-                        Imprimir
-                    </button>
-
-                    <a
-                        href="/relatorio_questoes/{{ request.view_args['prova_id'] }}"
-                        class="ark-btn ark-btn-primary"
-                    >
-                        <i data-lucide="chart-bar-big"></i>
-                        Relatório por questão
-                    </a>
-
-                </div>
-
-                <div class="ark-page-heading">
-
-                    <div class="ark-page-title-row">
-
-                        <div class="ark-page-icon">
-                            <i data-lucide="chart-no-axes-combined"></i>
-                        </div>
-
-                        <div>
-                            <h1 class="ark-page-title">
-                                Resultados da Prova
-                            </h1>
-
-                            <p class="ark-page-description">
-                                Acompanhe o desempenho da turma e os resultados
-                                individuais dos alunos.
-                            </p>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </header>
-
-            <!-- Card -->
-            <section class="ark-card">
-
-                <div class="ark-card-header">
-
-                    <div class="ark-exam-info">
-
-                        <div class="ark-exam-icon">
-                            <i data-lucide="clipboard-check"></i>
-                        </div>
-
-                        <div>
-                            <div class="ark-exam-label">
-                                Prova selecionada
-                            </div>
-
-                            <h2 class="ark-exam-title">
-                                {{ prova["nome"] }}
-                            </h2>
-                        </div>
-
-                    </div>
-
-                    <span class="ark-status">
-                        Resultados disponíveis
-                    </span>
-
-                </div>
-
-                <div class="ark-card-body">
-
-                    <!-- Resumo -->
-                    <div class="ark-section-header">
-
-                        <div>
-                            <h3 class="ark-section-title">
-                                <i data-lucide="layout-dashboard"></i>
-                                Resumo dos resultados
-                            </h3>
-
-                            <p class="ark-section-description">
-                                Informações gerais sobre o desempenho da turma.
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <div class="ark-summary-grid">
-
-                        <div class="ark-summary-card">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Total de alunos
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="users"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ total_alunos }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Resultados registrados
-                            </div>
-
-                        </div>
-
-                        <div class="ark-summary-card">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Média da turma
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="chart-line"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ "%.1f"|format(media_turma) }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Média geral
-                            </div>
-
-                        </div>
-
-                        <div class="ark-summary-card success">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Maior nota
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="trending-up"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ "%.1f"|format(maior_nota) }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Melhor resultado
-                            </div>
-
-                        </div>
-
-                        <div class="ark-summary-card warning">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Menor nota
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="trending-down"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ "%.1f"|format(menor_nota) }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Menor resultado
-                            </div>
-
-                        </div>
-
-                        {% if media_ativa %}
-                        <div class="ark-summary-card purple">
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">Média definida</span>
-                                <span class="ark-summary-icon"><i data-lucide="target"></i></span>
-                            </div>
-                            <div class="ark-summary-value">{{ "%.1f"|format(media_aprovacao) }}</div>
-                            <div class="ark-summary-description">Critério desta avaliação</div>
-                        </div>
-
-                        <div class="ark-summary-card success">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Aprovados
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="circle-check"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ aprovados }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Nota igual ou superior a {{ "%.1f"|format(media_aprovacao) }}
-                            </div>
-
-                        </div>
-
-                        <div class="ark-summary-card danger">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Abaixo da média
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="circle-alert"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ reprovados }}
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Nota inferior a {{ "%.1f"|format(media_aprovacao) }}
-                            </div>
-
-                        </div>
-
-                        <div class="ark-summary-card purple">
-
-                            <div class="ark-summary-header">
-                                <span class="ark-summary-label">
-                                    Taxa de aprovação
-                                </span>
-
-                                <span class="ark-summary-icon">
-                                    <i data-lucide="percent"></i>
-                                </span>
-                            </div>
-
-                            <div class="ark-summary-value">
-                                {{ "%.1f"|format(taxa_aprovacao) }}%
-                            </div>
-
-                            <div class="ark-summary-description">
-                                Percentual da turma
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <!-- Barra de aprovação -->
-                    <div class="ark-approval-box">
-
-                        <div class="ark-approval-header">
-
-                            <span class="ark-approval-title">
-                                Taxa de aprovação da turma
-                            </span>
-
-                            <span class="ark-approval-value">
-                                {{ "%.1f"|format(taxa_aprovacao) }}%
-                            </span>
-
-                        </div>
-
-                        <div
-                            class="ark-progress"
-                            role="progressbar"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            aria-valuenow="{{ taxa_aprovacao }}"
-                        >
-                            <div
-                                class="ark-progress-bar"
-                                style="width: {{ taxa_aprovacao }}%;"
-                            ></div>
-                        </div>
-
-                        {% endif %}
-
-                    </div>
-
-                    <!-- Ranking -->
-                    <section>
-
-                        <div class="ark-section-header">
-
-                            <div>
-                                <h3 class="ark-section-title">
-                                    <i data-lucide="trophy"></i>
-                                    Ranking dos alunos
-                                </h3>
-
-                                <p class="ark-section-description">
-                                    Classificação organizada da maior para a menor nota.
-                                </p>
-                            </div>
-
-                            <span class="ark-ranking-count">
-                                <i data-lucide="users-round"></i>
-
-                                {{ total_alunos }}
-
-                                {% if total_alunos == 1 %}
-                                    aluno
-                                {% else %}
-                                    alunos
-                                {% endif %}
-                            </span>
-
-                        </div>
-
-                        <div class="ark-table-wrapper">
-
-                            <table class="ark-table">
-
-                                <thead>
-                                    <tr>
-                                        <th class="center">
-                                            Posição
-                                        </th>
-
-                                        <th>
-                                            Aluno
-                                        </th>
-
-                                        <th class="center">
-                                            Acertos
-                                        </th>
-
-                                        <th class="center">
-                                            Erros
-                                        </th>
-
-                                        <th class="center">
-                                            Nota
-                                        </th>
-
-                                        <th class="center">
-                                            Situação
-                                        </th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-
-                                    {% for r in resultados %}
-                                    <tr>
-
-                                        <td class="center">
-
-                                            {% if loop.index == 1 %}
-                                                <span class="ark-position first">
-                                                    1º
-                                                </span>
-
-                                            {% elif loop.index == 2 %}
-                                                <span class="ark-position second">
-                                                    2º
-                                                </span>
-
-                                            {% elif loop.index == 3 %}
-                                                <span class="ark-position third">
-                                                    3º
-                                                </span>
-
-                                            {% else %}
-                                                <span class="ark-position">
-                                                    {{ loop.index }}º
-                                                </span>
-                                            {% endif %}
-
-                                        </td>
-
-                                        <td>
-
-                                            <div class="ark-student">
-
-                                                <div class="ark-student-avatar">
-                                                    {{ r[0][0] if r[0] else "A" }}
-                                                </div>
-
-                                                <span class="ark-student-name">
-                                                    {{ r[0] }}
-                                                </span>
-
-                                            </div>
-
-                                        </td>
-
-                                        <td class="center">
-                                            <span class="ark-correct">
-                                                {{ r[1] }}
-                                            </span>
-                                        </td>
-
-                                        <td class="center">
-                                            <span class="ark-incorrect">
-                                                {{ r[2] }}
-                                            </span>
-                                        </td>
-
-                                        <td class="center">
-
-                                            {% if not media_ativa %}
-                                                <span class="ark-grade">{{ "%.1f"|format(r[3]) }}</span>
-                                            {% elif r[3] >= media_aprovacao %}
-                                                <span class="ark-grade approved">{{ "%.1f"|format(r[3]) }}</span>
-                                            {% else %}
-                                                <span class="ark-grade failed">{{ "%.1f"|format(r[3]) }}</span>
-                                            {% endif %}
-
-                                        </td>
-
-                                        <td class="center">
-
-                                            {% if not media_ativa %}
-                                                <span class="ark-result-status">Sem critério</span>
-                                            {% elif r[3] >= media_aprovacao %}
-                                                <span class="ark-result-status approved">Aprovado</span>
-                                            {% else %}
-                                                <span class="ark-result-status failed">Abaixo da média</span>
-                                            {% endif %}
-
-                                        </td>
-
-                                    </tr>
-
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="6">
-
-                                            <div class="ark-empty">
-
-                                                <div class="ark-empty-icon">
-                                                    <i data-lucide="clipboard-x"></i>
-                                                </div>
-
-                                                <h3 class="ark-empty-title">
-                                                    Nenhum resultado registrado
-                                                </h3>
-
-                                                <p class="ark-empty-description">
-                                                    Ainda não existem resultados
-                                                    disponíveis para esta prova.
-                                                </p>
-
-                                            </div>
-
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-
-                                </tbody>
-
-                            </table>
-
-                        </div>
-
-                    </section>
-
-                </div>
-
-                <footer class="ark-card-footer">
-
-                    <div class="ark-footer-note">
-                        <i data-lucide="info"></i>
-
-                        <span>
-                            {% if media_ativa %}
-                                A situação considera a média mínima de {{ "%.1f"|format(media_aprovacao) }} pontos.
-                            {% else %}
-                                Esta avaliação não utiliza média para aprovação.
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    <a
-                        href="/relatorio_questoes/{{ request.view_args['prova_id'] }}"
-                        class="ark-btn ark-btn-primary"
-                    >
-                        <i data-lucide="chart-bar-big"></i>
-                        Analisar questões
-                    </a>
-
-                </footer>
-
-            </section>
-
-        </div>
-    
+      <div id="tab-ausentes" class="r-tab-panel report-section" data-report="ausentes"><div class="r-section-head"><div><h3>Alunos ausentes</h3><p>Estudantes marcados como ausentes na aplicação.</p></div></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Aluno</th><th>Matrícula</th><th>Status</th></tr></thead><tbody>{% for a in ausentes %}<tr><td><b>{{ a.nome }}</b></td><td>{{ a.matricula or '—' }}</td><td><span class="tag bad">Ausente</span></td></tr>{% else %}<tr><td colspan="3" class="center">Nenhum aluno ausente.</td></tr>{% endfor %}</tbody></table></div></div>
+    </div>
+  </section>
+  <div style="text-align:center;color:#98a2b3;font-size:11px">Relatório gerado em {{ gerado_em }} · ARK EDUS</div>
 </div>
-{% endblock %}
+<div class="print-footer">
+  <span>Relatório gerado automaticamente pelo ARK EDUS em {{ gerado_em }}</span>
+  <span>{{ prova['nome_instituicao'] or 'ARK EDUS' }}</span>
+</div>
 
-{% block scripts %}
-<script src="https://unpkg.com/lucide@latest"></script>
+<div class="modal-overlay" id="modalImpressao">
+  <div class="modal"><div class="modal-head"><div><h3>Configurar relatório</h3><small style="color:#667085">Escolha o conteúdo. A estrutura se adapta automaticamente ao formato Retrato ou Paisagem, sem cortar informações.</small></div><button class="r-btn" onclick="fecharModalImpressao()">✕</button></div>
+    <div class="modal-body"><div class="modal-grid">
+      <label class="modal-option"><input type="checkbox" checked disabled><div><strong>Resumo geral</strong><span>Obrigatório em todos os relatórios.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="alunos" checked><div><strong>Planilha de alunos</strong><span>Acertos, erros, notas e situação.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="questoes" checked><div><strong>Desempenho por questão</strong><span>Acertos, erros e respostas em branco.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="habilidades"><div><strong>Habilidades</strong><span>Domínio por habilidade cadastrada.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="descritores"><div><strong>Descritores</strong><span>Desempenho por descritor.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="discursivas"><div><strong>Questões discursivas</strong><span>Correções, pendências e médias.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="ausentes"><div><strong>Alunos ausentes</strong><span>Relação dos estudantes ausentes.</span></div></label>
+    </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #dfe6ef">
+        <strong style="display:block;margin-bottom:9px;font-size:13px">Formato da impressão</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label class="modal-option">
+            <input type="radio" name="orientacao_relatorio" value="retrato" checked>
+            <div><strong>Retrato</strong><span>Organiza alunos e questões em cartões para não cortar informações.</span></div>
+          </label>
+          <label class="modal-option">
+            <input type="radio" name="orientacao_relatorio" value="paisagem">
+            <div><strong>Paisagem</strong><span>Mantém tabelas completas e aproveita toda a largura.</span></div>
+          </label>
+        </div>
+      </div>
+</div>
+    <div class="modal-foot"><button class="r-btn" onclick="fecharModalImpressao()">Cancelar</button><button class="r-btn primary" onclick="imprimirRelatorio()">Gerar relatório / Imprimir</button></div>
+  </div>
+</div>
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-    });
+function abrirModalImpressao(){document.getElementById('modalImpressao').classList.add('open')}
+function fecharModalImpressao(){document.getElementById('modalImpressao').classList.remove('open')}
+function imprimirRelatorio(){
+  const escolhidos=[...document.querySelectorAll('.op-relatorio:checked')].map(i=>i.value);
+  const orientacao=document.querySelector('input[name="orientacao_relatorio"]:checked')?.value || 'retrato';
+
+  document.querySelectorAll('.report-section').forEach(s=>{
+    if(s.dataset.report==='resumo'){
+      s.classList.remove('print-hidden');
+    }else{
+      s.classList.toggle('print-hidden',!escolhidos.includes(s.dataset.report));
+    }
+  });
+
+  document.body.classList.remove('print-retrato','print-paisagem');
+  document.body.classList.add(orientacao==='paisagem' ? 'print-paisagem' : 'print-retrato');
+
+  let style=document.getElementById('printOrientationStyle');
+  if(!style){
+    style=document.createElement('style');
+    style.id='printOrientationStyle';
+    document.head.appendChild(style);
+  }
+
+  style.textContent=orientacao==='paisagem'
+    ? '@media print{@page{size:A4 landscape;margin:9mm 8mm 12mm}}'
+    : '@media print{@page{size:A4 portrait;margin:10mm 9mm 13mm}}';
+
+  fecharModalImpressao();
+  setTimeout(()=>window.print(),80);
+}
+window.addEventListener('afterprint',()=>{
+  document.querySelectorAll('.report-section').forEach(s=>s.classList.remove('print-hidden'));
+  document.body.classList.remove('print-retrato','print-paisagem');
+})
+document.querySelectorAll('.r-tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.r-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.r-tab-panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+btn.dataset.tab).classList.add('active')}))
+const busca=document.getElementById('buscaAluno');if(busca){busca.addEventListener('input',()=>{const termo=busca.value.toLowerCase();document.querySelectorAll('#tabelaAlunos tbody tr').forEach(tr=>tr.style.display=tr.innerText.toLowerCase().includes(termo)?'':'none')})}
 </script>
 {% endblock %}

@@ -1088,8 +1088,8 @@
 
     <section class="ic-card ic-upload">
         <div>
-            <h2>Importar cartões-resposta</h2>
-            <p>Envie um ou vários arquivos em PDF, JPG, JPEG ou PNG. Cada página do PDF será processada como um cartão.</p>
+            <h2>Importar cartões e folhas discursivas</h2>
+            <p>Envie cartões objetivos e folhas discursivas em PDF, JPG, JPEG ou PNG. O QR Code identifica automaticamente o aluno, o modelo e o tipo de folha.</p>
             <div class="ic-upload-note">✓ Arquivos e páginas com falha são descartados automaticamente.</div>
         </div>
         <form method="post" enctype="multipart/form-data" class="ic-upload-form">
@@ -1098,7 +1098,13 @@
                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
                 <span id="arquivoLabel">Selecionar arquivos</span>
             </label>
-            <button type="submit" class="ic-btn ic-btn-primary">Importar e corrigir</button>
+            <button type="submit" class="ic-btn ic-btn-primary">Importar e processar</button>
+            {% if aplicacao.possui_discursivas %}
+            <a class="ic-btn ic-btn-secondary"
+               href="{{ url_for('corrigir_discursivas_aplicacao', aplicacao_id=aplicacao.id) }}">
+                Corrigir discursivas
+            </a>
+            {% endif %}
         </form>
     </section>
 
@@ -1190,7 +1196,8 @@
                             {% endif %}
                         </button>
                         <button type="button"
-                                class="ic-btn ic-btn-danger ic-delete-import">
+                                class="ic-btn ic-btn-danger ic-delete-import"
+                                data-importacao-id="{{ item.importacao_id }}">
                             Excluir
                         </button>
                     {% elif item.status_lista == 'Ausente' %}
@@ -1336,9 +1343,6 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-
 <div class="ic-delete-modal-overlay" id="deleteModalOverlay" aria-hidden="true">
     <div class="ic-delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
         <div class="ic-delete-modal-body">
@@ -1392,8 +1396,7 @@
 </div>
 
 
-
-
+{% endblock %}
 
 {% block scripts %}
 <script>
@@ -1780,31 +1783,47 @@
 
         const botao = document.getElementById('deleteModalConfirm');
         const row = linhaParaExcluir;
-        const id = row.dataset.id;
+        const botaoLinha = row.querySelector('.ic-delete-import');
+        const id = botaoLinha?.dataset.importacaoId || row.dataset.id;
+
+        if (!id || !aplicacaoId) {
+            alert('Não foi possível identificar a importação selecionada.');
+            return;
+        }
 
         botao.disabled = true;
-        botao.lastChild.textContent = ' Excluindo...';
+        botao.innerHTML = 'Excluindo...';
 
         try {
             const resposta = await fetch(
-                `/aplicacoes/${aplicacaoId}/importacoes/${id}/excluir`,
-                {method:'POST'}
+                `/aplicacoes/${encodeURIComponent(aplicacaoId)}/importacoes/${encodeURIComponent(id)}/excluir`,
+                {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }
             );
-            const dados = await resposta.json();
 
-            if (!resposta.ok) {
+            const tipoConteudo = resposta.headers.get('content-type') || '';
+            const dados = tipoConteudo.includes('application/json')
+                ? await resposta.json()
+                : {erro: await resposta.text()};
+
+            if (!resposta.ok || !dados.sucesso) {
                 throw new Error(
                     dados.erro || 'Não foi possível excluir a importação.'
                 );
             }
 
             fecharModalExclusao();
-            row.remove();
             window.location.reload();
         } catch (erro) {
-            alert(erro.message);
+            alert(erro.message || 'Não foi possível excluir a importação.');
             botao.disabled = false;
-            botao.lastChild.textContent = ' Excluir importação';
+            botao.innerHTML = 'Excluir importação';
         }
     }
 

@@ -827,6 +827,67 @@ img {
     color: var(--arke-primary);
 }
 
+
+/* =========================================================
+   RESUMO, PESOS E ANULAÇÃO
+========================================================= */
+.evaluation-summary {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    min-width: 142px;
+    padding: 12px 16px;
+    border: 1px solid var(--arke-border);
+    border-radius: 14px;
+    background: #ffffff;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(15, 48, 96, 0.04);
+}
+
+.summary-card strong {
+    display: block;
+    color: var(--arke-primary);
+    font-size: 22px;
+    line-height: 1;
+}
+
+.summary-card span {
+    display: block;
+    margin-top: 5px;
+    color: var(--arke-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.summary-card-warning strong { color: var(--arke-warning); }
+
+.flash-stack { margin-bottom: 18px; display: grid; gap: 10px; }
+.flash-message { padding: 13px 16px; border: 1px solid var(--arke-border); border-radius: 12px; background: #fff; font-size: 14px; font-weight: 650; }
+.flash-message.sucesso, .flash-message.success { color: var(--arke-success); border-color: #b9e0c5; background: var(--arke-success-bg); }
+.flash-message.erro, .flash-message.error { color: var(--arke-danger); border-color: #fecdd3; background: var(--arke-danger-bg); }
+
+.question-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.question-weight { padding: 6px 10px; border: 1px solid #cde6d6; border-radius: 999px; background: var(--arke-success-bg); color: var(--arke-success); font-size: 11px; font-weight: 800; }
+.question-annul-button { min-height: 32px; padding: 6px 11px; border: 1px solid #fecaca; border-radius: 9px; background: #fff; color: var(--arke-danger); font-size: 11px; font-weight: 800; cursor: pointer; }
+.question-annul-button:hover { background: var(--arke-danger-bg); }
+.question-annul-button.reactivate { border-color: #bbf7d0; color: var(--arke-success); }
+.question-annul-button.reactivate:hover { background: var(--arke-success-bg); }
+
+.question-metadata { padding: 14px 20px; border-bottom: 1px solid var(--arke-border); background: #fbfdff; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.question-metadata > div { min-width: 0; padding: 10px 12px; border: 1px solid #e6edf7; border-radius: 10px; background: #fff; }
+.question-metadata span { display: block; margin-bottom: 4px; color: var(--arke-muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.question-metadata strong { display: block; color: var(--arke-text); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+
+.question-card-annulled { border-color: #f5c2c7; }
+.question-card-annulled .question-header { background: linear-gradient(90deg, #fff1f2, #ffffff); }
+.question-card-annulled .question-number { background: #9f1239; }
+.question-card-annulled .question-body { opacity: .72; }
+.annulled-banner { padding: 10px 20px; border-bottom: 1px solid #fecdd3; background: var(--arke-danger-bg); color: #9f1239; font-size: 12px; font-weight: 800; }
+
 /* =========================================================
    RESPONSIVIDADE
 ========================================================= */
@@ -921,6 +982,14 @@ img {
         align-items: flex-start;
         flex-direction: column;
     }
+}
+
+@media (max-width: 720px) {
+    .evaluation-summary { width: 100%; }
+    .summary-card { flex: 1 1 130px; }
+    .question-actions { width: 100%; justify-content: flex-start; }
+    .question-header { flex-direction: column; }
+    .question-metadata { grid-template-columns: 1fr; padding: 12px 16px; }
 }
 
 @media (max-width: 420px) {
@@ -1800,7 +1869,7 @@ img {
 
         <div class="topbar-title">
             <strong>Visualização da avaliação</strong>
-            <span>Confira o caderno de questões antes da impressão.</span>
+            <span>Confira as questões, pesos e informações da avaliação.</span>
         </div>
     </div>
 
@@ -1839,39 +1908,6 @@ img {
 
             Ver gabarito
         </button>
-
-        <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="abrirConfiguracaoImpressao()"
-        >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 20h9"/>
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-            </svg>
-            Configurar impressão
-        </button>
-
-        <button
-            type="button"
-            class="btn btn-primary"
-            onclick="window.print()"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <polyline points="6 9 6 2 18 2 18 9"/>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                <rect x="6" y="14" width="12" height="8"/>
-            </svg>
-
-            Imprimir prova
-        </button>
     </div>
 
 </div>
@@ -1882,29 +1918,17 @@ img {
      CONTEÚDO PRINCIPAL
 ====================================================== -->
 
-<div class="print-settings-overlay no-print" id="printSettingsOverlay" hidden>
-    <div class="print-settings-modal" role="dialog" aria-modal="true" aria-labelledby="printSettingsTitle">
-        <div class="print-settings-header">
-            <div>
-                <strong id="printSettingsTitle">Configurar impressão</strong>
-                <span>Escolha o que aparecerá no cabeçalho e quais dados serão preenchidos.</span>
-            </div>
-            <button type="button" class="print-settings-close" onclick="fecharConfiguracaoImpressao()" aria-label="Fechar">×</button>
-        </div>
-        <div class="print-settings-body">
-            <div class="print-settings-table-head"><span>Informação</span><span>Exibir</span><span>Preenchida</span></div>
-            <div id="printSettingsFields"></div>
-            <label class="print-simple-option"><input type="checkbox" id="optMostrarInstrucoes" checked> Exibir instruções</label>
-            <label class="print-simple-option"><input type="checkbox" id="optMostrarLogo" checked> Exibir logo da instituição</label>
-        </div>
-        <div class="print-settings-footer">
-            <button type="button" class="btn btn-secondary" onclick="fecharConfiguracaoImpressao()">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="imprimirComConfiguracao()">Aplicar e imprimir</button>
-        </div>
-    </div>
-</div>
-
 <main class="page-wrapper">
+
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+        <div class="flash-stack no-print">
+            {% for categoria, mensagem in mensagens %}
+                <div class="flash-message {{ categoria }}">{{ mensagem }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
 
 <div class="page-heading no-print">
 
@@ -1919,16 +1943,23 @@ img {
         </p>
     </div>
 
-    <div class="question-count">
-        <strong>{{ questoes|length }}</strong>
+    <div class="evaluation-summary">
+        <div class="summary-card">
+            <strong>{{ questoes|length }}</strong>
+            <span>{% if questoes|length == 1 %}questão cadastrada{% else %}questões cadastradas{% endif %}</span>
+        </div>
 
-        <span>
-            {% if questoes|length == 1 %}
-                questão cadastrada
-            {% else %}
-                questões cadastradas
-            {% endif %}
-        </span>
+        <div class="summary-card">
+            <strong>{{ "%.2f"|format(peso_total)|replace('.', ',') }}</strong>
+            <span>peso total da prova</span>
+        </div>
+
+        {% if quantidade_anuladas %}
+            <div class="summary-card summary-card-warning">
+                <strong>{{ quantidade_anuladas }}</strong>
+                <span>{% if quantidade_anuladas == 1 %}questão anulada{% else %}questões anuladas{% endif %}</span>
+            </div>
+        {% endif %}
     </div>
 
 </div>
@@ -2264,7 +2295,10 @@ img {
 
             {% for questao in questoes %}
 
-                <article class="question-card">
+                <article
+                    id="questao-{{ questao['prova_questao_id'] }}"
+                    class="question-card{% if questao['anulada'] %} question-card-annulled{% endif %}"
+                >
 
                     <div class="question-header">
 
@@ -2279,29 +2313,56 @@ img {
                             </div>
 
                         </div>
+                        {% set tipo = (questao['tipo_questao'] or 'multipla_escolha')|lower %}
 
-                        <div class="question-type">
-                    {% set tipo = (questao['tipo_questao'] or 'multipla_escolha')|lower %}
+                        <div class="question-actions no-print">
+                            <span class="question-type">
+                                {% if tipo == 'multipla_escolha' %}Múltipla escolha
+                                {% elif tipo == 'discursiva' %}Discursiva
+                                {% elif tipo == 'verdadeiro_falso' %}Verdadeiro ou falso
+                                {% elif tipo == 'multipla_resposta' %}Múltiplas respostas
+                                {% elif tipo == 'associacao' %}Associação
+                                {% elif tipo == 'ordenacao' %}Ordenação
+                                {% elif tipo == 'lacunas' %}Complete as lacunas
+                                {% else %}{{ tipo|replace('_', ' ')|title }}{% endif %}
+                            </span>
 
-                    {% if tipo == 'multipla_escolha' %}
-                        Múltipla escolha
-                    {% elif tipo == 'discursiva' %}
-                        Discursiva
-                    {% elif tipo == 'verdadeiro_falso' %}
-                        Verdadeiro ou falso
-                    {% elif tipo == 'multipla_resposta' %}
-                        Múltiplas respostas
-                    {% elif tipo == 'associacao' %}
-                        Associação
-                    {% elif tipo == 'ordenacao' %}
-                        Ordenação
-                    {% elif tipo == 'lacunas' %}
-                        Complete as lacunas
-                    {% else %}
-                        {{ tipo|replace('_', ' ')|title }}
+                            <span class="question-weight">
+                                Peso: {{ "%.2f"|format(questao['peso'] or 0)|replace('.', ',') }}
+                            </span>
+
+                            <form
+                                method="POST"
+                                action="/prova/{{ prova['id'] }}/questao/{{ questao['prova_questao_id'] }}/alternar-anulacao"
+                                onsubmit="return confirmarAlteracaoQuestao(this, {{ loop.index }}, {{ 'true' if questao['anulada'] else 'false' }})"
+                            >
+                                <button
+                                    type="submit"
+                                    class="question-annul-button{% if questao['anulada'] %} reactivate{% endif %}"
+                                >
+                                    {% if questao['anulada'] %}Reativar questão{% else %}Anular questão{% endif %}
+                                </button>
+                            </form>
+                        </div>
+
+                    </div>
+
+                    {% if questao['anulada'] %}
+                        <div class="annulled-banner no-print">
+                            Questão anulada — o peso integral será atribuído aos alunos na correção.
+                        </div>
                     {% endif %}
-                </div>
 
+                    <div class="question-metadata no-print">
+                        <div><span>Tipo</span><strong>{% if tipo == 'discursiva' %}Discursiva{% else %}Objetiva{% endif %}</strong></div>
+                        <div><span>Peso</span><strong>{{ "%.2f"|format(questao['peso'] or 0)|replace('.', ',') }} ponto(s)</strong></div>
+                        <div><span>Dificuldade</span><strong>{{ questao['dificuldade'] or 'Não informada' }}</strong></div>
+                        <div><span>Componente</span><strong>{{ questao['disciplina'] or prova['disciplina'] or 'Não informado' }}</strong></div>
+                        <div><span>Assunto</span><strong>{{ questao['assunto'] or 'Não informado' }}</strong></div>
+                        <div><span>Habilidade</span><strong>{{ questao['habilidade'] or 'Não informada' }}</strong></div>
+                        {% if tipo == 'discursiva' %}
+                            <div><span>Linhas de resposta</span><strong>{{ questao['linhas_resposta'] or 5 }}</strong></div>
+                        {% endif %}
                     </div>
 
                     <div class="question-body">
@@ -2458,7 +2519,7 @@ img {
                                 </span>
 
                                 <strong>
-                                    {{ questao['correta'] }}
+                                    {% if questao['anulada'] %}ANULADA{% else %}{{ questao['correta'] }}{% endif %}
                                 </strong>
                             </div>
 
@@ -2491,47 +2552,26 @@ img {
 </main>
 
 <script>
-const CAMPOS_IMPRESSAO = [
-    {id:'instituicao', nome:'Instituição', exibir:false, preenchido:true},
-    {id:'turma', nome:'Turma', exibir:true, preenchido:true},
-    {id:'componente', nome:'Componente curricular', exibir:true, preenchido:true},
-    {id:'professor', nome:'Professor', exibir:true, preenchido:true},
-    {id:'cidade', nome:'Cidade', exibir:true, preenchido:true},
-    {id:'quantidade', nome:'Quantidade de questões', exibir:false, preenchido:true},
-    {id:'data', nome:'Data da avaliação', exibir:true, preenchido:false},
-    {id:'estudante', nome:'Estudante', exibir:true, preenchido:false},
-    {id:'nota', nome:'Nota', exibir:true, preenchido:false}
-];
+function alternarGabarito() {
+    const card = document.getElementById('answerKeyCard');
+    const texto = document.getElementById('answerKeyText');
+    if (!card) return;
 
-function montarCamposImpressao(){
-    const area=document.getElementById('printSettingsFields');
-    if(!area || area.dataset.montado) return;
-    area.innerHTML=CAMPOS_IMPRESSAO.map(c=>`<div class="print-setting-row"><label for="show-${c.id}">${c.nome}</label><input id="show-${c.id}" type="checkbox" ${c.exibir?'checked':''}><input id="fill-${c.id}" type="checkbox" ${c.preenchido?'checked':''}></div>`).join('');
-    area.dataset.montado='1';
+    card.classList.toggle('open');
+    if (texto) {
+        texto.textContent = card.classList.contains('open')
+            ? 'Ocultar respostas'
+            : 'Exibir respostas';
+    }
 }
-function abrirConfiguracaoImpressao(){ montarCamposImpressao(); document.getElementById('printSettingsOverlay').hidden=false; }
-function fecharConfiguracaoImpressao(){ document.getElementById('printSettingsOverlay').hidden=true; }
-function aplicarConfiguracaoImpressao(){
-    CAMPOS_IMPRESSAO.forEach(c=>{
-        const elementos=document.querySelectorAll(`[data-print-field="${c.id}"]`);
-        if(!elementos.length) return;
-        const mostrar=document.getElementById(`show-${c.id}`)?.checked ?? c.exibir;
-        const preencher=document.getElementById(`fill-${c.id}`)?.checked ?? c.preenchido;
-        elementos.forEach(el=>{
-            el.classList.toggle('print-hidden',!mostrar);
-            el.classList.toggle('print-empty',mostrar && !preencher);
-        });
-    });
-    document.body.classList.toggle('hide-print-instructions',!document.getElementById('optMostrarInstrucoes').checked);
-    document.body.classList.toggle('hide-print-logo',!document.getElementById('optMostrarLogo').checked);
+
+function confirmarAlteracaoQuestao(form, numero, estaAnulada) {
+    const mensagem = estaAnulada
+        ? `Deseja reativar a questão ${String(numero).padStart(2, '0')}? Ela voltará a ser considerada normalmente na correção.`
+        : `Deseja anular a questão ${String(numero).padStart(2, '0')}? O peso integral será atribuído aos alunos durante a correção.`;
+
+    return window.confirm(mensagem);
 }
-function imprimirComConfiguracao(){ aplicarConfiguracaoImpressao(); fecharConfiguracaoImpressao(); setTimeout(()=>window.print(),80); }
-function alternarGabarito(){
-    const card=document.getElementById('answerKeyCard'); const texto=document.getElementById('answerKeyText');
-    if(!card)return; card.classList.toggle('open');
-    if(texto) texto.textContent=card.classList.contains('open')?'Ocultar respostas':'Exibir respostas';
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')fecharConfiguracaoImpressao();});
 </script>
 
 </body>
