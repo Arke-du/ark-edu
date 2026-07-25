@@ -1,30 +1,6 @@
 /* =====================================================
-   ARK EDUS — FORMULÁRIOS E BOTÕES
-   Padrão visual oficial
+   FORMULÁRIOS — ARK EDUS
 ===================================================== */
-
-:root {
-    --form-azul: var(--azul, #0D356F);
-    --form-azul-escuro: var(--azul-escuro, #082957);
-    --form-ciano: var(--ciano, #10B7C7);
-    --form-ciano-escuro: var(--ciano-escuro, #0891B2);
-
-    --form-branco: var(--branco, #FFFFFF);
-    --form-fundo: var(--fundo, #F6F8FC);
-    --form-texto: var(--texto, #334155);
-    --form-texto-forte: var(--texto-forte, #10233F);
-    --form-texto-suave: var(--texto-suave, #64748B);
-    --form-borda: var(--borda, #E2E8F0);
-
-    --form-sucesso: #15803D;
-    --form-perigo: #DC2626;
-    --form-aviso: #B45309;
-
-    --form-raio: 14px;
-    --form-raio-card: 20px;
-    --form-sombra: 0 10px 30px rgba(13, 53, 111, 0.055);
-    --form-foco: 0 0 0 4px rgba(16, 183, 199, 0.13);
-}
 
 form {
     width: 100%;
@@ -38,43 +14,25 @@ form {
 .form-card {
     width: 100%;
     max-width: 100%;
-    margin-bottom: 22px;
-    padding: 26px;
 
-    background: var(--form-branco);
-    border: 1px solid var(--form-borda);
-    border-radius: var(--form-raio-card);
+    padding: 32px;
+    margin-bottom: 28px;
 
-    box-shadow: var(--form-sombra);
+    background: var(--branco);
+    border: 1px solid rgba(13, 45, 98, 0.08);
+    border-radius: 22px;
+
+    box-shadow:
+        0 10px 30px rgba(13, 45, 98, 0.06),
+        0 1px 2px rgba(13, 45, 98, 0.03);
 }
 
-.form-card-cabecalho {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 18px;
+.form-card h2 {
+    margin: 0 0 28px;
 
-    margin: -26px -26px 24px;
-    padding: 20px 26px;
-
-    border-bottom: 1px solid var(--form-borda);
-    background: linear-gradient(180deg, #FFFFFF 0%, #FBFDFF 100%);
-}
-
-.form-card h2,
-.form-card-cabecalho h2 {
-    margin: 0;
-    color: var(--form-azul);
-    font-size: 19px;
-    font-weight: 900;
-    line-height: 1.25;
-}
-
-.form-card-cabecalho p {
-    margin: 6px 0 0;
-    color: var(--form-texto-suave);
-    font-size: 13px;
-    line-height: 1.5;
+    color: var(--azul);
+    font-size: 22px;
+    font-weight: 800;
 }
 
 /* =====================================================
@@ -84,13 +42,12 @@ form {
 .form-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    gap: 22px;
 }
 
 .campo {
-    display: grid;
-    align-content: start;
-    gap: 7px;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
 }
 
@@ -102,62 +59,49 @@ form {
     grid-column: 1 / -1;
 }
 
-.campo label,
-.campo .titulo-campo {
-    color: var(--form-texto);
-    font-size: 12px;
-    font-weight: 850;
-    line-height: 1.35;
-}
+.campo label {
+    margin-bottom: 8px;
 
-.campo-obrigatorio::after {
-    content: " *";
-    color: var(--form-perigo);
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 700;
 }
 
 /* =====================================================
-   INPUTS, SELECTS E TEXTAREAS
+   INPUTS
 ===================================================== */
 
-.campo input:not([type="checkbox"]):not([type="radio"]),
+.campo input,
 .campo select,
 .campo textarea {
     width: 100%;
     max-width: 100%;
 
-    border: 1px solid #CFD9E6;
+    padding: 14px 16px;
+
+    background: var(--branco);
+    border: 1px solid #D7DEE8;
     border-radius: 12px;
-    background: var(--form-branco);
 
-    color: var(--form-texto-forte);
+    color: var(--texto-forte);
     font-family: inherit;
-    font-size: 14px;
-    line-height: 1.4;
-
-    outline: none;
+    font-size: 15px;
 
     transition:
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        background-color 0.18s ease;
-}
-
-.campo input:not([type="checkbox"]):not([type="radio"]),
-.campo select {
-    min-height: 46px;
-    padding: 0 13px;
+        border-color 0.22s ease,
+        box-shadow 0.22s ease,
+        background 0.22s ease;
 }
 
 .campo textarea {
     min-height: 120px;
-    padding: 13px 14px;
     resize: vertical;
 }
 
 .campo input:hover,
 .campo select:hover,
 .campo textarea:hover {
-    border-color: rgba(16, 183, 199, 0.48);
+    border-color: rgba(8, 145, 178, 0.45);
 }
 
 .campo input::placeholder,
@@ -168,157 +112,141 @@ form {
 .campo input:focus,
 .campo select:focus,
 .campo textarea:focus {
-    border-color: var(--form-ciano-escuro);
+    outline: none;
+
     background: #FFFFFF;
-    box-shadow: var(--form-foco);
+    border-color: var(--ciano-escuro);
+
+    box-shadow:
+        0 0 0 4px rgba(16, 183, 199, 0.13),
+        0 4px 14px rgba(13, 45, 98, 0.05);
 }
 
 .campo input:disabled,
 .campo select:disabled,
-.campo textarea:disabled,
-.campo input[readonly],
-.campo textarea[readonly] {
+.campo textarea:disabled {
     background: #F1F5F9;
     color: #94A3B8;
     cursor: not-allowed;
 }
 
-.campo select {
-    cursor: pointer;
-}
-
-.campo input[type="number"] {
-    appearance: textfield;
-}
-
 .campo input[type="file"] {
-    min-height: 48px;
-    padding: 8px;
+    padding: 10px;
     cursor: pointer;
 }
 
 .campo input[type="file"]::file-selector-button {
-    min-height: 34px;
-    margin-right: 11px;
-    padding: 0 13px;
+    margin-right: 12px;
+    padding: 9px 14px;
 
-    border: 1px solid rgba(16, 183, 199, 0.24);
-    border-radius: 9px;
     background: rgba(16, 183, 199, 0.10);
+    border: 1px solid rgba(16, 183, 199, 0.20);
+    border-radius: 9px;
 
-    color: var(--form-azul);
+    color: var(--azul);
     font-family: inherit;
-    font-weight: 800;
+    font-weight: 700;
 
     cursor: pointer;
-    transition: 0.18s ease;
+    transition: 0.2s ease;
 }
 
 .campo input[type="file"]::file-selector-button:hover {
-    border-color: var(--form-ciano);
     background: rgba(16, 183, 199, 0.17);
+    border-color: var(--ciano);
 }
 
 /* =====================================================
-   TEXTOS AUXILIARES E ERROS
-===================================================== */
-
-.ajuda-formulario,
-.campo-ajuda {
-    margin: 0;
-    color: var(--form-texto-suave);
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.campo-erro {
-    color: var(--form-perigo);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.campo.tem-erro input,
-.campo.tem-erro select,
-.campo.tem-erro textarea {
-    border-color: var(--form-perigo);
-}
-
-.campo.tem-erro input:focus,
-.campo.tem-erro select:focus,
-.campo.tem-erro textarea:focus {
-    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10);
-}
-
-/* =====================================================
-   CHECKBOXES E RADIOS
+   CHECKBOXES
 ===================================================== */
 
 .opcoes-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .etapas-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.opcao-check,
-.opcao-radio {
+.opcao-check {
     display: flex;
     align-items: center;
-    gap: 11px;
+    gap: 12px;
 
-    min-height: 54px;
-    padding: 12px 14px;
+    min-height: 58px;
+    padding: 13px 15px;
 
-    border: 1px solid var(--form-borda);
-    border-radius: 12px;
     background: #F8FAFC;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
 
-    color: var(--form-texto);
-    font-size: 13px;
-    font-weight: 750;
-
+    box-sizing: border-box;
     cursor: pointer;
-    user-select: none;
+
+    transform: none !important;
 
     transition:
-        background-color 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease;
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
-.opcao-check:hover,
-.opcao-radio:hover {
-    border-color: rgba(16, 183, 199, 0.42);
-    background: rgba(16, 183, 199, 0.06);
+.opcao-check:hover {
+    background: rgba(16, 183, 199, 0.07);
+    border-color: rgba(16, 183, 199, 0.38);
+
+    transform: none !important;
 }
 
-.opcao-check input,
-.opcao-radio input {
+.opcao-check input[type="checkbox"] {
+    appearance: auto;
+
     width: 18px;
     height: 18px;
     min-width: 18px;
+    max-width: 18px;
+
     margin: 0;
     padding: 0;
+    flex: 0 0 18px;
 
-    accent-color: var(--form-ciano-escuro);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+
+    accent-color: var(--ciano-escuro);
     cursor: pointer;
+    transition: none;
 }
 
-.opcao-check span,
-.opcao-radio span {
-    min-width: 0;
+.opcao-check input[type="checkbox"]:focus,
+.opcao-check input[type="checkbox"]:focus-visible {
+    outline: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.opcao-check span {
     flex: 1;
+    min-width: 0;
 }
 
-.opcao-check:has(input:checked),
-.opcao-radio:has(input:checked) {
-    border-color: var(--form-ciano);
-    background: rgba(16, 183, 199, 0.10);
-    color: var(--form-azul);
-    box-shadow: 0 5px 16px rgba(13, 53, 111, 0.06);
+.opcao-check:has(input[type="checkbox"]:checked) {
+    background: rgba(16, 183, 199, 0.11);
+    border: 1px solid var(--ciano);
+
+    color: var(--azul);
+
+    box-shadow: 0 5px 16px rgba(13, 45, 98, 0.06);
+
+    transform: none !important;
+}
+
+.opcao-check:active {
+    transform: none !important;
 }
 
 /* =====================================================
@@ -326,21 +254,94 @@ form {
 ===================================================== */
 
 .campo-visualizacao {
-    min-height: 46px;
-    padding: 13px 14px;
+    min-height: 48px;
+    padding: 14px 16px;
 
-    border: 1px solid var(--form-borda);
-    border-radius: 12px;
     background: #F8FAFC;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
 
-    color: var(--form-texto);
-    font-size: 14px;
+    color: var(--texto);
+}
+
+.ajuda-formulario {
+    margin-top: 18px;
+
+    color: var(--texto-suave);
+    font-size: 13px;
     line-height: 1.5;
-    overflow-wrap: anywhere;
 }
 
 /* =====================================================
-   SENHA COM ÍCONE
+   BOTÕES DOS FORMULÁRIOS
+===================================================== */
+
+.form-card-acoes {
+    padding: 24px 32px;
+    margin-bottom: 30px;
+}
+
+.acoes-form {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    margin: 28px 0 0;
+    padding: 0;
+}
+
+.acoes-form a,
+.acoes-form button,
+.acoes-form .btn-primario,
+.acoes-form .btn-secundario {
+    position: static;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: auto;
+    min-width: 230px;
+    min-height: 56px;
+
+    padding: 0 28px;
+    margin: 0;
+
+    border-radius: 14px;
+
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+
+    flex-shrink: 0;
+}
+
+/* =====================================================
+   ESTADOS VAZIOS
+===================================================== */
+
+.estado-vazio-menor {
+    min-height: 120px;
+    padding: 20px;
+
+    background: rgba(16, 183, 199, 0.035);
+    border: 1px dashed rgba(8, 145, 178, 0.32);
+    border-radius: 14px;
+}
+
+.estado-vazio-menor h2 {
+    color: var(--azul);
+    font-size: 18px;
+}
+
+/* =====================================================
+   CAMPO DE SENHA COM ÍCONE
 ===================================================== */
 
 .campo-senha {
@@ -349,43 +350,53 @@ form {
 }
 
 .campo-senha input {
-    padding-right: 52px !important;
+    width: 100%;
+    padding-right: 52px;
 }
 
 .botao-ver-senha,
 .cadastro-ver-senha {
     position: absolute;
     top: 50%;
-    right: 9px;
-
-    display: grid;
-    place-items: center;
+    right: 12px;
 
     width: 36px;
     height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
     padding: 0;
     margin: 0;
 
-    border: 0;
-    border-radius: 10px;
     background: transparent;
+    border: none;
+    border-radius: 10px;
 
-    color: var(--form-texto-suave);
+    color: var(--texto-suave);
     cursor: pointer;
 
     transform: translateY(-50%);
-    transition: 0.18s ease;
+
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.cadastro-ver-senha {
+    right: 10px;
 }
 
 .botao-ver-senha:hover,
 .cadastro-ver-senha:hover {
     background: rgba(16, 183, 199, 0.10);
-    color: var(--form-ciano-escuro);
+    color: var(--ciano-escuro);
 }
 
 .botao-ver-senha:focus-visible,
 .cadastro-ver-senha:focus-visible {
-    outline: 2px solid var(--form-ciano);
+    outline: 2px solid var(--ciano);
     outline-offset: 2px;
 }
 
@@ -401,4 +412,79 @@ form {
     stroke-linejoin: round;
 
     pointer-events: none;
+    transition: 0.2s ease;
+}
+
+.icone-olho {
+    stroke-width: 2;
+}
+
+/* =====================================================
+   VALIDAÇÃO
+===================================================== */
+
+.campo input:invalid:not(:placeholder-shown),
+.campo textarea:invalid:not(:placeholder-shown) {
+    border-color: #DC2626;
+}
+
+.campo input:invalid:not(:placeholder-shown):focus,
+.campo textarea:invalid:not(:placeholder-shown):focus {
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10);
+}
+
+/* =====================================================
+   RESPONSIVIDADE
+===================================================== */
+
+@media (max-width: 1100px) {
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .campo-maior {
+        grid-column: span 1;
+    }
+
+    .etapas-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .form-card {
+        padding: 22px;
+    }
+
+    .form-card-acoes {
+        padding: 20px;
+    }
+
+    .form-grid,
+    .opcoes-grid,
+    .etapas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .campo-maior,
+    .campo-largura-total {
+        grid-column: span 1;
+    }
+
+    .acoes-form {
+        flex-direction: column-reverse;
+        align-items: stretch;
+
+        margin-top: 22px;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .acoes-form a,
+    .acoes-form button,
+    .acoes-form .btn-primario,
+    .acoes-form .btn-secundario {
+        width: 100%;
+        min-width: 100%;
+    }
 }

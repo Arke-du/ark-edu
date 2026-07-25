@@ -5,8 +5,8 @@
 {% block estilos %}
 <style>
 .ic-page{
-    --ic-primary:#0d356f;
-    --ic-primary-strong:#082957;
+    --ic-primary:#123b72;
+    --ic-primary-strong:#0c2e59;
     --ic-primary-soft:#eef5fc;
     --ic-text:#172033;
     --ic-muted:#667085;
@@ -586,8 +586,8 @@
 }
 
 .ic-answer-options button[data-answer].selected{
-    background:#0d356f !important;
-    border-color:#0d356f !important;
+    background:#123b72 !important;
+    border-color:#123b72 !important;
     color:#ffffff !important;
     box-shadow:0 0 0 4px rgba(18,59,114,.16) !important;
 }
@@ -631,8 +631,8 @@
     justify-content:center !important;
     min-width:120px !important;
     min-height:44px !important;
-    border:1px solid #0d356f !important;
-    background:#0d356f !important;
+    border:1px solid #123b72 !important;
+    background:#123b72 !important;
     background-image:none !important;
     color:#ffffff !important;
     opacity:1 !important;
@@ -640,8 +640,8 @@
     box-shadow:0 8px 18px rgba(18,59,114,.18) !important;
 }
 #salvarRevisao:hover{
-    background:#082957 !important;
-    border-color:#082957 !important;
+    background:#0c2e59 !important;
+    border-color:#0c2e59 !important;
     color:#ffffff !important;
 }
 #salvarRevisao:disabled{
@@ -733,7 +733,7 @@
 }
 .ic-delete-modal h3{
     margin:0;
-    color:#0d356f;
+    color:#123b72;
     font-size:27px;
     font-weight:900;
 }
@@ -751,7 +751,7 @@
 }
 .ic-delete-modal-card strong{
     display:block;
-    color:#0d356f;
+    color:#123b72;
     font-size:17px;
     font-weight:900;
 }
@@ -851,10 +851,10 @@
     min-height:42px !important;
     max-height:42px !important;
     padding:0 !important;
-    border:2px solid #0d356f !important;
+    border:2px solid #123b72 !important;
     border-radius:50% !important;
     background:#eef5fc !important;
-    color:#0d356f !important;
+    color:#123b72 !important;
     box-shadow:none !important;
     overflow:hidden !important;
     line-height:1 !important;
@@ -869,14 +869,14 @@
 
 .ic-answer-options button[data-answer]:hover{
     background:#dceaf8 !important;
-    border-color:#082957 !important;
-    color:#082957 !important;
+    border-color:#0c2e59 !important;
+    color:#0c2e59 !important;
     transform:translateY(-1px);
 }
 
 .ic-answer-options button[data-answer].selected{
-    background:#0d356f !important;
-    border-color:#0d356f !important;
+    background:#123b72 !important;
+    border-color:#123b72 !important;
     color:#ffffff !important;
     box-shadow:0 0 0 4px rgba(18,59,114,.16) !important;
 }
@@ -938,7 +938,7 @@
     grid-template-columns:repeat(5,minmax(0,1fr));
 }
 .ic-summary-card.absent strong{color:#64748b}
-.ic-status.pending{background:#eef5fc;color:#0d356f}
+.ic-status.pending{background:#eef5fc;color:#123b72}
 .ic-status.absent{background:#f1f5f9;color:#475569}
 .ic-btn-absence{
     border:1px solid #f0b96a !important;
@@ -949,7 +949,7 @@
     background:#ffedc9 !important;
     border-color:#d97706 !important;
 }
-.ic-icon-pendente{background:#eef5fc;color:#0d356f}
+.ic-icon-pendente{background:#eef5fc;color:#123b72}
 .ic-icon-ausente{background:#f1f5f9;color:#64748b}
 @media(max-width:1250px){
     .ic-summary-five{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -999,7 +999,7 @@
 }
 .ic-attendance-modal h3{
     margin:0;
-    color:#0d356f;
+    color:#123b72;
     font-size:25px;
     font-weight:900;
 }
@@ -1013,7 +1013,7 @@
     border:1px solid #dbe7f5;
     border-radius:13px;
     background:#f8fbff;
-    color:#0d356f;
+    color:#123b72;
     font-size:17px;
     font-weight:900;
 }
@@ -1044,101 +1044,8 @@
     color:#fff;
 }
 .ic-attendance-confirm.undo{
-    border-color:#0d356f;
-    background:#0d356f;
-}
-
-
-
-/* ARK EDUS — PADRÃO VISUAL V2 */
-
-.ic-page{
-    --ic-primary:#0d356f;
-    --ic-primary-strong:#082957;
-    --ic-primary-soft:#edf5ff;
-    --ic-accent:#1c68d4;
-    --ic-cyan:#10b7c7;
-    --ic-text:#10233f;
-    --ic-muted:#6b7c93;
-    --ic-border:#e3eaf3;
-    max-width:1440px;
-    padding:30px 32px 58px;
-}
-.ic-topbar{
-    position:relative;
-    overflow:hidden;
-    align-items:center;
-    margin-bottom:20px;
-    padding:28px 30px;
-    border-radius:22px;
-    background:linear-gradient(125deg,#0d356f,#1c68d4 68%,#10b7c7);
-    box-shadow:0 18px 42px rgba(13,53,111,.16);
-}
-.ic-topbar::after{
-    content:"";
-    position:absolute;
-    right:-90px;
-    top:-120px;
-    width:320px;
-    height:320px;
-    border-radius:50%;
-    background:rgba(255,255,255,.08);
-}
-.ic-topbar>*{position:relative;z-index:1}
-.ic-back,.ic-title h1,.ic-title p{color:#fff}
-.ic-back{color:rgba(255,255,255,.86)}
-.ic-title h1{font-size:clamp(29px,3vw,39px);font-weight:900}
-.ic-title p{color:rgba(255,255,255,.78)}
-.ic-summary{gap:12px}
-.ic-summary-card{
-    position:relative;
-    overflow:hidden;
-    border-radius:16px;
-    border-color:#e1e9f2;
-    box-shadow:0 8px 24px rgba(15,35,64,.05);
-}
-.ic-summary-card::after{
-    content:"";
-    position:absolute;
-    right:-25px;
-    top:-28px;
-    width:85px;
-    height:85px;
-    border-radius:50%;
-    background:rgba(28,104,212,.06);
-}
-.ic-card{
-    border-radius:18px;
-    border-color:#e2eaf3;
-    box-shadow:0 10px 30px rgba(15,35,64,.05);
-}
-.ic-upload{
-    border-top:4px solid #1c68d4;
-}
-.ic-btn-primary{
-    border-color:#1c68d4;
-    background:linear-gradient(135deg,#0d356f,#1c68d4);
-    box-shadow:0 8px 18px rgba(28,104,212,.17);
-}
-.ic-btn-primary:hover{background:linear-gradient(135deg,#082957,#1557b0)}
-.ic-row{
-    border-radius:14px;
-    border-color:#e3eaf3;
-    transition:.18s ease;
-}
-.ic-row:hover{
-    border-color:#cddbeb;
-    box-shadow:0 10px 24px rgba(15,35,64,.07);
-    transform:translateY(-1px);
-}
-.ic-drawer{
-    background:#f3f7fb;
-    box-shadow:-28px 0 70px rgba(15,35,64,.28);
-}
-.ic-panel{border-radius:17px}
-@media(max-width:760px){
-    .ic-page{padding:18px}
-    .ic-topbar{align-items:flex-start;padding:24px}
+    border-color:#123b72;
+    background:#123b72;
 }
 
 </style>

@@ -8451,11 +8451,7 @@ def visualizar_prova(prova_id):
             return redirect("/provas")
 
         cursor.execute("""
-            SELECT
-                q.*,
-                pq.id AS prova_questao_id,
-                COALESCE(pq.peso, 0) AS peso,
-                COALESCE(pq.anulada, 0) AS anulada
+            SELECT q.*, COALESCE(pq.peso, 0) AS peso
             FROM prova_questoes AS pq
             INNER JOIN questoes AS q
                 ON q.id = pq.questao_id
@@ -8464,19 +8460,6 @@ def visualizar_prova(prova_id):
         """, (prova_id,))
 
         questoes = cursor.fetchall()
-
-        # Valores utilizados pelo resumo da tela visualizar_prova.html.
-        # O peso total considera todas as questões cadastradas, inclusive
-        # as anuladas, pois elas continuam valendo crédito integral.
-        peso_total = sum(
-            float(questao["peso"] or 0)
-            for questao in questoes
-        )
-        quantidade_anuladas = sum(
-            1
-            for questao in questoes
-            if int(questao["anulada"] or 0) == 1
-        )
 
         instituicao = {
             "nome": prova["nome_instituicao"] or "ARK EDUS",
@@ -8489,9 +8472,7 @@ def visualizar_prova(prova_id):
             "visualizar_prova.html",
             prova=prova,
             questoes=questoes,
-            instituicao=instituicao,
-            peso_total=peso_total,
-            quantidade_anuladas=quantidade_anuladas
+            instituicao=instituicao
         )
 
     except sqlite3.Error as erro:

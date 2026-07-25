@@ -1,0 +1,69 @@
+ARK EDUS — PROJETO PADRONIZADO
+===============================
+
+O que foi alterado
+------------------
+1. Foi criado o arquivo:
+   static/css/ark-design-system.css
+
+2. O arquivo templates/layout/base.html passou a carregar esse Design System
+   por último, depois dos estilos específicos de cada página. Dessa forma,
+   títulos, textos de apoio, links de voltar, botões, cards, formulários e
+   tabelas mantêm o mesmo padrão visual.
+
+3. Os botões principais, secundários e de perigo não trocam mais de cor ao
+   passar o mouse. O hover mantém a aparência original do botão.
+
+4. Páginas antigas que ainda não utilizam layout/base.html receberam o estilo
+   de compatibilidade "ark-legacy-page", sem alteração de rotas, variáveis
+   Jinja, nomes de campos ou lógica do sistema.
+
+5. O nome exibido nos títulos foi padronizado para ARK EDUS.
+
+COMO INSTALAR — MÉTODO MAIS SEGURO
+----------------------------------
+1. Pare a aplicação.
+2. Faça uma cópia completa da pasta atual do projeto.
+3. Não apague o banco de dados de produção sem backup.
+4. Extraia este ZIP em uma nova pasta.
+5. Copie o banco de dados atual para esta nova pasta, caso o banco em produção
+   tenha informações mais recentes que o banco contido no ZIP.
+6. Substitua o projeto atual pela nova pasta.
+7. Instale as dependências, caso necessário:
+
+   pip install -r requirements.txt
+
+8. Inicie a aplicação normalmente.
+
+NO GITHUB CODESPACES
+--------------------
+1. Envie o ZIP para o computador e extraia.
+2. Abra o projeto atual no Codespaces.
+3. Faça um commit de segurança:
+
+   git add .
+   git commit -m "Backup antes da padronização visual"
+   git push origin main
+
+4. Copie o conteúdo da pasta extraída para dentro da pasta do projeto,
+   substituindo os arquivos quando solicitado.
+5. Preserve o plataforma.db mais atualizado.
+6. No terminal, execute:
+
+   git status
+   python -m py_compile app.py
+   git add .
+   git commit -m "Padronização visual completa ARK EDUS"
+   git push origin main
+
+ARQUIVOS CENTRAIS DO PADRÃO
+---------------------------
+- static/css/ark-design-system.css
+- static/css/botoes.css
+- templates/layout/base.html
+
+IMPORTANTE
+----------
+O arquivo plataforma.db deste pacote é o mesmo que estava no ZIP recebido.
+Se a versão online possuir dados mais novos, mantenha o banco online/atual e
+substitua somente os demais arquivos.

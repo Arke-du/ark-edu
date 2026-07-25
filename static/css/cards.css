@@ -1,122 +1,241 @@
-.pagina-cabecalho {
-    margin-bottom: 28px;
+/* ===========================
+   CABEÇALHO DAS PÁGINAS
+=========================== */
+
+.pagina-cabecalho{
+    margin-bottom:34px;
 }
 
-.voltar {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
-    color: var(--azul-600);
-    text-decoration: none;
-    font-weight: 700;
-    transition: .2s ease;
+.voltar{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+
+    margin-bottom:28px;
+
+    color:var(--ciano-escuro);
+
+    text-decoration:none;
+
+    font-weight:700;
+
+    transition:.25s;
 }
 
-.voltar:hover {
-    transform: translateX(-2px);
+.voltar:hover{
+    color:var(--azul);
+    transform:translateX(-2px);
 }
 
-.pagina-titulo-linha {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
+.pagina-titulo-linha{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+
+    gap:24px;
 }
 
-.pagina-titulo-linha h1 {
-    margin: 0;
-    color: var(--texto-forte);
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -.03em;
+.pagina-titulo-linha h1{
+
+    margin:0;
+
+    font-size:34px;
+
+    font-weight:800;
+
+    color:var(--azul);
 }
 
-.pagina-titulo-linha p {
-    margin: 8px 0 0;
-    color: var(--texto-suave);
-    font-size: 14px;
-    line-height: 1.6;
+.pagina-titulo-linha p{
+
+    margin:10px 0 0;
+
+    color:var(--texto-suave);
+
+    font-size:15px;
+
+    line-height:1.6;
 }
+
+/* ===========================
+   CARDS
+=========================== */
 
 .card,
-.card-listagem {
-    position: relative;
-    width: 100%;
-    padding: 26px;
-    background: var(--superficie);
-    border: 1px solid var(--borda);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--sombra-sm);
-    transition: .22s ease;
+.card-listagem{
+
+    position:relative;
+
+    width:100%;
+
+    padding:32px;
+
+    background:var(--branco);
+
+    border:1px solid rgba(13,45,98,.06);
+
+    border-radius:22px;
+
+    box-shadow:
+        0 8px 30px rgba(13,45,98,.06),
+        0 1px 2px rgba(13,45,98,.04);
+
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease,
+        border-color .25s ease;
+
+    overflow:visible;
 }
 
 .card:hover,
-.card-listagem:hover {
-    border-color: rgba(28,104,212,.18);
-    box-shadow: var(--sombra-md);
+.card-listagem:hover{
+
+    transform:translateY(-3px);
+
+    border-color:rgba(16,183,199,.20);
+
+    box-shadow:
+        0 18px 42px rgba(13,45,98,.10);
 }
+
+/* ===========================
+   TÍTULO DOS CARDS
+=========================== */
 
 .card h2,
 .card h3,
 .card-listagem h2,
-.card-listagem h3 {
-    margin-top: 0;
-    color: var(--texto-forte);
-    font-weight: 800;
+.card-listagem h3{
+
+    margin-top:0;
+
+    margin-bottom:18px;
+
+    color:var(--azul);
+
+    font-weight:800;
 }
 
-.card hr {
-    margin: 22px 0;
-    border: 0;
-    border-top: 1px solid var(--borda);
+/* ===========================
+   SEPARADORES
+=========================== */
+
+.card hr{
+
+    margin:24px 0;
+
+    border:none;
+
+    border-top:1px solid var(--borda);
 }
 
-.estado-vazio {
-    display: flex;
-    min-height: 180px;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    text-align: center;
+/* ===========================
+   ESTADO VAZIO
+=========================== */
+
+.estado-vazio{
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    min-height:180px;
+
+    text-align:center;
 }
 
-.estado-vazio h2 {
-    margin: 0 0 10px;
-    color: var(--texto-forte);
-    font-size: 24px;
+.estado-vazio h2{
+
+    margin:0 0 12px;
+
+    color:var(--azul);
+
+    font-size:28px;
+
+    font-weight:800;
 }
 
-.estado-vazio p {
-    max-width: 430px;
-    margin: 0;
-    color: var(--texto-suave);
-    line-height: 1.65;
+.estado-vazio p{
+
+    max-width:420px;
+
+    margin:0;
+
+    color:var(--texto-suave);
+
+    line-height:1.7;
+
+    font-size:15px;
 }
 
-.card-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: var(--ciano-100);
-    color: var(--ciano-600);
-    font-size: 11px;
-    font-weight: 800;
+/* ===========================
+   BADGE OPCIONAL
+=========================== */
+
+.card-badge{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    padding:6px 12px;
+
+    border-radius:999px;
+
+    background:rgba(16,183,199,.10);
+
+    color:var(--ciano-escuro);
+
+    font-size:12px;
+
+    font-weight:700;
 }
 
-@media (max-width: 800px) {
-    .pagina-titulo-linha {
-        flex-direction: column;
-        align-items: flex-start;
+/* ===========================
+   RESPONSIVO
+=========================== */
+
+@media (max-width:800px){
+
+    .pagina-titulo-linha{
+
+        flex-direction:column;
+
+        align-items:flex-start;
     }
 
-    .pagina-titulo-linha h1 {
-        font-size: 28px;
+    .pagina-titulo-linha h1{
+
+        font-size:30px;
     }
 
     .card,
-    .card-listagem {
-        padding: 22px;
+    .card-listagem{
+
+        padding:24px;
     }
+
+}
+
+@media (max-width:500px){
+
+    .card,
+    .card-listagem{
+
+        padding:20px;
+
+        border-radius:18px;
+    }
+
+    .estado-vazio h2{
+
+        font-size:22px;
+    }
+
 }

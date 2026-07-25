@@ -1,258 +1,245 @@
-{% extends "layout/base.html" %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Aluno</title>
 
-{% block titulo %}Editar aluno | ARK EDU{% endblock %}
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-{% block estilos %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            color: #0f172a;
+        }
 
-<style>
-.ea-pagina{
-    width:100%;
-    max-width:980px;
-    margin:0 auto;
-    padding:6px 0 40px;
-}
-.ea-topo{
-    margin-bottom:24px;
-}
-.ea-voltar{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    margin-bottom:14px;
-    color:#475569;
-    font-size:14px;
-    font-weight:700;
-    text-decoration:none;
-}
-.ea-voltar:hover{color:#1d4ed8}
-.ea-etiqueta{
-    display:inline-flex;
-    align-items:center;
-    min-height:28px;
-    margin-bottom:9px;
-    padding:5px 10px;
-    border-radius:999px;
-    background:#eff6ff;
-    color:#1d4ed8;
-    font-size:12px;
-    font-weight:800;
-    letter-spacing:.05em;
-    text-transform:uppercase;
-}
-.ea-topo h1{
-    margin:0 0 8px;
-    color:#123b82;
-    font-size:clamp(28px,4vw,38px);
-    line-height:1.15;
-}
-.ea-topo p{
-    margin:0;
-    color:#64748b;
-    font-size:15px;
-    line-height:1.55;
-}
-.ea-card{
-    overflow:hidden;
-    border:1px solid #e2e8f0;
-    border-radius:20px;
-    background:#fff;
-    box-shadow:0 12px 32px rgba(15,23,42,.06);
-}
-.ea-card-cabecalho{
-    padding:23px 26px;
-    border-bottom:1px solid #e2e8f0;
-    background:#f8fafc;
-}
-.ea-card-cabecalho h2{
-    margin:0 0 5px;
-    color:#123b82;
-    font-size:21px;
-}
-.ea-card-cabecalho p{
-    margin:0;
-    color:#64748b;
-    font-size:14px;
-}
-.ea-formulario{padding:26px}
-.ea-grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:20px;
-}
-.ea-campo{min-width:0}
-.ea-campo-completo{grid-column:1/-1}
-.ea-campo label{
-    display:block;
-    margin-bottom:8px;
-    color:#334155;
-    font-size:13px;
-    font-weight:800;
-}
-.ea-campo input,.ea-campo select{
-    width:100%;
-    min-height:48px;
-    padding:0 14px;
-    border:1px solid #cbd5e1;
-    border-radius:12px;
-    background:#fff;
-    color:#0f172a;
-    font:inherit;
-    font-size:14px;
-    outline:none;
-    transition:.2s ease;
-}
-.ea-campo input:focus,.ea-campo select:focus{
-    border-color:#2563eb;
-    box-shadow:0 0 0 4px rgba(37,99,235,.1);
-}
-.ea-campo small{
-    display:block;
-    margin-top:7px;
-    color:#64748b;
-    font-size:12px;
-    line-height:1.45;
-}
-.ea-resumo{
-    margin-top:22px;
-    padding:16px 18px;
-    border:1px solid #dbeafe;
-    border-radius:14px;
-    background:#f8fbff;
-}
-.ea-resumo span{
-    display:block;
-    margin-bottom:5px;
-    color:#64748b;
-    font-size:12px;
-    font-weight:800;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-}
-.ea-resumo strong{
-    color:#123b82;
-    font-size:16px;
-}
-.ea-rodape{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-    margin-top:26px;
-    padding-top:22px;
-    border-top:1px solid #e2e8f0;
-}
-.ea-rodape-texto{
-    color:#64748b;
-    font-size:13px;
-}
-.ea-acoes{
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-@media(max-width:720px){
-    .ea-grid{grid-template-columns:1fr}
-    .ea-campo-completo{grid-column:auto}
-    .ea-rodape{align-items:stretch;flex-direction:column}
-    .ea-acoes{width:100%}
-    .ea-acoes .btn{flex:1}
-}
-@media(max-width:500px){
-    .ea-card-cabecalho,.ea-formulario{padding:20px}
-    .ea-acoes{flex-direction:column-reverse}
-    .ea-acoes .btn{width:100%}
-}
-</style>
-{% endblock %}
+        header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            padding: 40px 55px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
+        }
 
-{% block conteudo %}
-<div class="ea-pagina">
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
 
-    <header class="ea-topo">
-        <a href="/alunos" class="ea-voltar">
-            <span aria-hidden="true">←</span>
-            Voltar para alunos
-        </a>
+        header p {
+            margin-top: 10px;
+            font-size: 18px;
+            opacity: 0.9;
+        }
 
-        <span class="ea-etiqueta">Gestão acadêmica</span>
-        <h1>Editar aluno</h1>
-        <p>Atualize as informações cadastrais e a turma do estudante.</p>
-    </header>
+        .container {
+            padding: 32px;
+        }
 
-    <section class="ea-card">
-        <div class="ea-card-cabecalho">
-            <h2>Dados do aluno</h2>
-            <p>Revise as informações abaixo antes de salvar as alterações.</p>
-        </div>
+        .voltar {
+            display: inline-block;
+            margin-bottom: 22px;
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: bold;
+        }
 
-        <form action="/atualizar_aluno/{{ aluno[0] }}" method="POST" class="ea-formulario">
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            max-width: 900px;
+            margin: auto;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e5e7eb;
+        }
 
-            <div class="ea-grid">
-                <div class="ea-campo ea-campo-completo">
-                    <label for="nome">Nome do aluno</label>
-                    <input
-                        id="nome"
-                        type="text"
-                        name="nome"
-                        value="{{ aluno[1] }}"
-                        required
-                    >
-                    <small>Informe o nome completo do estudante.</small>
-                </div>
+        .card h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 28px;
+            color: #111827;
+        }
 
-                <div class="ea-campo">
-                    <label for="matricula">Matrícula</label>
-                    <input
-                        id="matricula"
-                        type="text"
-                        name="matricula"
-                        value="{{ aluno[2] }}"
-                    >
-                    <small>Use o número oficial de matrícula, quando disponível.</small>
-                </div>
+        .card p {
+            margin-top: 0;
+            margin-bottom: 30px;
+            color: #64748b;
+            font-size: 16px;
+        }
 
-                <div class="ea-campo">
-                    <label for="turma_id">Turma</label>
-                    <select id="turma_id" name="turma_id" required>
-                        {% for turma in turmas %}
-                            <option
-                                value="{{ turma[0] }}"
-                                {% if turma[0] == aluno[3] %}selected{% endif %}
-                            >
-                                {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <small>Selecione a turma à qual o aluno ficará vinculado.</small>
-                </div>
-            </div>
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #334155;
+        }
 
-            <div class="ea-resumo">
-                <span>Aluno em edição</span>
-                <strong>{{ aluno[1] }}</strong>
-            </div>
+        input,
+        select {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: 0.2s;
+        }
 
-            <div class="ea-rodape">
-                <div class="ea-rodape-texto">
-                    As alterações serão aplicadas imediatamente após o salvamento.
-                </div>
+        input:focus,
+        select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
 
-                <div class="ea-acoes">
-                    <a href="/alunos" class="btn btn-secundario">
-                        Cancelar
-                    </a>
+        .acoes {
+            display: flex;
+            gap: 12px;
+            margin-top: 35px;
+        }
 
-                    <button type="submit" class="btn btn-primario">
-                        Salvar alterações
-                    </button>
-                </div>
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            text-decoration: none;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .btn-salvar {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-salvar:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .btn-cancelar {
+            background: white;
+            color: #1e3a8a;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-cancelar:hover {
+            background: #f8fafc;
+        }
+
+        @media (max-width: 768px) {
+
+            header {
+                padding: 35px 25px;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            .container {
+                padding: 22px;
+            }
+
+            .card {
+                padding: 25px;
+            }
+
+            .acoes {
+                flex-direction: column;
+            }
+        }
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ark-design-system.css') }}">
+</head>
+
+<body class="ark-legacy-page">
+
+<header>
+    <h1>Editar Aluno</h1>
+    <p>Atualize as informações do estudante cadastrado.</p>
+</header>
+
+<div class="container">
+
+    <a href="/alunos" class="voltar">
+        ← Voltar para alunos
+    </a>
+
+    <div class="card">
+
+        <h2>Dados do aluno</h2>
+
+        <p>
+            Altere as informações abaixo e clique em
+            <strong>Salvar Alterações</strong>.
+        </p>
+
+        <form action="/atualizar_aluno/{{ aluno[0] }}" method="POST">
+
+            <label>Nome do aluno:</label>
+
+            <input
+                type="text"
+                name="nome"
+                value="{{ aluno[1] }}"
+                required
+            >
+
+            <label>Matrícula:</label>
+
+            <input
+                type="text"
+                name="matricula"
+                value="{{ aluno[2] }}"
+            >
+
+            <label>Turma:</label>
+
+            <select name="turma_id" required>
+
+                {% for turma in turmas %}
+
+                <option
+                    value="{{ turma[0] }}"
+                    {% if turma[0] == aluno[3] %}selected{% endif %}
+                >
+                    {{ turma[1] }} - {{ turma[2] }} - {{ turma[3] }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+            <div class="acoes">
+
+                <a href="/alunos" class="btn btn-cancelar">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-salvar">
+                    Salvar Alterações
+                </button>
+
             </div>
 
         </form>
-    </section>
+
+    </div>
 
 </div>
-{% endblock %}
+
+</body>
+</html>

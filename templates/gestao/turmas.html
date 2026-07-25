@@ -1,12 +1,6 @@
 {% extends "layout/base.html" %}
 
-{% block titulo %}Turmas | ARK EDU{% endblock %}
-
-{% block estilos %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
-{% endblock %}
+{% block titulo %}Turmas | ARK EDUS{% endblock %}
 
 {% block conteudo %}
 
@@ -604,6 +598,10 @@ body.modal-aberto {
 
 
 <div class="pagina-cabecalho">
+
+    <a href="/" class="voltar">
+        ← Voltar para o início
+    </a>
 
     <div class="pagina-titulo-linha">
         <div>

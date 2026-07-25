@@ -1,0 +1,443 @@
+/* ========================================================================== 
+   ARK EDUS — DESIGN SYSTEM GLOBAL
+   Carregado por último no layout/base.html para garantir consistência visual.
+   ========================================================================== */
+
+:root {
+    --ark-primary: #123b82;
+    --ark-primary-strong: #0d2d62;
+    --ark-accent: #10b7c7;
+    --ark-accent-strong: #0891b2;
+    --ark-text: #0f172a;
+    --ark-text-muted: #64748b;
+    --ark-surface: #ffffff;
+    --ark-surface-soft: #f8fafc;
+    --ark-border: #e2e8f0;
+    --ark-border-strong: #cbd5e1;
+    --ark-danger: #dc2626;
+    --ark-success: #15803d;
+    --ark-warning: #b45309;
+    --ark-radius-sm: 10px;
+    --ark-radius-md: 14px;
+    --ark-radius-lg: 20px;
+    --ark-shadow: 0 12px 32px rgba(15, 23, 42, .06);
+    --ark-font: "Segoe UI", Inter, Arial, sans-serif;
+}
+
+html, body, button, input, select, textarea {
+    font-family: var(--ark-font) !important;
+}
+
+body {
+    color: var(--ark-text);
+}
+
+/* Área padrão de página */
+.content > div:first-child,
+.content > main:first-child,
+.content > section:first-child {
+    width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   CABEÇALHOS E TÍTULOS
+   -------------------------------------------------------------------------- */
+.content h1,
+.ark-page-title,
+[class$="-title"].ark-page-title,
+[class*="-topo"] h1,
+[class*="-cabecalho"] h1,
+[class*="-header"] h1 {
+    margin-top: 0 !important;
+    color: var(--ark-primary) !important;
+    font-size: clamp(28px, 3.2vw, 38px) !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -.025em !important;
+}
+
+.content h2 {
+    color: var(--ark-primary) !important;
+    font-weight: 800 !important;
+    letter-spacing: -.015em;
+}
+
+/* subtítulos de cabeçalho */
+.ark-page-subtitle,
+[class*="-topo"] > div > p,
+[class*="-cabecalho"] > div > p,
+[class*="-header"] > div > p,
+[class$="-subtitulo"] {
+    color: var(--ark-text-muted) !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    line-height: 1.55 !important;
+}
+
+/* etiquetas superiores */
+.ark-page-eyebrow,
+[class$="-etiqueta"],
+[class*="-etiqueta "] {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 28px !important;
+    padding: 5px 10px !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: .05em !important;
+    line-height: 1.2 !important;
+    text-transform: uppercase !important;
+}
+
+/* --------------------------------------------------------------------------
+   LINKS DE VOLTAR
+   -------------------------------------------------------------------------- */
+a[class*="voltar"],
+button[class*="voltar"],
+.ark-back-link,
+.voltar {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #475569 !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+    transition: none !important;
+}
+
+a[class*="voltar"]:hover,
+a[class*="voltar"]:focus,
+a[class*="voltar"]:active,
+button[class*="voltar"]:hover,
+button[class*="voltar"]:focus,
+button[class*="voltar"]:active,
+.ark-back-link:hover,
+.ark-back-link:focus,
+.ark-back-link:active,
+.voltar:hover,
+.voltar:focus,
+.voltar:active {
+    color: #475569 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   BOTÕES — SEM MUDANÇA DE COR NO HOVER
+   -------------------------------------------------------------------------- */
+.btn,
+[class^="btn-"],
+[class*=" btn-"],
+[class$="-btn"],
+[class*="-btn-"],
+button[class*="botao"],
+a[class*="botao"] {
+    font-family: var(--ark-font) !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+    transition: box-shadow .18s ease !important;
+}
+
+.btn-primario,
+.btn-primary,
+[class*="btn-principal"],
+[class*="btn-primary"],
+[class*="btn-novo"],
+[class*="btn-adicionar"],
+[class*="btn-salvar"],
+[class*="btn-criar"],
+[class*="btn-editar"],
+[class*="botao-principal"] {
+    border-color: var(--ark-primary) !important;
+    background: var(--ark-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 20px rgba(18, 59, 130, .16) !important;
+}
+
+.btn-primario:hover,
+.btn-primario:focus,
+.btn-primario:active,
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+[class*="btn-principal"]:hover,
+[class*="btn-principal"]:focus,
+[class*="btn-principal"]:active,
+[class*="btn-primary"]:hover,
+[class*="btn-primary"]:focus,
+[class*="btn-primary"]:active,
+[class*="btn-novo"]:hover,
+[class*="btn-novo"]:focus,
+[class*="btn-novo"]:active,
+[class*="btn-adicionar"]:hover,
+[class*="btn-adicionar"]:focus,
+[class*="btn-adicionar"]:active,
+[class*="btn-salvar"]:hover,
+[class*="btn-salvar"]:focus,
+[class*="btn-salvar"]:active,
+[class*="btn-criar"]:hover,
+[class*="btn-criar"]:focus,
+[class*="btn-criar"]:active,
+[class*="btn-editar"]:hover,
+[class*="btn-editar"]:focus,
+[class*="btn-editar"]:active,
+[class*="botao-principal"]:hover,
+[class*="botao-principal"]:focus,
+[class*="botao-principal"]:active {
+    border-color: var(--ark-primary) !important;
+    background: var(--ark-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 20px rgba(18, 59, 130, .16) !important;
+    transform: none !important;
+    filter: none !important;
+}
+
+.btn-secundario,
+.btn-secondary,
+.btn-outline,
+[class*="btn-secundario"],
+[class*="btn-cancelar"],
+[class*="btn-limpar"] {
+    border-color: var(--ark-border-strong) !important;
+    background: #fff !important;
+    color: #475569 !important;
+    box-shadow: none !important;
+}
+
+.btn-secundario:hover,
+.btn-secundario:focus,
+.btn-secundario:active,
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-secondary:active,
+.btn-outline:hover,
+.btn-outline:focus,
+.btn-outline:active,
+[class*="btn-secundario"]:hover,
+[class*="btn-secundario"]:focus,
+[class*="btn-secundario"]:active,
+[class*="btn-cancelar"]:hover,
+[class*="btn-cancelar"]:focus,
+[class*="btn-cancelar"]:active,
+[class*="btn-limpar"]:hover,
+[class*="btn-limpar"]:focus,
+[class*="btn-limpar"]:active {
+    border-color: var(--ark-border-strong) !important;
+    background: #fff !important;
+    color: #475569 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    filter: none !important;
+}
+
+.btn-danger,
+[class*="btn-danger"],
+[class*="btn-excluir"],
+[class*="btn-remover"],
+[class*="acao-excluir"] {
+    border-color: var(--ark-danger) !important;
+    background: var(--ark-danger) !important;
+    color: #fff !important;
+}
+
+.btn-danger:hover,
+.btn-danger:focus,
+.btn-danger:active,
+[class*="btn-danger"]:hover,
+[class*="btn-danger"]:focus,
+[class*="btn-danger"]:active,
+[class*="btn-excluir"]:hover,
+[class*="btn-excluir"]:focus,
+[class*="btn-excluir"]:active,
+[class*="btn-remover"]:hover,
+[class*="btn-remover"]:focus,
+[class*="btn-remover"]:active {
+    border-color: var(--ark-danger) !important;
+    background: var(--ark-danger) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+    transform: none !important;
+    filter: none !important;
+}
+
+/* Botões de menu/dropdown que devem permanecer transparentes */
+[class*="dropdown"] [class*="acao-excluir"],
+[class*="menu"] [class*="acao-excluir"] {
+    background: transparent !important;
+    color: var(--ark-danger) !important;
+    border-color: transparent !important;
+}
+[class*="dropdown"] [class*="acao-excluir"]:hover,
+[class*="menu"] [class*="acao-excluir"]:hover {
+    background: transparent !important;
+    color: var(--ark-danger) !important;
+}
+
+/* --------------------------------------------------------------------------
+   CARDS
+   -------------------------------------------------------------------------- */
+.ark-card,
+.card,
+[class$="-card"],
+[class*="-card "] {
+    border-color: var(--ark-border) !important;
+    border-radius: var(--ark-radius-lg) !important;
+    background: var(--ark-surface) !important;
+    box-shadow: var(--ark-shadow) !important;
+}
+
+/* --------------------------------------------------------------------------
+   FORMULÁRIOS
+   -------------------------------------------------------------------------- */
+.content label {
+    color: #334155 !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+}
+
+.content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.content select,
+.content textarea {
+    border-color: var(--ark-border-strong) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    color: var(--ark-text) !important;
+    font-family: var(--ark-font) !important;
+    box-shadow: none !important;
+}
+
+.content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.content select:focus,
+.content textarea:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, .10) !important;
+    outline: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   TABELAS
+   -------------------------------------------------------------------------- */
+.content table {
+    background: #fff;
+}
+.content table th {
+    background: var(--ark-primary) !important;
+    color: #fff !important;
+    font-weight: 800 !important;
+}
+.content table td {
+    color: #334155;
+}
+.content table tbody tr:hover td {
+    background: #f8fbff !important;
+}
+
+/* --------------------------------------------------------------------------
+   ACESSIBILIDADE E INTERAÇÃO
+   -------------------------------------------------------------------------- */
+.content a:focus-visible,
+.content button:focus-visible,
+.content input:focus-visible,
+.content select:focus-visible,
+.content textarea:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, .22) !important;
+    outline-offset: 2px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .content h1,
+    [class*="-topo"] h1,
+    [class*="-cabecalho"] h1,
+    [class*="-header"] h1 {
+        font-size: 28px !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   PÁGINAS LEGADAS QUE AINDA NÃO HERDAM layout/base.html
+   -------------------------------------------------------------------------- */
+body.ark-legacy-page {
+    margin: 0 !important;
+    min-height: 100vh;
+    padding: 36px !important;
+    background: #f6f8fc !important;
+    color: var(--ark-text) !important;
+    font-family: var(--ark-font) !important;
+}
+
+body.ark-legacy-page > header {
+    width: min(100%, 1280px) !important;
+    margin: 0 auto 24px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--ark-text) !important;
+    box-shadow: none !important;
+}
+
+body.ark-legacy-page > header h1,
+body.ark-legacy-page .container h1,
+body.ark-legacy-page main h1 {
+    margin: 0 0 8px !important;
+    color: var(--ark-primary) !important;
+    font-size: clamp(28px, 3.2vw, 38px) !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -.025em !important;
+}
+
+body.ark-legacy-page > header p {
+    margin: 0 !important;
+    color: var(--ark-text-muted) !important;
+    font-size: 15px !important;
+    opacity: 1 !important;
+}
+
+body.ark-legacy-page > .container,
+body.ark-legacy-page > main,
+body.ark-legacy-page > .pagina,
+body.ark-legacy-page > .page {
+    width: min(100%, 1280px) !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+}
+
+body.ark-legacy-page .card,
+body.ark-legacy-page [class$="-card"],
+body.ark-legacy-page [class*="-card "] {
+    border: 1px solid var(--ark-border) !important;
+    border-radius: var(--ark-radius-lg) !important;
+    background: #fff !important;
+    box-shadow: var(--ark-shadow) !important;
+}
+
+body.ark-legacy-page table th {
+    background: var(--ark-primary) !important;
+    color: #fff !important;
+}
+
+body.ark-legacy-page a[class*="voltar"],
+body.ark-legacy-page .voltar {
+    color: #475569 !important;
+}
+
+@media (max-width: 700px) {
+    body.ark-legacy-page { padding: 20px !important; }
+}

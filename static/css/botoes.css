@@ -1,259 +1,223 @@
-/* =====================================================
-   BOTÕES
-===================================================== */
+/* ===========================
+   BOTÕES - ARK EDUS
+=========================== */
 
 .btn-primario,
-.btn-secundario,
-.btn-outline,
-.btn-success,
-.btn-danger {
+.btn-secundario {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 9px;
+    gap: 10px;
 
-    min-height: 44px;
-    padding: 0 18px;
+    min-height: 50px;
+    padding: 14px 26px;
 
-    border-radius: 12px;
+    border-radius: 14px;
 
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 850;
-    line-height: 1;
-    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
     text-decoration: none;
-    white-space: nowrap;
 
     cursor: pointer;
 
     transition:
-        background-color 0.18s ease,
-        color 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        transform 0.18s ease;
+        background .25s ease,
+        color .25s ease,
+        border-color .25s ease,
+        box-shadow .25s ease,
+        transform .25s ease;
 }
 
+/* ===================================
+   BOTÃO PRINCIPAL
+=================================== */
+
 .btn-primario {
-    border: 1px solid var(--form-azul);
+    color: var(--branco);
+
     background: linear-gradient(
         135deg,
-        var(--form-azul) 0%,
-        var(--form-ciano-escuro) 100%
+        var(--azul) 0%,
+        var(--ciano-escuro) 100%
     );
-    color: #FFFFFF;
-    box-shadow: 0 8px 20px rgba(13, 53, 111, 0.17);
+
+    border: 1px solid transparent;
+
+    box-shadow:
+        0 12px 28px rgba(13,45,98,.18);
 }
 
 .btn-primario:hover {
-    border-color: var(--form-azul-escuro);
+
     background: linear-gradient(
         135deg,
-        var(--form-azul-escuro) 0%,
-        var(--form-ciano) 100%
+        var(--azul-escuro) 0%,
+        var(--ciano) 100%
     );
-    box-shadow: 0 12px 26px rgba(13, 53, 111, 0.22);
-    transform: translateY(-1px);
+
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 18px 36px rgba(13,45,98,.22);
 }
 
-.btn-secundario {
-    border: 1px solid var(--form-borda);
-    background: var(--form-branco);
-    color: var(--form-azul);
-    box-shadow: 0 4px 13px rgba(13, 53, 111, 0.04);
+.btn-primario:active{
+    transform: scale(.98);
 }
 
-.btn-secundario:hover {
-    border-color: rgba(16, 183, 199, 0.45);
-    background: rgba(16, 183, 199, 0.07);
-    color: var(--form-ciano-escuro);
-    transform: translateY(-1px);
+/* ===================================
+   BOTÃO SECUNDÁRIO
+=================================== */
+
+.btn-secundario{
+
+    background: var(--branco);
+
+    color: var(--azul);
+
+    border:1px solid var(--borda);
+
+    box-shadow:0 4px 14px rgba(13,45,98,.05);
 }
 
-.btn-outline {
-    border: 1px solid var(--form-ciano);
-    background: transparent;
-    color: var(--form-azul);
+.btn-secundario:hover{
+
+    background:rgba(16,183,199,.08);
+
+    border-color:var(--ciano);
+
+    color:var(--ciano-escuro);
+
+    transform:translateY(-2px);
 }
 
-.btn-outline:hover {
-    background: var(--form-ciano);
-    color: #FFFFFF;
-    transform: translateY(-1px);
+/* ===================================
+   BOTÃO OUTLINE
+=================================== */
+
+.btn-outline{
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    min-height:50px;
+    padding:14px 26px;
+
+    background:transparent;
+
+    color:var(--azul);
+
+    border:2px solid var(--ciano);
+
+    border-radius:14px;
+
+    font-weight:700;
+
+    transition:.25s;
 }
 
-.btn-success {
-    border: 1px solid var(--form-sucesso);
-    background: var(--form-sucesso);
-    color: #FFFFFF;
+.btn-outline:hover{
+
+    background:var(--ciano);
+
+    color:white;
 }
 
-.btn-success:hover {
-    background: #166534;
-    border-color: #166534;
-    transform: translateY(-1px);
+/* ===================================
+   BOTÃO SUCESSO
+=================================== */
+
+.btn-success{
+
+    background:#10B7C7;
+
+    color:white;
+
+    border:none;
 }
 
-.btn-danger {
-    border: 1px solid var(--form-perigo);
-    background: var(--form-perigo);
-    color: #FFFFFF;
+.btn-success:hover{
+
+    background:#0891B2;
 }
 
-.btn-danger:hover {
-    background: #B91C1C;
-    border-color: #B91C1C;
-    transform: translateY(-1px);
+/* ===================================
+   BOTÃO PERIGO
+=================================== */
+
+.btn-danger{
+
+    background:#DC2626;
+
+    color:white;
+
+    border:none;
 }
 
-.btn-primario:active,
-.btn-secundario:active,
-.btn-outline:active,
-.btn-success:active,
-.btn-danger:active {
-    transform: translateY(0) scale(0.985);
+.btn-danger:hover{
+
+    background:#B91C1C;
 }
+
+/* ===================================
+   DESABILITADO
+=================================== */
 
 .btn-primario:disabled,
 .btn-secundario:disabled,
-.btn-outline:disabled,
-.btn-success:disabled,
-.btn-danger:disabled,
-.btn-primario[aria-disabled="true"],
-.btn-secundario[aria-disabled="true"],
-.btn-outline[aria-disabled="true"],
-.btn-success[aria-disabled="true"],
-.btn-danger[aria-disabled="true"] {
-    opacity: 0.52;
-    cursor: not-allowed;
-    pointer-events: none;
+.btn-outline:disabled{
+
+    opacity:.55;
+
+    cursor:not-allowed;
+
+    transform:none;
+
+    box-shadow:none;
+}
+/* ========================================================================== 
+   REGRA DE CONSISTÊNCIA ARK EDUS
+   O hover mantém as mesmas cores do estado normal.
+   ========================================================================== */
+.btn-primario:hover,
+.btn-primario:focus,
+.btn-primario:active {
+    background: linear-gradient(135deg, var(--azul) 0%, var(--ciano-escuro) 100%);
+    color: var(--branco);
+    border-color: transparent;
     transform: none;
-    box-shadow: none;
+    box-shadow: 0 12px 28px rgba(13,45,98,.18);
 }
-
-/* =====================================================
-   AÇÕES DO FORMULÁRIO
-===================================================== */
-
-.form-card-acoes {
-    padding: 20px 26px;
+.btn-secundario:hover,
+.btn-secundario:focus,
+.btn-secundario:active {
+    background: var(--branco);
+    color: var(--azul);
+    border-color: var(--borda);
+    transform: none;
+    box-shadow: 0 4px 14px rgba(13,45,98,.05);
 }
-
-.acoes-form {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 10px;
-
-    width: 100%;
-    margin-top: 24px;
+.btn-outline:hover,
+.btn-outline:focus,
+.btn-outline:active {
+    background: transparent;
+    color: var(--azul);
+    border-color: var(--ciano);
+    transform: none;
 }
-
-.acoes-form a,
-.acoes-form button,
-.acoes-form .btn-primario,
-.acoes-form .btn-secundario,
-.acoes-form .btn-outline {
-    min-width: 150px;
+.btn-success:hover,
+.btn-success:focus,
+.btn-success:active {
+    background: #10B7C7;
+    color: #fff;
+    transform: none;
 }
-
-/* =====================================================
-   ESTADO VAZIO
-===================================================== */
-
-.estado-vazio-menor {
-    min-height: 120px;
-    padding: 22px;
-
-    display: grid;
-    place-items: center;
-
-    border: 1px dashed rgba(8, 145, 178, 0.32);
-    border-radius: 14px;
-    background: rgba(16, 183, 199, 0.035);
-
-    color: var(--form-texto-suave);
-    text-align: center;
-}
-
-.estado-vazio-menor h2 {
-    margin: 0 0 6px;
-    color: var(--form-azul);
-    font-size: 17px;
-}
-
-/* =====================================================
-   VALIDAÇÃO NATIVA
-===================================================== */
-
-.campo input:invalid:not(:placeholder-shown),
-.campo textarea:invalid:not(:placeholder-shown) {
-    border-color: var(--form-perigo);
-}
-
-.campo input:invalid:not(:placeholder-shown):focus,
-.campo textarea:invalid:not(:placeholder-shown):focus {
-    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10);
-}
-
-/* =====================================================
-   RESPONSIVIDADE
-===================================================== */
-
-@media (max-width: 1100px) {
-    .form-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .campo-maior {
-        grid-column: span 1;
-    }
-
-    .etapas-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 700px) {
-    .form-card {
-        padding: 20px;
-        border-radius: 17px;
-    }
-
-    .form-card-cabecalho {
-        margin: -20px -20px 20px;
-        padding: 17px 20px;
-    }
-
-    .form-card-acoes {
-        padding: 18px 20px;
-    }
-
-    .form-grid,
-    .opcoes-grid,
-    .etapas-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .campo-maior,
-    .campo-largura-total {
-        grid-column: auto;
-    }
-
-    .acoes-form {
-        flex-direction: column-reverse;
-        align-items: stretch;
-        margin-top: 20px;
-    }
-
-    .acoes-form a,
-    .acoes-form button,
-    .acoes-form .btn-primario,
-    .acoes-form .btn-secundario,
-    .acoes-form .btn-outline {
-        width: 100%;
-        min-width: 0;
-    }
+.btn-danger:hover,
+.btn-danger:focus,
+.btn-danger:active {
+    background: #DC2626;
+    color: #fff;
+    transform: none;
 }

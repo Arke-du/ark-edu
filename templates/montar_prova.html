@@ -3,9 +3,6 @@
 {% block titulo %}Montar avaliação | ARK EDUS{% endblock %}
 
 {% block estilos %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 <style>
     .montagem-pagina {
         --ark-azul: #123b82;
@@ -1044,18 +1041,18 @@
 
                             <div class="ordem-acoes">
                                 <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/mover/cima">
-                                    <button type="submit" class="montagem-btn-icone btn-outline" title="Mover para cima" {% if loop.first %}disabled{% endif %}>
+                                    <button type="submit" class="montagem-btn-icone" title="Mover para cima" {% if loop.first %}disabled{% endif %}>
                                         <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M12 19V5"></path><path d="M6 11L12 5L18 11"></path></svg>
                                     </button>
                                 </form>
                                 <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/mover/baixo">
-                                    <button type="submit" class="montagem-btn-icone btn-outline" title="Mover para baixo" {% if loop.last %}disabled{% endif %}>
+                                    <button type="submit" class="montagem-btn-icone" title="Mover para baixo" {% if loop.last %}disabled{% endif %}>
                                         <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M12 5V19"></path><path d="M6 13L12 19L18 13"></path></svg>
                                     </button>
                                 </form>
                             </div>
 
-                            <button type="button" class="montagem-btn-icone btn-outline"
+                            <button type="button" class="montagem-btn-icone"
                                 title="Pré-visualizar questão"
                                 data-preview-id="previewQuestao{{ questao['id'] }}"
                                 data-edit-url="/questoes/{{ questao['id'] }}/editar?prova_id={{ prova['id'] }}"
@@ -1068,7 +1065,7 @@
                             </button>
 
                             <form method="POST" action="/provas/{{ prova['id'] }}/questoes/{{ questao['vinculo_id'] }}/remover">
-                                <button type="submit" class="montagem-btn-icone perigo btn-danger" title="Remover questão">
+                                <button type="submit" class="montagem-btn-icone perigo" title="Remover questão">
                                     <svg class="montagem-svg" viewBox="0 0 24 24">
                                         <path d="M3 6H21"></path><path d="M8 6V4H16V6"></path><path d="M19 6L18 20H6L5 6"></path>
                                     </svg>
@@ -1311,7 +1308,7 @@
 
             <section class="montagem-painel montagem-painel-acoes">
                 <form method="POST" action="/provas/{{ prova['id'] }}/finalizar">
-                    <button type="submit" class="montagem-btn montagem-btn-principal btn-primario">
+                    <button type="submit" class="montagem-btn montagem-btn-principal">
                         Finalizar avaliação
                     </button>
                 </form>
@@ -1325,7 +1322,7 @@
     <div class="montagem-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="tituloPreviewQuestao">
         <div class="montagem-modal-cabecalho">
             <h2 id="tituloPreviewQuestao">Pré-visualização da questão</h2>
-            <button type="button" class="montagem-btn-icone btn-outline" data-fechar-modal aria-label="Fechar">
+            <button type="button" class="montagem-btn-icone" data-fechar-modal aria-label="Fechar">
                 <svg class="montagem-svg" viewBox="0 0 24 24"><path d="M18 6L6 18"></path><path d="M6 6L18 18"></path></svg>
             </button>
         </div>
@@ -1376,7 +1373,7 @@
                 <h2 id="tituloBancoQuestoes">Banco de questões</h2>
             </div>
 
-            <button type="button" class="montagem-btn-icone btn-outline" data-fechar-modal aria-label="Fechar">
+            <button type="button" class="montagem-btn-icone" data-fechar-modal aria-label="Fechar">
                 <svg class="montagem-svg" viewBox="0 0 24 24">
                     <path d="M18 6L6 18"></path>
                     <path d="M6 6L18 18"></path>
@@ -1402,7 +1399,7 @@
 
                     <form method="POST" action="/provas/{{ prova['id'] }}/questoes/adicionar">
                         <input type="hidden" name="questao_id" value="{{ questao['id'] }}">
-                        <button type="submit" class="montagem-btn montagem-btn-principal btn-primario">
+                        <button type="submit" class="montagem-btn montagem-btn-principal">
                             Adicionar
                         </button>
                     </form>

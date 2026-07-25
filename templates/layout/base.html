@@ -11,11 +11,6 @@
 
     <title>{% block titulo %}ARK EDUS{% endblock %}</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='css/base.css') }}"
@@ -63,9 +58,15 @@
 
     {% block estilos %}{% endblock %}
 
+    <!-- Design System global: deve permanecer após os estilos específicos das páginas -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/ark-design-system.css') }}"
+    >
+
     <style>
         /* =====================================================
-           NOTIFICAÇÕES GLOBAIS — ARK EDUS
+           NOTIFICAÇÕES GLOBAIS — ARK EDU
         ===================================================== */
 
         .ark-toast-area {
@@ -270,7 +271,7 @@
     </style>
 </head>
 
-<body class="ark-shell">
+<body>
 
 <div class="app">
 
@@ -284,7 +285,7 @@
             <a href="/">
                 <img
                     src="{{ url_for('static', filename='img/logo.png') }}"
-                    alt="ARK EDUS"
+                    alt="ARK EDU"
                 >
             </a>
         </div>
@@ -704,7 +705,7 @@
 
 
         <!-- =====================================================
-             NOTIFICAÇÕES GLOBAIS — ARK EDUS
+             NOTIFICAÇÕES GLOBAIS — ARK EDU
         ====================================================== -->
         {% with notificacoes = get_flashed_messages(with_categories=true) %}
             {% if notificacoes %}

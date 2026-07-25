@@ -1,26 +1,40 @@
+/* ===========================
+   SIDEBAR
+=========================== */
+
 .sidebar {
     position: fixed;
-    inset: 0 auto 0 0;
+    top: 0;
+    left: 0;
     z-index: 1000;
+
     width: var(--largura-sidebar);
     height: 100vh;
+
     display: flex;
     flex-direction: column;
-    padding: 0 14px 16px;
-    background:
-        linear-gradient(180deg, rgba(16,183,199,.08), transparent 18rem),
-        linear-gradient(180deg, var(--azul-950) 0%, var(--azul-900) 100%);
-    border-right: 1px solid rgba(255,255,255,.06);
-    box-shadow: 12px 0 34px rgba(7,26,54,.14);
+
+    padding: 0 18px 18px;
+
+    background: var(--branco);
+    border-right: 1px solid var(--borda);
+    box-shadow: 6px 0 24px rgba(13, 45, 98, 0.04);
+
     overflow: hidden;
 }
 
+/* ===========================
+   LOGO
+=========================== */
+
 .sidebar-logo {
     flex-shrink: 0;
-    padding: 22px 12px 18px;
-    margin-bottom: 8px;
+
+    padding: 24px 10px 22px;
+    margin-bottom: 18px;
+
     text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,.09);
+    border-bottom: 1px solid var(--borda);
 }
 
 .sidebar-logo a {
@@ -31,26 +45,39 @@
 
 .sidebar-logo img {
     display: block;
-    width: 158px;
+
+    width: 170px;
     max-width: 100%;
     height: auto;
+
+    margin: 0 auto;
+
     object-fit: contain;
-    filter: brightness(0) invert(1);
-    transition: transform .2s ease, opacity .2s ease;
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
 }
 
 .sidebar-logo a:hover img {
-    transform: translateY(-1px) scale(1.02);
+    transform: scale(1.025);
 }
+
+/* ===========================
+   MENU PRINCIPAL
+=========================== */
 
 .menu {
     flex: 1;
     min-height: 0;
-    padding: 8px 2px 18px;
+
+    padding-right: 2px;
+    padding-bottom: 18px;
+
     overflow-x: hidden;
     overflow-y: auto;
+
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,.22) transparent;
+    scrollbar-color: rgba(13, 45, 98, 0.25) transparent;
 }
 
 .menu::-webkit-scrollbar {
@@ -62,117 +89,177 @@
 }
 
 .menu::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,.22);
+    background: rgba(13, 45, 98, 0.25);
     border-radius: 999px;
+}
+
+.menu::-webkit-scrollbar-thumb:hover {
+    background: var(--ciano-escuro);
 }
 
 .menu a {
     position: relative;
+
     display: flex;
     align-items: center;
-    gap: 13px;
-    min-height: 46px;
-    padding: 11px 13px;
-    margin-bottom: 5px;
-    color: rgba(255,255,255,.78);
+    gap: 14px;
+
+    min-height: 50px;
+    padding: 13px 16px;
+    margin-bottom: 7px;
+
+    color: var(--texto);
     text-decoration: none;
-    font-size: 13px;
     font-weight: 700;
+
     border: 1px solid transparent;
-    border-radius: 12px;
-    transition: .2s ease;
+    border-radius: 14px;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .menu a:hover {
-    color: #fff;
-    background: rgba(255,255,255,.08);
-    border-color: rgba(255,255,255,.08);
-    transform: translateX(2px);
+    background: rgba(16, 183, 199, 0.09);
+    color: var(--azul);
+    border-color: rgba(16, 183, 199, 0.16);
+    transform: translateX(3px);
 }
 
 .menu a.ativo-menu,
 .menu a.ativo {
-    color: #fff;
-    background: linear-gradient(90deg, rgba(28,104,212,.95), rgba(16,183,199,.72));
-    border-color: rgba(255,255,255,.12);
-    box-shadow: 0 8px 18px rgba(5,21,45,.25);
+    background: linear-gradient(
+        90deg,
+        rgba(16, 183, 199, 0.16) 0%,
+        rgba(16, 183, 199, 0.07) 100%
+    );
+
+    color: var(--azul);
+    border-color: rgba(16, 183, 199, 0.22);
+    box-shadow: 0 6px 16px rgba(13, 45, 98, 0.06);
 }
 
 .menu a.ativo-menu::before,
 .menu a.ativo::before {
     content: "";
+
     position: absolute;
-    left: -7px;
-    top: 11px;
-    bottom: 11px;
-    width: 3px;
-    background: #67e8f9;
+    top: 10px;
+    bottom: 10px;
+    left: 5px;
+
+    width: 4px;
+
+    background: var(--ciano);
     border-radius: 999px;
 }
 
+.menu a span {
+    min-width: 0;
+    line-height: 1.25;
+}
+
 .menu svg {
-    width: 19px;
-    height: 19px;
-    min-width: 19px;
+    width: 21px;
+    height: 21px;
+    min-width: 21px;
+
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+
+    transition: transform 0.2s ease;
 }
+
+.menu a:hover svg {
+    transform: scale(1.06);
+}
+
+.menu a.ativo-menu svg,
+.menu a.ativo svg {
+    color: var(--ciano-escuro);
+}
+
+/* ===========================
+   RODAPÉ DA SIDEBAR
+=========================== */
 
 .sidebar-rodape {
     flex-shrink: 0;
-    padding-top: 14px;
-    border-top: 1px solid rgba(255,255,255,.09);
+
+    padding: 18px 0 0;
+
+    background: var(--branco);
+    border-top: 1px solid var(--borda);
 }
 
 .sidebar-usuario {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 0 13px 10px;
+    gap: 4px;
+
+    padding: 0 16px 12px;
 }
 
-.sidebar-usuario strong,
-.sidebar-usuario span {
+.sidebar-usuario strong {
     overflow: hidden;
+
+    color: var(--azul);
+    font-size: 14px;
+    font-weight: 800;
+
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.sidebar-usuario strong {
-    color: #fff;
-    font-size: 13px;
-    font-weight: 800;
+.sidebar-usuario span {
+    overflow: hidden;
+
+    color: var(--texto-suave);
+    font-size: 12px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.sidebar-usuario span {
-    color: rgba(255,255,255,.6);
-    font-size: 11px;
-    font-weight: 600;
-}
+/* ===========================
+   BOTÃO SAIR
+=========================== */
 
 .menu-sair {
     display: flex;
     align-items: center;
-    gap: 13px;
+    gap: 14px;
+
     width: 100%;
-    min-height: 44px;
-    padding: 10px 13px;
-    color: #fecaca;
+    min-height: 48px;
+    padding: 13px 16px;
+
+    color: #991B1B;
     text-decoration: none;
-    font-size: 13px;
     font-weight: 700;
+
     border: 1px solid transparent;
-    border-radius: 12px;
-    transition: .2s ease;
+    border-radius: 14px;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
 }
 
 .menu-sair svg {
-    width: 19px;
-    height: 19px;
-    min-width: 19px;
+    width: 21px;
+    height: 21px;
+    min-width: 21px;
+
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -181,26 +268,47 @@
 }
 
 .menu-sair:hover {
-    color: #fff;
-    background: rgba(239,68,68,.15);
-    border-color: rgba(248,113,113,.16);
-    transform: translateX(2px);
+    background: #FEF2F2;
+    color: #B91C1C;
+    border-color: #FECACA;
+    transform: translateX(3px);
 }
 
-@media (max-width: 760px) {
+/* ===========================
+   RESPONSIVIDADE
+=========================== */
+
+@media (max-width: 900px) {
     .sidebar {
-        position: static;
-        width: 100%;
-        height: auto;
-        min-height: auto;
-        padding: 0 14px 14px;
-        border-right: none;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-        overflow: visible;
+        padding-left: 14px;
+        padding-right: 14px;
     }
 
     .sidebar-logo img {
         width: 145px;
+    }
+
+    .menu a {
+        padding-left: 13px;
+        padding-right: 13px;
+    }
+}
+
+@media (max-width: 700px) {
+    .sidebar {
+        position: static;
+
+        width: 100%;
+        height: auto;
+        min-height: auto;
+
+        padding: 0 16px 16px;
+
+        border-right: none;
+        border-bottom: 1px solid var(--borda);
+        box-shadow: none;
+
+        overflow: visible;
     }
 
     .menu {
@@ -208,6 +316,6 @@
     }
 
     .sidebar-rodape {
-        margin-top: 10px;
+        margin-top: 16px;
     }
 }
