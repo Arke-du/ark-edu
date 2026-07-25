@@ -24,6 +24,42 @@
 .print-footer{display:none}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:1000;padding:20px}.modal-overlay.open{display:grid}.modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 80px rgba(0,0,0,.25)}.modal-head{padding:20px 22px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0}.modal-body{padding:20px 22px}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal-option{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--borda);border-radius:11px}.modal-option input{margin-top:3px}.modal-option strong{display:block;font-size:13px}.modal-option span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.modal-foot{padding:16px 22px;border-top:1px solid var(--borda);display:flex;justify-content:flex-end;gap:9px}.print-header{display:none}.print-only{display:none}
+
+/* =========================================================
+   MAPA DE RESPOSTAS
+========================================================= */
+.mapa-legenda{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin-bottom:14px;color:var(--muted);font-size:11px}
+.mapa-legenda-item{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.mapa-legenda-cor{width:12px;height:12px;border:1px solid transparent;border-radius:4px}
+.mapa-legenda-cor.correta{background:#dcfce7;border-color:#86efac}
+.mapa-legenda-cor.parcial{background:#ffedd5;border-color:#fdba74}
+.mapa-legenda-cor.errada{background:#fee2e2;border-color:#fca5a5}
+.mapa-legenda-cor.pendente{background:#f1f5f9;border-color:#cbd5e1}
+.mapa-wrap{position:relative;max-width:100%;overflow:auto;border:1px solid var(--borda);border-radius:13px;background:#fff}
+.mapa-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.mapa-table th,.mapa-table td{height:45px;padding:6px;border-right:1px solid #e8edf3;border-bottom:1px solid #e8edf3;text-align:center;vertical-align:middle;font-size:11px}
+.mapa-table thead th{position:sticky;top:0;z-index:4;background:#0f356f;color:#fff;font-weight:900}
+.mapa-table .mapa-aluno-col{position:sticky;left:0;z-index:3;width:260px;min-width:260px;max-width:260px;padding:9px 13px;text-align:left;background:#fff;box-shadow:5px 0 10px rgba(15,23,42,.045)}
+.mapa-table thead .mapa-aluno-col{z-index:6;background:#0f356f;color:#fff;text-align:left}
+.mapa-table .mapa-q-col{width:48px;min-width:48px;max-width:48px}
+.mapa-table .mapa-ta-col{position:sticky;right:0;z-index:3;width:58px;min-width:58px;max-width:58px;background:#edf4ff;color:#0f356f;font-weight:950;box-shadow:-5px 0 10px rgba(15,23,42,.045)}
+.mapa-table thead .mapa-ta-col{z-index:6;background:#0f356f;color:#fff}
+.mapa-table tbody tr:last-child td{border-bottom:0}
+.mapa-table th:last-child,.mapa-table td:last-child{border-right:0}
+.mapa-aluno-nome{display:block;overflow:hidden;color:#172033;font-size:12px;font-weight:850;text-overflow:ellipsis;white-space:nowrap}
+.mapa-aluno-meta{display:block;margin-top:2px;overflow:hidden;color:#94a3b8;font-size:9px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.mapa-celula{font-weight:950}
+.mapa-celula.correta{background:#dcfce7;color:#166534}
+.mapa-celula.parcial{background:#ffedd5;color:#9a3412}
+.mapa-celula.errada{background:#fee2e2;color:#b91c1c}
+.mapa-celula.em_branco,.mapa-celula.sem_resposta,.mapa-celula.pendente{background:#f8fafc;color:#94a3b8}
+.mapa-celula.anulada{background:#fef3c7;color:#92400e}
+.mapa-celula.ausente{background:#f1f5f9;color:#64748b;font-size:8px}
+.mapa-table tbody tr:hover td{filter:brightness(.985)}
+.mapa-table tbody tr:hover .mapa-aluno-col{background:#f8fbff}
+.mapa-q-tipo{display:block;margin-top:2px;color:#bfd2ef;font-size:7px;font-weight:800;text-transform:uppercase}
+.mapa-vazio{padding:38px 20px;color:var(--muted);text-align:center}
+
 @media(max-width:1200px){.r-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.resultados-page{padding:14px}.r-topo,.r-prova{grid-template-columns:1fr;display:grid}.r-grid{grid-template-columns:repeat(2,1fr)}.r-dupla,.modal-grid{grid-template-columns:1fr}}
 
 @media print{
@@ -167,7 +203,541 @@
     color:#555;
     font-size:9pt
   }
+  #tab-mapa .r-section-head{margin-bottom:5px!important}
+  #tab-mapa .mapa-legenda{display:none!important}
+  #tab-mapa .mapa-wrap{overflow:visible!important;border:1px solid #888!important}
+  #tab-mapa .mapa-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+    border-collapse:collapse!important
+  }
+  #tab-mapa .mapa-table th,
+  #tab-mapa .mapa-table td{
+    position:static!important;
+    height:auto!important;
+    padding:2px 1px!important;
+    border:1px solid #aaa!important;
+    box-shadow:none!important;
+    font-size:6.4pt!important;
+    line-height:1.1!important
+  }
+  #tab-mapa .mapa-table .mapa-aluno-col{
+    width:25%!important;
+    min-width:25%!important;
+    max-width:25%!important;
+    padding:3px!important;
+    text-align:left!important
+  }
+  #tab-mapa .mapa-table .mapa-q-col{
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important
+  }
+  #tab-mapa .mapa-table .mapa-ta-col{
+    width:28px!important;
+    min-width:28px!important;
+    max-width:28px!important
+  }
+  #tab-mapa .mapa-aluno-nome{font-size:6.8pt!important;white-space:normal!important}
+  #tab-mapa .mapa-aluno-meta{display:none!important}
+  #tab-mapa .mapa-q-tipo{display:none!important}
+  #tab-mapa .mapa-celula.correta{background:#d9ead3!important;color:#111!important}
+  #tab-mapa .mapa-celula.parcial{background:#fce5cd!important;color:#111!important}
+  #tab-mapa .mapa-celula.errada{background:#f4cccc!important;color:#111!important}
+  #tab-mapa .mapa-celula.em_branco,
+  #tab-mapa .mapa-celula.sem_resposta,
+  #tab-mapa .mapa-celula.pendente,
+  #tab-mapa .mapa-celula.ausente{background:#eee!important;color:#333!important}
+  #tab-mapa .mapa-celula.anulada{background:#fff2cc!important;color:#111!important}
+
   .resultados-page>div:last-child:not(.print-footer){display:none!important}
+
+  /* Deve permanecer depois de todas as regras que exibem as abas na impressão. */
+
+  #tab-mapa{
+    break-before:auto!important;
+    page-break-before:auto!important;
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+
+  #tab-mapa .r-section-head{
+    break-after:avoid!important;
+    page-break-after:avoid!important;
+  }
+
+  #tab-mapa .mapa-wrap{
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+
+  #tab-mapa .mapa-table{
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+
+  #tab-mapa .mapa-table thead{
+    display:table-header-group!important;
+  }
+
+  #tab-mapa .mapa-table tbody{
+    break-inside:auto!important;
+    page-break-inside:auto!important;
+  }
+
+  #tab-mapa .mapa-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+
+  /* =======================================================
+     IMPRESSÃO COLORIDA OU ECONÔMICA
+     ======================================================= */
+
+  /* -------------------------------------------------------
+     ECONÔMICO: elegante, limpo e com baixo consumo de tinta
+     ------------------------------------------------------- */
+  body.print-economico{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+    color-adjust:exact!important;
+    color:#1f2937!important;
+  }
+
+  body.print-economico .print-header{
+    padding:8px 10px!important;
+    border:1px solid #d7dde5!important;
+    border-bottom:3px solid #2f3f55!important;
+    border-radius:7px!important;
+    background:#fafbfc!important;
+  }
+
+  body.print-economico .print-header strong{
+    color:#223044!important;
+  }
+
+  body.print-economico .print-header span{
+    color:#4b5563!important;
+  }
+
+  body.print-economico .r-section-head{
+    padding:5px 8px!important;
+    border:0!important;
+    border-left:4px solid #7b8797!important;
+    border-radius:5px!important;
+    background:#f4f6f8!important;
+  }
+
+  body.print-economico .r-section-head h3{
+    color:#223044!important;
+    font-weight:800!important;
+  }
+
+  body.print-economico .print-summary-table{
+    border-radius:6px!important;
+    overflow:hidden!important;
+  }
+
+  body.print-economico .print-summary-table th{
+    background:#3f4b5a!important;
+    color:#fff!important;
+    border-color:#303945!important;
+    font-weight:800!important;
+  }
+
+  body.print-economico .print-summary-table td{
+    background:#fff!important;
+    color:#202938!important;
+    border-color:#d7dce2!important;
+    font-weight:750!important;
+  }
+
+  body.print-economico .print-summary-table tbody td:nth-child(6),
+  body.print-economico .print-summary-table tbody td:nth-child(11){
+    color:#25633f!important;
+  }
+
+  body.print-economico .print-summary-table tbody td:nth-child(7),
+  body.print-economico .print-summary-table tbody td:nth-child(12){
+    color:#9f2f2f!important;
+  }
+
+  body.print-economico .print-insight{
+    padding:6px 8px!important;
+    border:1px solid #d6dbe2!important;
+    border-radius:4px!important;
+    background:#f8f9fb!important;
+    color:#273244!important;
+  }
+
+  body.print-economico .print-insight b{
+    color:#39485c!important;
+  }
+
+  body.print-economico .r-table-wrap{
+    border:1px solid #cbd2db!important;
+    border-radius:6px!important;
+    overflow:hidden!important;
+  }
+
+  body.print-economico .r-table th{
+    background:#46515f!important;
+    color:#fff!important;
+    border-color:#35404c!important;
+    font-weight:800!important;
+  }
+
+  body.print-economico .r-table td{
+    background:#fff!important;
+    color:#263244!important;
+    border-color:#d9dee5!important;
+  }
+
+  body.print-economico .r-table tbody tr:nth-child(even) td{
+    background:#f7f8fa!important;
+  }
+
+  body.print-economico .r-table tbody tr:hover td{
+    background:#f1f3f6!important;
+  }
+
+  body.print-economico .tag.ok{
+    background:#eef5f0!important;
+    color:#376247!important;
+    border:1px solid #c9d9ce!important;
+  }
+
+  body.print-economico .tag.bad{
+    background:#f8eeee!important;
+    color:#8b3d3d!important;
+    border:1px solid #dec5c5!important;
+  }
+
+  body.print-economico .tag.warn{
+    background:#faf4ea!important;
+    color:#866035!important;
+    border:1px solid #e4d3bb!important;
+  }
+
+  body.print-economico .r-type.objetiva,
+  body.print-economico .r-type.discursiva,
+  body.print-economico .r-type.anulada{
+    background:#f4f5f7!important;
+    color:#46515f!important;
+    border:1px solid #cfd5dc!important;
+  }
+
+  body.print-economico .nota{
+    color:#26374d!important;
+  }
+
+  body.print-economico .r-performance-track,
+  body.print-economico .r-bar{
+    background:#e2e6eb!important;
+  }
+
+  body.print-economico .r-performance-fill,
+  body.print-economico .r-bar i{
+    background:#667384!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-table{
+    border-color:#bfc7d0!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-table thead th{
+    background:#46515f!important;
+    color:#fff!important;
+    border-color:#35404c!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-aluno-col{
+    background:#fafbfc!important;
+  }
+
+  body.print-economico #tab-mapa thead .mapa-aluno-col{
+    background:#46515f!important;
+    color:#fff!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-celula.correta{
+    background:#e7f0e9!important;
+    color:#315b3e!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-celula.parcial{
+    background:#f5eee3!important;
+    color:#7c5a35!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-celula.errada{
+    background:#f3e7e7!important;
+    color:#843b3b!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-celula.em_branco,
+  body.print-economico #tab-mapa .mapa-celula.sem_resposta,
+  body.print-economico #tab-mapa .mapa-celula.pendente,
+  body.print-economico #tab-mapa .mapa-celula.ausente{
+    background:#eef1f4!important;
+    color:#687585!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-celula.anulada{
+    background:#f5f0de!important;
+    color:#7b6532!important;
+  }
+
+  body.print-economico #tab-mapa .mapa-ta-col{
+    background:#e8edf2!important;
+    color:#2f4055!important;
+  }
+
+  body.print-economico #tab-mapa thead .mapa-ta-col{
+    background:#46515f!important;
+    color:#fff!important;
+  }
+
+  body.print-economico .print-footer{
+    padding:4px 7px!important;
+    border-top:1px solid #aeb7c2!important;
+    background:#f7f8fa!important;
+    color:#667085!important;
+  }
+
+  /* -------------------------------------------------------
+     COLORIDO: padrão visual ARK EDUS
+     ------------------------------------------------------- */
+  body.print-colorido{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+    color-adjust:exact!important;
+  }
+
+  body.print-colorido .print-header{
+    padding:9px 12px!important;
+    border:1px solid #9bc7df!important;
+    border-bottom:5px solid #123b82!important;
+    border-radius:9px!important;
+    background:linear-gradient(135deg,#f4f8ff 0%,#e9f8fb 100%)!important;
+  }
+
+  body.print-colorido .print-header strong{
+    color:#0b2f68!important;
+  }
+
+  body.print-colorido .print-header span{
+    color:#334155!important;
+  }
+
+  body.print-colorido .r-section-head{
+    padding:6px 9px!important;
+    border:0!important;
+    border-left:5px solid #11a8b8!important;
+    border-radius:6px!important;
+    background:linear-gradient(90deg,#eef5ff 0%,#f1fbfc 100%)!important;
+  }
+
+  body.print-colorido .r-section-head h3{
+    color:#0b2f68!important;
+  }
+
+  body.print-colorido .print-summary-table{
+    border-radius:7px!important;
+    overflow:hidden!important;
+  }
+
+  body.print-colorido .print-summary-table th{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+    border-color:#0a2b52!important;
+  }
+
+  body.print-colorido .print-summary-table td{
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#c9d8e9!important;
+  }
+
+  body.print-colorido .print-summary-table td:nth-child(1),
+  body.print-colorido .print-summary-table td:nth-child(2),
+  body.print-colorido .print-summary-table td:nth-child(4){
+    color:#123b82!important;
+  }
+
+  body.print-colorido .print-summary-table td:nth-child(6),
+  body.print-colorido .print-summary-table td:nth-child(11){
+    color:#15803d!important;
+  }
+
+  body.print-colorido .print-summary-table td:nth-child(7),
+  body.print-colorido .print-summary-table td:nth-child(12){
+    color:#c93737!important;
+  }
+
+  body.print-colorido .print-insight{
+    border:1px solid #b8d8e8!important;
+    background:linear-gradient(135deg,#f4f8ff,#eefcfd)!important;
+    color:#172033!important;
+  }
+
+  body.print-colorido .print-insight b{
+    color:#123b82!important;
+  }
+
+  body.print-colorido .r-table-wrap{
+    border-color:#9fb9d4!important;
+    border-radius:7px!important;
+    overflow:hidden!important;
+  }
+
+  body.print-colorido .r-table th{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+    border-color:#0a2b52!important;
+  }
+
+  body.print-colorido .r-table td{
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#d5e0eb!important;
+  }
+
+  body.print-colorido .r-table tbody tr:nth-child(even) td{
+    background:#f5f9ff!important;
+  }
+
+  body.print-colorido .r-table tbody tr:hover td{
+    background:#eef6ff!important;
+  }
+
+  body.print-colorido .tag.ok{
+    background:#dcfce7!important;
+    color:#166534!important;
+    border:1px solid #86efac!important;
+  }
+
+  body.print-colorido .tag.bad{
+    background:#fee2e2!important;
+    color:#b91c1c!important;
+    border:1px solid #fca5a5!important;
+  }
+
+  body.print-colorido .tag.warn{
+    background:#ffedd5!important;
+    color:#9a3412!important;
+    border:1px solid #fdba74!important;
+  }
+
+  body.print-colorido .r-type.objetiva{
+    background:#dbeafe!important;
+    color:#1d4ed8!important;
+    border:1px solid #93c5fd!important;
+  }
+
+  body.print-colorido .r-type.discursiva{
+    background:#ede9fe!important;
+    color:#6d28d9!important;
+    border:1px solid #c4b5fd!important;
+  }
+
+  body.print-colorido .r-type.anulada{
+    background:#fef3c7!important;
+    color:#92400e!important;
+    border:1px solid #fcd34d!important;
+  }
+
+  body.print-colorido .nota{
+    color:#123b82!important;
+  }
+
+  body.print-colorido .r-performance-track,
+  body.print-colorido .r-bar{
+    background:#dbe5f0!important;
+  }
+
+  body.print-colorido .r-performance-fill,
+  body.print-colorido .r-bar i{
+    background:linear-gradient(90deg,#123b82,#11a8b8)!important;
+  }
+
+  body.print-colorido #tab-habilidades .r-bar i{
+    background:linear-gradient(90deg,#123b82,#2563eb)!important;
+  }
+
+  body.print-colorido #tab-descritores .r-bar i{
+    background:linear-gradient(90deg,#11a8b8,#0f766e)!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-table{
+    border-color:#8faac6!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-table thead th{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+    border-color:#0a2b52!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-aluno-col{
+    background:#f7faff!important;
+  }
+
+  body.print-colorido #tab-mapa thead .mapa-aluno-col{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-celula.correta{
+    background:#bbf7d0!important;
+    color:#14532d!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-celula.parcial{
+    background:#fed7aa!important;
+    color:#9a3412!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-celula.errada{
+    background:#fecaca!important;
+    color:#991b1b!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-celula.em_branco,
+  body.print-colorido #tab-mapa .mapa-celula.sem_resposta,
+  body.print-colorido #tab-mapa .mapa-celula.pendente,
+  body.print-colorido #tab-mapa .mapa-celula.ausente{
+    background:#e2e8f0!important;
+    color:#475569!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-celula.anulada{
+    background:#fde68a!important;
+    color:#78350f!important;
+  }
+
+  body.print-colorido #tab-mapa .mapa-ta-col{
+    background:#dbeafe!important;
+    color:#123b82!important;
+  }
+
+  body.print-colorido #tab-mapa thead .mapa-ta-col{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+  }
+
+  body.print-colorido .print-footer{
+    padding:5px 8px!important;
+    border-top:2px solid #11a8b8!important;
+    background:#f2f8fc!important;
+    color:#52657d!important;
+  }
+
+  .report-section.print-hidden{
+    display:none!important;
+  }
 }
 
 
@@ -474,7 +1044,7 @@
   </div>
 
   <header class="r-topo">
-    <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button><a href="/relatorio_questoes/{{ prova['id'] }}" class="r-btn primary">Relatório por questão</a></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
+    <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
   </header>
 
   <section class="r-card">
@@ -540,7 +1110,7 @@
     </div>
 
     <div class="r-section">
-      <div class="r-tabs no-print"><button class="r-tab active" data-tab="alunos">Alunos</button><button class="r-tab" data-tab="questoes">Questões</button><button class="r-tab" data-tab="habilidades">Habilidades</button><button class="r-tab" data-tab="descritores">Descritores</button><button class="r-tab" data-tab="discursivas">Discursivas</button><button class="r-tab" data-tab="ausentes">Ausentes</button></div>
+      <div class="r-tabs no-print"><button class="r-tab active" data-tab="alunos">Alunos</button><button class="r-tab" data-tab="questoes">Questões</button><button class="r-tab" data-tab="habilidades">Habilidades</button><button class="r-tab" data-tab="descritores">Descritores</button><button class="r-tab" data-tab="discursivas">Discursivas</button><button class="r-tab" data-tab="ausentes">Ausentes</button><button class="r-tab" data-tab="mapa">Mapa de respostas</button></div>
 
       <div id="tab-alunos" class="r-tab-panel active report-section" data-report="alunos">
         <div class="r-section-head"><div><h3>Resultados individuais</h3><p>Acertos, erros, notas e situação de cada estudante.</p></div><input id="buscaAluno" class="r-btn no-print" style="font-weight:500" placeholder="Buscar aluno..."></div>
@@ -559,6 +1129,75 @@
       <div id="tab-discursivas" class="r-tab-panel report-section" data-report="discursivas"><div class="r-section-head"><div><h3>Questões discursivas</h3><p>Médias e andamento da correção.</p></div></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Questão</th><th class="center">Respostas</th><th class="center">Corrigidas</th><th class="center">Pendentes</th><th class="center">Média</th></tr></thead><tbody>{% for q in discursivas %}<tr><td><b>Questão {{ q.numero }}</b></td><td class="center">{{ q.total_respostas }}</td><td class="center">{{ q.corrigidas }}</td><td class="center">{{ q.pendentes }}</td><td class="center">{{ '%.2f'|format(q.media_discursiva) }}</td></tr>{% else %}<tr><td colspan="5" class="center">A avaliação não possui questões discursivas.</td></tr>{% endfor %}</tbody></table></div></div>
 
       <div id="tab-ausentes" class="r-tab-panel report-section" data-report="ausentes"><div class="r-section-head"><div><h3>Alunos ausentes</h3><p>Estudantes marcados como ausentes na aplicação.</p></div></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Aluno</th><th>Matrícula</th><th>Status</th></tr></thead><tbody>{% for a in ausentes %}<tr><td><b>{{ a.nome }}</b></td><td>{{ a.matricula or '—' }}</td><td><span class="tag bad">Ausente</span></td></tr>{% else %}<tr><td colspan="3" class="center">Nenhum aluno ausente.</td></tr>{% endfor %}</tbody></table></div></div>
+
+      <div id="tab-mapa" class="r-tab-panel report-section" data-report="mapa">
+        <div class="r-section-head">
+          <div>
+            <h3>Mapa de respostas</h3>
+            <p>Alternativas marcadas e situação de cada questão por estudante. TA significa total de acertos.</p>
+          </div>
+        </div>
+
+        <div class="mapa-legenda">
+          <span class="mapa-legenda-item"><i class="mapa-legenda-cor correta"></i> Correta / discursiva completa</span>
+          <span class="mapa-legenda-item"><i class="mapa-legenda-cor parcial"></i> Discursiva parcial</span>
+          <span class="mapa-legenda-item"><i class="mapa-legenda-cor errada"></i> Incorreta</span>
+          <span class="mapa-legenda-item"><i class="mapa-legenda-cor pendente"></i> Em branco ou pendente</span>
+          <span class="mapa-legenda-item"><b>AN</b> Anulada</span>
+          <span class="mapa-legenda-item"><b>DM</b> Dupla marcação</span>
+        </div>
+
+        {% if mapa_respostas and mapa_colunas %}
+          <div class="mapa-wrap">
+            <table class="mapa-table" id="tabelaMapaRespostas">
+              <thead>
+                <tr>
+                  <th class="mapa-aluno-col">Nomes</th>
+                  {% for coluna in mapa_colunas %}
+                    <th class="mapa-q-col">
+                      {{ coluna.numero }}
+                      <span class="mapa-q-tipo">
+                        {{ "Disc." if coluna.tipo == "discursiva" else "Obj." }}
+                      </span>
+                    </th>
+                  {% endfor %}
+                  <th class="mapa-ta-col" title="Total de acertos">TA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for aluno in mapa_respostas %}
+                  <tr>
+                    <td class="mapa-aluno-col">
+                      <span class="mapa-aluno-nome">{{ aluno.nome }}</span>
+                      <span class="mapa-aluno-meta">
+                        {{ aluno.matricula or "Matrícula não informada" }}
+                        {% if aluno.ausente %} · Ausente{% endif %}
+                      </span>
+                    </td>
+
+                    {% for celula in aluno.celulas %}
+                      <td
+                        class="mapa-celula {{ celula.status }}"
+                        title="{{ celula.titulo }}"
+                      >
+                        {{ celula.valor }}
+                      </td>
+                    {% endfor %}
+
+                    <td class="mapa-ta-col">
+                      {{ "—" if aluno.ausente else aluno.total_acertos }}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="mapa-vazio">
+            Ainda não existem respostas registradas para montar o mapa.
+          </div>
+        {% endif %}
+      </div>
     </div>
   </section>
   <div style="text-align:center;color:#98a2b3;font-size:11px">Relatório gerado em {{ gerado_em }} · ARK EDUS</div>
@@ -571,14 +1210,29 @@
 <div class="modal-overlay" id="modalImpressao">
   <div class="modal"><div class="modal-head"><div><h3>Configurar relatório</h3><small style="color:#667085">Escolha o conteúdo. A estrutura se adapta automaticamente ao formato Retrato ou Paisagem, sem cortar informações.</small></div><button class="r-btn" onclick="fecharModalImpressao()">✕</button></div>
     <div class="modal-body"><div class="modal-grid">
-      <label class="modal-option"><input type="checkbox" checked disabled><div><strong>Resumo geral</strong><span>Obrigatório em todos os relatórios.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="resumo"><div><strong>Resumo geral</strong><span>Indicadores gerais e destaques da avaliação.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="alunos" checked><div><strong>Planilha de alunos</strong><span>Acertos, erros, notas e situação.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="questoes" checked><div><strong>Desempenho por questão</strong><span>Acertos, erros e respostas em branco.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="habilidades"><div><strong>Habilidades</strong><span>Domínio por habilidade cadastrada.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="descritores"><div><strong>Descritores</strong><span>Desempenho por descritor.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="discursivas"><div><strong>Questões discursivas</strong><span>Correções, pendências e médias.</span></div></label>
       <label class="modal-option"><input type="checkbox" class="op-relatorio" value="ausentes"><div><strong>Alunos ausentes</strong><span>Relação dos estudantes ausentes.</span></div></label>
+      <label class="modal-option"><input type="checkbox" class="op-relatorio" value="mapa"><div><strong>Mapa de respostas</strong><span>Alternativas por aluno, cores de correção e total de acertos. Recomenda-se paisagem.</span></div></label>
     </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #dfe6ef">
+        <strong style="display:block;margin-bottom:9px;font-size:13px">Estilo do relatório</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label class="modal-option">
+            <input type="radio" name="estilo_relatorio" value="economico" checked>
+            <div><strong>Econômico</strong><span>Mantém o modelo atual, com tons neutros e menor consumo de tinta.</span></div>
+          </label>
+          <label class="modal-option">
+            <input type="radio" name="estilo_relatorio" value="colorido">
+            <div><strong>Colorido</strong><span>Imprime com as cores do ARK EDUS, indicadores e mapa de respostas.</span></div>
+          </label>
+        </div>
+      </div>
+
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid #dfe6ef">
         <strong style="display:block;margin-bottom:9px;font-size:13px">Formato da impressão</strong>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -599,20 +1253,45 @@
 <script>
 function abrirModalImpressao(){document.getElementById('modalImpressao').classList.add('open')}
 function fecharModalImpressao(){document.getElementById('modalImpressao').classList.remove('open')}
+const opcaoMapa=document.querySelector('.op-relatorio[value="mapa"]');
+if(opcaoMapa){
+  opcaoMapa.addEventListener('change',()=>{
+    if(opcaoMapa.checked){
+      const paisagem=document.querySelector('input[name="orientacao_relatorio"][value="paisagem"]');
+      if(paisagem){paisagem.checked=true}
+    }
+  });
+}
 function imprimirRelatorio(){
   const escolhidos=[...document.querySelectorAll('.op-relatorio:checked')].map(i=>i.value);
   const orientacao=document.querySelector('input[name="orientacao_relatorio"]:checked')?.value || 'retrato';
+  const estilo=document.querySelector('input[name="estilo_relatorio"]:checked')?.value || 'economico';
+
+  if(escolhidos.length===0){
+    alert('Selecione pelo menos uma seção para gerar o relatório.');
+    return;
+  }
 
   document.querySelectorAll('.report-section').forEach(s=>{
-    if(s.dataset.report==='resumo'){
-      s.classList.remove('print-hidden');
-    }else{
-      s.classList.toggle('print-hidden',!escolhidos.includes(s.dataset.report));
-    }
+    const identificador=s.dataset.report;
+    s.classList.toggle(
+      'print-hidden',
+      !identificador || !escolhidos.includes(identificador)
+    );
   });
 
-  document.body.classList.remove('print-retrato','print-paisagem');
-  document.body.classList.add(orientacao==='paisagem' ? 'print-paisagem' : 'print-retrato');
+  document.body.classList.remove(
+    'print-retrato',
+    'print-paisagem',
+    'print-economico',
+    'print-colorido'
+  );
+  document.body.classList.add(
+    orientacao==='paisagem' ? 'print-paisagem' : 'print-retrato'
+  );
+  document.body.classList.add(
+    estilo==='colorido' ? 'print-colorido' : 'print-economico'
+  );
 
   let style=document.getElementById('printOrientationStyle');
   if(!style){
@@ -630,7 +1309,12 @@ function imprimirRelatorio(){
 }
 window.addEventListener('afterprint',()=>{
   document.querySelectorAll('.report-section').forEach(s=>s.classList.remove('print-hidden'));
-  document.body.classList.remove('print-retrato','print-paisagem');
+  document.body.classList.remove(
+    'print-retrato',
+    'print-paisagem',
+    'print-economico',
+    'print-colorido'
+  );
 })
 document.querySelectorAll('.r-tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.r-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.r-tab-panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+btn.dataset.tab).classList.add('active')}))
 const busca=document.getElementById('buscaAluno');if(busca){busca.addEventListener('input',()=>{const termo=busca.value.toLowerCase();document.querySelectorAll('#tabelaAlunos tbody tr').forEach(tr=>tr.style.display=tr.innerText.toLowerCase().includes(termo)?'':'none')})}

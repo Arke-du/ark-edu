@@ -22,6 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from bncc_catalogo import garantir_tabela_bncc, consultar_bncc
+from matrizes_catalogo import garantir_tabelas_matrizes, consultar_matrizes
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -130,6 +131,7 @@ mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
 
 garantir_tabela_bncc(DB_PATH)
+garantir_tabelas_matrizes(DB_PATH)
 
 
 def conectar_banco():
@@ -2207,6 +2209,7 @@ def criar_tabelas():
     garantir_coluna("questoes", "habilidade_bncc", "TEXT")
     garantir_coluna("questoes", "matriz_referencia", "TEXT")
     garantir_coluna("questoes", "descritor_saeb", "TEXT")
+    garantir_coluna("questoes", "sistema_matriz", "TEXT")
     garantir_coluna("questoes", "taxonomia_bloom", "TEXT")
     garantir_coluna("questoes", "fonte", "TEXT")
     garantir_coluna("questoes", "ano_fonte", "INTEGER")
@@ -5536,6 +5539,37 @@ def api_bncc_opcoes():
         return jsonify({"erro": "Não foi possível consultar o catálogo da BNCC."}), 500
 
 
+@app.route("/api/matrizes/opcoes")
+def api_matrizes_opcoes():
+    if not permissao_modulo("Questões"):
+        return jsonify({"erro": "Acesso negado."}), 403
+
+    sistema = (request.args.get("sistema") or "").strip().upper()
+    etapa = (request.args.get("etapa") or "").strip()
+    componente = (request.args.get("componente") or "").strip()
+    ano_serie = (request.args.get("ano_serie") or "").strip()
+    matriz_id = request.args.get("matriz_id", type=int)
+
+    if not sistema or not etapa or not componente or not ano_serie:
+        return jsonify({
+            "matrizes": [], "descritores": [], "disponivel": False,
+            "mensagem": "Selecione matriz, componente, etapa e ano/série."
+        })
+
+    try:
+        return jsonify(consultar_matrizes(
+            DB_PATH,
+            sistema=sistema,
+            etapa=etapa,
+            componente=componente,
+            ano_serie=ano_serie,
+            matriz_id=matriz_id
+        ))
+    except sqlite3.Error as erro:
+        print("ERRO AO CONSULTAR MATRIZES:", erro)
+        return jsonify({"erro": "Não foi possível consultar os descritores da matriz selecionada."}), 500
+
+
 @app.route("/questoes/nova")
 def nova_questao():
     if not permissao_modulo("Questões"):
@@ -5706,8 +5740,11 @@ def cadastrar_questao():
     unidade_tematica = (request.form.get("unidade_tematica") or "").strip()
     objeto_conhecimento = (request.form.get("objeto_conhecimento") or "").strip()
     habilidade_bncc = (request.form.get("habilidade_bncc") or "").strip()
+    sistema_matriz = (request.form.get("sistema_matriz") or "").strip().upper()
     matriz_referencia = (request.form.get("matriz_referencia") or "").strip()
     descritor_saeb = (request.form.get("descritor_saeb") or "").strip()
+    if sistema_matriz not in {"", "SAETO", "SAEB"}:
+        sistema_matriz = ""
     fonte = (request.form.get("fonte") or "").strip()
     tags = (request.form.get("tags") or "").strip()
     observacoes = (request.form.get("observacoes") or "").strip()
@@ -5914,13 +5951,13 @@ def cadastrar_questao():
                 correta, alternativas_json, respostas_corretas,
                 resposta_esperada, criterios_correcao, habilidade,
                 habilidade_bncc, unidade_tematica, objeto_conhecimento,
-                matriz_referencia, descritor_saeb, taxonomia_bloom,
+                sistema_matriz, matriz_referencia, descritor_saeb, taxonomia_bloom,
                 dificuldade, fonte, ano_fonte, tags, tempo_estimado,
                 linhas_resposta, observacoes, escola_id, criado_por, criado_em
             )
             VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
         """, (
             disciplina, etapa_ensino, ano_serie, assunto,
@@ -5930,7 +5967,7 @@ def cadastrar_questao():
             correta_legada, json.dumps(alternativas, ensure_ascii=False),
             json.dumps(respostas_corretas, ensure_ascii=False), resposta_esperada,
             criterios_correcao, habilidade, habilidade_bncc, unidade_tematica,
-            objeto_conhecimento, matriz_referencia, descritor_saeb,
+            objeto_conhecimento, sistema_matriz, matriz_referencia, descritor_saeb,
             taxonomia_bloom, dificuldade, fonte, ano_fonte, tags,
             tempo_estimado, linhas_resposta if tipo_questao == "discursiva" else None,
             observacoes, escola_questao_id, session.get("usuario_id"),
@@ -5986,6 +6023,7 @@ def cadastrar_questao():
                 "unidade_tematica": unidade_tematica,
                 "objeto_conhecimento": objeto_conhecimento,
                 "habilidade_bncc": habilidade_bncc,
+                "sistema_matriz": sistema_matriz,
                 "matriz_referencia": matriz_referencia,
                 "descritor_saeb": descritor_saeb,
                 "fonte": fonte,
@@ -7362,6 +7400,11 @@ def editar_questao(questao_id):
         unidade_tematica = (request.form.get("unidade_tematica") or "").strip()
         objeto_conhecimento = (request.form.get("objeto_conhecimento") or "").strip()
         habilidade_bncc = (request.form.get("habilidade_bncc") or "").strip()
+        sistema_matriz = (request.form.get("sistema_matriz") or "").strip().upper()
+        matriz_referencia = (request.form.get("matriz_referencia") or "").strip()
+        descritor_saeb = (request.form.get("descritor_saeb") or "").strip()
+        if sistema_matriz not in {"", "SAETO", "SAEB"}:
+            sistema_matriz = ""
 
         try:
             linhas_resposta = int(request.form.get("linhas_resposta") or 5)
@@ -7452,7 +7495,8 @@ def editar_questao(questao_id):
             SET disciplina = ?, assunto = ?, dificuldade = ?,
                 etapa_ensino = ?, ano_serie = ?,
                 unidade_tematica = ?, objeto_conhecimento = ?, habilidade_bncc = ?,
-                tipo_questao = ?, enunciado = ?,
+                sistema_matriz = ?, matriz_referencia = ?, descritor_saeb = ?,
+                habilidade = ?, tipo_questao = ?, enunciado = ?,
                 alternativa_a = ?, alternativa_b = ?,
                 alternativa_c = ?, alternativa_d = ?,
                 correta = ?, alternativas_json = ?,
@@ -7463,6 +7507,8 @@ def editar_questao(questao_id):
         """, (
             disciplina, assunto, dificuldade,
             etapa_ensino, ano_serie, unidade_tematica, objeto_conhecimento, habilidade_bncc,
+            sistema_matriz, matriz_referencia, descritor_saeb,
+            " | ".join(item for item in [habilidade_bncc, descritor_saeb] if item),
             tipo_questao, enunciado,
             textos_legados[0], textos_legados[1],
             textos_legados[2], textos_legados[3],
@@ -8387,9 +8433,199 @@ def finalizar_prova(prova_id):
     finally:
         banco.close()
 
-
 @app.route("/prova/<int:prova_id>")
+@app.route("/provas/<int:prova_id>")
 def visualizar_prova(prova_id):
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        # Verifica se o usuário pode visualizar a avaliação.
+        if not _pode_gerenciar_prova(
+            cursor,
+            prova_id,
+            exigir_edicao=False
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        # =====================================================
+        # DADOS PRINCIPAIS DA AVALIAÇÃO
+        # =====================================================
+        cursor.execute("""
+            SELECT
+                p.id,
+                p.nome,
+                p.turma_id,
+                t.nome AS turma_nome,
+                t.ano AS turma_ano,
+                t.turno AS turma_turno,
+                p.disciplina,
+                COUNT(pq.id) AS quantidade,
+                COALESCE(pr.nome, 'Não informado') AS professor_nome,
+                p.data_geracao,
+                p.data_aplicacao,
+                e.id AS escola_id,
+                e.nome_instituicao,
+                e.cidade,
+                e.estado,
+                e.logo
+            FROM provas AS p
+
+            INNER JOIN turmas AS t
+                ON t.id = p.turma_id
+
+            INNER JOIN escolas AS e
+                ON e.id = COALESCE(
+                    p.escola_id,
+                    t.escola_id
+                )
+
+            LEFT JOIN professores AS pr
+                ON pr.id = p.professor_id
+
+            LEFT JOIN prova_questoes AS pq
+                ON pq.prova_id = p.id
+
+            WHERE p.id = ?
+
+            GROUP BY
+                p.id,
+                p.nome,
+                p.turma_id,
+                t.nome,
+                t.ano,
+                t.turno,
+                p.disciplina,
+                pr.nome,
+                p.data_geracao,
+                p.data_aplicacao,
+                e.id,
+                e.nome_instituicao,
+                e.cidade,
+                e.estado,
+                e.logo
+
+            LIMIT 1
+        """, (prova_id,))
+
+        prova = cursor.fetchone()
+
+        if prova is None:
+            flash(
+                "Avaliação não encontrada.",
+                "erro"
+            )
+            return redirect(url_for("provas"))
+
+        # =====================================================
+        # QUESTÕES DA AVALIAÇÃO
+        # =====================================================
+        cursor.execute("""
+            SELECT
+                q.*,
+                pq.id AS prova_questao_id,
+                COALESCE(pq.peso, 0) AS peso,
+                COALESCE(pq.anulada, 0) AS anulada,
+                COALESCE(pq.ordem, pq.id) AS ordem_prova
+
+            FROM prova_questoes AS pq
+
+            INNER JOIN questoes AS q
+                ON q.id = pq.questao_id
+
+            WHERE pq.prova_id = ?
+
+            ORDER BY
+                COALESCE(
+                    NULLIF(pq.ordem, 0),
+                    pq.id
+                ),
+                pq.id
+        """, (prova_id,))
+
+        questoes = cursor.fetchall()
+
+        # =====================================================
+        # RESUMO DOS PESOS
+        # =====================================================
+        peso_total = sum(
+            float(questao["peso"] or 0)
+            for questao in questoes
+        )
+
+        quantidade_anuladas = sum(
+            1
+            for questao in questoes
+            if int(questao["anulada"] or 0) == 1
+        )
+
+        # =====================================================
+        # DADOS DA INSTITUIÇÃO
+        # =====================================================
+        instituicao = {
+            "id": prova["escola_id"],
+            "nome": (
+                prova["nome_instituicao"]
+                or "ARK EDUS"
+            ),
+            "cidade": (
+                prova["cidade"]
+                or "Não informada"
+            ),
+            "estado": (
+                prova["estado"]
+                or "Não informado"
+            ),
+            "logo": prova["logo"]
+        }
+
+        return render_template(
+            "visualizar_prova.html",
+            prova=prova,
+            questoes=questoes,
+            instituicao=instituicao,
+            peso_total=peso_total,
+            quantidade_anuladas=quantidade_anuladas
+        )
+
+    except sqlite3.Error as erro:
+        print(
+            "ERRO AO VISUALIZAR AVALIAÇÃO:",
+            erro
+        )
+
+        flash(
+            f"Não foi possível abrir a avaliação: {erro}",
+            "erro"
+        )
+
+        return redirect(url_for("provas"))
+
+    except (TypeError, ValueError) as erro:
+        print(
+            "ERRO AO CALCULAR OS DADOS DA AVALIAÇÃO:",
+            erro
+        )
+
+        flash(
+            "Não foi possível calcular os dados da avaliação.",
+            "erro"
+        )
+
+        return redirect(url_for("provas"))
+
+    finally:
+        banco.close()
+
+@app.route(
+    "/prova/<int:prova_id>/questao/<int:prova_questao_id>/alternar-anulacao",
+    methods=["POST"]
+)
+def alternar_anulacao_questao(prova_id, prova_questao_id):
     if not permissao_modulo("Provas"):
         return redirect("/acesso_negado")
 
@@ -8407,83 +8643,52 @@ def visualizar_prova(prova_id):
 
         cursor.execute("""
             SELECT
-                p.id,
-                p.nome,
-                t.nome AS turma_nome,
-                p.disciplina,
-                COUNT(pq.id) AS quantidade,
-                COALESCE(pr.nome, 'Não informado') AS professor_nome,
-                p.data_geracao,
-                p.data_aplicacao,
-                e.nome_instituicao,
-                e.cidade,
-                e.estado,
-                e.logo
-            FROM provas AS p
-            INNER JOIN turmas AS t
-                ON t.id = p.turma_id
-            INNER JOIN escolas AS e
-                ON e.id = COALESCE(p.escola_id, t.escola_id)
-            LEFT JOIN professores AS pr
-                ON pr.id = p.professor_id
-            LEFT JOIN prova_questoes AS pq
-                ON pq.prova_id = p.id
-            WHERE p.id = ?
-            GROUP BY
-                p.id,
-                p.nome,
-                t.nome,
-                p.disciplina,
-                pr.nome,
-                p.data_geracao,
-                p.data_aplicacao,
-                e.nome_instituicao,
-                e.cidade,
-                e.estado,
-                e.logo
+                id,
+                COALESCE(anulada, 0) AS anulada
+            FROM prova_questoes
+            WHERE id = ?
+              AND prova_id = ?
             LIMIT 1
-        """, (prova_id,))
+        """, (prova_questao_id, prova_id))
 
-        prova = cursor.fetchone()
+        prova_questao = cursor.fetchone()
 
-        if prova is None:
-            flash("Avaliação não encontrada.", "erro")
-            return redirect("/provas")
+        if prova_questao is None:
+            flash("Questão não encontrada nesta avaliação.", "erro")
+            return redirect(url_for("visualizar_prova", prova_id=prova_id))
+
+        novo_estado = 0 if int(prova_questao["anulada"] or 0) == 1 else 1
 
         cursor.execute("""
-            SELECT q.*, COALESCE(pq.peso, 0) AS peso
-            FROM prova_questoes AS pq
-            INNER JOIN questoes AS q
-                ON q.id = pq.questao_id
-            WHERE pq.prova_id = ?
-            ORDER BY COALESCE(NULLIF(pq.ordem, 0), pq.id), pq.id
-        """, (prova_id,))
+            UPDATE prova_questoes
+            SET anulada = ?
+            WHERE id = ?
+              AND prova_id = ?
+        """, (novo_estado, prova_questao_id, prova_id))
 
-        questoes = cursor.fetchall()
+        banco.commit()
 
-        instituicao = {
-            "nome": prova["nome_instituicao"] or "ARK EDUS",
-            "cidade": prova["cidade"] or "Não informada",
-            "estado": prova["estado"] or "Não informado",
-            "logo": prova["logo"]
-        }
+        if novo_estado == 1:
+            flash("Questão anulada com sucesso.", "success")
+        else:
+            flash("Questão reativada com sucesso.", "success")
 
-        return render_template(
-            "visualizar_prova.html",
-            prova=prova,
-            questoes=questoes,
-            instituicao=instituicao
+        return redirect(
+            url_for("visualizar_prova", prova_id=prova_id)
+            + f"#questao-{prova_questao_id}"
         )
 
     except sqlite3.Error as erro:
+        banco.rollback()
         flash(
-            f"Não foi possível abrir a avaliação: {erro}",
+            f"Não foi possível alterar a questão: {erro}",
             "erro"
         )
-        return redirect("/provas")
+        return redirect(url_for("visualizar_prova", prova_id=prova_id))
 
     finally:
         banco.close()
+
 
 @app.route("/cartao_resposta/<int:prova_id>")
 def cartao_resposta(prova_id):
@@ -10313,6 +10518,352 @@ def resultados(prova_id):
                 discursivas.append({**q, "total_respostas": total, "corrigidas": corrigidas_q,
                                     "pendentes": max(total-corrigidas_q,0), "media_discursiva": round(float(st.get("media") or 0),2)})
 
+        # =========================================================
+        # MAPA DE RESPOSTAS
+        # =========================================================
+        # A matriz reúne as respostas objetivas e discursivas por aluno.
+        # As posições seguem a numeração exibida no cartão/prova de cada modelo.
+        tipos_discursivos = {
+            "discursiva",
+            "dissertativa",
+            "resposta_aberta",
+            "resposta aberta"
+        }
+
+        total_objetivas_mapa = sum(
+            1
+            for questao in relatorio_questoes
+            if (questao.get("tipo_questao") or "").strip().lower()
+            not in tipos_discursivos
+        )
+        total_discursivas_mapa = sum(
+            1
+            for questao in relatorio_questoes
+            if (questao.get("tipo_questao") or "").strip().lower()
+            in tipos_discursivos
+        )
+        total_questoes_mapa = (
+            total_objetivas_mapa + total_discursivas_mapa
+        )
+
+        mapa_colunas = []
+        for numero in range(1, total_questoes_mapa + 1):
+            mapa_colunas.append({
+                "numero": numero,
+                "tipo": (
+                    "objetiva"
+                    if numero <= total_objetivas_mapa
+                    else "discursiva"
+                )
+            })
+
+        respostas_objetivas_mapa = {}
+        respostas_discursivas_mapa = {}
+
+        cols_aro = colunas("aplicacao_respostas_objetivas")
+        anulada_aro_expr = (
+            "COALESCE(aro.anulada, 0)"
+            if "anulada" in cols_aro
+            else "0"
+        )
+
+        cursor.execute(f"""
+            SELECT
+                aro.aplicacao_id,
+                aro.aluno_id,
+                aro.numero_questao,
+                aro.resposta,
+                aro.situacao,
+                aro.acertou,
+                {anulada_aro_expr} AS anulada
+            FROM aplicacao_respostas_objetivas aro
+            INNER JOIN aplicacoes ap
+                ON ap.id = aro.aplicacao_id
+            WHERE ap.prova_id = ?
+            ORDER BY
+                aro.aplicacao_id,
+                aro.aluno_id,
+                aro.numero_questao
+        """, (prova_id,))
+
+        for registro in cursor.fetchall():
+            chave = (
+                registro["aplicacao_id"],
+                registro["aluno_id"]
+            )
+            respostas_objetivas_mapa.setdefault(chave, {})[
+                int(registro["numero_questao"])
+            ] = dict(registro)
+
+        # Compatibilidade com correções antigas salvas em respostas_alunos.
+        cursor.execute("""
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'respostas_alunos'
+            LIMIT 1
+        """)
+        if cursor.fetchone():
+            cols_ra = colunas("respostas_alunos")
+            resposta_ra_expr = (
+                "ra.resposta_aluno"
+                if "resposta_aluno" in cols_ra
+                else "ra.resposta"
+                if "resposta" in cols_ra
+                else "NULL"
+            )
+            correta_ra_expr = (
+                "ra.resposta_correta"
+                if "resposta_correta" in cols_ra
+                else "NULL"
+            )
+
+            cursor.execute(f"""
+                SELECT
+                    ra.aluno_id,
+                    ra.numero_questao,
+                    {resposta_ra_expr} AS resposta,
+                    {correta_ra_expr} AS resposta_correta,
+                    COALESCE(ra.acertou, 0) AS acertou
+                FROM respostas_alunos ra
+                WHERE ra.prova_id = ?
+                ORDER BY
+                    ra.aluno_id,
+                    ra.numero_questao
+            """, (prova_id,))
+
+            for registro in cursor.fetchall():
+                chave = (None, registro["aluno_id"])
+                resposta = (
+                    registro["resposta"]
+                    if "resposta" in registro.keys()
+                    else None
+                )
+                respostas_objetivas_mapa.setdefault(chave, {})[
+                    int(registro["numero_questao"])
+                ] = {
+                    "resposta": resposta,
+                    "situacao": (
+                        "respondida"
+                        if resposta not in (None, "")
+                        else "em_branco"
+                    ),
+                    "acertou": int(registro["acertou"] or 0),
+                    "anulada": 0
+                }
+
+        cursor.execute("""
+            SELECT
+                rd.aplicacao_id,
+                rd.aluno_id,
+                rd.numero_exibicao,
+                rd.nota,
+                rd.corrigida,
+                ROUND(COALESCE(pq.peso, 0), 2) AS peso,
+                COALESCE(pq.anulada, 0) AS anulada
+            FROM respostas_discursivas_aplicacao rd
+            INNER JOIN aplicacoes ap
+                ON ap.id = rd.aplicacao_id
+            LEFT JOIN prova_questoes pq
+                ON pq.prova_id = ap.prova_id
+               AND pq.questao_id = rd.questao_id
+            WHERE ap.prova_id = ?
+            ORDER BY
+                rd.aplicacao_id,
+                rd.aluno_id,
+                rd.numero_exibicao
+        """, (prova_id,))
+
+        for registro in cursor.fetchall():
+            chave = (
+                registro["aplicacao_id"],
+                registro["aluno_id"]
+            )
+            respostas_discursivas_mapa.setdefault(chave, {})[
+                int(registro["numero_exibicao"])
+            ] = dict(registro)
+
+        mapa_respostas = []
+
+        for registro_aluno in todos_registros:
+            chave = (
+                registro_aluno.get("aplicacao_id"),
+                registro_aluno["aluno_id"]
+            )
+            respostas_objetivas = respostas_objetivas_mapa.get(
+                chave,
+                {}
+            )
+            respostas_discursivas = respostas_discursivas_mapa.get(
+                chave,
+                {}
+            )
+
+            celulas = []
+            total_acertos_mapa = 0
+            aluno_ausente = (
+                (registro_aluno.get("status") or "")
+                .strip()
+                .lower()
+                in {"ausente", "faltou"}
+            )
+
+            for coluna in mapa_colunas:
+                numero = coluna["numero"]
+
+                if aluno_ausente:
+                    celulas.append({
+                        "numero": numero,
+                        "tipo": coluna["tipo"],
+                        "valor": "AUS",
+                        "status": "ausente",
+                        "titulo": "Aluno ausente"
+                    })
+                    continue
+
+                if coluna["tipo"] == "objetiva":
+                    resposta = respostas_objetivas.get(numero)
+
+                    if not resposta:
+                        celulas.append({
+                            "numero": numero,
+                            "tipo": "objetiva",
+                            "valor": "—",
+                            "status": "sem_resposta",
+                            "titulo": "Resposta não registrada"
+                        })
+                        continue
+
+                    valor = str(
+                        resposta.get("resposta") or ""
+                    ).strip().upper()
+                    situacao = str(
+                        resposta.get("situacao") or ""
+                    ).strip().lower()
+                    anulada = int(
+                        resposta.get("anulada") or 0
+                    ) == 1
+                    acertou = int(
+                        resposta.get("acertou") or 0
+                    ) == 1
+
+                    if anulada:
+                        status = "anulada"
+                        valor = "AN"
+                        titulo = "Questão anulada"
+                        total_acertos_mapa += 1
+                    elif situacao == "dupla_marcacao":
+                        status = "errada"
+                        valor = "DM"
+                        titulo = "Dupla marcação"
+                    elif situacao == "em_branco" or not valor:
+                        status = "em_branco"
+                        valor = "—"
+                        titulo = "Resposta em branco"
+                    elif acertou:
+                        status = "correta"
+                        titulo = f"Resposta correta: {valor}"
+                        total_acertos_mapa += 1
+                    else:
+                        status = "errada"
+                        titulo = f"Resposta incorreta: {valor}"
+
+                    celulas.append({
+                        "numero": numero,
+                        "tipo": "objetiva",
+                        "valor": valor,
+                        "status": status,
+                        "titulo": titulo
+                    })
+
+                else:
+                    resposta = respostas_discursivas.get(numero)
+
+                    if not resposta:
+                        celulas.append({
+                            "numero": numero,
+                            "tipo": "discursiva",
+                            "valor": "—",
+                            "status": "sem_resposta",
+                            "titulo": "Resposta discursiva não registrada"
+                        })
+                        continue
+
+                    anulada = int(
+                        resposta.get("anulada") or 0
+                    ) == 1
+                    corrigida = int(
+                        resposta.get("corrigida") or 0
+                    ) == 1
+                    nota_discursiva = float(
+                        resposta.get("nota") or 0
+                    )
+                    peso_discursiva = float(
+                        resposta.get("peso") or 0
+                    )
+
+                    if anulada:
+                        status = "anulada"
+                        valor = "AN"
+                        titulo = "Questão anulada"
+                        total_acertos_mapa += 1
+                    elif not corrigida:
+                        status = "pendente"
+                        valor = "—"
+                        titulo = "Correção discursiva pendente"
+                    elif (
+                        peso_discursiva > 0
+                        and nota_discursiva >= peso_discursiva - 0.001
+                    ):
+                        status = "correta"
+                        valor = "C"
+                        titulo = (
+                            "Resposta discursiva totalmente correta "
+                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
+                        )
+                        total_acertos_mapa += 1
+                    elif nota_discursiva > 0:
+                        status = "parcial"
+                        valor = "P"
+                        titulo = (
+                            "Resposta discursiva parcialmente correta "
+                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
+                        )
+                    else:
+                        status = "errada"
+                        valor = "E"
+                        titulo = (
+                            "Resposta discursiva incorreta "
+                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
+                        )
+
+                    celulas.append({
+                        "numero": numero,
+                        "tipo": "discursiva",
+                        "valor": valor,
+                        "status": status,
+                        "titulo": titulo
+                    })
+
+            mapa_respostas.append({
+                "aluno_id": registro_aluno["aluno_id"],
+                "nome": registro_aluno["nome"],
+                "matricula": registro_aluno.get("matricula"),
+                "status": registro_aluno.get("status"),
+                "ausente": aluno_ausente,
+                "celulas": celulas,
+                "total_acertos": (
+                    0 if aluno_ausente else total_acertos_mapa
+                )
+            })
+
+        mapa_respostas.sort(
+            key=lambda item: (
+                item["ausente"],
+                item["nome"].casefold()
+            )
+        )
+
         # Ranking e situação
         for posicao, item in enumerate(resultados_lista, 1):
             item["posicao"] = posicao
@@ -10332,6 +10883,9 @@ def resultados(prova_id):
             habilidades=habilidades, descritores=descritores, discursivas=discursivas,
             anuladas=anuladas, questao_mais_facil=questao_mais_facil,
             questao_mais_dificil=questao_mais_dificil,
+            mapa_colunas=mapa_colunas,
+            mapa_respostas=mapa_respostas,
+            total_questoes_mapa=total_questoes_mapa,
             gerado_em=agora_local().strftime("%d/%m/%Y às %H:%M")
         )
 

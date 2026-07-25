@@ -160,7 +160,7 @@
 
         <section class="questoes-card classificacao">
             <details class="classificacao" {% if valores_anteriores and valores_anteriores.get('abrir_avancado') %}open{% endif %}>
-                <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
+                <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAETO, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
                 <div class="classificacao-conteudo"><div class="questoes-grid">
                     <div class="subsecao">BNCC</div>
                     <div class="questoes-grupo">
@@ -183,9 +183,29 @@
                         </select>
                         <span class="ajuda">Selecione uma habilidade para vinculá-la à questão.</span>
                     </div>
-                    <div class="subsecao">SAEB</div>
-                    <div class="questoes-grupo"><label for="matrizReferencia">Matriz de referência</label><input id="matrizReferencia" name="matriz_referencia" value="{{ valores_anteriores.get('matriz_referencia','') if valores_anteriores else '' }}" placeholder="Ex.: SAEB Matemática - 5º ano"></div>
-                    <div class="questoes-grupo"><label for="descritorSaeb">Descritor SAEB</label><input id="descritorSaeb" name="descritor_saeb" value="{{ valores_anteriores.get('descritor_saeb','') if valores_anteriores else '' }}" placeholder="Ex.: D13"></div>
+                    <div class="subsecao">Outras matrizes</div>
+                    <div class="questoes-grupo">
+                        <label for="sistemaMatriz">Matriz de avaliação</label>
+                        <select id="sistemaMatriz" name="sistema_matriz" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('sistema_matriz','') if valores_anteriores else '' }}">
+                            <option value="">Não vincular</option>
+                            <option value="SAETO" {% if valores_anteriores and valores_anteriores.get('sistema_matriz') == 'SAETO' %}selected{% endif %}>SAETO</option>
+                            <option value="SAEB" {% if valores_anteriores and valores_anteriores.get('sistema_matriz') == 'SAEB' %}selected{% endif %}>SAEB</option>
+                        </select>
+                        <span class="ajuda">Disponíveis: SAETO 2025 e SAEB.</span>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="matrizReferencia">Matriz de referência</label>
+                        <select id="matrizReferencia" name="matriz_referencia" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('matriz_referencia','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Selecione primeiro a matriz de avaliação</option>
+                        </select>
+                    </div>
+                    <div class="questoes-grupo largo">
+                        <label for="descritorSaeb">Descritor</label>
+                        <select id="descritorSaeb" name="descritor_saeb" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('descritor_saeb','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Selecione primeiro a matriz de referência</option>
+                        </select>
+                        <span class="ajuda bncc-status" id="ajudaMatriz">Selecione a matriz de avaliação, o componente, a etapa e o ano/série.</span>
+                    </div>
                     <div class="subsecao">Informações complementares</div>
                     <div class="questoes-grupo"><label for="fonteQuestao">Fonte</label><input id="fonteQuestao" name="fonte" value="{{ valores_anteriores.get('fonte','') if valores_anteriores else '' }}" placeholder="Ex.: Autoral, SAEB, ENEM"></div>
                     <div class="questoes-grupo"><label for="anoFonte">Ano da fonte</label><input id="anoFonte" type="number" min="1900" max="2100" name="ano_fonte" value="{{ valores_anteriores.get('ano_fonte','') if valores_anteriores else '' }}" placeholder="2026"></div>
@@ -845,6 +865,109 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     carregarUnidades({ restaurarInicial: true });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const sistema = document.getElementById("sistemaMatriz");
+    const matriz = document.getElementById("matrizReferencia");
+    const descritor = document.getElementById("descritorSaeb");
+    const disciplina = document.getElementById("disciplinaQuestao");
+    const etapa = document.getElementById("etapaEnsino");
+    const ano = document.getElementById("anoSerie");
+    const ajuda = document.getElementById("ajudaMatriz");
+    if (!sistema || !matriz || !descritor) return;
+
+    const iniciais = {
+        sistema: sistema.dataset.valorInicial || sistema.value || "",
+        matriz: matriz.dataset.valorInicial || "",
+        descritor: descritor.dataset.valorInicial || ""
+    };
+    let controle = null;
+
+    function option(valor, texto = valor) {
+        const item = document.createElement("option");
+        item.value = valor;
+        item.textContent = texto;
+        return item;
+    }
+    function preencher(select, itens, placeholder, selecionado = "") {
+        select.innerHTML = "";
+        select.appendChild(option("", placeholder));
+        for (const item of itens || []) {
+            select.appendChild(option(item.valor ?? item.id, item.texto ?? item.nome ?? item.valor));
+        }
+        if (selecionado && [...select.options].some(op => op.value === String(selecionado))) {
+            select.value = String(selecionado);
+        }
+    }
+    function contextoValido() {
+        return sistema.value && disciplina.value && etapa.value && ano.value;
+    }
+    async function consultar(matrizId = "") {
+        if (controle) controle.abort();
+        controle = new AbortController();
+        const params = new URLSearchParams({
+            sistema: sistema.value,
+            componente: disciplina.value,
+            etapa: etapa.value,
+            ano_serie: ano.value
+        });
+        if (matrizId) params.set("matriz_id", matrizId);
+        const resposta = await fetch(`/api/matrizes/opcoes?${params}`, {signal: controle.signal});
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || "Erro ao consultar a matriz selecionada.");
+        return dados;
+    }
+    async function carregarMatrizes(restaurar = false) {
+        if (!contextoValido()) {
+            preencher(matriz, [], "Selecione a matriz, o componente, a etapa e o ano/série");
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            matriz.disabled = true; descritor.disabled = true;
+            ajuda.textContent = sistema.value ? "Selecione componente, etapa e ano/série." : "Selecione a matriz de avaliação.";
+            return;
+        }
+        ajuda.textContent = "Carregando matriz de referência...";
+        try {
+            const dados = await consultar();
+            preencher(matriz, dados.matrizes || [], "Selecione a matriz de referência", restaurar ? iniciais.matriz : "");
+            matriz.disabled = !(dados.matrizes || []).length;
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            descritor.disabled = true;
+            ajuda.textContent = dados.mensagem || ((dados.matrizes || []).length ? "Selecione a matriz de referência." : "Nenhuma matriz disponível.");
+            if ((restaurar && matriz.value) || (dados.matrizes || []).length === 1) {
+                if (!matriz.value && dados.matrizes.length === 1) matriz.value = String(dados.matrizes[0].id);
+                await carregarDescritores(restaurar);
+            }
+        } catch (erro) {
+            if (erro.name !== "AbortError") ajuda.textContent = erro.message;
+        }
+    }
+    async function carregarDescritores(restaurar = false) {
+        if (!matriz.value) {
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            descritor.disabled = true; return;
+        }
+        ajuda.textContent = "Carregando descritores...";
+        try {
+            const dados = await consultar(matriz.value);
+            preencher(descritor, dados.descritores || [], "Selecione o descritor", restaurar ? iniciais.descritor : "");
+            descritor.disabled = !(dados.descritores || []).length;
+            ajuda.textContent = (dados.descritores || []).length
+                ? `${dados.descritores.length} descritor(es) encontrado(s).`
+                : (dados.mensagem || "Nenhum descritor encontrado.");
+        } catch (erro) {
+            if (erro.name !== "AbortError") ajuda.textContent = erro.message;
+        }
+    }
+    sistema.addEventListener("change", () => { matriz.value=""; descritor.value=""; carregarMatrizes(false); });
+    [disciplina, etapa, ano].forEach(el => el.addEventListener("change", () => {
+        matriz.value=""; descritor.value=""; carregarMatrizes(false);
+    }));
+    matriz.addEventListener("change", () => carregarDescritores(false));
+    if (iniciais.sistema) sistema.value = iniciais.sistema;
+    carregarMatrizes(true);
 });
 </script>
 {% endblock %}

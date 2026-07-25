@@ -47,6 +47,10 @@
 <div class="grupo"><label>Unidade temática / prática de linguagem</label><input id="unidadeTematica" name="unidade_tematica" list="listaUnidadesBncc" autocomplete="off" value="{{ questao['unidade_tematica'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaUnidadesBncc"></datalist><span class="ajuda" id="ajudaUnidadeBncc">Carregando catálogo...</span></div>
 <div class="grupo"><label>Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" list="listaObjetosBncc" autocomplete="off" value="{{ questao['objeto_conhecimento'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaObjetosBncc"></datalist></div>
 <div class="grupo largo"><label>Habilidade BNCC</label><input id="habilidadeBncc" name="habilidade_bncc" list="listaHabilidadesBncc" autocomplete="off" value="{{ questao['habilidade_bncc'] or '' }}" placeholder="Digite o código ou parte da descrição"><datalist id="listaHabilidadesBncc"></datalist><span class="ajuda">A lista apresenta código e descrição completos.</span></div>
+<div class="grupo largo"><h3 style="margin:8px 0 0;color:#17468f">Outras matrizes</h3></div>
+<div class="grupo"><label>Matriz de avaliação</label><select id="sistemaMatriz" name="sistema_matriz" data-valor-inicial="{{ questao['sistema_matriz'] or '' }}"><option value="">Não vincular</option><option value="SAETO" {% if questao['sistema_matriz']=='SAETO' %}selected{% endif %}>SAETO</option><option value="SAEB" {% if questao['sistema_matriz']=='SAEB' %}selected{% endif %}>SAEB</option></select></div>
+<div class="grupo"><label>Matriz de referência</label><select id="matrizReferencia" name="matriz_referencia" data-valor-inicial="{{ questao['matriz_referencia'] or '' }}" disabled><option value="">Selecione primeiro a matriz de avaliação</option></select></div>
+<div class="grupo largo"><label>Descritor</label><select id="descritorSaeb" name="descritor_saeb" data-valor-inicial="{{ questao['descritor_saeb'] or '' }}" disabled><option value="">Selecione primeiro a matriz de referência</option></select><span class="ajuda" id="ajudaMatriz">Selecione a matriz de avaliação, o componente, a etapa e o ano/série.</span></div>
 </div></div>
 <div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Salvar alterações</button></div>
 </section></form></div>
@@ -67,6 +71,109 @@ const disciplina=document.getElementById('disciplinaQuestao'),unidade=document.g
 function preencher(el,valores){el.innerHTML='';valores.forEach(v=>{const o=document.createElement('option');o.value=typeof v==='string'?v:v.valor;el.appendChild(o)})}
 async function carregar(preservar=true){if(!disciplina.value||!etapa.value||!ano.value){ajuda.textContent='Selecione componente, etapa e ano/série.';return}if(ctrl)ctrl.abort();ctrl=new AbortController();const q=new URLSearchParams({componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value});if(unidade.value)q.set('unidade',unidade.value);if(objeto.value)q.set('objeto',objeto.value);try{const res=await fetch('/api/bncc/opcoes?'+q,{signal:ctrl.signal});const d=await res.json();preencher(lu,d.unidades||[]);preencher(lo,d.objetos||[]);preencher(lh,d.habilidades||[]);ajuda.textContent=(d.unidades||[]).length?'Clique ou digite para pesquisar.':'Nenhum registro encontrado; importe a planilha oficial.'}catch(e){if(e.name!=='AbortError')ajuda.textContent='Erro ao carregar a BNCC.'}}
 [disciplina,etapa,ano].forEach(el=>el.addEventListener('change',()=>{unidade.value='';objeto.value='';habilidade.value='';carregar(false)}));unidade.addEventListener('change',()=>{objeto.value='';habilidade.value='';carregar(false)});objeto.addEventListener('change',()=>{habilidade.value='';carregar(true)});carregar(true);
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const sistema = document.getElementById("sistemaMatriz");
+    const matriz = document.getElementById("matrizReferencia");
+    const descritor = document.getElementById("descritorSaeb");
+    const disciplina = document.getElementById("disciplinaQuestao");
+    const etapa = document.getElementById("etapaEnsino");
+    const ano = document.getElementById("anoSerie");
+    const ajuda = document.getElementById("ajudaMatriz");
+    if (!sistema || !matriz || !descritor) return;
+
+    const iniciais = {
+        sistema: sistema.dataset.valorInicial || sistema.value || "",
+        matriz: matriz.dataset.valorInicial || "",
+        descritor: descritor.dataset.valorInicial || ""
+    };
+    let controle = null;
+
+    function option(valor, texto = valor) {
+        const item = document.createElement("option");
+        item.value = valor;
+        item.textContent = texto;
+        return item;
+    }
+    function preencher(select, itens, placeholder, selecionado = "") {
+        select.innerHTML = "";
+        select.appendChild(option("", placeholder));
+        for (const item of itens || []) {
+            select.appendChild(option(item.valor ?? item.id, item.texto ?? item.nome ?? item.valor));
+        }
+        if (selecionado && [...select.options].some(op => op.value === String(selecionado))) {
+            select.value = String(selecionado);
+        }
+    }
+    function contextoValido() {
+        return sistema.value && disciplina.value && etapa.value && ano.value;
+    }
+    async function consultar(matrizId = "") {
+        if (controle) controle.abort();
+        controle = new AbortController();
+        const params = new URLSearchParams({
+            sistema: sistema.value,
+            componente: disciplina.value,
+            etapa: etapa.value,
+            ano_serie: ano.value
+        });
+        if (matrizId) params.set("matriz_id", matrizId);
+        const resposta = await fetch(`/api/matrizes/opcoes?${params}`, {signal: controle.signal});
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || "Erro ao consultar a matriz selecionada.");
+        return dados;
+    }
+    async function carregarMatrizes(restaurar = false) {
+        if (!contextoValido()) {
+            preencher(matriz, [], "Selecione a matriz, o componente, a etapa e o ano/série");
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            matriz.disabled = true; descritor.disabled = true;
+            ajuda.textContent = sistema.value ? "Selecione componente, etapa e ano/série." : "Selecione a matriz de avaliação.";
+            return;
+        }
+        ajuda.textContent = "Carregando matriz de referência...";
+        try {
+            const dados = await consultar();
+            preencher(matriz, dados.matrizes || [], "Selecione a matriz de referência", restaurar ? iniciais.matriz : "");
+            matriz.disabled = !(dados.matrizes || []).length;
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            descritor.disabled = true;
+            ajuda.textContent = dados.mensagem || ((dados.matrizes || []).length ? "Selecione a matriz de referência." : "Nenhuma matriz disponível.");
+            if ((restaurar && matriz.value) || (dados.matrizes || []).length === 1) {
+                if (!matriz.value && dados.matrizes.length === 1) matriz.value = String(dados.matrizes[0].id);
+                await carregarDescritores(restaurar);
+            }
+        } catch (erro) {
+            if (erro.name !== "AbortError") ajuda.textContent = erro.message;
+        }
+    }
+    async function carregarDescritores(restaurar = false) {
+        if (!matriz.value) {
+            preencher(descritor, [], "Selecione primeiro a matriz de referência");
+            descritor.disabled = true; return;
+        }
+        ajuda.textContent = "Carregando descritores...";
+        try {
+            const dados = await consultar(matriz.value);
+            preencher(descritor, dados.descritores || [], "Selecione o descritor", restaurar ? iniciais.descritor : "");
+            descritor.disabled = !(dados.descritores || []).length;
+            ajuda.textContent = (dados.descritores || []).length
+                ? `${dados.descritores.length} descritor(es) encontrado(s).`
+                : (dados.mensagem || "Nenhum descritor encontrado.");
+        } catch (erro) {
+            if (erro.name !== "AbortError") ajuda.textContent = erro.message;
+        }
+    }
+    sistema.addEventListener("change", () => { matriz.value=""; descritor.value=""; carregarMatrizes(false); });
+    [disciplina, etapa, ano].forEach(el => el.addEventListener("change", () => {
+        matriz.value=""; descritor.value=""; carregarMatrizes(false);
+    }));
+    matriz.addEventListener("change", () => carregarDescritores(false));
+    if (iniciais.sistema) sistema.value = iniciais.sistema;
+    carregarMatrizes(true);
 });
 </script>
 {% endblock %}

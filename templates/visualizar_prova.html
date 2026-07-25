@@ -197,8 +197,8 @@ img {
 }
 
 .btn-primary:hover {
-    background: var(--arke-primary-dark);
-    border-color: var(--arke-primary-dark);
+    background: var(--arke-primary);
+    border-color: var(--arke-primary);
     box-shadow: 0 9px 22px rgba(18, 63, 136, 0.24);
 }
 
@@ -1919,6 +1919,9 @@ img {
 ====================================================== -->
 
 <main class="page-wrapper">
+
+{% set peso_total = peso_total|default(0, true) %}
+{% set quantidade_anuladas = quantidade_anuladas|default(0, true) %}
 
 {% with mensagens = get_flashed_messages(with_categories=true) %}
     {% if mensagens %}
