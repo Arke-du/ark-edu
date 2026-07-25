@@ -441,3 +441,213 @@ body.ark-legacy-page .voltar {
 @media (max-width: 700px) {
     body.ark-legacy-page { padding: 20px !important; }
 }
+
+/* ========================================================================== 
+   ARK EDUS — REFINAMENTO VISUAL INSTITUCIONAL
+   ========================================================================== */
+:root {
+    --ark-primary: #0a2b52;
+    --ark-primary-strong: #071f3d;
+    --ark-accent: #11a8b8;
+    --ark-text: #152238;
+    --ark-text-muted: #64748b;
+    --ark-border: #dfe7f0;
+    --ark-border-strong: #c9d5e3;
+    --ark-radius-sm: 8px;
+    --ark-radius-md: 12px;
+    --ark-radius-lg: 16px;
+    --ark-shadow: 0 10px 28px rgba(7,31,61,.07);
+    --ark-font: "Segoe UI Variable", "Aptos", "Segoe UI", Inter, Arial, sans-serif;
+}
+
+html {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    background: #f5f7fb;
+    color: var(--ark-text);
+}
+
+.content h1,
+.ark-page-title,
+[class$="-title"].ark-page-title,
+[class*="-topo"] h1,
+[class*="-cabecalho"] h1,
+[class*="-header"] h1,
+body.ark-legacy-page > header h1,
+body.ark-legacy-page .container h1,
+body.ark-legacy-page main h1 {
+    color: #0a2b52 !important;
+    font-size: clamp(30px, 3vw, 38px) !important;
+    font-weight: 750 !important;
+    line-height: 1.12 !important;
+    letter-spacing: -.035em !important;
+}
+
+.content h2 {
+    color: #0a2b52 !important;
+    font-weight: 720 !important;
+    letter-spacing: -.025em !important;
+}
+
+.content h3,
+.content h4 {
+    color: #152238 !important;
+    font-weight: 700 !important;
+    letter-spacing: -.015em !important;
+}
+
+.ark-page-subtitle,
+[class*="-topo"] > div > p,
+[class*="-cabecalho"] > div > p,
+[class*="-header"] > div > p,
+[class$="-subtitulo"] {
+    color: #64748b !important;
+    font-size: 15px !important;
+    font-weight: 450 !important;
+    line-height: 1.6 !important;
+}
+
+.ark-page-eyebrow,
+[class$="-etiqueta"],
+[class*="-etiqueta "] {
+    border: 1px solid #d9e6f4 !important;
+    background: #edf4fb !important;
+    color: #103d70 !important;
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    letter-spacing: .075em !important;
+}
+
+a[class*="voltar"],
+button[class*="voltar"],
+.ark-back-link,
+.voltar,
+a[class*="voltar"]:hover,
+button[class*="voltar"]:hover,
+.ark-back-link:hover,
+.voltar:hover {
+    color: #103d70 !important;
+    font-weight: 650 !important;
+}
+
+.btn,
+[class^="btn-"],
+[class*=" btn-"],
+[class$="-btn"],
+[class*="-btn-"],
+button[class*="botao"],
+a[class*="botao"] {
+    font-weight: 700 !important;
+    letter-spacing: -.01em !important;
+}
+
+.btn-primario,
+.btn-primary,
+[class*="btn-principal"],
+[class*="btn-primary"],
+[class*="btn-novo"],
+[class*="btn-adicionar"],
+[class*="btn-salvar"],
+[class*="btn-criar"],
+[class*="btn-editar"],
+[class*="botao-principal"] {
+    border-color: #0a2b52 !important;
+    background: #0a2b52 !important;
+    color: #fff !important;
+    box-shadow: 0 7px 16px rgba(10,43,82,.16) !important;
+}
+
+.btn-primario:hover,
+.btn-primary:hover,
+[class*="btn-principal"]:hover,
+[class*="btn-primary"]:hover,
+[class*="btn-novo"]:hover,
+[class*="btn-adicionar"]:hover,
+[class*="btn-salvar"]:hover,
+[class*="btn-criar"]:hover,
+[class*="btn-editar"]:hover,
+[class*="botao-principal"]:hover {
+    border-color: #0a2b52 !important;
+    background: #0a2b52 !important;
+    color: #fff !important;
+    box-shadow: 0 9px 20px rgba(10,43,82,.20) !important;
+    transform: translateY(-1px) !important;
+    filter: none !important;
+}
+
+.btn-secundario,
+.btn-secondary,
+.btn-outline,
+[class*="btn-secundario"],
+[class*="btn-cancelar"],
+[class*="btn-limpar"],
+.btn-secundario:hover,
+.btn-secondary:hover,
+.btn-outline:hover,
+[class*="btn-secundario"]:hover,
+[class*="btn-cancelar"]:hover,
+[class*="btn-limpar"]:hover {
+    background: #fff !important;
+    color: #103d70 !important;
+    border-color: #c9d5e3 !important;
+}
+
+.ark-card,
+.card,
+[class$="-card"],
+[class*="-card "] {
+    border-color: #dfe7f0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 28px rgba(7,31,61,.07) !important;
+}
+
+.content label {
+    color: #334155 !important;
+    font-weight: 700 !important;
+}
+
+.content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.content select,
+.content textarea {
+    border-color: #c9d5e3 !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+}
+
+.content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.content select:focus,
+.content textarea:focus {
+    border-color: #174f8f !important;
+    box-shadow: 0 0 0 4px rgba(23,79,143,.10) !important;
+}
+
+.content table th,
+body.ark-legacy-page table th {
+    background: #0a2b52 !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: .025em !important;
+}
+
+.content table td {
+    color: #334155;
+    border-color: #e8edf3 !important;
+}
+
+.content table tbody tr:hover td {
+    background: #f7faff !important;
+}
+
+@media (max-width: 700px) {
+    .content h1,
+    [class*="-topo"] h1,
+    [class*="-cabecalho"] h1,
+    [class*="-header"] h1 {
+        font-size: 28px !important;
+    }
+}

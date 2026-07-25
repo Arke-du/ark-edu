@@ -67,3 +67,12 @@ IMPORTANTE
 O arquivo plataforma.db deste pacote é o mesmo que estava no ZIP recebido.
 Se a versão online possuir dados mais novos, mantenha o banco online/atual e
 substitua somente os demais arquivos.
+
+ATUALIZAÇÃO VISUAL REFINADA
+---------------------------
+- Azul principal ajustado para azul-marinho institucional.
+- Tipografia refinada com Segoe UI Variable/Aptos e fallbacks seguros.
+- Títulos, subtítulos e links de voltar uniformizados.
+- Cards com aparência mais limpa e profissional.
+- Botões mantêm a mesma cor no hover; recebem apenas leve elevação e sombra.
+- Formulários e tabelas receberam acabamento mais consistente.
