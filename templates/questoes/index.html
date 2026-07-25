@@ -3,10 +3,13 @@
 {% block titulo %}Banco de Questões | ARK EDUS{% endblock %}
 
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 <style>
 .bq-pagina{
-    --azul:#17468f;
-    --azul-2:#2563eb;
+    --azul:#0d356f;
+    --azul-2:#1c68d4;
     --texto:#0f172a;
     --suave:#64748b;
     --borda:#dbe4f0;
@@ -90,7 +93,7 @@
             <p>Encontre, organize e reutilize questões com rapidez.</p>
         </div>
         <div class="bq-acoes-topo">
-            <a href="/questoes/nova" class="bq-btn bq-btn-principal">
+            <a href="/questoes/nova" class="bq-btn bq-btn-principal btn-primario">
                 <svg viewBox="0 0 24 24"><path d="M12 5V19M5 12H19"/></svg>
                 Nova questão
             </a>
@@ -126,7 +129,7 @@
             <div class="bq-filtro"><label>Tipo</label><select name="tipo"><option value="">Todos</option><option value="multipla_escolha" {% if filtros_atuais.get('tipo') == 'multipla_escolha' %}selected{% endif %}>Múltipla escolha</option><option value="multiplas_respostas" {% if filtros_atuais.get('tipo') == 'multiplas_respostas' %}selected{% endif %}>Múltiplas respostas</option><option value="verdadeiro_falso" {% if filtros_atuais.get('tipo') == 'verdadeiro_falso' %}selected{% endif %}>Verdadeiro ou falso</option><option value="discursiva" {% if filtros_atuais.get('tipo') == 'discursiva' %}selected{% endif %}>Discursiva</option><option value="resposta_curta" {% if filtros_atuais.get('tipo') == 'resposta_curta' %}selected{% endif %}>Resposta curta</option><option value="numerica" {% if filtros_atuais.get('tipo') == 'numerica' %}selected{% endif %}>Numérica</option></select></div>
             <div class="bq-filtro"><label>Dificuldade</label><select name="dificuldade"><option value="">Todas</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if filtros_atuais.get('dificuldade') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
             <div class="bq-filtro"><label>Bloom</label><select name="bloom"><option value="">Todas</option>{% for item in opcoes.get('blooms',[]) %}<option value="{{ item }}" {% if filtros_atuais.get('bloom') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
-            <div class="bq-filtros-acoes"><a href="/questoes" class="bq-limpar">Limpar</a><button type="submit" class="bq-aplicar">Aplicar filtros</button></div>
+            <div class="bq-filtros-acoes"><a href="/questoes" class="bq-limpar btn-secundario">Limpar</a><button type="submit" class="bq-aplicar btn-primario">Aplicar filtros</button></div>
         </div>
 
         <div class="bq-chips">
@@ -166,7 +169,7 @@
             <div class="bq-card-rodape">
                 <div class="bq-autor">Criada por <strong>{{ q['autor_nome'] }}</strong> · {{ q['instituicao_nome'] }}</div>
                 <div class="bq-acoes">
-                    <a class="bq-acao bq-acao-visualizar" href="/questoes/{{ q['id'] }}">
+                    <a class="bq-acao bq-acao-visualizar btn-outline" href="/questoes/{{ q['id'] }}">
                         <svg viewBox="0 0 24 24">
                             <path d="M2 12S5.5 5 12 5s10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
                             <circle cx="12" cy="12" r="3"/>
@@ -184,7 +187,7 @@
 
                     <button
                         type="button"
-                        class="bq-acao perigo"
+                        class="bq-acao perigo btn-danger"
                         data-excluir-id="{{ q['id'] }}"
                         data-excluir-texto="{{ q['enunciado']|striptags|truncate(90, True, '...')|e }}"
                     >
@@ -203,7 +206,7 @@
         <div class="bq-vazio-icone"><svg viewBox="0 0 24 24"><path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"/><path d="M14 2V8H20"/><path d="M9 15H15M12 12V18"/></svg></div>
         <h3>Nenhuma questão encontrada</h3>
         <p>Altere os filtros ou cadastre uma nova questão.</p>
-        <a href="/questoes/nova" class="bq-btn bq-btn-principal">Nova questão</a>
+        <a href="/questoes/nova" class="bq-btn bq-btn-principal btn-primario">Nova questão</a>
     </section>
     {% endif %}
 
@@ -222,7 +225,7 @@
         <h3>Excluir questão?</h3>
         <p id="modalExcluirTexto">Esta ação não poderá ser desfeita.</p>
         <form method="POST" id="formExcluir" class="bq-modal-acoes">
-            <button type="button" class="bq-btn bq-btn-secundario" id="cancelarExcluir">Cancelar</button>
+            <button type="button" class="bq-btn bq-btn-secundario btn-secundario" id="cancelarExcluir">Cancelar</button>
             <button type="submit" class="bq-btn" style="border:1px solid #dc2626;background:#dc2626;color:#fff">Excluir questão</button>
         </form>
     </div>

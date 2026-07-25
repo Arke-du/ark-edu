@@ -9,7 +9,12 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>{% block titulo %}ARK EDU{% endblock %}</title>
+    <title>{% block titulo %}ARK EDUS{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 
     <link
         rel="stylesheet"
@@ -60,7 +65,7 @@
 
     <style>
         /* =====================================================
-           NOTIFICAÇÕES GLOBAIS — ARK EDU
+           NOTIFICAÇÕES GLOBAIS — ARK EDUS
         ===================================================== */
 
         .ark-toast-area {
@@ -265,7 +270,7 @@
     </style>
 </head>
 
-<body>
+<body class="ark-shell">
 
 <div class="app">
 
@@ -279,7 +284,7 @@
             <a href="/">
                 <img
                     src="{{ url_for('static', filename='img/logo.png') }}"
-                    alt="ARK EDU"
+                    alt="ARK EDUS"
                 >
             </a>
         </div>
@@ -699,7 +704,7 @@
 
 
         <!-- =====================================================
-             NOTIFICAÇÕES GLOBAIS — ARK EDU
+             NOTIFICAÇÕES GLOBAIS — ARK EDUS
         ====================================================== -->
         {% with notificacoes = get_flashed_messages(with_categories=true) %}
             {% if notificacoes %}

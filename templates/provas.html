@@ -1,9 +1,12 @@
 {% extends "layout/base.html" %}
 
-{% block titulo %}Avaliações | ARK EDU{% endblock %}
+{% block titulo %}Avaliações | ARK EDUS{% endblock %}
 
 
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 <style>
     .provas-pagina {
         --provas-azul: #123b82;
@@ -1563,7 +1566,7 @@
             <div class="provas-topo-acoes">
                 <button
                     type="button"
-                    class="provas-btn-principal"
+                    class="provas-btn-principal btn-primario"
                     data-abrir-modal="modalNovaProva"
                 >
                     <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
@@ -1715,7 +1718,7 @@
 
         {% if provas %}
             <div class="provas-tabela-wrap" id="tabelaProvasWrap">
-                <table class="provas-tabela">
+                <table class="provas-tabela tabela-padrao">
                     <thead>
                         <tr>
                             <th>Avaliação</th>
@@ -1772,7 +1775,7 @@
                                 <td class="provas-acoes">
                                     <button
                                         type="button"
-                                        class="provas-btn-icone"
+                                        class="provas-btn-icone btn-outline"
                                         aria-label="Abrir ações da avaliação {{ prova.nome }}"
                                         data-menu-prova
                                     >
@@ -1849,7 +1852,7 @@
                                         {% if pode_excluir %}
                                         <button
                                             type="button"
-                                            class="provas-excluir"
+                                            class="provas-excluir btn-danger"
                                             data-excluir-url="/excluir_prova/{{ prova.id }}"
                                             data-excluir-nome="{{ prova.nome }}"
                                         >
@@ -1895,7 +1898,7 @@
                 <h3>Nenhuma avaliação cadastrada</h3>
                 <p>Crie sua primeira avaliação para começar a gerar provas, cartões-resposta e resultados.</p>
                 {% if pode_criar %}
-                <button type="button" class="provas-btn-principal" data-abrir-modal="modalNovaProva">
+                <button type="button" class="provas-btn-principal btn-primario" data-abrir-modal="modalNovaProva">
                     Nova avaliação
                 </button>
                 {% endif %}
@@ -1913,7 +1916,7 @@
                 <p>Cadastre os dados básicos. Na próxima tela você escolherá e organizará as questões.</p>
             </div>
 
-            <button type="button" class="provas-btn-icone" data-fechar-modal aria-label="Fechar">
+            <button type="button" class="provas-btn-icone btn-outline" data-fechar-modal aria-label="Fechar">
                 <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M18 6L6 18"></path>
                     <path d="M6 6L18 18"></path>
@@ -2100,7 +2103,7 @@
                 </div>
             </div>
 
-            <button type="button" class="provas-btn-icone" data-fechar-modal aria-label="Fechar">
+            <button type="button" class="provas-btn-icone btn-outline" data-fechar-modal aria-label="Fechar">
                 <svg class="provas-svg" viewBox="0 0 24 24">
                     <path d="M18 6L6 18"></path>
                     <path d="M6 6L18 18"></path>
@@ -2245,7 +2248,7 @@
                 <button type="button" class="provas-btn-secundario" data-fechar-modal>
                     Cancelar
                 </button>
-                <button type="submit" class="provas-btn-principal">
+                <button type="submit" class="provas-btn-principal btn-primario">
                     <svg class="provas-svg" viewBox="0 0 24 24">
                         <rect x="8" y="8" width="11" height="11" rx="2"></rect>
                         <path d="M5 16H4A2 2 0 0 1 2 14V4A2 2 0 0 1 4 2H14A2 2 0 0 1 16 4V5"></path>

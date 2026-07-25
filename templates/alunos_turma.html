@@ -1,240 +1,287 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Alunos da Turma</title>
+{% extends "layout/base.html" %}
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+{% block titulo %}Alunos da turma | ARK EDU{% endblock %}
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6fb;
-            margin: 0;
-            color: #0f172a;
-        }
+{% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 
-        header {
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: white;
-            padding: 40px 55px;
-            border-bottom-left-radius: 28px;
-            border-bottom-right-radius: 28px;
-            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.25);
-        }
+<style>
+.at-pagina{
+    width:100%;
+    max-width:1280px;
+    margin:0 auto;
+    padding:6px 0 40px;
+}
+.at-topo{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:24px;
+    margin-bottom:22px;
+}
+.at-voltar{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+    color:#475569;
+    font-size:14px;
+    font-weight:700;
+    text-decoration:none;
+}
+.at-voltar:hover{color:#1d4ed8}
+.at-etiqueta{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    margin-bottom:9px;
+    padding:5px 10px;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+}
+.at-topo h1{
+    margin:0 0 8px;
+    color:#123b82;
+    font-size:clamp(28px,4vw,38px);
+    line-height:1.15;
+}
+.at-topo p{
+    margin:0;
+    color:#64748b;
+    font-size:15px;
+}
+.at-resumo{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(150px,1fr));
+    gap:14px;
+    margin-bottom:22px;
+}
+.at-stat{
+    padding:18px 20px;
+    border:1px solid #e2e8f0;
+    border-radius:16px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+.at-stat span{
+    display:block;
+    margin-bottom:5px;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+}
+.at-stat strong{
+    color:#123b82;
+    font-size:18px;
+}
+.at-card{
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 12px 32px rgba(15,23,42,.06);
+}
+.at-card-cabecalho{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    padding:22px 26px;
+    border-bottom:1px solid #e2e8f0;
+    background:#f8fafc;
+}
+.at-card-cabecalho h2{
+    margin:0 0 5px;
+    color:#123b82;
+    font-size:21px;
+}
+.at-card-cabecalho p{
+    margin:0;
+    color:#64748b;
+    font-size:14px;
+}
+.at-contador{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:32px;
+    padding:5px 11px;
+    border:1px solid #bfdbfe;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:12px;
+    font-weight:800;
+}
+.at-tabela-wrap{width:100%;overflow-x:auto}
+.at-tabela{
+    width:100%;
+    min-width:650px;
+    border-collapse:separate;
+    border-spacing:0;
+}
+.at-tabela th,.at-tabela td{
+    padding:17px 20px;
+    text-align:left;
+    vertical-align:middle;
+}
+.at-tabela th{
+    border:0;
+    background:#1f4698;
+    color:#fff;
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+}
+.at-tabela td{
+    border-bottom:1px solid #e7edf5;
+    color:#334155;
+    font-size:14px;
+}
+.at-tabela tbody tr:last-child td{border-bottom:0}
+.at-tabela tbody tr:hover td{background:#f8fbff}
+.at-id{
+    color:#64748b;
+    font-weight:700;
+}
+.at-aluno{
+    display:flex;
+    align-items:center;
+    gap:11px;
+}
+.at-avatar{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
+    border-radius:50%;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:13px;
+    font-weight:900;
+}
+.at-aluno strong{
+    color:#0f172a;
+    font-size:14px;
+}
+.at-matricula{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    padding:4px 9px;
+    border:1px solid #dbeafe;
+    border-radius:999px;
+    background:#f8fbff;
+    color:#1e40af;
+    font-size:12px;
+    font-weight:800;
+}
+.at-vazio{
+    padding:50px 24px!important;
+    text-align:center!important;
+    color:#64748b!important;
+}
+@media(max-width:700px){
+    .at-resumo{grid-template-columns:1fr}
+    .at-card-cabecalho{padding:20px}
+}
+</style>
+{% endblock %}
 
-        header h1 {
-            margin: 0;
-            font-size: 38px;
-        }
+{% block conteudo %}
+<div class="at-pagina">
 
-        header p {
-            margin-top: 10px;
-            font-size: 18px;
-            opacity: 0.9;
-        }
+    <header class="at-topo">
+        <div>
+            <a href="/turmas" class="at-voltar">
+                <span aria-hidden="true">←</span>
+                Voltar para turmas
+            </a>
 
-        .container {
-            padding: 32px;
-        }
+            <span class="at-etiqueta">Gestão de turma</span>
+            <h1>Alunos da turma</h1>
+            <p>Visualize os estudantes cadastrados nesta turma.</p>
+        </div>
+    </header>
 
-        .voltar {
-            display: inline-block;
-            margin-bottom: 22px;
-            color: #1e3a8a;
-            text-decoration: none;
-            font-weight: bold;
-        }
+    <section class="at-resumo">
+        <div class="at-stat">
+            <span>Turma</span>
+            <strong>{{ turma[1] }}</strong>
+        </div>
 
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
-            border: 1px solid #e5e7eb;
-        }
+        <div class="at-stat">
+            <span>Ano/Série e turno</span>
+            <strong>{{ turma[2] }} · {{ turma[3] }}</strong>
+        </div>
+    </section>
 
-        .topo-turma {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .topo-turma h2 {
-            margin: 0;
-            font-size: 32px;
-            color: #111827;
-        }
-
-        .topo-turma p {
-            margin: 8px 0 0 0;
-            color: #64748b;
-            font-size: 17px;
-        }
-
-        .info-turma {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-top: 18px;
-        }
-
-        .info-item {
-            background: #eff6ff;
-            color: #1e3a8a;
-            padding: 10px 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: bold;
-            border: 1px solid #bfdbfe;
-        }
-
-        .titulo-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-        }
-
-        .titulo-card h2 {
-            margin: 0;
-            font-size: 26px;
-        }
-
-        .tabela-container {
-            width: 100%;
-            overflow: hidden;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-        }
-
-        table {
-            width: 100%;
-            background: white;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: left;
-            vertical-align: middle;
-            font-size: 14px;
-        }
-
-        th {
-            background: #1e3a8a;
-            color: white;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background: #f8fafc;
-        }
-
-        .vazio {
-            text-align: center;
-            padding: 30px;
-            color: #64748b;
-            font-size: 16px;
-        }
-
-        @media (max-width: 900px) {
-            header {
-                padding: 35px 25px;
-            }
-
-            header h1 {
-                font-size: 32px;
-            }
-
-            .container {
-                padding: 22px;
-            }
-
-            .topo-turma {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .tabela-container {
-                overflow-x: auto;
-            }
-
-            table {
-                min-width: 600px;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<header>
-    <h1>Alunos da Turma</h1>
-    <p>Visualize os estudantes cadastrados nesta turma.</p>
-</header>
-
-<div class="container">
-
-    <a href="/turmas" class="voltar">← Voltar para turmas</a>
-
-    <div class="card">
-        <div class="topo-turma">
+    <section class="at-card">
+        <div class="at-card-cabecalho">
             <div>
-                <h2>{{ turma[1] }}</h2>
-                <p>Informações gerais da turma selecionada.</p>
-            </div>
-        </div>
-
-        <div class="info-turma">
-            <div class="info-item">
-                Ano/Série: {{ turma[2] }}
+                <h2>Alunos cadastrados</h2>
+                <p>Lista de estudantes vinculados à turma selecionada.</p>
             </div>
 
-            <div class="info-item">
-                Turno: {{ turma[3] }}
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="titulo-card">
-            <h2>Alunos cadastrados</h2>
+            <span class="at-contador">
+                {{ alunos|length }}
+                {% if alunos|length == 1 %}aluno{% else %}alunos{% endif %}
+            </span>
         </div>
 
-        <div class="tabela-container">
-            <table>
-                <tr>
-                    <th>ID</th>
-                    <th>Nome</th>
-                    <th>Matrícula</th>
-                </tr>
+        <div class="at-tabela-wrap">
+            <table class="at-tabela">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Matrícula</th>
+                    </tr>
+                </thead>
 
-                {% for aluno in alunos %}
-                <tr>
-                    <td>{{ aluno[0] }}</td>
-                    <td>{{ aluno[1] }}</td>
-                    <td>{{ aluno[2] }}</td>
-                </tr>
-                {% endfor %}
+                <tbody>
+                    {% for aluno in alunos %}
+                        <tr>
+                            <td class="at-id">#{{ aluno[0] }}</td>
+                            <td>
+                                <div class="at-aluno">
+                                    <div class="at-avatar">
+                                        {{ aluno[1][0]|upper }}
+                                    </div>
+                                    <strong>{{ aluno[1] }}</strong>
+                                </div>
+                            </td>
+                            <td>
+                                {% if aluno[2] %}
+                                    <span class="at-matricula">{{ aluno[2] }}</span>
+                                {% else %}
+                                    <span>Não informada</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
 
-                {% if alunos|length == 0 %}
-                <tr>
-                    <td colspan="3" class="vazio">
-                        Nenhum aluno cadastrado nesta turma.
-                    </td>
-                </tr>
-                {% endif %}
+                    {% if alunos|length == 0 %}
+                        <tr>
+                            <td colspan="3" class="at-vazio">
+                                Nenhum aluno cadastrado nesta turma.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
             </table>
         </div>
-    </div>
+    </section>
 
 </div>
-
-</body>
-</html>
+{% endblock %}

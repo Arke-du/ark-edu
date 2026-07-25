@@ -1,8 +1,10 @@
 {% extends "layout/base.html" %}
 {% block titulo %}Editar questão | ARK EDUS{% endblock %}
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
 <style>
-.editar-pagina{--azul:#17468f;--azul2:#2563eb;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
+.editar-pagina{--azul:#0d356f;--azul2:#1c68d4;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
 .editar-voltar{display:inline-flex;width:fit-content;color:var(--azul);font-size:14px;font-weight:800;text-decoration:none}
 .editar-topo h1{margin:0;color:var(--azul);font-size:clamp(28px,3vw,36px);font-weight:900}.editar-topo p{margin:7px 0 0;color:var(--suave)}
 .editar-card{overflow:hidden;border:1px solid var(--borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
@@ -43,12 +45,12 @@
 <div class="grupo largo oculto" id="blocoCriterios"><label>Critérios de correção</label><textarea name="criterios_correcao">{{ questao['criterios_correcao'] or '' }}</textarea></div>
 <div class="grupo oculto" id="blocoLinhas"><label>Quantidade de linhas</label><input type="number" name="linhas_resposta" min="1" max="30" value="{{ questao['linhas_resposta'] or 5 }}"></div>
 
-<div class="grupo largo"><h3 style="margin:8px 0 0;color:#17468f">Classificação BNCC</h3></div>
+<div class="grupo largo"><h3 style="margin:8px 0 0;color:#0d356f">Classificação BNCC</h3></div>
 <div class="grupo"><label>Unidade temática / prática de linguagem</label><input id="unidadeTematica" name="unidade_tematica" list="listaUnidadesBncc" autocomplete="off" value="{{ questao['unidade_tematica'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaUnidadesBncc"></datalist><span class="ajuda" id="ajudaUnidadeBncc">Carregando catálogo...</span></div>
 <div class="grupo"><label>Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" list="listaObjetosBncc" autocomplete="off" value="{{ questao['objeto_conhecimento'] or '' }}" placeholder="Selecione ou pesquise"><datalist id="listaObjetosBncc"></datalist></div>
 <div class="grupo largo"><label>Habilidade BNCC</label><input id="habilidadeBncc" name="habilidade_bncc" list="listaHabilidadesBncc" autocomplete="off" value="{{ questao['habilidade_bncc'] or '' }}" placeholder="Digite o código ou parte da descrição"><datalist id="listaHabilidadesBncc"></datalist><span class="ajuda">A lista apresenta código e descrição completos.</span></div>
 </div></div>
-<div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Salvar alterações</button></div>
+<div class="rodape"><a class="btn secundario btn-secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal btn-primario" type="submit">Salvar alterações</button></div>
 </section></form></div>
 {% endblock %}
 {% block scripts %}

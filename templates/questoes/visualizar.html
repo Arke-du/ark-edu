@@ -3,10 +3,12 @@
 {% block titulo %}Visualizar questão | ARK EDUS{% endblock %}
 
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 <style>
 .visualizar-questao{
-    --ark-azul:#17468f;
-    --ark-azul-2:#2563eb;
+    --ark-azul:#0d356f;
+    --ark-azul-2:#1c68d4;
     --ark-texto:#0f172a;
     --ark-suave:#64748b;
     --ark-borda:#dbe4f0;
@@ -415,7 +417,7 @@
 
         <div class="vq-acoes">
             {% if pode_editar %}
-            <a href="/questoes/{{ questao['id'] }}/editar" class="vq-btn vq-btn-principal">
+            <a href="/questoes/{{ questao['id'] }}/editar" class="vq-btn vq-btn-principal btn-primario">
                 <svg viewBox="0 0 24 24">
                     <path d="M12 20H21"/>
                     <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L3 19L4 14Z"/>
@@ -507,7 +509,7 @@
                     {{ questao['instituicao_nome'] }} · {{ questao['total_usos'] }} uso(s)
                 </div>
 
-                <a href="/questoes" class="vq-btn">Voltar ao banco</a>
+                <a href="/questoes" class="vq-btn btn-secundario">Voltar ao banco</a>
             </footer>
         </section>
 

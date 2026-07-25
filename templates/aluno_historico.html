@@ -3,293 +3,318 @@
 {% block titulo %}Histórico do aluno | ARK EDU{% endblock %}
 
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
+
 <style>
-    .historico-pagina {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-    }
-
-    .historico-cabecalho,
-    .historico-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 22px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
-    }
-
-    .historico-cabecalho {
-        padding: 26px 30px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-    }
-
-    .historico-etiqueta {
-        display: inline-block;
-        margin-bottom: 8px;
-        color: #175bb5;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-    }
-
-    .historico-cabecalho h1 {
-        margin: 0;
-        color: #0f274d;
-        font-size: 1.8rem;
-    }
-
-    .historico-cabecalho p {
-        margin: 8px 0 0;
-        color: #64748b;
-    }
-
-    .historico-acoes {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-
-    .historico-btn {
-        min-height: 42px;
-        padding: 0 18px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #d7e0ec;
-        border-radius: 12px;
-        background: #ffffff;
-        color: #16335f;
-        font-weight: 700;
-        text-decoration: none;
-        transition: 0.2s ease;
-    }
-
-    .historico-btn:hover {
-        background: #f4f7fb;
-        border-color: #b7c7dc;
-    }
-
-    .historico-btn-principal {
-        border-color: #1d61b8;
-        background: #1d61b8;
-        color: #ffffff;
-    }
-
-    .historico-btn-principal:hover {
-        background: #164f98;
-        border-color: #164f98;
-    }
-
-    .historico-card {
-        padding: 26px 30px;
-    }
-
-    .historico-aluno {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        align-items: center;
-        gap: 18px;
-    }
-
-    .historico-avatar {
-        width: 64px;
-        height: 64px;
-        display: grid;
-        place-items: center;
-        border-radius: 18px;
-        background: #175bb5;
-        color: #ffffff;
-        font-size: 1.45rem;
-        font-weight: 800;
-    }
-
-    .historico-aluno h2 {
-        margin: 0;
-        color: #102a50;
-        font-size: 1.35rem;
-    }
-
-    .historico-dados {
-        margin-top: 8px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 22px;
-        color: #64748b;
-        font-size: 0.92rem;
-    }
-
-    .historico-dados strong {
-        color: #263d5f;
-    }
-
-    .historico-titulo-secao {
-        margin: 0 0 18px;
-        color: #102a50;
-        font-size: 1.2rem;
-    }
-
-    .historico-lista {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-    }
-
-    .historico-registro {
-        padding: 20px;
-        display: grid;
-        grid-template-columns: 100px minmax(180px, 1.2fr) minmax(150px, 1fr) auto;
-        align-items: center;
-        gap: 18px;
-        border: 1px solid #e4eaf2;
-        border-radius: 16px;
-        background: #fbfcfe;
-    }
-
-    .historico-ano {
-        color: #175bb5;
-        font-size: 1.18rem;
-        font-weight: 800;
-    }
-
-    .historico-registro strong {
-        display: block;
-        color: #183458;
-    }
-
-    .historico-registro small {
-        display: block;
-        margin-top: 4px;
-        color: #718096;
-    }
-
-    .historico-status {
-        padding: 7px 12px;
-        border-radius: 999px;
-        background: #dcfce7;
-        color: #18713b;
-        font-size: 0.78rem;
-        font-weight: 800;
-        white-space: nowrap;
-    }
-
-    .historico-status-encerrado {
-        background: #eef2f7;
-        color: #596779;
-    }
-
-    .historico-observacao {
-        grid-column: 2 / -1;
-        padding-top: 12px;
-        border-top: 1px solid #e5eaf1;
-        color: #64748b;
-        font-size: 0.9rem;
-    }
-
-    .historico-vazio {
-        padding: 42px 20px;
-        text-align: center;
-        color: #64748b;
-    }
-
-    .historico-vazio h3 {
-        margin: 0 0 8px;
-        color: #183458;
-    }
-
-    @media (max-width: 900px) {
-        .historico-cabecalho {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-        .historico-registro {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .historico-observacao {
-            grid-column: 1 / -1;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .historico-cabecalho,
-        .historico-card {
-            padding: 20px;
-        }
-
-        .historico-registro {
-            grid-template-columns: 1fr;
-        }
-
-        .historico-observacao {
-            grid-column: 1;
-        }
-    }
+.ha-pagina{
+    width:100%;
+    max-width:1280px;
+    margin:0 auto;
+    padding:6px 0 40px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+}
+.ha-topo{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:24px;
+}
+.ha-topo-texto{min-width:0}
+.ha-etiqueta{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    margin-bottom:9px;
+    padding:5px 10px;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+}
+.ha-topo h1{
+    margin:0 0 8px;
+    color:#123b82;
+    font-size:clamp(28px,4vw,38px);
+    line-height:1.15;
+}
+.ha-topo p{
+    margin:0;
+    color:#64748b;
+    font-size:15px;
+    line-height:1.55;
+}
+.ha-acoes{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding-top:34px;
+    flex-wrap:wrap;
+    flex-shrink:0;
+}
+.ha-card{
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 12px 32px rgba(15,23,42,.06);
+}
+.ha-card-corpo{padding:26px}
+.ha-aluno{
+    display:flex;
+    align-items:center;
+    gap:18px;
+}
+.ha-avatar{
+    display:grid;
+    place-items:center;
+    width:64px;
+    height:64px;
+    flex:0 0 64px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    color:#fff;
+    font-size:24px;
+    font-weight:900;
+    box-shadow:0 10px 24px rgba(37,99,235,.2);
+}
+.ha-aluno-info{min-width:0}
+.ha-aluno h2{
+    margin:0;
+    color:#0f172a;
+    font-size:22px;
+    line-height:1.25;
+}
+.ha-dados{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 24px;
+    margin-top:8px;
+    color:#64748b;
+    font-size:14px;
+}
+.ha-dados strong{color:#334155}
+.ha-card-cabecalho{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    padding:22px 26px;
+    border-bottom:1px solid #e2e8f0;
+    background:#f8fafc;
+}
+.ha-card-cabecalho h2{
+    margin:0 0 5px;
+    color:#123b82;
+    font-size:21px;
+}
+.ha-card-cabecalho p{
+    margin:0;
+    color:#64748b;
+    font-size:14px;
+}
+.ha-contador{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:32px;
+    padding:5px 11px;
+    border:1px solid #bfdbfe;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+}
+.ha-lista{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding:22px 26px 26px;
+}
+.ha-registro{
+    display:grid;
+    grid-template-columns:110px minmax(180px,1.25fr) minmax(180px,1fr) auto;
+    align-items:center;
+    gap:18px;
+    padding:20px;
+    border:1px solid #e2e8f0;
+    border-radius:16px;
+    background:#fff;
+    transition:.2s ease;
+}
+.ha-registro:hover{
+    border-color:#cbd5e1;
+    box-shadow:0 8px 22px rgba(15,23,42,.05);
+    transform:translateY(-1px);
+}
+.ha-ano{
+    color:#1d4ed8;
+    font-size:20px;
+    font-weight:900;
+}
+.ha-registro strong{
+    display:block;
+    color:#0f172a;
+    font-size:14px;
+}
+.ha-registro small{
+    display:block;
+    margin-top:4px;
+    color:#64748b;
+    font-size:12px;
+    line-height:1.45;
+}
+.ha-status{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:30px;
+    padding:5px 11px;
+    border:1px solid #bbf7d0;
+    border-radius:999px;
+    background:#ecfdf3;
+    color:#15803d;
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+}
+.ha-status-encerrado{
+    border-color:#dbe3ec;
+    background:#f1f5f9;
+    color:#64748b;
+}
+.ha-observacao{
+    grid-column:2/-1;
+    padding-top:13px;
+    border-top:1px solid #e2e8f0;
+    color:#64748b;
+    font-size:13px;
+    line-height:1.55;
+}
+.ha-observacao strong{
+    display:inline;
+    color:#334155;
+}
+.ha-vazio{
+    padding:52px 24px;
+    text-align:center;
+}
+.ha-vazio-icone{
+    display:grid;
+    place-items:center;
+    width:56px;
+    height:56px;
+    margin:0 auto 14px;
+    border-radius:16px;
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:24px;
+}
+.ha-vazio h3{
+    margin:0 0 7px;
+    color:#123b82;
+    font-size:18px;
+}
+.ha-vazio p{
+    margin:0;
+    color:#64748b;
+    font-size:14px;
+}
+@media(max-width:900px){
+    .ha-topo{flex-direction:column}
+    .ha-acoes{padding-top:0}
+    .ha-registro{grid-template-columns:1fr 1fr}
+    .ha-observacao{grid-column:1/-1}
+}
+@media(max-width:620px){
+    .ha-acoes{width:100%}
+    .ha-acoes .btn{flex:1}
+    .ha-card-corpo,.ha-card-cabecalho,.ha-lista{padding-left:20px;padding-right:20px}
+    .ha-aluno{align-items:flex-start}
+    .ha-registro{grid-template-columns:1fr}
+    .ha-observacao{grid-column:1}
+}
 </style>
 {% endblock %}
 
 {% block conteudo %}
-<div class="historico-pagina">
+<div class="ha-pagina">
 
-    <header class="historico-cabecalho">
-        <div>
-            <span class="historico-etiqueta">Alunos</span>
+    <header class="ha-topo">
+        <div class="ha-topo-texto">
+            <span class="ha-etiqueta">Gestão acadêmica</span>
             <h1>Histórico do aluno</h1>
             <p>Consulte as matrículas e turmas do estudante em cada ano letivo.</p>
         </div>
 
-        <div class="historico-acoes">
-            <a href="{{ url_for('alunos') }}" class="historico-btn">
-                ← Voltar para alunos
+        <div class="ha-acoes">
+            <a href="{{ url_for('alunos') }}" class="btn btn-secundario">
+                <span aria-hidden="true">←</span>
+                Voltar para alunos
             </a>
 
-            <a
-                href="{{ url_for('editar_aluno', aluno_id=aluno['id']) }}"
-                class="historico-btn historico-btn-principal"
-            >
+            <a href="{{ url_for('editar_aluno', aluno_id=aluno['id']) }}" class="btn btn-primario">
                 Editar cadastro
             </a>
         </div>
     </header>
 
-    <section class="historico-card">
-        <div class="historico-aluno">
-            <div class="historico-avatar">
-                {{ aluno['nome'][0]|upper }}
-            </div>
+    <section class="ha-card">
+        <div class="ha-card-corpo">
+            <div class="ha-aluno">
+                <div class="ha-avatar">
+                    {{ aluno['nome'][0]|upper }}
+                </div>
 
-            <div>
-                <h2>{{ aluno['nome'] }}</h2>
+                <div class="ha-aluno-info">
+                    <h2>{{ aluno['nome'] }}</h2>
 
-                <div class="historico-dados">
-                    <span>
-                        <strong>Matrícula:</strong>
-                        {{ aluno['matricula'] or "Não informada" }}
-                    </span>
-
-                    {% if aluno['nome_instituicao'] %}
+                    <div class="ha-dados">
                         <span>
-                            <strong>Instituição:</strong>
-                            {{ aluno['nome_instituicao'] }}
+                            <strong>Matrícula:</strong>
+                            {{ aluno['matricula'] or "Não informada" }}
                         </span>
-                    {% endif %}
+
+                        {% if aluno['nome_instituicao'] %}
+                            <span>
+                                <strong>Instituição:</strong>
+                                {{ aluno['nome_instituicao'] }}
+                            </span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="historico-card">
-        <h2 class="historico-titulo-secao">Histórico de matrículas</h2>
+    <section class="ha-card">
+        <div class="ha-card-cabecalho">
+            <div>
+                <h2>Histórico de matrículas</h2>
+                <p>Acompanhe a trajetória acadêmica do estudante.</p>
+            </div>
+
+            {% if historico %}
+                <span class="ha-contador">
+                    {{ historico|length }}
+                    {% if historico|length == 1 %}registro{% else %}registros{% endif %}
+                </span>
+            {% endif %}
+        </div>
 
         {% if historico %}
-            <div class="historico-lista">
+            <div class="ha-lista">
                 {% for registro in historico %}
-                    <article class="historico-registro">
-                        <div class="historico-ano">
+                    <article class="ha-registro">
+                        <div class="ha-ano">
                             {{ registro['ano_letivo'] or "—" }}
                         </div>
 
@@ -317,12 +342,12 @@
                             </small>
                         </div>
 
-                        <span class="historico-status {% if registro['encerrado'] %}historico-status-encerrado{% endif %}">
+                        <span class="ha-status {% if registro['encerrado'] %}ha-status-encerrado{% endif %}">
                             {{ registro['situacao'] or ("Encerrado" if registro['encerrado'] else "Cursando") }}
                         </span>
 
                         {% if registro['observacao'] %}
-                            <div class="historico-observacao">
+                            <div class="ha-observacao">
                                 <strong>Observação:</strong>
                                 {{ registro['observacao'] }}
                             </div>
@@ -331,7 +356,8 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div class="historico-vazio">
+            <div class="ha-vazio">
+                <div class="ha-vazio-icone" aria-hidden="true">◎</div>
                 <h3>Nenhum histórico encontrado</h3>
                 <p>Este aluno ainda não possui registros de matrícula disponíveis.</p>
             </div>

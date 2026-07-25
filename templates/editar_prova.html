@@ -1,8 +1,11 @@
 {% extends "layout/base.html" %}
 
-{% block titulo %}Editar avaliação | ARK EDU{% endblock %}
+{% block titulo %}Editar avaliação | ARK EDUS{% endblock %}
 
 {% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
 <style>
     .editar-prova-pagina {
         --ark-azul: #123b82;
@@ -295,7 +298,7 @@
         <form action="/atualizar_prova/{{ prova[0] }}" method="POST">
             <div class="editar-prova-formulario">
                 <div class="editar-prova-grid">
-                    <div class="editar-prova-grupo largo">
+                    <div class="editar-prova-grupo campo largo campo-largura-total">
                         <label for="nomeProva">Nome da avaliação</label>
                         <input
                             id="nomeProva"
@@ -307,7 +310,7 @@
                         >
                     </div>
 
-                    <div class="editar-prova-grupo">
+                    <div class="editar-prova-grupo campo">
                         <label for="turmaProva">Turma</label>
                         <select id="turmaProva" name="turma_id" required>
                             {% for turma in turmas %}
@@ -321,7 +324,7 @@
                         </select>
                     </div>
 
-                    <div class="editar-prova-grupo">
+                    <div class="editar-prova-grupo campo">
                         <label for="professorProva">Professor</label>
                         <select id="professorProva" name="professor_id" required>
                             {% for professor in professores %}
@@ -335,7 +338,7 @@
                         </select>
                     </div>
 
-                    <div class="editar-prova-grupo">
+                    <div class="editar-prova-grupo campo">
                         <label for="disciplinaProva">Componente curricular</label>
                         <select id="disciplinaProva" name="disciplina" required>
                             <option value="Língua Portuguesa" {% if prova[4] == "Língua Portuguesa" %}selected{% endif %}>Língua Portuguesa</option>
@@ -349,7 +352,7 @@
                         </select>
                     </div>
 
-                    <div class="editar-prova-grupo">
+                    <div class="editar-prova-grupo campo">
                         <label for="dataAplicacaoProva">Data de aplicação</label>
                         <input
                             id="dataAplicacaoProva"
@@ -376,7 +379,7 @@
                         </div>
                     </div>
 
-                    <div class="editar-prova-grupo largo">
+                    <div class="editar-prova-grupo campo largo campo-largura-total">
                         <div class="editar-prova-aviso">
                             <svg class="editar-prova-svg" viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="12" cy="12" r="9"></circle>
@@ -410,7 +413,7 @@
                         Cancelar
                     </a>
 
-                    <button type="submit" class="editar-prova-btn editar-prova-btn-principal">
+                    <button type="submit" class="editar-prova-btn editar-prova-btn-principal btn-primario">
                         <svg class="editar-prova-svg" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M5 12L10 17L19 8"></path>
                         </svg>

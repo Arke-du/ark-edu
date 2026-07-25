@@ -4,6 +4,12 @@
 {{ turma["ano"] }} {{ turma["nome"] }} | ARK EDU
 {% endblock %}
 
+{% block estilos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
+{% endblock %}
+
 {% block conteudo %}
 
 <style>

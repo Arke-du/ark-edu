@@ -1,3 +1,286 @@
-{% extends "layout/base.html" %}{% block titulo %}Nova aplicação | ARK EDUS{% endblock %}{% block estilos %}<style>
-.na{max-width:950px;display:grid;gap:18px}.na h1{color:#17468f;margin:0}.card{background:#fff;border:1px solid #dbe4f0;border-radius:18px;padding:22px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.campo{display:grid;gap:7px}.campo label{font-weight:800;color:#334155}.campo input,.campo textarea{padding:12px;border:1px solid #cbd5e1;border-radius:11px;font:inherit}.opcoes{display:flex;gap:10px;flex-wrap:wrap}.opcao{border:1px solid #dbe4f0;border-radius:12px;padding:12px 15px}.alunos{max-height:330px;overflow:auto;border:1px solid #e2e8f0;border-radius:13px;padding:10px}.aluno{display:flex;gap:10px;padding:10px;border-bottom:1px solid #edf2f7}.btn{padding:13px 19px;border:0;border-radius:12px;background:linear-gradient(135deg,#123b82,#2563eb);color:#fff;font-weight:800;cursor:pointer}.sec{background:#fff;color:#123b82;border:1px solid #dbe4f0;text-decoration:none}@media(max-width:700px){.grid{grid-template-columns:1fr}}
-</style>{% endblock %}{% block conteudo %}<form class="na" method="post"><a href="/provas/{{ prova.id }}/aplicacoes" style="color:#123b82;font-weight:800;text-decoration:none">← Voltar</a><div><h1>Nova aplicação</h1><p>{{ prova.nome }} · {{ prova.turma_nome }}</p></div><section class="card grid"><div class="campo"><label>Nome da aplicação</label><input name="nome" value="Aplicação - {{ prova.nome }}"></div><div class="campo"><label>Data da aplicação</label><input type="date" name="data_aplicacao" value="{{ prova.data_aplicacao or '' }}"></div></section><section class="card"><h2>Quantidade de modelos</h2><div class="opcoes">{% for n in range(1,5) %}<label class="opcao"><input type="radio" name="quantidade_modelos" value="{{ n }}" {% if n==1 %}checked{% endif %}> {{ n }} modelo{% if n>1 %}s{% endif %}</label>{% endfor %}</div></section><section class="card"><h2>Alunos participantes</h2><div class="opcoes"><label class="opcao"><input type="radio" name="modo_alunos" value="turma" checked onchange="toggleAlunos()"> Turma inteira</label><label class="opcao"><input type="radio" name="modo_alunos" value="selecionados" onchange="toggleAlunos()"> Selecionar alunos</label></div><div class="alunos" id="listaAlunos" style="display:none">{% for aluno in alunos %}<label class="aluno"><input type="checkbox" name="alunos" value="{{ aluno.id }}"><span><strong>{{ aluno.nome }}</strong><br><small>Matrícula: {{ aluno.matricula or '—' }}</small></span></label>{% endfor %}</div></section><section class="card campo"><label>Observações</label><textarea name="observacoes" rows="4"></textarea></section><div style="display:flex;gap:10px"><button class="btn">Criar aplicação</button><a class="btn sec" href="/provas/{{ prova.id }}/aplicacoes">Cancelar</a></div></form><script>function toggleAlunos(){const v=document.querySelector('[name=modo_alunos]:checked').value;document.getElementById('listaAlunos').style.display=v==='selecionados'?'block':'none'}</script>{% endblock %}
+{% extends "layout/base.html" %}
+
+{% block titulo %}Nova aplicação | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.na-page{
+    --na-navy:#0d356f;
+    --na-blue:#1c68d4;
+    --na-cyan:#10b7c7;
+    --na-text:#10233f;
+    --na-muted:#6b7c93;
+    --na-border:#e2e9f2;
+    width:100%;
+    max-width:1080px;
+    margin:0 auto;
+    display:grid;
+    gap:18px;
+    color:var(--na-text);
+}
+.na-back{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    width:fit-content;
+    color:var(--na-blue);
+    font-size:13px;
+    font-weight:850;
+    text-decoration:none;
+}
+.na-header{
+    position:relative;
+    overflow:hidden;
+    padding:28px 30px;
+    border-radius:22px;
+    background:linear-gradient(125deg,var(--na-navy),var(--na-blue) 68%,var(--na-cyan));
+    box-shadow:0 18px 40px rgba(13,53,111,.15);
+}
+.na-header::after{
+    content:"";
+    position:absolute;
+    right:-80px;
+    top:-115px;
+    width:300px;
+    height:300px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+}
+.na-header > *{position:relative;z-index:1}
+.na-header h1{
+    margin:0;
+    color:#fff;
+    font-size:clamp(29px,3vw,38px);
+    font-weight:900;
+    letter-spacing:-.035em;
+}
+.na-header p{
+    margin:9px 0 0;
+    color:rgba(255,255,255,.80);
+    font-size:14px;
+}
+.na-card{
+    overflow:hidden;
+    border:1px solid var(--na-border);
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 9px 28px rgba(15,35,64,.05);
+}
+.na-card-head{
+    padding:17px 21px;
+    border-bottom:1px solid var(--na-border);
+    background:linear-gradient(180deg,#fff,#fbfdff);
+}
+.na-card-head h2{margin:0;font-size:15px;font-weight:900}
+.na-card-head p{margin:5px 0 0;color:var(--na-muted);font-size:12px}
+.na-card-body{padding:21px}
+.na-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.na-field{display:grid;gap:7px}
+.na-field label{color:#334155;font-size:12px;font-weight:850}
+.na-field input,.na-field textarea{
+    width:100%;
+    border:1px solid #cfd9e6;
+    border-radius:12px;
+    background:#fff;
+    color:var(--na-text);
+    font:inherit;
+    font-size:13px;
+    outline:none;
+    transition:.18s;
+}
+.na-field input{min-height:46px;padding:0 13px}
+.na-field textarea{min-height:110px;padding:13px;resize:vertical}
+.na-field input:focus,.na-field textarea:focus{
+    border-color:#79a9e9;
+    box-shadow:0 0 0 4px rgba(28,104,212,.09);
+}
+.na-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.na-option{position:relative}
+.na-option input{position:absolute;opacity:0;pointer-events:none}
+.na-option span{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:52px;
+    padding:10px;
+    border:1px solid var(--na-border);
+    border-radius:13px;
+    background:#f8fafc;
+    color:#475569;
+    font-size:12px;
+    font-weight:850;
+    text-align:center;
+    cursor:pointer;
+    transition:.18s;
+}
+.na-option input:checked + span{
+    border-color:#7db0ef;
+    background:#edf5ff;
+    color:var(--na-navy);
+    box-shadow:0 0 0 3px rgba(28,104,212,.08);
+}
+.na-mode-options{grid-template-columns:repeat(2,minmax(0,1fr));max-width:500px}
+.na-students{
+    display:none;
+    max-height:350px;
+    margin-top:15px;
+    overflow:auto;
+    border:1px solid var(--na-border);
+    border-radius:14px;
+    background:#fbfdff;
+}
+.na-student{
+    display:flex;
+    align-items:flex-start;
+    gap:11px;
+    padding:12px 14px;
+    border-bottom:1px solid #edf2f7;
+    cursor:pointer;
+}
+.na-student:last-child{border-bottom:0}
+.na-student:hover{background:#f4f8fd}
+.na-student input{margin-top:2px}
+.na-student strong{color:#263548;font-size:13px}
+.na-student small{color:var(--na-muted);font-size:11px}
+.na-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding-top:2px;
+}
+.na-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 18px;
+    border-radius:12px;
+    font:inherit;
+    font-size:13px;
+    font-weight:850;
+    text-decoration:none;
+    cursor:pointer;
+    transition:.18s;
+}
+.na-btn-secondary{
+    border:1px solid var(--na-border);
+    background:#fff;
+    color:var(--na-navy);
+}
+.na-btn-primary{
+    border:1px solid var(--na-navy);
+    background:linear-gradient(135deg,var(--na-navy),var(--na-blue));
+    color:#fff;
+    box-shadow:0 8px 20px rgba(28,104,212,.20);
+}
+.na-btn:hover{transform:translateY(-1px)}
+@media(max-width:760px){
+    .na-grid,.na-options,.na-mode-options{grid-template-columns:1fr}
+    .na-header{padding:24px}
+    .na-actions{display:grid}
+    .na-btn{width:100%}
+}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<form class="na-page" method="post">
+    <a href="/provas/{{ prova.id }}/aplicacoes" class="na-back">← Voltar às aplicações</a>
+
+    <header class="na-header">
+        <h1>Nova aplicação</h1>
+        <p>{{ prova.nome }} · {{ prova.turma_nome }}</p>
+    </header>
+
+    <section class="na-card">
+        <div class="na-card-head">
+            <h2>Informações da aplicação</h2>
+            <p>Defina o nome e a data em que a avaliação será aplicada.</p>
+        </div>
+        <div class="na-card-body na-grid">
+            <div class="na-field">
+                <label for="nomeAplicacao">Nome da aplicação</label>
+                <input id="nomeAplicacao" name="nome" value="Aplicação - {{ prova.nome }}">
+            </div>
+            <div class="na-field">
+                <label for="dataAplicacao">Data da aplicação</label>
+                <input id="dataAplicacao" type="date" name="data_aplicacao" value="{{ prova.data_aplicacao or '' }}">
+            </div>
+        </div>
+    </section>
+
+    <section class="na-card">
+        <div class="na-card-head">
+            <h2>Quantidade de modelos</h2>
+            <p>Escolha quantas versões embaralhadas serão geradas.</p>
+        </div>
+        <div class="na-card-body">
+            <div class="na-options">
+                {% for n in range(1,5) %}
+                <label class="na-option">
+                    <input type="radio" name="quantidade_modelos" value="{{ n }}" {% if n == 1 %}checked{% endif %}>
+                    <span>{{ n }} modelo{% if n > 1 %}s{% endif %}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="na-card">
+        <div class="na-card-head">
+            <h2>Alunos participantes</h2>
+            <p>Use a turma inteira ou selecione estudantes específicos.</p>
+        </div>
+        <div class="na-card-body">
+            <div class="na-options na-mode-options">
+                <label class="na-option">
+                    <input type="radio" name="modo_alunos" value="turma" checked onchange="toggleAlunos()">
+                    <span>Turma inteira</span>
+                </label>
+                <label class="na-option">
+                    <input type="radio" name="modo_alunos" value="selecionados" onchange="toggleAlunos()">
+                    <span>Selecionar alunos</span>
+                </label>
+            </div>
+
+            <div class="na-students" id="listaAlunos">
+                {% for aluno in alunos %}
+                <label class="na-student">
+                    <input type="checkbox" name="alunos" value="{{ aluno.id }}">
+                    <span>
+                        <strong>{{ aluno.nome }}</strong><br>
+                        <small>Matrícula: {{ aluno.matricula or '—' }}</small>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="na-card">
+        <div class="na-card-head">
+            <h2>Observações</h2>
+            <p>Registre orientações internas sobre esta aplicação.</p>
+        </div>
+        <div class="na-card-body">
+            <div class="na-field">
+                <label for="observacoesAplicacao">Observações opcionais</label>
+                <textarea id="observacoesAplicacao" name="observacoes" rows="4" placeholder="Ex.: aplicação adaptada, tempo adicional, orientações para a turma..."></textarea>
+            </div>
+        </div>
+    </section>
+
+    <div class="na-actions">
+        <a class="na-btn na-btn-secondary" href="/provas/{{ prova.id }}/aplicacoes">Cancelar</a>
+        <button class="na-btn na-btn-primary" type="submit">Criar aplicação</button>
+    </div>
+</form>
+
+<script>
+function toggleAlunos(){
+    const selecionado = document.querySelector('[name="modo_alunos"]:checked');
+    const lista = document.getElementById('listaAlunos');
+    lista.style.display = selecionado && selecionado.value === 'selecionados' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

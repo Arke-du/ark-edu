@@ -5,10 +5,10 @@
 {% block estilos %}
 <style>
 :root{
-    --ap-primary:#123b72;
-    --ap-primary-dark:#0c2e59;
-    --ap-blue:#2563eb;
-    --ap-blue-hover:#1d4ed8;
+    --ap-primary:#0d356f;
+    --ap-primary-dark:#082957;
+    --ap-blue:#1c68d4;
+    --ap-blue-hover:#1557b0;
     --ap-text:#172033;
     --ap-muted:#667085;
     --ap-border:#e2e8f0;
@@ -116,7 +116,7 @@
     border-color:var(--ap-blue);
     background:var(--ap-blue);
     color:#fff;
-    box-shadow:0 8px 18px rgba(37,99,235,.20);
+    box-shadow:0 8px 18px rgba(28,104,212,.20);
 }
 
 .ap-btn-primary:hover{
@@ -680,6 +680,104 @@
         width:100%;
     }
 }
+
+
+/* ARK EDUS — PADRÃO VISUAL V2 */
+
+.ap-page{
+    --ap-primary:#0d356f;
+    --ap-primary-dark:#082957;
+    --ap-blue:#1c68d4;
+    --ap-blue-hover:#1557b0;
+    --ap-cyan:#10b7c7;
+    --ap-text:#10233f;
+    --ap-muted:#6b7c93;
+    --ap-border:#e3eaf3;
+    max-width:1440px;
+    padding:30px 32px 60px;
+}
+.ap-top{
+    position:relative;
+    overflow:hidden;
+    align-items:center;
+    margin-bottom:20px;
+    padding:28px 30px;
+    border-radius:22px;
+    background:linear-gradient(125deg,#0d356f,#1c68d4 68%,#10b7c7);
+    box-shadow:0 18px 42px rgba(13,53,111,.16);
+}
+.ap-top::after{
+    content:"";
+    position:absolute;
+    right:-90px;
+    top:-120px;
+    width:320px;
+    height:320px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+}
+.ap-top>*{position:relative;z-index:1}
+.ap-back,.ap-title,.ap-subtitle{color:#fff}
+.ap-back{margin-bottom:12px;color:rgba(255,255,255,.86)}
+.ap-back:hover{color:#fff}
+.ap-title{font-size:clamp(30px,3vw,40px)}
+.ap-subtitle{color:rgba(255,255,255,.78);font-size:14px}
+.ap-top .ap-btn-primary{
+    border-color:rgba(255,255,255,.22);
+    background:#fff;
+    color:#0d356f;
+    box-shadow:0 10px 25px rgba(0,0,0,.14);
+}
+.ap-top .ap-btn-primary:hover{background:#f8fbff;color:#082957}
+.ap-proof-card{
+    border:1px solid #dfe8f2;
+    border-radius:18px;
+    background:linear-gradient(180deg,#fff,#fbfdff);
+    box-shadow:0 8px 26px rgba(15,35,64,.05);
+}
+.ap-proof-label{color:#1c68d4}
+.ap-section{
+    border-radius:20px;
+    border-color:#e1e9f2;
+    box-shadow:0 12px 34px rgba(15,35,64,.055);
+}
+.ap-section-title{color:#0d356f}
+.ap-item{
+    border-color:#e3eaf3;
+    border-radius:16px;
+    box-shadow:0 4px 14px rgba(15,35,64,.025);
+}
+.ap-item:hover{
+    border-color:#cddbeb;
+    box-shadow:0 12px 28px rgba(15,35,64,.075);
+}
+.ap-item-main{padding:21px}
+.ap-status{background:#edf5ff;color:#0d356f}
+.ap-metric{
+    border-color:#e4ebf3;
+    background:linear-gradient(180deg,#fbfdff,#f7faff);
+}
+.ap-metric strong{color:#0d356f}
+.ap-item-footer{background:#fafcff}
+.ap-btn{
+    min-height:42px;
+    border-radius:11px;
+    font-size:13px;
+}
+.ap-btn-primary{
+    border-color:#1c68d4;
+    background:linear-gradient(135deg,#0d356f,#1c68d4);
+}
+.ap-btn-primary:hover{
+    border-color:#1557b0;
+    background:linear-gradient(135deg,#082957,#1557b0);
+}
+.ap-modal{border-radius:22px}
+@media(max-width:760px){
+    .ap-page{padding:18px}
+    .ap-top{align-items:flex-start;padding:24px}
+}
+
 </style>
 {% endblock %}
 

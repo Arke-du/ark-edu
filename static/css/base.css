@@ -1,33 +1,47 @@
 :root {
-    /* ===========================
-       PALETA OFICIAL ARK EDUS
-    =========================== */
+    --azul-950: #071a36;
+    --azul-900: #0b2854;
+    --azul-800: #0d356f;
+    --azul-700: #1453a6;
+    --azul-600: #1c68d4;
+    --ciano-600: #0891b2;
+    --ciano-500: #10b7c7;
+    --ciano-100: #e8fbfd;
+    --verde-600: #16a34a;
+    --laranja-500: #f59e0b;
+    --roxo-500: #8b5cf6;
+    --vermelho-500: #ef4444;
 
-    --azul: #0D2D62;
-    --azul-escuro: #0D2D62;
-    --azul-hover: #0891B2;
-    --azul-claro: #EAF8FA;
+    --fundo: #f4f7fb;
+    --superficie: #ffffff;
+    --superficie-suave: #f8fafc;
+    --borda: #e4eaf2;
+    --borda-forte: #d3dce8;
 
-    --ciano: #10B7C7;
-    --ciano-escuro: #0891B2;
-    --ciano-claro: rgba(16, 183, 199, 0.12);
+    --texto: #263548;
+    --texto-forte: #10233f;
+    --texto-suave: #6b7c93;
+    --texto-claro: #ffffff;
 
-    --fundo: #F6F8FC;
-    --branco: #FFFFFF;
-    --borda: #E5E7EB;
+    --sombra-sm: 0 2px 8px rgba(15, 35, 64, .05);
+    --sombra-md: 0 10px 30px rgba(15, 35, 64, .08);
+    --sombra-lg: 0 20px 50px rgba(15, 35, 64, .12);
 
-    --texto: #1E293B;
-    --texto-forte: #0D2D62;
-    --texto-suave: #64748B;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 26px;
 
-    --sombra: 0 12px 35px rgba(13, 45, 98, 0.10);
-    --radius: 18px;
-
-    --largura-sidebar: 280px;
+    --largura-sidebar: 264px;
+    --altura-topbar: 78px;
 }
 
 * {
     box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 html,
@@ -36,22 +50,30 @@ body {
     min-height: 100%;
 }
 
+body.ark-shell,
 body {
     margin: 0;
     overflow-x: hidden;
-    font-family: Arial, sans-serif;
-    background: var(--fundo);
+    font-family: "Inter", Arial, sans-serif;
+    background:
+        radial-gradient(circle at top right, rgba(16,183,199,.08), transparent 28rem),
+        var(--fundo);
     color: var(--texto);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
 }
 
 .app {
     width: 100%;
     min-height: 100vh;
 }
-
-/* ===========================
-   ÁREA PRINCIPAL
-=========================== */
 
 .main {
     width: calc(100% - var(--largura-sidebar));
@@ -60,33 +82,21 @@ body {
     overflow-x: hidden;
 }
 
-/* ===========================
-   BARRA SUPERIOR
-=========================== */
-
 .topbar {
     position: sticky;
     top: 0;
     z-index: 900;
-
     width: 100%;
-    height: 92px;
-
+    min-height: var(--altura-topbar);
     display: flex;
     align-items: center;
     justify-content: space-between;
-
-    padding: 0 38px;
-
-    background: linear-gradient(
-        90deg,
-        #0D2D62 0%,
-        #0D2D62 50%,
-        #0891B2 100%
-    );
-
-    color: var(--branco);
-    box-shadow: 0 6px 20px rgba(13, 45, 98, 0.12);
+    gap: 24px;
+    padding: 12px 30px;
+    background: rgba(255, 255, 255, .92);
+    border-bottom: 1px solid rgba(211, 220, 232, .9);
+    box-shadow: 0 4px 18px rgba(15, 35, 64, .04);
+    backdrop-filter: blur(16px);
 }
 
 .topbar-conteudo {
@@ -94,59 +104,53 @@ body {
 }
 
 .topbar-title {
+    color: var(--texto-forte);
     font-size: 20px;
     font-weight: 800;
-    color: var(--branco);
+}
+
+.topbar-acoes {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
 }
 
 .user-box {
-    min-width: 165px;
-    max-width: 320px;
+    min-width: 180px;
+    max-width: 280px;
+    padding: 10px 14px;
+    background: var(--superficie-suave);
+    border: 1px solid var(--borda);
+    border-radius: 13px;
+}
 
-    padding: 12px 18px;
-
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-
-    backdrop-filter: blur(8px);
+.user-box strong,
+.user-box span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .user-box strong {
-    display: block;
-    overflow: hidden;
-
-    font-size: 15px;
-    color: var(--branco);
-
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--texto-forte);
+    font-size: 13px;
+    font-weight: 800;
 }
 
 .user-box span {
-    display: block;
     margin-top: 3px;
-
-    overflow: hidden;
-
-    font-size: 13px;
-    color: var(--branco);
-    opacity: 0.9;
-
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--texto-suave);
+    font-size: 11px;
+    font-weight: 600;
 }
-
-/* ===========================
-   CONTEÚDO
-=========================== */
 
 .content {
     width: 100%;
-    max-width: 100%;
-
-    padding: 38px;
-
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 30px;
     overflow-x: hidden;
 }
 
@@ -154,39 +158,24 @@ body {
     max-width: 100%;
 }
 
+img,
+table,
 form {
-    width: 100%;
-    max-width: 100%;
-}
-
-/* ===========================
-   ELEMENTOS GERAIS
-=========================== */
-
-img {
-    max-width: 100%;
-}
-
-table {
     max-width: 100%;
 }
 
 a {
-    color: var(--ciano-escuro);
+    color: var(--azul-600);
 }
 
 a:hover {
-    color: var(--azul);
+    color: var(--azul-800);
 }
 
 ::selection {
-    background: rgba(16, 183, 199, 0.22);
-    color: var(--azul);
+    background: rgba(16, 183, 199, .25);
+    color: var(--azul-950);
 }
-
-/* ===========================
-   BARRA DE ROLAGEM
-=========================== */
 
 ::-webkit-scrollbar {
     width: 10px;
@@ -194,55 +183,50 @@ a:hover {
 }
 
 ::-webkit-scrollbar-track {
-    background: #EEF2F7;
+    background: #eef3f8;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #B7C4D4;
+    background: #bac7d8;
+    border: 2px solid #eef3f8;
     border-radius: 999px;
-    border: 2px solid #EEF2F7;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--ciano-escuro);
+    background: var(--ciano-600);
 }
 
-/* ===========================
-   RESPONSIVIDADE
-=========================== */
-
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     :root {
-        --largura-sidebar: 240px;
-    }
-
-    .topbar {
-        padding: 0 24px;
+        --largura-sidebar: 238px;
     }
 
     .content {
-        padding: 26px;
+        padding: 24px;
     }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 760px) {
     .main {
         width: 100%;
         margin-left: 0;
     }
 
     .topbar {
-        height: auto;
-        min-height: 76px;
-        padding: 14px 18px;
+        min-height: 70px;
+        padding: 12px 16px;
+    }
+
+    .topbar-acoes {
+        gap: 8px;
     }
 
     .user-box {
         min-width: 0;
-        max-width: 190px;
+        max-width: 160px;
     }
 
     .content {
-        padding: 20px;
+        padding: 18px;
     }
 }

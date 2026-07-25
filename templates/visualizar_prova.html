@@ -7,6 +7,10 @@
 
 <title>{{ prova['nome'] }} | ARK EDUS</title>
 
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formularios.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/botoes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tabelas.css') }}">
+
 <style>
 /* =========================================================
    CONFIGURAÇÕES GERAIS
@@ -1874,7 +1878,7 @@ img {
     </div>
 
     <div class="topbar-actions">
-        <a href="/provas" class="btn btn-secondary">
+        <a href="/provas" class="btn btn-secondary btn-secundario">
             <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -1891,7 +1895,7 @@ img {
 
         <button
             type="button"
-            class="btn btn-light"
+            class="btn btn-light btn-outline"
             onclick="alternarGabarito()"
         >
             <svg

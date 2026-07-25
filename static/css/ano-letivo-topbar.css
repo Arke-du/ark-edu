@@ -1,66 +1,90 @@
-/* =====================================================
-   SELETOR GLOBAL DE ANO LETIVO — TOPBAR
-===================================================== */
-
-.topbar-acoes {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 16px;
-    margin-left: auto;
-}
+/* =========================================================
+   SELETOR DE ANO LETIVO — ARK EDUS
+   Substitua todo o conteúdo de:
+   static/css/ano-letivo-topbar.css
+========================================================= */
 
 .ano-topo {
     position: relative;
-    flex: 0 0 auto;
+    z-index: 980;
 }
 
+/* Botão visível na topbar branca */
 .ano-topo-botao {
-    min-width: 178px;
-    height: 54px;
-    padding: 8px 13px;
-
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
 
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.10);
+    min-width: 168px;
+    min-height: 52px;
+    padding: 8px 12px;
 
-    border: 1px solid rgba(255, 255, 255, 0.20);
+    color: #0d356f;
+    background: #eef5ff;
+    border: 1px solid #cdddf4;
     border-radius: 14px;
+
+    box-shadow:
+        0 2px 7px rgba(15, 35, 64, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
 
     cursor: pointer;
     transition:
         background 0.2s ease,
         border-color 0.2s ease,
+        box-shadow 0.2s ease,
         transform 0.2s ease;
 }
 
-.ano-topo-botao:hover,
-.ano-topo-aberto .ano-topo-botao {
-    background: rgba(255, 255, 255, 0.17);
-    border-color: rgba(255, 255, 255, 0.32);
+.ano-topo-botao:hover {
+    color: #0b2854;
+    background: #e3efff;
+    border-color: #abc6ed;
+    box-shadow: 0 7px 18px rgba(13, 53, 111, 0.11);
+    transform: translateY(-1px);
 }
 
-.ano-topo-botao:active {
-    transform: translateY(1px);
+.ano-topo-botao:focus-visible {
+    outline: 3px solid rgba(28, 104, 212, 0.22);
+    outline-offset: 2px;
+}
+
+.ano-topo-aberto .ano-topo-botao {
+    color: #ffffff;
+    background: linear-gradient(135deg, #0d356f, #1c68d4);
+    border-color: #1c68d4;
+    box-shadow: 0 9px 23px rgba(13, 53, 111, 0.22);
 }
 
 .ano-topo-botao-consulta {
-    background: rgba(245, 158, 11, 0.20);
-    border-color: rgba(253, 230, 138, 0.55);
+    color: #92400e;
+    background: #fff7e8;
+    border-color: #f4cf8d;
 }
 
-.ano-topo-icone {
-    width: 32px;
-    height: 32px;
+.ano-topo-botao-consulta:hover {
+    color: #78350f;
+    background: #ffefd0;
+    border-color: #e8ba62;
+}
 
+/* Ícone */
+.ano-topo-icone {
     display: grid;
     place-items: center;
 
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+
+    color: #1c68d4;
+    background: #ffffff;
+    border: 1px solid rgba(28, 104, 212, 0.14);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.13);
+}
+
+.ano-topo-aberto .ano-topo-icone {
+    color: #0d356f;
 }
 
 .ano-topo-icone svg {
@@ -69,54 +93,58 @@
 
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.8;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
+/* Textos */
 .ano-topo-textos {
-    min-width: 0;
-    flex: 1;
-
     display: flex;
+    flex: 1;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    line-height: 1.05;
+    line-height: 1.15;
 }
 
 .ano-topo-textos small {
-    margin-bottom: 4px;
-
-    color: rgba(255, 255, 255, 0.72);
+    color: #6b7c93;
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .ano-topo-textos strong {
-    color: #ffffff;
-    font-size: 17px;
+    margin-top: 3px;
+    color: #10233f;
+    font-size: 14px;
     font-weight: 800;
 }
 
-.ano-topo-seta {
-    width: 20px;
-    height: 20px;
+.ano-topo-aberto .ano-topo-textos small,
+.ano-topo-aberto .ano-topo-textos strong {
+    color: #ffffff;
+}
 
+.ano-topo-botao-consulta .ano-topo-textos small {
+    color: #a16207;
+}
+
+.ano-topo-botao-consulta .ano-topo-textos strong {
+    color: #78350f;
+}
+
+/* Seta */
+.ano-topo-seta {
     display: grid;
     place-items: center;
-
+    color: #6b7c93;
     transition: transform 0.2s ease;
 }
 
-.ano-topo-aberto .ano-topo-seta {
-    transform: rotate(180deg);
-}
-
 .ano-topo-seta svg {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
 
     fill: none;
     stroke: currentColor;
@@ -125,114 +153,110 @@
     stroke-linejoin: round;
 }
 
+.ano-topo-aberto .ano-topo-seta {
+    color: #ffffff;
+    transform: rotate(180deg);
+}
 
-/* =====================================================
-   MENU SUSPENSO
-===================================================== */
-
+/* Menu suspenso */
 .ano-topo-menu {
     position: absolute;
-    z-index: 1000;
     top: calc(100% + 10px);
     right: 0;
 
-    width: 330px;
+    width: min(360px, calc(100vw - 32px));
     overflow: hidden;
 
-    color: #172033;
+    color: #263548;
     background: #ffffff;
+    border: 1px solid #dce5f0;
+    border-radius: 17px;
 
-    border: 1px solid #dfe6ef;
-    border-radius: 18px;
-
-    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.20);
+    box-shadow: 0 20px 50px rgba(15, 35, 64, 0.18);
 }
 
 .ano-topo-menu[hidden] {
-    display: none;
+    display: none !important;
 }
 
 .ano-topo-menu-cabecalho {
-    padding: 17px 18px 14px;
-
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-
-    border-bottom: 1px solid #edf1f6;
+    padding: 17px 18px 15px;
+    border-bottom: 1px solid #e8edf4;
 }
 
 .ano-topo-menu-cabecalho strong {
-    color: #123b82;
+    display: block;
+    color: #0d356f;
     font-size: 15px;
     font-weight: 800;
 }
 
 .ano-topo-menu-cabecalho span {
-    color: #64748b;
+    display: block;
+    margin-top: 5px;
+    color: #6b7c93;
     font-size: 12px;
-    line-height: 1.45;
+    line-height: 1.5;
 }
 
 .ano-topo-lista {
+    display: grid;
+    gap: 7px;
     max-height: 280px;
+    padding: 11px;
     overflow-y: auto;
-    padding: 8px;
 }
 
 .ano-topo-lista form {
-    width: 100%;
     margin: 0;
 }
 
 .ano-topo-opcao {
-    width: 100%;
-    min-height: 52px;
-    padding: 9px 10px;
-
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
 
-    color: #1e293b;
-    background: transparent;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 12px;
 
-    border: 0;
+    text-align: left;
+    color: #263548;
+    background: #ffffff;
+    border: 1px solid transparent;
     border-radius: 12px;
 
     cursor: pointer;
-    text-align: left;
-    transition: background 0.18s ease;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease;
 }
 
 .ano-topo-opcao:hover {
-    background: #f2f6fb;
+    background: #f4f8fd;
+    border-color: #dbe7f5;
 }
 
 .ano-topo-opcao-ativa {
     background: #eaf2ff;
-}
-
-.ano-topo-opcao-ativa:hover {
-    background: #e2edff;
+    border-color: #cfdef4;
 }
 
 .ano-topo-opcao-check {
-    width: 28px;
-    height: 28px;
-
     display: grid;
     place-items: center;
 
-    flex: 0 0 auto;
+    width: 31px;
+    height: 31px;
+    min-width: 31px;
 
     color: #ffffff;
-    background: #eef3f8;
+    background: #1c68d4;
     border-radius: 9px;
 }
 
-.ano-topo-opcao-ativa .ano-topo-opcao-check {
-    background: #2468c5;
+.ano-topo-opcao-check:empty {
+    background: #edf2f7;
 }
 
 .ano-topo-opcao-check svg {
@@ -241,134 +265,107 @@
 
     fill: none;
     stroke: currentColor;
-    stroke-width: 2.4;
+    stroke-width: 2.3;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
 .ano-topo-opcao-texto {
     display: flex;
+    min-width: 0;
     flex-direction: column;
-    gap: 2px;
 }
 
 .ano-topo-opcao-texto strong {
-    color: #172033;
-    font-size: 15px;
+    color: #10233f;
+    font-size: 14px;
     font-weight: 800;
 }
 
 .ano-topo-opcao-texto small {
-    color: #64748b;
-    font-size: 11px;
+    margin-top: 3px;
+    color: #16a34a;
+    font-size: 10px;
     font-weight: 700;
-    text-transform: uppercase;
 }
 
 .ano-topo-aviso {
-    margin: 0 12px 12px;
+    margin: 0 11px 11px;
     padding: 10px 12px;
 
     color: #92400e;
-    background: #fff7df;
-
-    border: 1px solid #fde7aa;
+    background: #fff7e8;
+    border: 1px solid #f4cf8d;
     border-radius: 11px;
 
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11px;
+    line-height: 1.5;
 }
 
 .ano-topo-gerenciar {
+    display: block;
     padding: 13px 18px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    color: #195cae;
-    background: #f8fafc;
-
-    border-top: 1px solid #edf1f6;
-
-    font-size: 13px;
-    font-weight: 800;
+    color: #1453a6;
+    text-align: center;
     text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+
+    background: #f8fafc;
+    border-top: 1px solid #e8edf4;
 }
 
 .ano-topo-gerenciar:hover {
-    background: #f0f5fb;
+    color: #0d356f;
+    background: #eef5ff;
 }
 
-
-/* =====================================================
-   AVISO DE CONSULTA
-===================================================== */
-
+/* Aviso de consulta de ano antigo */
 .aviso-ano-consulta {
-    padding: 10px 24px;
-
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 18px;
+    gap: 14px;
+
+    margin: 18px 30px 0;
+    padding: 12px 15px;
 
     color: #854d0e;
-    background: #fff8dc;
+    background: #fff9e9;
+    border: 1px solid #f3d28d;
+    border-radius: 13px;
 
-    border-bottom: 1px solid #f5d98b;
-
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
-.aviso-ano-consulta strong {
-    font-weight: 800;
-}
-
-
-/* =====================================================
-   RESPONSIVO
-===================================================== */
-
-@media (max-width: 900px) {
-
-    .topbar-acoes {
-        gap: 10px;
-    }
-
+/* Responsividade */
+@media (max-width: 760px) {
     .ano-topo-botao {
-        min-width: 145px;
+        min-width: 0;
+        padding: 8px;
     }
 
-    .ano-topo-menu {
-        width: 300px;
-    }
-
-    .aviso-ano-consulta {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 3px;
-    }
-}
-
-@media (max-width: 640px) {
-
-    .ano-topo-textos small,
-    .ano-topo-icone {
+    .ano-topo-textos {
         display: none;
     }
 
-    .ano-topo-botao {
-        min-width: 96px;
-        height: 44px;
-        padding: 7px 10px;
+    .ano-topo-seta {
+        display: none;
     }
 
     .ano-topo-menu {
         position: fixed;
-        top: 72px;
-        right: 12px;
-        left: 12px;
+        top: 78px;
+        right: 16px;
+        left: 16px;
         width: auto;
+    }
+
+    .aviso-ano-consulta {
+        margin: 14px 16px 0;
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
