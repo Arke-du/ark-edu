@@ -14,7 +14,6 @@ import cv2
 import numpy as np
 import qrcode
 from PIL import Image
-from pyzbar.pyzbar import decode
 from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
@@ -10151,16 +10150,14 @@ def corrigir_cartoes(prova_id):
         print("Erro ao cadastrar usuário:", erro)
         traceback.print_exc()
 
-    codigos = decode(imagem)
+    qr_texto = _decodificar_qr_cartao(caminho)
 
-    if len(codigos) == 0:
+    if not qr_texto:
         return """
         <h2>QR Code não encontrado</h2>
         <p>Envie uma foto mais nítida, bem iluminada e sem cortes.</p>
         <a href='/provas'>Voltar para provas</a>
         """
-
-    qr_texto = codigos[0].data.decode("utf-8")
 
     try:
         partes = qr_texto.split("|")
@@ -17772,64 +17769,110 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Lê o QR Code com tentativas extras para PDFs digitalizados."""
+    """Lê o QR Code usando somente OpenCV.
+
+    Faz tentativas na imagem inteira e na região superior direita, aplicando
+    escalas, rotações e tratamentos de contraste para fotos e PDFs digitalizados.
+    """
     imagem = cv2.imread(caminho_imagem)
     if imagem is None:
         return None
 
-    try:
-        codigos = decode(cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB))
-        if codigos:
-            return codigos[0].data.decode("utf-8")
-    except Exception:
-        pass
-
-    altura, largura = imagem.shape[:2]
-    recorte = imagem[
-        0:int(altura * 0.24),
-        int(largura * 0.67):largura
-    ]
-
-    if recorte.size == 0:
-        return None
-
     detector = cv2.QRCodeDetector()
 
-    for escala in (1.0, 1.5, 2.0, 3.0, 4.0):
-        candidata = recorte if escala == 1 else cv2.resize(
-            recorte,
-            None,
-            fx=escala,
-            fy=escala,
-            interpolation=cv2.INTER_CUBIC
-        )
-        cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY)
+    def tentar_decodificar(candidata):
+        if candidata is None or candidata.size == 0:
+            return None
 
-        versoes = [cinza]
-        _, otsu = cv2.threshold(
-            cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )
-        versoes.append(otsu)
-        versoes.append(cv2.adaptiveThreshold(
-            cinza,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            31,
-            5
-        ))
+        # Primeiro tenta detectar vários QR Codes (quando suportado pelo OpenCV).
+        try:
+            resultado = detector.detectAndDecodeMulti(candidata)
+            if len(resultado) == 4:
+                sucesso, textos, _, _ = resultado
+                if sucesso and textos:
+                    for texto in textos:
+                        if texto and texto.strip():
+                            return texto.strip()
+        except (cv2.error, AttributeError, TypeError, ValueError):
+            pass
 
-        for versao in versoes:
-            texto, _, _ = detector.detectAndDecode(versao)
-            if texto:
+        # Depois tenta o detector tradicional para um único QR Code.
+        try:
+            texto, _, _ = detector.detectAndDecode(candidata)
+            if texto and texto.strip():
                 return texto.strip()
+        except cv2.error:
+            pass
 
-            try:
-                codigos = decode(versao)
-                if codigos:
-                    return codigos[0].data.decode("utf-8")
-            except Exception:
-                pass
+        return None
+
+    altura, largura = imagem.shape[:2]
+    regioes = [imagem]
+
+    # Nos cartões do ARK EDUS, o QR costuma ficar no topo direito.
+    recorte_superior_direito = imagem[
+        0:max(1, int(altura * 0.32)),
+        max(0, int(largura * 0.58)):largura
+    ]
+    if recorte_superior_direito.size:
+        regioes.append(recorte_superior_direito)
+
+    for regiao in regioes:
+        for angulo in (0, 90, 180, 270):
+            if angulo == 0:
+                rotacionada = regiao
+            elif angulo == 90:
+                rotacionada = cv2.rotate(regiao, cv2.ROTATE_90_CLOCKWISE)
+            elif angulo == 180:
+                rotacionada = cv2.rotate(regiao, cv2.ROTATE_180)
+            else:
+                rotacionada = cv2.rotate(regiao, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+            for escala in (1.0, 1.5, 2.0, 3.0, 4.0):
+                candidata = rotacionada if escala == 1.0 else cv2.resize(
+                    rotacionada,
+                    None,
+                    fx=escala,
+                    fy=escala,
+                    interpolation=cv2.INTER_CUBIC
+                )
+
+                texto = tentar_decodificar(candidata)
+                if texto:
+                    return texto
+
+                if len(candidata.shape) == 3:
+                    cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY)
+                else:
+                    cinza = candidata
+
+                versoes = [cinza]
+
+                # Melhora contraste local em digitalizações com iluminação irregular.
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                versoes.append(clahe.apply(cinza))
+
+                _, otsu = cv2.threshold(
+                    cinza,
+                    0,
+                    255,
+                    cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                )
+                versoes.append(otsu)
+
+                versoes.append(cv2.adaptiveThreshold(
+                    cinza,
+                    255,
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                    cv2.THRESH_BINARY,
+                    31,
+                    5
+                ))
+
+                for versao in versoes:
+                    texto = tentar_decodificar(versao)
+                    if texto:
+                        return texto
 
     return None
 
