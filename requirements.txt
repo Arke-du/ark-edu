@@ -3,7 +3,6 @@ gunicorn
 Flask-Mail
 qrcode[pil]
 Pillow
-pyzbar
 numpy
 opencv-python-headless
 Werkzeug
