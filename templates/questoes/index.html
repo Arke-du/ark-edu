@@ -174,14 +174,26 @@
                         Visualizar
                     </a>
 
-                    <a class="bq-acao" href="/questoes/{{ q['id'] }}/editar">
+                    <a
+                        class="bq-acao"
+                        href="/questoes/{{ q['id'] }}/editar"
+                        title="Criar uma cópia desta questão para editar"
+                    >
                         <svg viewBox="0 0 24 24">
                             <path d="M12 20H21"/>
                             <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L3 19L4 14Z"/>
                         </svg>
-                        Editar
+                        Editar cópia
                     </a>
 
+                    {% set cargo_usuario = (session.get('usuario_cargo') or '')|trim %}
+                    {% set usuario_logado_id = session.get('usuario_id') %}
+                    {% set pode_excluir = (
+                        cargo_usuario in ['Administrador Geral', 'Administrador da Instituição']
+                        or q['criado_por'] == usuario_logado_id
+                    ) %}
+
+                    {% if pode_excluir %}
                     <button
                         type="button"
                         class="bq-acao perigo"
@@ -193,6 +205,7 @@
                         </svg>
                         Excluir
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </article>

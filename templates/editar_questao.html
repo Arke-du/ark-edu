@@ -1,5 +1,5 @@
 {% extends "layout/base.html" %}
-{% block titulo %}Editar questão | ARK EDUS{% endblock %}
+{% block titulo %}Editar cópia da questão | ARK EDUS{% endblock %}
 {% block estilos %}
 <style>
 .editar-pagina{--azul:#17468f;--azul2:#2563eb;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
@@ -20,11 +20,11 @@
 {% block conteudo %}
 <div class="editar-pagina">
 <a class="editar-voltar" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">← Voltar</a>
-<header class="editar-topo"><h1>Editar questão</h1><p>Atualize o conteúdo e a classificação pedagógica.</p></header>
+<header class="editar-topo"><h1>Editar cópia da questão</h1><p>Uma nova questão será criada com suas alterações. A questão original permanecerá inalterada.</p></header>
 <form method="POST" action="/questoes/{{ questao['id'] }}/editar">
 {% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
 <section class="editar-card">
-<div class="editar-cabecalho"><h2>Informações da questão</h2></div>
+<div class="editar-cabecalho"><h2>Informações da nova cópia</h2></div>
 <div class="editar-form"><div class="editar-grid">
 <div class="grupo"><label>Componente curricular</label><select id="disciplinaQuestao" name="disciplina" required>{% for c in componentes %}<option value="{{ c }}" {% if questao['disciplina']==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
 <div class="grupo"><label>Etapa de ensino</label><select id="etapaEnsino" name="etapa_ensino"><option value="">Selecione</option>{% for e in ['Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio'] %}<option value="{{ e }}" {% if questao['etapa_ensino']==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
@@ -52,7 +52,7 @@
 <div class="grupo"><label>Matriz de referência</label><select id="matrizReferencia" name="matriz_referencia" data-valor-inicial="{{ questao['matriz_referencia'] or '' }}" disabled><option value="">Selecione primeiro a matriz de avaliação</option></select></div>
 <div class="grupo largo"><label>Descritor</label><select id="descritorSaeb" name="descritor_saeb" data-valor-inicial="{{ questao['descritor_saeb'] or '' }}" disabled><option value="">Selecione primeiro a matriz de referência</option></select><span class="ajuda" id="ajudaMatriz">Selecione a matriz de avaliação, o componente, a etapa e o ano/série.</span></div>
 </div></div>
-<div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Salvar alterações</button></div>
+<div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">Criar cópia da questão</button></div>
 </section></form></div>
 {% endblock %}
 {% block scripts %}

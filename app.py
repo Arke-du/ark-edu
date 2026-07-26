@@ -6,6 +6,11 @@ import uuid
 import re
 import unicodedata
 
+from dotenv import load_dotenv
+
+# Carrega automaticamente as variáveis do arquivo .env
+load_dotenv(override=True)
+
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from io import BytesIO
@@ -127,6 +132,14 @@ app.config.update(
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 mail = Mail(app)
+
+print("=" * 60)
+print("MAIL_USERNAME:", app.config.get("MAIL_USERNAME"))
+print("MAIL_PASSWORD:", app.config.get("MAIL_PASSWORD"))
+print("MAIL_DEFAULT_SENDER:", app.config.get("MAIL_DEFAULT_SENDER"))
+print("=" * 60)
+
+serializer = URLSafeTimedSerializer(app.secret_key)
 serializer = URLSafeTimedSerializer(app.secret_key)
 
 garantir_tabela_bncc(DB_PATH)
@@ -5338,7 +5351,27 @@ def questoes():
             ORDER BY COALESCE(q.atualizado_em, q.criado_em) DESC, q.id DESC
             LIMIT ? OFFSET ?
         """, parametros + [por_pagina, deslocamento])
-        lista_questoes = cursor.fetchall()
+        lista_questoes = []
+        cargos_administrativos = {
+            "Administrador Geral",
+            "Administrador da Instituição"
+        }
+
+        for registro in cursor.fetchall():
+            item = dict(registro)
+            item["pode_excluir"] = (
+                cargo in cargos_administrativos
+                or item.get("criado_por") == usuario_id
+            )
+
+            # Um usuário de instituição nunca pode excluir questão de outra escola.
+            if (
+                cargo != "Administrador Geral"
+                and item.get("escola_id") not in (None, escola_id)
+            ):
+                item["pode_excluir"] = False
+
+            lista_questoes.append(item)
 
         def distintos(campo):
             condicao = ""
@@ -5686,10 +5719,16 @@ def excluir_questao(questao_id):
         cargo = (session.get("usuario_cargo") or "").strip()
         escola_id = obter_escola_usuario()
         usuario_id = session.get("usuario_id")
-        pode_excluir = cargo in ["Administrador Geral", "Administrador da Instituição", "Coordenador"]
+        pode_excluir = cargo in {
+            "Administrador Geral",
+            "Administrador da Instituição"
+        }
         pode_excluir = pode_excluir or questao["criado_por"] == usuario_id
 
-        if cargo != "Administrador Geral" and questao["escola_id"] not in (None, escola_id):
+        if (
+            cargo != "Administrador Geral"
+            and questao["escola_id"] not in (None, escola_id)
+        ):
             pode_excluir = False
 
         if not pode_excluir:
@@ -7489,39 +7528,70 @@ def editar_questao(questao_id):
         textos_legados += [""] * (4 - len(textos_legados))
         correta_legada = respostas_corretas[0] if respostas_corretas else ""
 
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        escola_copia_id = (
+            questao["escola_id"]
+            if cargo == "Administrador Geral"
+            else escola_usuario
+        )
+
+        # A edição nunca altera a questão original. Ela cria uma nova questão
+        # com o usuário logado como autor, preservando os campos não exibidos
+        # neste formulário (imagem, fonte, tags, observações etc.).
         cursor.execute("""
-            UPDATE questoes
-            SET disciplina = ?, assunto = ?, dificuldade = ?,
-                etapa_ensino = ?, ano_serie = ?,
-                unidade_tematica = ?, objeto_conhecimento = ?, habilidade_bncc = ?,
-                sistema_matriz = ?, matriz_referencia = ?, descritor_saeb = ?,
-                habilidade = ?, tipo_questao = ?, enunciado = ?,
-                alternativa_a = ?, alternativa_b = ?,
-                alternativa_c = ?, alternativa_d = ?,
-                correta = ?, alternativas_json = ?,
-                respostas_corretas = ?, resposta_esperada = ?,
-                criterios_correcao = ?, linhas_resposta = ?,
-                atualizado_em = ?
-            WHERE id = ?
+            INSERT INTO questoes (
+                disciplina, etapa_ensino, ano_serie, assunto,
+                assunto_temporario, subassunto,
+                tipo_questao, enunciado, enunciado_html, imagem,
+                alternativa_a, alternativa_b, alternativa_c, alternativa_d,
+                correta, alternativas_json, respostas_corretas,
+                resposta_esperada, criterios_correcao, habilidade,
+                habilidade_bncc, unidade_tematica, objeto_conhecimento,
+                sistema_matriz, matriz_referencia, descritor_saeb, taxonomia_bloom,
+                dificuldade, fonte, ano_fonte, tags, tempo_estimado,
+                linhas_resposta, observacoes, escola_id, criado_por, criado_em,
+                atualizado_em
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
         """, (
-            disciplina, assunto, dificuldade,
-            etapa_ensino, ano_serie, unidade_tematica, objeto_conhecimento, habilidade_bncc,
-            sistema_matriz, matriz_referencia, descritor_saeb,
-            " | ".join(item for item in [habilidade_bncc, descritor_saeb] if item),
-            tipo_questao, enunciado,
+            disciplina, etapa_ensino, ano_serie, assunto,
+            questao["assunto_temporario"], questao["subassunto"],
+            tipo_questao, enunciado, questao["enunciado_html"], questao["imagem"],
             textos_legados[0], textos_legados[1],
             textos_legados[2], textos_legados[3],
             correta_legada,
             json.dumps(alternativas, ensure_ascii=False),
             json.dumps(respostas_corretas, ensure_ascii=False),
             resposta_esperada, criterios_correcao,
+            " | ".join(item for item in [habilidade_bncc, descritor_saeb] if item),
+            habilidade_bncc, unidade_tematica, objeto_conhecimento,
+            sistema_matriz, matriz_referencia, descritor_saeb,
+            questao["taxonomia_bloom"], dificuldade,
+            questao["fonte"], questao["ano_fonte"], questao["tags"],
+            questao["tempo_estimado"],
             linhas_resposta if tipo_questao == "discursiva" else None,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            questao_id
+            questao["observacoes"], escola_copia_id,
+            session.get("usuario_id"), agora, agora
         ))
 
+        nova_questao_id = cursor.lastrowid
+
+        # Quando a edição foi aberta dentro de uma avaliação, troca somente
+        # o vínculo daquela avaliação para a nova cópia. A questão original
+        # continua intacta e permanece disponível no banco de questões.
+        if prova_id:
+            cursor.execute("""
+                UPDATE prova_questoes
+                SET questao_id = ?
+                WHERE prova_id = ?
+                  AND questao_id = ?
+            """, (nova_questao_id, prova_id, questao_id))
+
         banco.commit()
-        flash("Questão atualizada com sucesso.", "sucesso")
+        flash("Cópia da questão criada com sucesso. A original foi preservada.", "sucesso")
         return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
 
     except sqlite3.Error as erro:
@@ -13621,155 +13691,325 @@ def acesso_negado():
 
 @app.route("/recuperar_senha", methods=["POST"])
 def recuperar_senha():
-    email = request.form["email"].strip()
+    email = (request.form.get("email") or "").strip().lower()
+
+    if not email:
+        flash("Informe o e-mail cadastrado.", "erro")
+        return redirect("/login")
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT id, nome, email
-        FROM usuarios
-        WHERE email = ?
-        AND ativo = 1
-    """, (email,))
+    try:
+        cursor.execute("""
+            SELECT id, nome, email
+            FROM usuarios
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+              AND ativo = 1
+            LIMIT 1
+        """, (email,))
 
-    usuario = cursor.fetchone()
+        usuario = cursor.fetchone()
 
-    if usuario:
-        import random
+        # Por segurança, a tela seguinte é exibida mesmo quando o e-mail
+        # não existe. Isso evita informar quais endereços estão cadastrados.
+        if not usuario:
+            flash(
+                "Se o e-mail estiver cadastrado, um código será enviado.",
+                "sucesso"
+            )
+            return render_template("verificar_codigo.html", email=email)
 
-        usuario_id = usuario[0]
-        nome_usuario = usuario[1]
-        email_usuario = usuario[2]
+        if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_PASSWORD"):
+            print(
+                "ERRO DE E-MAIL: MAIL_USERNAME ou MAIL_PASSWORD não configurados."
+            )
+            flash(
+                "O serviço de recuperação de senha ainda não está configurado. "
+                "Entre em contato com o administrador.",
+                "erro"
+            )
+            return redirect("/login")
 
-        codigo = str(random.randint(100000, 999999))
+        import secrets
+
+        codigo = f"{secrets.randbelow(1_000_000):06d}"
         criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # Invalida códigos anteriores ainda não utilizados.
         cursor.execute("""
-            INSERT INTO codigos_recuperacao
-            (usuario_id, codigo, usado, criado_em)
+            UPDATE codigos_recuperacao
+            SET usado = 1
+            WHERE usuario_id = ?
+              AND usado = 0
+        """, (usuario["id"],))
+
+        cursor.execute("""
+            INSERT INTO codigos_recuperacao (
+                usuario_id,
+                codigo,
+                usado,
+                criado_em
+            )
             VALUES (?, ?, 0, ?)
-        """, (usuario_id, codigo, criado_em))
+        """, (
+            usuario["id"],
+            codigo,
+            criado_em
+        ))
+
+        mensagem = Message(
+            subject="Código de recuperação de senha | ARK EDUS",
+            recipients=[usuario["email"]],
+            sender=app.config.get("MAIL_DEFAULT_SENDER")
+        )
+
+        mensagem.html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;
+                    color:#0f172a;border:1px solid #dbe4f0;border-radius:18px;
+                    overflow:hidden">
+            <div style="background:linear-gradient(135deg,#17468f,#2563eb);
+                        color:#fff;padding:26px">
+                <h2 style="margin:0">Recuperação de senha</h2>
+            </div>
+
+            <div style="padding:26px">
+                <p>Olá, <strong>{usuario["nome"]}</strong>!</p>
+
+                <p>Use o código abaixo para redefinir sua senha:</p>
+
+                <div style="margin:24px 0;padding:18px;text-align:center;
+                            border-radius:14px;background:#eff6ff;
+                            color:#17468f;font-size:32px;font-weight:800;
+                            letter-spacing:8px">
+                    {codigo}
+                </div>
+
+                <p>O código expira em 30 minutos e só poderá ser usado uma vez.</p>
+
+                <p style="color:#64748b;font-size:13px">
+                    Caso você não tenha solicitado a alteração, ignore esta mensagem.
+                </p>
+            </div>
+        </div>
+        """
+
+        try:
+            mail.send(mensagem)
+        except Exception as erro_email:
+            banco.rollback()
+            print("ERRO AO ENVIAR E-MAIL DE RECUPERAÇÃO:", repr(erro_email))
+            flash(
+                "Não foi possível enviar o código agora. "
+                "Verifique as configurações de e-mail da plataforma.",
+                "erro"
+            )
+            return redirect("/login")
 
         banco.commit()
 
-        msg = Message(
-            subject="Código de recuperação de senha - Plataforma de Avaliação",
-            recipients=[email_usuario]
+        flash("Enviamos um código de 6 dígitos para o seu e-mail.", "sucesso")
+        return render_template(
+            "verificar_codigo.html",
+            email=usuario["email"]
         )
 
-        msg.html = f"""
-        <h2>Recuperação de senha</h2>
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO NA RECUPERAÇÃO DE SENHA:", erro)
+        flash(
+            "Não foi possível iniciar a recuperação de senha.",
+            "erro"
+        )
+        return redirect("/login")
 
-        <p>Olá, {nome_usuario}!</p>
+    finally:
+        banco.close()
 
-        <p>Recebemos uma solicitação para redefinir sua senha.</p>
-
-        <p>Use o código abaixo para criar uma nova senha:</p>
-
-        <h1 style="color:#1e3a8a; letter-spacing:4px;">
-            {codigo}
-        </h1>
-
-        <p>Este código expira em 30 minutos.</p>
-
-        <p>Se você não solicitou esta alteração, ignore este e-mail.</p>
-        """
-
-        mail.send(msg)
-
-    banco.close()
-
-    return render_template("verificar_codigo.html", email=email)
 
 @app.route("/verificar_codigo", methods=["POST"])
 def verificar_codigo():
+    email = (request.form.get("email") or "").strip().lower()
+    codigo = (request.form.get("codigo") or "").strip()
 
-    email = request.form["email"].strip()
-    codigo = request.form["codigo"].strip()
+    if not email or not codigo:
+        flash("Informe o e-mail e o código recebido.", "erro")
+        return render_template("verificar_codigo.html", email=email)
+
+    if not codigo.isdigit() or len(codigo) != 6:
+        flash("O código deve possuir exatamente 6 números.", "erro")
+        return render_template("verificar_codigo.html", email=email)
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT usuarios.id
-        FROM usuarios
-        INNER JOIN codigos_recuperacao
-            ON usuarios.id = codigos_recuperacao.usuario_id
-        WHERE usuarios.email = ?
-            AND codigos_recuperacao.codigo = ?
-            AND codigos_recuperacao.usado = 0
-        ORDER BY codigos_recuperacao.id DESC
-        LIMIT 1
-    """, (email, codigo))
+    try:
+        cursor.execute("""
+            SELECT
+                u.id AS usuario_id,
+                cr.id AS codigo_id,
+                cr.criado_em
+            FROM usuarios AS u
+            INNER JOIN codigos_recuperacao AS cr
+                ON cr.usuario_id = u.id
+            WHERE LOWER(TRIM(u.email)) = LOWER(TRIM(?))
+              AND cr.codigo = ?
+              AND cr.usado = 0
+              AND u.ativo = 1
+            ORDER BY cr.id DESC
+            LIMIT 1
+        """, (email, codigo))
 
-    registro = cursor.fetchone()
+        registro = cursor.fetchone()
 
-    banco.close()
+        if not registro:
+            flash("Código inválido ou já utilizado.", "erro")
+            return render_template("verificar_codigo.html", email=email)
 
-    if not registro:
-        return "Código inválido ou já utilizado."
+        try:
+            criado_em = datetime.strptime(
+                registro["criado_em"],
+                "%Y-%m-%d %H:%M:%S"
+            )
+        except (TypeError, ValueError):
+            criado_em = None
 
-    return render_template(
-        "nova_senha.html",
-        email=email,
-        codigo=codigo
-    )
+        if not criado_em or (datetime.now() - criado_em).total_seconds() > 1800:
+            cursor.execute("""
+                UPDATE codigos_recuperacao
+                SET usado = 1
+                WHERE id = ?
+            """, (registro["codigo_id"],))
+            banco.commit()
+
+            flash("Este código expirou. Solicite um novo código.", "erro")
+            return redirect("/login")
+
+        return render_template(
+            "nova_senha.html",
+            email=email,
+            codigo=codigo
+        )
+
+    except sqlite3.Error as erro:
+        print("ERRO AO VERIFICAR CÓDIGO:", erro)
+        flash("Não foi possível verificar o código.", "erro")
+        return render_template("verificar_codigo.html", email=email)
+
+    finally:
+        banco.close()
+
 
 @app.route("/salvar_senha_usuario", methods=["POST"])
 def salvar_senha_usuario():
+    email = (request.form.get("email") or "").strip().lower()
+    codigo = (request.form.get("codigo") or "").strip()
+    nova_senha = request.form.get("nova_senha") or ""
+    confirmar_senha = request.form.get("confirmar_senha") or ""
 
-    email = request.form["email"].strip()
-    codigo = request.form["codigo"].strip()
-    nova_senha = request.form["nova_senha"].strip()
-    confirmar_senha = request.form["confirmar_senha"].strip()
+    if not email or not codigo:
+        flash("A solicitação de recuperação é inválida.", "erro")
+        return redirect("/login")
 
     if nova_senha != confirmar_senha:
-        return "As senhas não conferem."
+        flash("As senhas informadas não conferem.", "erro")
+        return render_template(
+            "nova_senha.html",
+            email=email,
+            codigo=codigo
+        )
 
-    if len(nova_senha) < 4:
-        return "A senha precisa ter pelo menos 4 caracteres."
+    if len(nova_senha) < 6:
+        flash("A nova senha deve ter pelo menos 6 caracteres.", "erro")
+        return render_template(
+            "nova_senha.html",
+            email=email,
+            codigo=codigo
+        )
 
     banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
     cursor = banco.cursor()
 
-    cursor.execute("""
-        SELECT usuarios.id
-        FROM usuarios
-        INNER JOIN codigos_recuperacao
-            ON usuarios.id = codigos_recuperacao.usuario_id
-        WHERE usuarios.email = ?
-            AND codigos_recuperacao.codigo = ?
-            AND codigos_recuperacao.usado = 0
-        ORDER BY codigos_recuperacao.id DESC
-        LIMIT 1
-    """, (email, codigo))
+    try:
+        cursor.execute("""
+            SELECT
+                u.id AS usuario_id,
+                cr.id AS codigo_id,
+                cr.criado_em
+            FROM usuarios AS u
+            INNER JOIN codigos_recuperacao AS cr
+                ON cr.usuario_id = u.id
+            WHERE LOWER(TRIM(u.email)) = LOWER(TRIM(?))
+              AND cr.codigo = ?
+              AND cr.usado = 0
+              AND u.ativo = 1
+            ORDER BY cr.id DESC
+            LIMIT 1
+        """, (email, codigo))
 
-    usuario = cursor.fetchone()
+        registro = cursor.fetchone()
 
-    if not usuario:
+        if not registro:
+            flash("Código inválido ou já utilizado.", "erro")
+            return redirect("/login")
+
+        try:
+            criado_em = datetime.strptime(
+                registro["criado_em"],
+                "%Y-%m-%d %H:%M:%S"
+            )
+        except (TypeError, ValueError):
+            criado_em = None
+
+        if not criado_em or (datetime.now() - criado_em).total_seconds() > 1800:
+            cursor.execute("""
+                UPDATE codigos_recuperacao
+                SET usado = 1
+                WHERE id = ?
+            """, (registro["codigo_id"],))
+            banco.commit()
+
+            flash("O código expirou. Solicite uma nova recuperação.", "erro")
+            return redirect("/login")
+
+        cursor.execute("""
+            UPDATE usuarios
+            SET senha = ?
+            WHERE id = ?
+        """, (
+            generate_password_hash(nova_senha),
+            registro["usuario_id"]
+        ))
+
+        cursor.execute("""
+            UPDATE codigos_recuperacao
+            SET usado = 1
+            WHERE usuario_id = ?
+        """, (registro["usuario_id"],))
+
+        banco.commit()
+
+        flash(
+            "Senha alterada com sucesso. Entre com a nova senha.",
+            "sucesso"
+        )
+        return redirect("/login")
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO AO SALVAR NOVA SENHA:", erro)
+        flash("Não foi possível alterar a senha.", "erro")
+        return render_template(
+            "nova_senha.html",
+            email=email,
+            codigo=codigo
+        )
+
+    finally:
         banco.close()
-        return "Código inválido ou expirado."
-
-    usuario_id = usuario[0]
-
-    cursor.execute("""
-        UPDATE usuarios
-        SET senha = ?
-        WHERE id = ?
-    """, (nova_senha, usuario_id))
-
-    cursor.execute("""
-        UPDATE codigos_recuperacao
-        SET usado = 1
-        WHERE usuario_id = ?
-        AND codigo = ?
-    """, (usuario_id, codigo))
-
-    banco.commit()
-    banco.close()
-
-    return redirect("/login")
 
 criar_tabelas()
 sincronizar_anos_letivos_legados()

@@ -3,136 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Verificar Código</title>
-
+<title>Verificar código | ARK EDUS</title>
 <style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f4f6fb;
-}
-
-.area {
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-}
-
-.card {
-    background: white;
-    width: 100%;
-    max-width: 430px;
-    padding: 40px;
-    border-radius: 22px;
-    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.10);
-}
-
-h1 {
-    color: #1e3a8a;
-    text-align: center;
-    margin-top: 0;
-}
-
-p {
-    text-align: center;
-    color: #64748b;
-    margin-bottom: 30px;
-}
-
-label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #0f172a;
-}
-
-input {
-    width: 100%;
-    padding: 14px;
-    margin-bottom: 20px;
-    border-radius: 12px;
-    border: 1px solid #cbd5e1;
-    font-size: 16px;
-}
-
-button {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #1e3a8a, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-button:hover {
-    opacity: 0.95;
-}
-
-.voltar {
-    display: block;
-    text-align: center;
-    margin-top: 20px;
-    color: #1e3a8a;
-    font-weight: bold;
-    text-decoration: none;
-}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#0f172a}
+.area{min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.card{width:100%;max-width:430px;padding:40px;border:1px solid #e2e8f0;border-radius:22px;background:#fff;box-shadow:0 12px 35px rgba(15,23,42,.10)}
+.marca{text-align:center;color:#17468f;font-size:13px;font-weight:900;letter-spacing:.12em}
+h1{margin:12px 0 8px;color:#17468f;text-align:center;font-size:28px}
+p{text-align:center;color:#64748b;margin:0 0 26px;line-height:1.5}
+.alerta{margin-bottom:18px;padding:12px 14px;border-radius:12px;font-size:13px}
+.alerta.erro{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+.alerta.sucesso,.alerta.success{background:#ecfdf3;color:#15803d;border:1px solid #bbf7d0}
+label{display:block;margin-bottom:8px;color:#0f172a;font-weight:800}
+input{width:100%;padding:14px;margin-bottom:20px;border:1px solid #cbd5e1;border-radius:12px;font-size:20px;text-align:center;letter-spacing:7px;outline:none}
+input:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.10)}
+button{width:100%;padding:15px;border:0;border-radius:14px;background:linear-gradient(135deg,#17468f,#2563eb);color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+.voltar{display:block;margin-top:20px;color:#17468f;text-align:center;font-weight:800;text-decoration:none}
 </style>
-
 </head>
-
 <body>
-
 <div class="area">
-
     <div class="card">
+        <div class="marca">ARK EDUS</div>
+        <h1>Verificar código</h1>
+        <p>Digite o código de 6 dígitos enviado para o seu e-mail.</p>
 
-        <h1>Verificar Código</h1>
-
-        <p>
-            Digite o código de 6 dígitos enviado para o seu e-mail.
-        </p>
+        {% with mensagens = get_flashed_messages(with_categories=true) %}
+            {% for categoria, mensagem in mensagens %}
+                <div class="alerta {{ categoria }}">{{ mensagem }}</div>
+            {% endfor %}
+        {% endwith %}
 
         <form method="POST" action="/verificar_codigo">
+            <input type="hidden" name="email" value="{{ email }}">
 
+            <label for="codigo">Código de verificação</label>
             <input
-                type="hidden"
-                name="email"
-                value="{{ email }}"
-            >
-
-            <label>Código:</label>
-
-            <input
+                id="codigo"
                 type="text"
                 name="codigo"
                 maxlength="6"
                 minlength="6"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                autocomplete="one-time-code"
                 required
                 placeholder="000000"
+                autofocus
             >
 
-            <button type="submit">
-                Verificar código
-            </button>
-
+            <button type="submit">Verificar código</button>
         </form>
 
-        <a href="/login" class="voltar">
-            ← Voltar para o login
-        </a>
-
+        <a href="/login" class="voltar">← Voltar para o login</a>
     </div>
-
 </div>
-
 </body>
 </html>
