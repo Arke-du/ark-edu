@@ -268,7 +268,70 @@
                 animation: none;
             }
         }
-    </style>
+    
+
+        /* =====================================================
+           ACESSO AO PERFIL NO RODAPÉ DO MENU
+        ===================================================== */
+        .sidebar-usuario-link {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr) 18px;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 10px;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: inherit;
+            text-decoration: none;
+            transition: .2s ease;
+        }
+
+        .sidebar-usuario-link:hover,
+        .sidebar-usuario-ativo {
+            border-color: #b8e8ef;
+            background: #eefbfd;
+            transform: translateY(-1px);
+        }
+
+        .sidebar-usuario-icone {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            background: #e2f7fa;
+            color: #079bb6;
+        }
+
+        .sidebar-usuario-icone svg {
+            width: 21px;
+            height: 21px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .sidebar-usuario-textos {
+            min-width: 0;
+        }
+
+        .sidebar-usuario-textos strong,
+        .sidebar-usuario-textos > span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sidebar-usuario-seta {
+            color: #079bb6;
+            font-size: 25px;
+            font-weight: 700;
+            line-height: 1;
+        }
+</style>
 </head>
 
 <body>
@@ -491,17 +554,31 @@
 
         <div class="sidebar-rodape">
 
-            <div class="sidebar-usuario">
-
-                <strong>
-                    {{ session.get("usuario_nome", "Usuário") }}
-                </strong>
-
-                <span>
-                    {{ session.get("usuario_cargo", "") }}
+            <a
+                href="{{ url_for('meu_perfil') }}"
+                class="sidebar-usuario sidebar-usuario-link {% if request.path == '/meu-perfil' %}sidebar-usuario-ativo{% endif %}"
+                title="Editar meu perfil"
+                aria-label="Abrir meu perfil"
+            >
+                <span class="sidebar-usuario-icone" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
+                    </svg>
                 </span>
 
-            </div>
+                <span class="sidebar-usuario-textos">
+                    <strong>
+                        {{ session.get("usuario_nome", "Usuário") }}
+                    </strong>
+
+                    <span>
+                        {{ session.get("usuario_cargo", "") }}
+                    </span>
+                </span>
+
+                <span class="sidebar-usuario-seta" aria-hidden="true">›</span>
+            </a>
 
             <a href="/logout" class="menu-sair">
 

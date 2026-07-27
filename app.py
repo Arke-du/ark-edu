@@ -905,6 +905,8 @@ def criar_tabelas():
             ativo INTEGER DEFAULT 1,
             escola_id INTEGER,
             cpf TEXT,
+            telefone TEXT,
+            data_nascimento TEXT,
             FOREIGN KEY (cargo_id) REFERENCES cargos(id),
             FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE SET NULL
         )
@@ -11995,6 +11997,22 @@ def garantir_estrutura_usuarios(cursor):
         """)
 
     # ==============================
+    # DADOS PESSOAIS DO PERFIL
+    # ==============================
+
+    if not coluna_existe(cursor, "usuarios", "telefone"):
+        cursor.execute("""
+            ALTER TABLE usuarios
+            ADD COLUMN telefone TEXT
+        """)
+
+    if not coluna_existe(cursor, "usuarios", "data_nascimento"):
+        cursor.execute("""
+            ALTER TABLE usuarios
+            ADD COLUMN data_nascimento TEXT
+        """)
+
+    # ==============================
     # COLUNA escola_id EM TURMAS
     # ==============================
 
@@ -13396,6 +13414,175 @@ def ativar_inativar_usuario(id):
         flash("Usuário inativado com sucesso.", "success")
 
     return redirect("/usuarios")
+
+@app.route("/meu-perfil", methods=["GET", "POST"])
+def meu_perfil():
+    """Permite ao usuário autenticado atualizar os próprios dados e senha."""
+
+    usuario_id = session.get("usuario_id")
+    if not usuario_id:
+        flash("Faça login para acessar seu perfil.", "aviso")
+        return redirect("/login")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        garantir_estrutura_usuarios(cursor)
+        banco.commit()
+
+        if request.method == "POST":
+            acao = request.form.get("acao", "dados").strip()
+
+            if acao == "dados":
+                nome = request.form.get("nome", "").strip()
+                email = request.form.get("email", "").strip().lower()
+                cpf = request.form.get("cpf", "").strip()
+                telefone = request.form.get("telefone", "").strip()
+                data_nascimento = request.form.get("data_nascimento", "").strip()
+
+                if not nome:
+                    flash("Informe seu nome.", "erro")
+                    return redirect(url_for("meu_perfil"))
+
+                if not email or "@" not in email:
+                    flash("Informe um e-mail válido.", "erro")
+                    return redirect(url_for("meu_perfil"))
+
+                cursor.execute("""
+                    SELECT id
+                    FROM usuarios
+                    WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+                      AND id <> ?
+                    LIMIT 1
+                """, (email, usuario_id))
+
+                if cursor.fetchone():
+                    flash("Este e-mail já está sendo utilizado por outro usuário.", "erro")
+                    return redirect(url_for("meu_perfil"))
+
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET nome = ?,
+                        email = ?,
+                        cpf = ?,
+                        telefone = ?,
+                        data_nascimento = ?
+                    WHERE id = ?
+                """, (
+                    nome,
+                    email,
+                    cpf or None,
+                    telefone or None,
+                    data_nascimento or None,
+                    usuario_id
+                ))
+
+                banco.commit()
+                session["usuario_nome"] = nome
+                flash("Informações pessoais atualizadas com sucesso.", "success")
+                return redirect(url_for("meu_perfil"))
+
+            if acao == "senha":
+                senha_atual = request.form.get("senha_atual", "")
+                nova_senha = request.form.get("nova_senha", "")
+                confirmar_senha = request.form.get("confirmar_senha", "")
+
+                cursor.execute(
+                    "SELECT senha FROM usuarios WHERE id = ? LIMIT 1",
+                    (usuario_id,)
+                )
+                registro = cursor.fetchone()
+
+                if not registro:
+                    session.clear()
+                    flash("Usuário não encontrado. Entre novamente.", "erro")
+                    return redirect("/login")
+
+                senha_salva = registro["senha"] or ""
+                try:
+                    senha_atual_valida = check_password_hash(
+                        senha_salva,
+                        senha_atual
+                    )
+                except (ValueError, TypeError):
+                    senha_atual_valida = senha_salva == senha_atual
+
+                if not senha_atual_valida:
+                    flash("A senha atual está incorreta.", "erro")
+                    return redirect(url_for("meu_perfil") + "#seguranca")
+
+                if len(nova_senha) < 8:
+                    flash("A nova senha deve ter pelo menos 8 caracteres.", "erro")
+                    return redirect(url_for("meu_perfil") + "#seguranca")
+
+                if nova_senha != confirmar_senha:
+                    flash("A confirmação da nova senha não confere.", "erro")
+                    return redirect(url_for("meu_perfil") + "#seguranca")
+
+                if nova_senha == senha_atual:
+                    flash("A nova senha deve ser diferente da senha atual.", "erro")
+                    return redirect(url_for("meu_perfil") + "#seguranca")
+
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET senha = ?
+                    WHERE id = ?
+                """, (generate_password_hash(nova_senha), usuario_id))
+
+                banco.commit()
+                flash("Senha alterada com sucesso.", "success")
+                return redirect(url_for("meu_perfil") + "#seguranca")
+
+            flash("Ação de perfil inválida.", "erro")
+            return redirect(url_for("meu_perfil"))
+
+        cursor.execute("""
+            SELECT
+                usuarios.id,
+                usuarios.nome,
+                usuarios.email,
+                usuarios.cpf,
+                usuarios.telefone,
+                usuarios.data_nascimento,
+                cargos.nome AS cargo,
+                escolas.nome_instituicao
+            FROM usuarios
+            LEFT JOIN cargos
+                ON cargos.id = usuarios.cargo_id
+            LEFT JOIN escolas
+                ON escolas.id = usuarios.escola_id
+            WHERE usuarios.id = ?
+            LIMIT 1
+        """, (usuario_id,))
+
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            session.clear()
+            flash("Usuário não encontrado. Entre novamente.", "erro")
+            return redirect("/login")
+
+        return render_template(
+            "meu_perfil.html",
+            usuario=usuario
+        )
+
+    except sqlite3.IntegrityError:
+        banco.rollback()
+        flash("Não foi possível salvar. Verifique se o e-mail já está em uso.", "erro")
+        return redirect(url_for("meu_perfil"))
+
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO NO MEU PERFIL:", erro)
+        flash("Não foi possível atualizar seu perfil.", "erro")
+        return redirect("/")
+
+    finally:
+        banco.close()
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
