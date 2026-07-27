@@ -1,0 +1,14 @@
+ARK EDUS — atualização Professor Autônomo e Banco de Questões
+
+Correções desta versão:
+1. Professor Autônomo passa a receber o módulo Provas no menu e no backend.
+2. Contas autônomas antigas são reconhecidas pelo campo tipo_conta no próximo login,
+   mesmo que o cargo salvo anteriormente esteja diferente.
+3. Professor Autônomo pode criar, visualizar, montar e editar provas do próprio espaço.
+4. O registro compatível da tabela professores é criado/sincronizado também para autônomos.
+5. O Banco de Questões passou a ser compartilhado entre instituições e professores autônomos.
+6. A seleção de questões durante a montagem da prova também consulta o banco compartilhado.
+7. A proteção de edição/exclusão foi preservada: visualizar e usar é compartilhado, mas um
+   usuário não pode excluir questões pertencentes a outro espaço, salvo o Administrador Geral.
+
+Após publicar, saia da conta e entre novamente para a sessão reconhecer o perfil autônomo.

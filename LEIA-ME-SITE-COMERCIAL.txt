@@ -1,0 +1,35 @@
+ARK EDUS — SITE COMERCIAL INTEGRADO AO FLASK
+
+Esta versão mantém o site público e a plataforma no mesmo projeto Flask.
+
+ROTAS PÚBLICAS
+/                         Site inicial para visitantes; dashboard para usuários logados
+/recursos                 Recursos da plataforma
+/para-professores         Solução para professores autônomos
+/para-instituicoes        Solução para instituições
+/planos                   Planos e preços
+/contato                  Formulário comercial
+/sobre                    Sobre a ARK EDUS
+/termos-de-uso            Termos iniciais
+/politica-de-privacidade  Política inicial
+/login                    Login
+/cadastre-se              Cadastro de professor autônomo
+/dashboard                Dashboard protegido
+
+CONFIGURAÇÃO DO FORMULÁRIO DE CONTATO NO RENDER
+Use as variáveis já existentes de e-mail e, opcionalmente:
+EMAIL_COMERCIAL=seuemail@dominio.com.br
+
+Sem essa variável, o sistema tenta usar MAIL_DEFAULT_SENDER. Se não houver
+configuração SMTP, a página continua funcionando e mostra um aviso.
+
+PUBLICAÇÃO
+1. Faça backup da versão online e do banco.
+2. Substitua os arquivos pelo conteúdo desta pasta.
+3. Envie ao GitHub.
+4. Aguarde o novo deploy no Render.
+5. Teste /, /login, /cadastre-se, /planos e /dashboard.
+
+IMPORTANTE
+Os textos de Termos e Privacidade são modelos iniciais. Faça revisão jurídica
+antes do lançamento comercial definitivo e da coleta de dados em produção.

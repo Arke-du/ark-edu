@@ -620,6 +620,25 @@
     </div>
 
     <!-- ==========================
+         PLANO E COBRANÇA
+    =========================== -->
+    <div class="card form-card">
+        <h2>Plano e cobrança</h2>
+        <p class="ajuda-formulario">Defina como a instituição será licenciada e acompanhada pelo Administrador da Instituição.</p>
+        <div class="form-grid">
+            <div class="campo"><label for="plano_codigo">Plano institucional</label><select id="plano_codigo" name="plano_codigo" required><option value="start">Start — até 300 alunos — R$ 199,00/mês</option><option value="essencial">Essencial — até 700 alunos — R$ 299,00/mês</option></select></div>
+            <div class="campo"><label for="assinatura_status">Status inicial</label><select id="assinatura_status" name="assinatura_status"><option value="ativa">Ativa</option><option value="pendente">Pendente de pagamento</option><option value="trial">Período de teste</option></select></div>
+            <div class="campo"><label for="metodo_pagamento">Método de pagamento</label><select id="metodo_pagamento" name="metodo_pagamento"><option value="pix">PIX</option><option value="boleto">Boleto bancário</option><option value="credit_card">Cartão de crédito</option><option value="manual">Definido manualmente</option></select></div>
+            <div class="campo"><label for="proxima_cobranca">Próxima cobrança/renovação</label><input type="date" id="proxima_cobranca" name="proxima_cobranca"></div>
+            <div class="campo"><label for="renovacao_automatica">Renovação</label><select id="renovacao_automatica" name="renovacao_automatica"><option value="1">Automática</option><option value="0">Manual</option></select></div>
+            <div class="campo"><label for="isento_cobranca">Cortesia</label><select id="isento_cobranca" name="isento_cobranca"><option value="0">Cobrança normal</option><option value="1">Isenta de cobrança</option></select></div>
+            <div class="campo"><label for="isencao_fim">Fim da cortesia (opcional)</label><input type="date" id="isencao_fim" name="isencao_fim"></div>
+            <div class="campo"><label for="motivo_isencao">Motivo da cortesia</label><input type="text" id="motivo_isencao" name="motivo_isencao" placeholder="Ex.: instituição parceira"></div>
+            <div class="campo" style="grid-column:1/-1"><label for="observacao_cobranca">Observações de cobrança</label><textarea id="observacao_cobranca" name="observacao_cobranca" rows="3" placeholder="Informações internas sobre contrato, vencimento ou negociação."></textarea></div>
+        </div>
+    </div>
+
+    <!-- ==========================
          IDENTIDADE VISUAL
     =========================== -->
 

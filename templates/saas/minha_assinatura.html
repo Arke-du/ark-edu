@@ -1,0 +1,44 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Gerenciamento da assinatura | ARK EDUS{% endblock %}
+{% block conteudo %}
+<style>
+.as-page{max-width:1100px;margin:0 auto;padding:32px 22px;color:#172033}.as-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:24px}.as-head h1{margin:0;color:#123b72;font-size:34px}.as-head p{margin:8px 0 0;color:#667085}.as-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.as-card{background:#fff;border:1px solid #dce4ee;border-radius:18px;padding:22px;box-shadow:0 8px 28px rgba(16,24,40,.04)}.as-card h2{margin:0 0 18px;color:#123b72;font-size:20px}.as-row{display:flex;justify-content:space-between;gap:20px;padding:11px 0;border-bottom:1px solid #eef2f6}.as-row:last-child{border-bottom:0}.as-label{color:#667085}.as-value{text-align:right;font-weight:750}.as-badge{display:inline-flex;border-radius:999px;padding:5px 10px;font-weight:800;font-size:12px}.as-ok{background:#dcfae6;color:#067647}.as-warn{background:#fff3cd;color:#7a4b00}.as-table-wrap{overflow:auto}.as-table{width:100%;border-collapse:collapse;min-width:700px}.as-table th,.as-table td{padding:12px;border-bottom:1px solid #eaecf0;text-align:left;font-size:14px}.as-table th{background:#f8fafc;color:#475467}.as-btn{display:inline-flex;margin-top:18px;background:#1f5bd7;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:800}.as-note{margin-top:14px;padding:14px;border-radius:12px;background:#f8fafc;border:1px solid #e4e7ec;color:#475467}@media(max-width:760px){.as-grid{grid-template-columns:1fr}.as-head{display:block}.as-page{padding:22px 14px}}
+</style>
+<div class="as-page">
+  <div class="as-head"><div><h1>Gerenciamento da assinatura</h1><p>Acompanhe seu plano, renovação, forma de pagamento e histórico de cobranças.</p></div></div>
+  {% if conta_em_teste %}
+  <div class="as-card" style="margin-bottom:18px;border-color:#b2ddff;background:#eff8ff">
+    <h2 style="margin-bottom:8px">Teste gratuito do Plano Professor</h2>
+    <p style="margin:0;color:#344054">Você está usando todas as funcionalidades da plataforma. Restam <strong>{{ dias_teste_restantes }} dia{% if dias_teste_restantes != 1 %}s{% endif %}</strong>. Ao terminar, sua conta passará automaticamente para o Plano Gratuito caso não exista assinatura paga ou cortesia ativa.</p>
+  </div>
+  {% endif %}
+  <div class="as-grid">
+    <section class="as-card">
+      <h2>Plano atual</h2>
+      <div class="as-row"><span class="as-label">Plano</span><span class="as-value">{{ assinatura.plano_nome or (assinatura.plano_codigo or 'Sem plano')|title }}</span></div>
+      <div class="as-row"><span class="as-label">Situação</span><span class="as-value">{% if conta_isenta %}<span class="as-badge as-ok">Cortesia / Isento</span>{% elif conta_em_teste %}<span class="as-badge as-ok">Teste gratuito</span>{% elif (assinatura.status or assinatura.assinatura_status) in ['ativa','gratuita'] %}<span class="as-badge as-ok">{{ (assinatura.status or assinatura.assinatura_status)|title }}</span>{% else %}<span class="as-badge as-warn">{{ (assinatura.status or assinatura.assinatura_status or 'Pendente')|title }}</span>{% endif %}</span></div>
+      <div class="as-row"><span class="as-label">Valor mensal</span><span class="as-value">R$ {{ '%.2f'|format(assinatura.valor_mensal or 0)|replace('.',',') }}</span></div>
+      <div class="as-row"><span class="as-label">Início da assinatura</span><span class="as-value">{{ (assinatura.inicio_em or '—')[:10] }}</span></div>
+      {% if conta_em_teste %}<div class="as-row"><span class="as-label">Término do teste</span><span class="as-value">{{ (assinatura.teste_fim or '—')[:10] }}</span></div>{% endif %}
+      {% if conta_isenta %}<div class="as-row"><span class="as-label">Validade da cortesia</span><span class="as-value">{{ assinatura.isencao_fim or 'Sem vencimento' }}</span></div>{% endif %}
+      <a class="as-btn" href="{{ url_for('pagina_planos') }}">Ver planos</a>
+    </section>
+    <section class="as-card">
+      <h2>Cobrança e renovação</h2>
+      <div class="as-row"><span class="as-label">Próxima renovação</span><span class="as-value">{% if conta_isenta or conta_em_teste %}Não se aplica{% else %}{{ assinatura.proxima_cobranca or 'Aguardando definição' }}{% endif %}</span></div>
+      <div class="as-row"><span class="as-label">Método de pagamento</span><span class="as-value">{% set metodo=assinatura.metodo_pagamento or (pagamentos[0].forma_pagamento if pagamentos else None) %}{{ {'pix':'PIX','boleto':'Boleto bancário','credit_card':'Cartão de crédito','cartao':'Cartão de crédito','manual':'Definido manualmente'}.get(metodo, metodo|title if metodo else 'Não informado') }}</span></div>
+      <div class="as-row"><span class="as-label">Renovação automática</span><span class="as-value">{% if conta_isenta or conta_em_teste %}Não se aplica{% elif assinatura.renovacao_automatica == 0 %}Não{% else %}Sim{% endif %}</span></div>
+      <div class="as-row"><span class="as-label">Gateway</span><span class="as-value">{{ (assinatura.gateway or 'Não informado')|upper }}</span></div>
+      {% if assinatura.observacao_cobranca %}<div class="as-note"><strong>Observação:</strong> {{ assinatura.observacao_cobranca }}</div>{% endif %}
+      {% if conta_isenta %}<div class="as-note">Seu acesso está liberado sem cobrança enquanto a cortesia estiver vigente.</div>{% elif (assinatura.status or assinatura.assinatura_status) not in ['ativa','gratuita','trial'] %}<div class="as-note">A conta será liberada ou mantida após a confirmação do pagamento.</div>{% endif %}
+    </section>
+  </div>
+  <section class="as-card" style="margin-top:18px">
+    <h2>Histórico de pagamentos</h2>
+    <div class="as-table-wrap"><table class="as-table"><thead><tr><th>Data</th><th>Vencimento</th><th>Forma</th><th>Valor</th><th>Status</th></tr></thead><tbody>
+      {% for pg in pagamentos %}<tr><td>{{ (pg.criado_em or '—')[:10] }}</td><td>{{ pg.vencimento or '—' }}</td><td>{{ {'pix':'PIX','boleto':'Boleto','credit_card':'Cartão','cartao':'Cartão'}.get(pg.forma_pagamento, pg.forma_pagamento|title if pg.forma_pagamento else '—') }}</td><td>R$ {{ '%.2f'|format(pg.valor or 0)|replace('.',',') }}</td><td>{{ (pg.status or 'pendente')|title }}</td></tr>
+      {% else %}<tr><td colspan="5">Nenhuma cobrança registrada até o momento.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+{% endblock %}

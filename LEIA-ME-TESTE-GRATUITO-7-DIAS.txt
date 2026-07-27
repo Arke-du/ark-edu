@@ -1,0 +1,31 @@
+ARK EDUS — TESTE GRATUITO DE 7 DIAS
+
+ALTERAÇÕES DESTA VERSÃO
+
+1. Todo novo Professor Autônomo inicia automaticamente um teste gratuito de 7 dias.
+2. Durante o teste, a conta usa o Plano Professor e possui todas as funcionalidades liberadas.
+3. O menu lateral exibe um contador com os dias restantes.
+4. A página Minha assinatura exibe o período de teste e a data de término.
+5. Ao vencer o teste, a conta muda automaticamente para o Plano Gratuito, desde que não exista cortesia vigente.
+6. Os dados criados durante o teste não são excluídos.
+7. No Plano Gratuito, permanecem os limites de 1 turma, 50 alunos e 2 avaliações por mês.
+8. A contagem mensal de avaliações foi corrigida para aceitar datas no formato DD/MM/AAAA e ISO.
+9. Os bloqueios continuam sendo feitos no backend antes da criação de turma, aluno ou avaliação.
+
+ORDEM DE PRIORIDADE
+
+- Cortesia vigente libera o plano concedido.
+- Assinatura paga ativa libera o plano contratado.
+- Teste vigente libera o Plano Professor.
+- Sem nenhuma das condições acima, aplica-se o Plano Gratuito.
+
+INSTALAÇÃO
+
+1. Faça backup do arquivo plataforma.db.
+2. Substitua os arquivos do projeto pelos desta versão.
+3. Execute: python app.py
+4. Na primeira execução, as colunas teste_inicio e teste_fim serão criadas automaticamente.
+
+OBSERVAÇÃO
+
+Contas antigas não recebem um novo teste automaticamente. O teste de 7 dias é concedido aos novos cadastros realizados após esta atualização.

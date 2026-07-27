@@ -1,123 +1,71 @@
 {% extends "layout/base.html" %}
-
 {% block titulo %}Meu Perfil | ARK EDUS{% endblock %}
-
 {% block estilos %}
 <style>
-.perfil-pagina{max-width:1180px;margin:0 auto;padding:34px;color:#172033}
-.perfil-voltar{display:inline-flex;align-items:center;gap:7px;margin-bottom:17px;color:#123b82;font-weight:800;text-decoration:none}
-.perfil-cabecalho{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:25px}
-.perfil-cabecalho h1{margin:0;color:#123b82;font-size:36px;line-height:1.1}
-.perfil-cabecalho p{margin:10px 0 0;color:#64748b;font-size:15px}
-.perfil-identidade{display:flex;align-items:center;gap:14px;min-width:280px;padding:16px 18px;border:1px solid #cbeaf0;border-radius:17px;background:linear-gradient(135deg,#f7fdff,#eafafd)}
-.perfil-avatar{display:grid;place-items:center;width:52px;height:52px;flex:0 0 52px;border-radius:15px;background:#dff6fa;color:#079bb6;font-size:20px;font-weight:900}
-.perfil-identidade strong,.perfil-identidade span,.perfil-identidade small{display:block}
-.perfil-identidade strong{color:#123b82;font-size:15px}.perfil-identidade span{margin-top:3px;color:#334155;font-size:13px;font-weight:700}.perfil-identidade small{margin-top:2px;color:#64748b}
-.perfil-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(340px,.8fr);gap:22px;align-items:start}
-.perfil-card{overflow:hidden;border:1px solid #dce5ef;border-radius:20px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.07)}
-.perfil-card-topo{display:flex;align-items:center;gap:13px;padding:22px 24px;border-bottom:1px solid #e7edf4;background:#fbfdff}
-.perfil-card-icone{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#e5f8fb;color:#079bb6}.perfil-card-icone svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.perfil-card-topo h2{margin:0;color:#123b82;font-size:20px}.perfil-card-topo p{margin:4px 0 0;color:#64748b;font-size:13px}
-.perfil-form{padding:24px}.perfil-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.perfil-campo{display:grid;gap:7px}.perfil-campo-largo{grid-column:1/-1}
-.perfil-campo label{color:#334155;font-size:13px;font-weight:800}.perfil-campo input{width:100%;min-height:47px;box-sizing:border-box;padding:11px 13px;border:1px solid #ccd8e5;border-radius:11px;background:#fff;color:#172033;font:inherit;outline:none;transition:.18s ease}.perfil-campo input:focus{border-color:#0aa1bc;box-shadow:0 0 0 3px rgba(10,161,188,.12)}
-.perfil-bloqueado{padding:13px 14px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc;color:#64748b;font-size:13px}.perfil-bloqueado strong{display:block;margin-bottom:3px;color:#334155}
-.perfil-ajuda{margin:5px 0 0;color:#64748b;font-size:12px;line-height:1.45}.perfil-acoes{display:flex;justify-content:flex-end;margin-top:22px;padding-top:20px;border-top:1px solid #e7edf4}
-.perfil-btn{display:inline-flex;align-items:center;justify-content:center;min-height:45px;padding:0 20px;border:0;border-radius:11px;background:linear-gradient(135deg,#1655c7,#079bb6);color:#fff;font:inherit;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 9px 20px rgba(18,59,130,.18);transition:.18s ease}.perfil-btn:hover{transform:translateY(-1px);filter:brightness(.98)}
-.perfil-alerta{margin-bottom:17px;padding:13px 14px;border-left:4px solid #0aa1bc;border-radius:10px;background:#effbfe;color:#155e75;font-size:13px;line-height:1.55}
-@media(max-width:900px){.perfil-grid{grid-template-columns:1fr}.perfil-identidade{min-width:0}}@media(max-width:650px){.perfil-pagina{padding:22px 16px}.perfil-cabecalho{flex-direction:column}.perfil-identidade{width:100%;box-sizing:border-box}.perfil-cabecalho h1{font-size:30px}.perfil-campos{grid-template-columns:1fr}.perfil-campo-largo{grid-column:auto}.perfil-form,.perfil-card-topo{padding-left:18px;padding-right:18px}.perfil-btn{width:100%}}
+.pf{max-width:1220px;margin:auto;padding:32px;color:#172033}.pf h1{margin:0;color:#123b72;font-size:36px}.pf-sub{color:#667085;margin:8px 0 22px}.pf-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}.pf-tabs a{padding:10px 14px;border:1px solid #dbe5ef;border-radius:10px;text-decoration:none;color:#123b72;font-weight:800;background:#fff}.pf-card{border:1px solid #dbe5ef;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,.06);margin-bottom:22px;overflow:hidden}.pf-head{padding:20px 24px;border-bottom:1px solid #e7edf4;background:#fbfdff}.pf-head h2{margin:0;color:#123b72;font-size:21px}.pf-head p{margin:5px 0 0;color:#667085;font-size:13px}.pf-form{padding:24px}.pf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.pf-field{display:grid;gap:7px}.pf-wide{grid-column:1/-1}.pf-field label,.pf-label{font-size:13px;font-weight:800;color:#344054}.pf-field input,.pf-field select,.pf-field textarea{box-sizing:border-box;width:100%;min-height:45px;padding:10px 12px;border:1px solid #ccd8e5;border-radius:10px;font:inherit;background:#fff}.pf-field textarea{min-height:90px;resize:vertical}.pf-actions{display:flex;justify-content:flex-end;margin-top:20px;padding-top:18px;border-top:1px solid #edf1f5}.pf-btn{border:0;border-radius:10px;padding:12px 19px;background:#1f5bd7;color:#fff;font-weight:900;cursor:pointer}.pf-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.pf-check{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #dbe5ef;border-radius:10px;background:#fff}.pf-check input{width:17px;height:17px}.pf-stage{border:1px solid #e1e8f0;border-radius:13px;padding:14px;margin-top:12px}.pf-stage h3{margin:0 0 10px;color:#123b72;font-size:15px}.pf-components{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.pf-note{padding:12px 14px;border-radius:10px;background:#eff8ff;color:#175cd3;font-size:13px;margin-bottom:16px}.pf-logo{max-height:75px;max-width:180px;display:block;margin:8px 0}.pf-color{display:flex;gap:10px;align-items:center}.pf-color input[type=color]{width:56px;padding:4px}.pf-manual{display:flex;gap:8px;margin-top:12px}.pf-manual input{flex:1}.pf-manual button{border:1px solid #1f5bd7;background:#fff;color:#1f5bd7;border-radius:9px;padding:0 13px;font-weight:800}.pf-tag{display:inline-flex;gap:7px;align-items:center;padding:7px 10px;border-radius:999px;background:#eef4ff;color:#123b72;font-size:12px;font-weight:800;margin:6px 5px 0 0}.pf-tag button{border:0;background:none;color:#b42318;cursor:pointer;font-weight:900}@media(max-width:760px){.pf{padding:22px 14px}.pf-grid,.pf-checks,.pf-components{grid-template-columns:1fr}.pf-wide{grid-column:auto}.pf-form,.pf-head{padding-left:17px;padding-right:17px}}
 </style>
 {% endblock %}
-
 {% block conteudo %}
-<div class="perfil-pagina">
-    <a href="/" class="perfil-voltar">← Voltar ao painel</a>
+<div class="pf">
+<a href="/" style="text-decoration:none;color:#123b72;font-weight:800">← Voltar ao painel</a>
+<h1>Meu perfil</h1><p class="pf-sub">Gerencie seus dados pessoais{% if eh_autonomo %}, seu espaço profissional e sua identidade visual{% endif %}.</p>
+<div class="pf-tabs"><a href="#pessoal">Dados pessoais</a>{% if eh_autonomo %}<a href="#institucional">Informações institucionais</a><a href="#academico">Dados acadêmicos</a><a href="#identidade">Identidade visual</a>{% endif %}<a href="#seguranca">Segurança</a></div>
 
-    <header class="perfil-cabecalho">
-        <div>
-            <h1>Meu perfil</h1>
-            <p>Atualize suas informações pessoais e proteja o acesso à sua conta.</p>
-        </div>
+<section class="pf-card" id="pessoal"><div class="pf-head"><h2>Informações pessoais</h2><p>Dados da sua conta de acesso.</p></div>
+<form method="post" class="pf-form"><input type="hidden" name="acao" value="dados"><div class="pf-grid">
+<div class="pf-field pf-wide"><label>Nome completo</label><input name="nome" value="{{ usuario['nome'] or '' }}" required></div>
+<div class="pf-field pf-wide"><label>E-mail</label><input type="email" name="email" value="{{ usuario['email'] or '' }}" required></div>
+<div class="pf-field"><label>CPF</label><input name="cpf" value="{{ usuario['cpf'] or '' }}"></div><div class="pf-field"><label>Telefone</label><input name="telefone" value="{{ usuario['telefone'] or '' }}"></div>
+<div class="pf-field"><label>Data de nascimento</label><input type="date" name="data_nascimento" value="{{ usuario['data_nascimento'] or '' }}"></div><div class="pf-field"><label>Perfil</label><input value="{{ usuario['cargo'] or '' }}" disabled></div>
+</div><div class="pf-actions"><button class="pf-btn">Salvar dados pessoais</button></div></form></section>
 
-        <div class="perfil-identidade">
-            <div class="perfil-avatar">{{ usuario["nome"][:1]|upper }}</div>
-            <div>
-                <strong>{{ usuario["nome"] }}</strong>
-                <span>{{ usuario["cargo"] or "Usuário" }}</span>
-                <small>{{ usuario["nome_instituicao"] or "Administração Geral" }}</small>
-            </div>
-        </div>
-    </header>
+{% if eh_autonomo %}
+<form method="post" enctype="multipart/form-data" id="formInstitucional"><input type="hidden" name="acao" value="institucional"><div id="hiddenComponents"></div>
+<section class="pf-card" id="institucional"><div class="pf-head"><h2>Informações institucionais e profissionais</h2><p>Use os dados da escola em que trabalha ou a sua identificação profissional. INEP e CNPJ são opcionais.</p></div>
+<div class="pf-form"><div class="pf-note">Esses dados serão usados nas provas, cartões-resposta, relatórios e PDFs gerados pelo seu espaço.</div><div class="pf-grid">
+<div class="pf-field pf-wide"><label>Nome da instituição ou identificação profissional</label><input name="nome_instituicao" value="{{ usuario['nome_instituicao'] or '' }}" required></div>
+<div class="pf-field"><label>Código INEP (opcional)</label><input name="codigo_inep" value="{{ usuario['codigo_inep'] or '' }}"></div><div class="pf-field"><label>CNPJ (opcional)</label><input name="cnpj" value="{{ usuario['cnpj'] or '' }}"></div>
+<div class="pf-field"><label>CEP</label><input name="cep" value="{{ usuario['cep'] or '' }}"></div><div class="pf-field"><label>Endereço</label><input name="endereco" value="{{ usuario['endereco'] or '' }}"></div>
+<div class="pf-field"><label>Cidade</label><input name="cidade" value="{{ usuario['cidade'] or '' }}"></div><div class="pf-field"><label>Estado/UF</label><input name="estado" maxlength="2" value="{{ usuario['estado'] or '' }}"></div>
+<div class="pf-field"><label>Telefone institucional</label><input name="telefone_institucional" value="{{ usuario['telefone'] or '' }}"></div><div class="pf-field"><label>WhatsApp</label><input name="whatsapp" value="{{ usuario['whatsapp'] or '' }}"></div>
+<div class="pf-field"><label>E-mail institucional</label><input type="email" name="email_institucional" value="{{ usuario['email'] or '' }}"></div><div class="pf-field"><label>Site</label><input name="site" value="{{ usuario['site'] or '' }}"></div>
+</div></div></section>
 
-    <div class="perfil-grid">
-        <section class="perfil-card">
-            <div class="perfil-card-topo">
-                <div class="perfil-card-icone">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path></svg>
-                </div>
-                <div><h2>Informações pessoais</h2><p>Dados usados para identificar sua conta.</p></div>
-            </div>
+<section class="pf-card" id="academico"><div class="pf-head"><h2>Dados acadêmicos</h2><p>Defina o ano letivo, modalidades, etapas e componentes disponíveis no seu espaço.</p></div><div class="pf-form"><div class="pf-grid">
+<div class="pf-field"><label>Tipo de instituição</label><select name="tipo_instituicao"><option value="">Selecione</option>{% for x in ['Pública municipal','Pública estadual','Pública federal','Privada','Filantrópica','Outra'] %}<option value="{{ x }}" {% if usuario['tipo_instituicao']==x %}selected{% endif %}>{{ x }}</option>{% endfor %}</select></div>
+<div class="pf-field"><label>Ano letivo</label><input type="number" min="2020" max="2100" name="ano_letivo" value="{{ usuario['ano_letivo'] or '' }}"></div>
+<div class="pf-wide"><div class="pf-label">Modalidades de ensino</div><div class="pf-checks">{% for x in ['Regular','EJA','Educação Especial','Educação Profissional e Tecnológica','Educação do Campo','Educação Indígena','Educação Quilombola','Educação Bilíngue de Surdos','Educação a Distância'] %}<label class="pf-check"><input type="checkbox" name="modalidade_ensino" value="{{ x }}" {% if x in modalidades_marcadas %}checked{% endif %}>{{ x }}</label>{% endfor %}</div></div>
+<div class="pf-wide"><div class="pf-label">Etapas de ensino</div><div class="pf-checks">{% for x in ['Educação Infantil','Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio','Ensino Superior'] %}<label class="pf-check"><input class="etapaCheck" type="checkbox" name="etapas_ensino" value="{{ x }}" {% if x in etapas_marcadas %}checked{% endif %}>{{ x }}</label>{% endfor %}</div></div>
+<div class="pf-wide"><div class="pf-label">Componentes curriculares</div><div id="componentAreas"></div><div class="pf-manual"><input id="manualName" placeholder="Adicionar componente manualmente"><select id="manualStage"><option value="">Selecione a etapa</option></select><button type="button" onclick="addManual()">Adicionar</button></div><div id="manualTags"></div></div>
+</div></div></section>
 
-            <form method="POST" class="perfil-form" autocomplete="on">
-                <input type="hidden" name="acao" value="dados">
-                <div class="perfil-campos">
-                    <div class="perfil-campo perfil-campo-largo">
-                        <label for="nome">Nome completo</label>
-                        <input id="nome" name="nome" type="text" value="{{ usuario['nome'] or '' }}" maxlength="150" required>
-                    </div>
-                    <div class="perfil-campo perfil-campo-largo">
-                        <label for="email">E-mail</label>
-                        <input id="email" name="email" type="email" value="{{ usuario['email'] or '' }}" maxlength="180" required>
-                    </div>
-                    <div class="perfil-campo">
-                        <label for="cpf">CPF</label>
-                        <input id="cpf" name="cpf" type="text" value="{{ usuario['cpf'] or '' }}" maxlength="14" placeholder="000.000.000-00">
-                    </div>
-                    <div class="perfil-campo">
-                        <label for="telefone">Telefone</label>
-                        <input id="telefone" name="telefone" type="tel" value="{{ usuario['telefone'] or '' }}" maxlength="20" placeholder="(63) 99999-9999">
-                    </div>
-                    <div class="perfil-campo">
-                        <label for="data_nascimento">Data de nascimento</label>
-                        <input id="data_nascimento" name="data_nascimento" type="date" value="{{ usuario['data_nascimento'] or '' }}">
-                    </div>
-                    <div class="perfil-campo">
-                        <label>Vínculo de acesso</label>
-                        <div class="perfil-bloqueado"><strong>{{ usuario["cargo"] or "Usuário" }}</strong>{{ usuario["nome_instituicao"] or "Administração Geral" }}</div>
-                    </div>
-                </div>
-                <div class="perfil-acoes"><button type="submit" class="perfil-btn">Salvar informações</button></div>
-            </form>
-        </section>
+<section class="pf-card" id="identidade"><div class="pf-head"><h2>Identidade visual</h2><p>Personalize os materiais gerados no seu espaço.</p></div><div class="pf-form"><div class="pf-grid">
+<div class="pf-field pf-wide"><label>Logo</label>{% if usuario['logo'] %}<img class="pf-logo" src="{{ url_for('static', filename='uploads/' ~ usuario['logo']) }}" onerror="this.style.display='none'">{% endif %}<input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp"></div>
+<div class="pf-field"><label>Cor principal</label><div class="pf-color"><input type="color" name="cor_primaria" value="{{ usuario['cor_primaria'] or '#123b72' }}"><span>Usada em títulos e destaques</span></div></div><div class="pf-field"><label>Cor secundária</label><div class="pf-color"><input type="color" name="cor_secundaria" value="{{ usuario['cor_secundaria'] or '#0aa1bc' }}"><span>Usada em elementos auxiliares</span></div></div>
+<div class="pf-field pf-wide"><label>Texto do cabeçalho</label><textarea name="cabecalho_documentos">{{ usuario['cabecalho_documentos'] or '' }}</textarea></div><div class="pf-field pf-wide"><label>Texto do rodapé</label><textarea name="rodape_documentos">{{ usuario['rodape_documentos'] or '' }}</textarea></div>
+</div><div class="pf-actions"><button class="pf-btn">Salvar espaço profissional</button></div></div></section></form>
+{% endif %}
 
-        <section class="perfil-card" id="seguranca">
-            <div class="perfil-card-topo">
-                <div class="perfil-card-icone">
-                    <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path><path d="M12 14v3"></path></svg>
-                </div>
-                <div><h2>Segurança</h2><p>Redefina sua própria senha.</p></div>
-            </div>
-
-            <form method="POST" class="perfil-form" autocomplete="off">
-                <input type="hidden" name="acao" value="senha">
-                <div class="perfil-alerta">Por segurança, informe sua senha atual antes de cadastrar uma nova.</div>
-                <div class="perfil-campos">
-                    <div class="perfil-campo perfil-campo-largo">
-                        <label for="senha_atual">Senha atual</label>
-                        <input id="senha_atual" name="senha_atual" type="password" required autocomplete="current-password">
-                    </div>
-                    <div class="perfil-campo perfil-campo-largo">
-                        <label for="nova_senha">Nova senha</label>
-                        <input id="nova_senha" name="nova_senha" type="password" minlength="8" required autocomplete="new-password">
-                        <p class="perfil-ajuda">Use pelo menos 8 caracteres.</p>
-                    </div>
-                    <div class="perfil-campo perfil-campo-largo">
-                        <label for="confirmar_senha">Confirmar nova senha</label>
-                        <input id="confirmar_senha" name="confirmar_senha" type="password" minlength="8" required autocomplete="new-password">
-                    </div>
-                </div>
-                <div class="perfil-acoes"><button type="submit" class="perfil-btn">Alterar senha</button></div>
-            </form>
-        </section>
-    </div>
+<section class="pf-card" id="seguranca"><div class="pf-head"><h2>Segurança</h2><p>Altere sua senha de acesso.</p></div><form method="post" class="pf-form"><input type="hidden" name="acao" value="senha"><div class="pf-grid"><div class="pf-field pf-wide"><label>Senha atual</label><input type="password" name="senha_atual" required></div><div class="pf-field"><label>Nova senha</label><input type="password" name="nova_senha" minlength="8" required></div><div class="pf-field"><label>Confirmar nova senha</label><input type="password" name="confirmar_senha" minlength="8" required></div></div><div class="pf-actions"><button class="pf-btn">Alterar senha</button></div></form></section>
 </div>
+{% if eh_autonomo %}
+<script>
+const catalog={
+'Educação Infantil':['O eu, o outro e o nós','Corpo, gestos e movimentos','Traços, sons, cores e formas','Escuta, fala, pensamento e imaginação','Espaços, tempos, quantidades, relações e transformações'],
+'Ensino Fundamental - Anos Iniciais':['Língua Portuguesa','Matemática','Ciências','História','Geografia','Arte','Educação Física','Ensino Religioso','Língua Inglesa'],
+'Ensino Fundamental - Anos Finais':['Língua Portuguesa','Matemática','Ciências','História','Geografia','Arte','Educação Física','Ensino Religioso','Língua Inglesa'],
+'Ensino Médio':['Língua Portuguesa','Literatura','Matemática','Biologia','Física','Química','História','Geografia','Filosofia','Sociologia','Arte','Educação Física','Língua Inglesa','Projeto de Vida'],
+'Ensino Superior':['Componente curricular']};
+const saved={{ componentes_salvos|tojson }}; let manuals=saved.filter(x=>x.tipo==='manual').map(x=>({etapa:x.etapa_ensino,nome:x.nome,tipo:'manual'}));
+function selectedStages(){return [...document.querySelectorAll('.etapaCheck:checked')].map(x=>x.value)}
+function isSaved(etapa,nome){return saved.some(x=>x.etapa_ensino===etapa&&x.nome===nome)}
+function render(){let stages=selectedStages(),html=''; document.getElementById('manualStage').innerHTML='<option value="">Selecione a etapa</option>'+stages.map(x=>`<option>${x}</option>`).join(''); stages.forEach(et=>{html+=`<div class="pf-stage"><h3>${et}</h3><div class="pf-components">`+(catalog[et]||[]).map(n=>`<label class="pf-check"><input type="checkbox" class="compCheck" data-etapa="${et}" value="${n}" ${isSaved(et,n)?'checked':''}>${n}</label>`).join('')+'</div></div>'}); document.getElementById('componentAreas').innerHTML=html; manuals=manuals.filter(x=>stages.includes(x.etapa)); renderManual(); syncHidden()}
+function addManual(){let nome=document.getElementById('manualName').value.trim(),etapa=document.getElementById('manualStage').value;if(!nome||!etapa)return; if(!manuals.some(x=>x.etapa===etapa&&x.nome.toLowerCase()===nome.toLowerCase()))manuals.push({etapa,nome,tipo:'manual'});document.getElementById('manualName').value='';renderManual();syncHidden()}
+function removeManual(i){manuals.splice(i,1);renderManual();syncHidden()}
+function renderManual(){document.getElementById('manualTags').innerHTML=manuals.map((x,i)=>`<span class="pf-tag">${x.nome} · ${x.etapa}<button type="button" onclick="removeManual(${i})">×</button></span>`).join('')}
+function syncHidden(){let box=document.getElementById('hiddenComponents');box.innerHTML='';document.querySelectorAll('.compCheck:checked').forEach(x=>addHidden({etapa:x.dataset.etapa,nome:x.value,tipo:'padrao'}));manuals.forEach(addHidden)}
+function addHidden(obj){let i=document.createElement('input');i.type='hidden';i.name='componentes_curriculares';i.value=JSON.stringify(obj);document.getElementById('hiddenComponents').appendChild(i)}
+document.querySelectorAll('.etapaCheck').forEach(x=>x.addEventListener('change',render));document.addEventListener('change',e=>{if(e.target.classList.contains('compCheck'))syncHidden()});document.getElementById('formInstitucional').addEventListener('submit',syncHidden);render();
+</script>
+{% endif %}
 {% endblock %}

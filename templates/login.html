@@ -208,6 +208,24 @@ button:hover{
 
     <div class="card">
 
+        {% if request.args.get('saiu') == '1' %}
+            <div role="alert" style="padding:13px 15px;margin-bottom:18px;border-radius:12px;font-weight:700;line-height:1.4;background:#ecfdf3;color:#087443;border:1px solid #a7f3d0">
+                Você saiu da plataforma com segurança.
+            </div>
+        {% endif %}
+
+        {% with mensagens = get_flashed_messages(with_categories=true) %}
+            {% if mensagens %}
+                <div style="margin-bottom:18px">
+                    {% for categoria, mensagem in mensagens %}
+                        <div role="alert" style="padding:13px 15px;margin-bottom:10px;border-radius:12px;font-weight:700;line-height:1.4;{% if categoria in ['erro','error'] %}background:#fff1f2;color:#b42318;border:1px solid #fecdd3{% elif categoria in ['sucesso','success'] %}background:#ecfdf3;color:#087443;border:1px solid #a7f3d0{% else %}background:#eff6ff;color:#1d4f91;border:1px solid #bfdbfe{% endif %}">
+                            {{ mensagem }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
         <div class="logo">
             <img
                 src="{{ url_for('static', filename='img/logo-arkedus.png') }}"
@@ -255,6 +273,12 @@ button:hover{
             <a href="{{ url_for('esqueci_senha') }}">
                 Esqueceu a senha?
             </a>
+        </div>
+
+        <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e2e8f0;text-align:center">
+            <p style="margin:0 0 12px;color:#64748b">Ainda não possui uma conta?</p>
+            <a href="{{ url_for('cadastro_professor_autonomo') }}" style="display:block;padding:13px;border:1px solid #2563eb;border-radius:12px;color:#1e3a8a;text-decoration:none;font-weight:700">Criar conta de professor</a>
+            <a href="{{ url_for('pagina_planos') }}" style="display:inline-block;margin-top:13px;color:#1e3a8a;text-decoration:none;font-weight:600">Conhecer os planos</a>
         </div>
 
     </div>

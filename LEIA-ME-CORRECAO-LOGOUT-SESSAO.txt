@@ -1,0 +1,20 @@
+ARK EDUS — CORREÇÃO DO LOGOUT E TROCA DE USUÁRIOS
+
+Alterações realizadas:
+
+1. O botão Sair deixou de depender de formulário POST e agora acessa diretamente a rota de logout.
+2. Foram mantidas as rotas /logout e /sair para compatibilidade.
+3. A sessão é esvaziada chave por chave e também com session.clear().
+4. O cookie de sessão é expirado no caminho raiz (/).
+5. A rotina SaaS ignora completamente as rotas /logout e /sair.
+6. O login com ?saiu=1 sempre limpa qualquer sessão residual e mostra a tela de login.
+7. Foi incluída navegação JavaScript em modo de captura para impedir que overlays, formulários ou scripts da página apenas recarreguem o dashboard.
+8. As respostas de login/logout/dashboard continuam sem cache.
+
+Após substituir o projeto:
+
+1. Faça backup do plataforma.db.
+2. Pare o servidor com Ctrl+C.
+3. Rode novamente: python app.py
+4. Atualize a página com Ctrl+F5.
+5. Teste: entrar em uma conta > Sair > entrar em outra conta.

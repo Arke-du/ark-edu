@@ -1,0 +1,70 @@
+ARK EDUS — VERSÃO COM PROFESSOR AUTÔNOMO E PLANOS
+===================================================
+
+O que foi adicionado
+--------------------
+1. Cadastro público de professor em /cadastre-se
+2. Página pública de planos em /planos
+3. Plano Gratuito:
+   - 1 turma
+   - 50 alunos
+   - 2 provas por mês
+   - marca d'água sinalizada no plano
+4. Plano Professor: R$ 39,90/mês
+5. Planos institucionais cadastrados na base:
+   - Start: R$ 199/mês, até 300 alunos
+   - Essencial: R$ 299/mês, até 700 alunos
+6. Espaço individual criado automaticamente para professor autônomo
+7. Novo cargo "Professor Autônomo"
+8. Tabelas de planos, assinaturas e pagamentos
+9. Bloqueio de áreas institucionais para o professor autônomo
+10. Tela Minha Assinatura
+11. Endpoint de webhook: /api/asaas/webhook
+12. Migração automática do banco ao iniciar a aplicação
+
+Arquivos principais criados
+----------------------------
+- saas_arkedu.py
+- templates/saas/planos.html
+- templates/saas/cadastro_professor.html
+- templates/saas/checkout_professor.html
+- templates/saas/minha_assinatura.html
+
+Arquivos modificados
+---------------------
+- app.py
+- templates/login.html
+
+Publicação
+----------
+1. Faça backup do banco plataforma.db antes da primeira publicação.
+2. Substitua os arquivos do projeto pelos desta pasta.
+3. Execute normalmente. As tabelas e colunas novas são criadas automaticamente.
+4. No Render, confirme que DATABASE_PATH continua apontando para o banco persistente.
+
+Pagamento Asaas
+---------------
+A conta paga nasce com status pendente e só é liberada quando o webhook confirma
+PAYMENT_RECEIVED ou PAYMENT_CONFIRMED.
+
+Variáveis esperadas no Render:
+- ASAAS_API_KEY
+- ASAAS_WEBHOOK_TOKEN
+
+A URL pública para cadastrar no Asaas é:
+https://SEU-DOMINIO/api/asaas/webhook
+
+IMPORTANTE: esta entrega prepara e recebe a confirmação do Asaas, mas a criação
+da cobrança/assinatura dentro do Asaas depende das credenciais reais e da escolha
+do fluxo final de pagamento (Pix, boleto, cartão ou checkout do Asaas). Sem essas
+credenciais, contas do plano Professor permanecem pendentes por segurança.
+
+Teste recomendado
+-----------------
+1. Abra /cadastre-se?plano=gratuito
+2. Crie uma conta de teste.
+3. Entre no sistema.
+4. Crie uma turma.
+5. Tente criar a segunda turma: o upgrade deverá ser solicitado.
+6. Cadastre alunos e verifique o limite de 50.
+7. Crie duas provas no mesmo mês e verifique o bloqueio da terceira.

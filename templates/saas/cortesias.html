@@ -1,0 +1,47 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Cortesias e Isenções | ARK EDUS{% endblock %}
+{% block conteudo %}
+<style>
+.ct-page{max-width:1280px;margin:0 auto;padding:32px;color:#172033}.ct-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:24px}.ct-head h1{margin:0;color:#123b72;font-size:34px}.ct-head p{margin:9px 0 0;color:#667085}.ct-card{background:#fff;border:1px solid #dce4ee;border-radius:18px;padding:22px;margin-bottom:22px;box-shadow:0 8px 28px rgba(16,24,40,.04)}.ct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.ct-field label{display:block;font-size:13px;font-weight:800;color:#344054;margin-bottom:7px}.ct-field input,.ct-field select,.ct-field textarea{width:100%;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:10px;padding:11px 12px;font:inherit;background:#fff}.ct-field textarea{min-height:88px;resize:vertical}.ct-actions{display:flex;align-items:center;gap:12px;margin-top:18px}.ct-btn{border:0;background:#1f5bd7;color:#fff;padding:12px 18px;border-radius:10px;font-weight:800;cursor:pointer}.ct-switch{display:flex;align-items:center;gap:9px;font-weight:800}.ct-table-wrap{overflow:auto}.ct-table{width:100%;border-collapse:collapse;min-width:860px}.ct-table th,.ct-table td{text-align:left;padding:12px;border-bottom:1px solid #eaecf0;font-size:14px}.ct-table th{color:#475467;background:#f8fafc}.ct-badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.ct-ok{background:#dcfae6;color:#067647}.ct-off{background:#f2f4f7;color:#475467}.ct-action{display:inline-flex;gap:7px}.ct-mini{border:0;border-radius:8px;padding:7px 10px;font-weight:800;cursor:pointer}.ct-edit{background:#eef4ff;color:#174898}.ct-delete{background:#fff1f0;color:#b42318}.ct-alert{background:#fff8e1;border:1px solid #fedf89;color:#7a2e0e;padding:13px 15px;border-radius:12px;margin-bottom:20px}@media(max-width:760px){.ct-grid{grid-template-columns:1fr}.ct-page{padding:22px 14px}.ct-head{display:block}}
+</style>
+<div class="ct-page">
+  <div class="ct-head"><div><h1>Cortesias e isenções</h1><p>Libere um plano sem cobrança para instituições parceiras ou professores convidados.</p></div></div>
+  <div class="ct-alert"><strong>Importante:</strong> a isenção não aparece no site comercial e só pode ser administrada pelo Administrador Geral.</div>
+
+  <form method="post" class="ct-card" id="formCortesia"><input type="hidden" id="edicaoAssinaturaId" value="">
+    <h2 style="margin-top:0;color:#123b72">Conceder ou alterar cortesia</h2>
+    <div class="ct-grid">
+      <div class="ct-field"><label>Tipo de conta</label><select name="tipo_conta" id="tipoConta" required><option value="">Selecione</option><option value="professor">Professor autônomo</option><option value="instituicao">Instituição</option></select></div>
+      <div class="ct-field"><label>Conta</label><select name="registro_id" id="registroConta" required><option value="">Selecione primeiro o tipo</option></select></div>
+      <div class="ct-field"><label>Plano liberado</label><select name="plano_codigo" id="planoCodigo" required><option value="">Selecione</option></select></div>
+      <div class="ct-field"><label>Data inicial</label><input type="date" name="isencao_inicio" value="{{ hoje or '' }}"></div>
+      <div class="ct-field"><label>Data final (opcional)</label><input type="date" name="isencao_fim"><small style="color:#667085">Deixe em branco para isenção sem vencimento.</small></div>
+      <div class="ct-field"><label>Motivo</label><textarea name="motivo_isencao" placeholder="Ex.: Instituição parceira, cortesia comercial, equipe interna..."></textarea></div>
+    </div>
+    <div class="ct-actions"><label class="ct-switch"><input type="checkbox" name="isento" value="1" checked> Isento de cobrança</label><button class="ct-btn" type="submit" id="btnSalvarCortesia">Salvar configuração</button><button class="ct-btn" type="button" id="btnCancelarEdicao" style="display:none;background:#667085">Cancelar edição</button></div>
+  </form>
+
+  <div class="ct-card"><h2 style="margin-top:0;color:#123b72">Professores autônomos</h2><div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>Professor</th><th>Plano</th><th>Situação</th><th>Validade</th><th>Motivo</th><th>Ações</th></tr></thead><tbody>{% for item in professores %}<tr><td><strong>{{ item.nome }}</strong><br><small>{{ item.email }}</small></td><td>{{ (item.plano_codigo or 'gratuito')|title }}</td><td>{% if item.isento %}<span class="ct-badge ct-ok">Isento</span>{% else %}<span class="ct-badge ct-off">Cobrança normal</span>{% endif %}</td><td>{{ item.isencao_fim or 'Sem vencimento' }}</td><td>{{ item.motivo_isencao or '—' }}</td><td>{% if item.isento %}<div class="ct-action"><button type="button" class="ct-mini ct-edit" onclick='editarCortesia({{ {"tipo":"professor","registro_id":item.id,"plano":item.plano_codigo,"inicio":item.isencao_inicio,"fim":item.isencao_fim,"motivo":item.motivo_isencao}|tojson }})'>Editar</button><form method="post" action="{{ url_for('excluir_cortesia', assinatura_id=item.assinatura_id) }}" onsubmit="return confirm('Excluir esta cortesia e voltar a conta para cobrança normal?')"><button class="ct-mini ct-delete" type="submit">Excluir</button></form></div>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="6">Nenhum professor autônomo cadastrado.</td></tr>{% endfor %}</tbody></table></div></div>
+
+  <div class="ct-card"><h2 style="margin-top:0;color:#123b72">Instituições</h2><div class="ct-table-wrap"><table class="ct-table"><thead><tr><th>Instituição</th><th>Plano</th><th>Situação</th><th>Validade</th><th>Motivo</th><th>Ações</th></tr></thead><tbody>{% for item in instituicoes %}<tr><td><strong>{{ item.nome_instituicao }}</strong></td><td>{{ (item.plano_codigo or 'Sem plano')|title }}</td><td>{% if item.isento %}<span class="ct-badge ct-ok">Isenta</span>{% else %}<span class="ct-badge ct-off">Cobrança normal</span>{% endif %}</td><td>{{ item.isencao_fim or 'Sem vencimento' }}</td><td>{{ item.motivo_isencao or '—' }}</td><td>{% if item.isento %}<div class="ct-action"><button type="button" class="ct-mini ct-edit" onclick='editarCortesia({{ {"tipo":"instituicao","registro_id":item.id,"plano":item.plano_codigo,"inicio":item.isencao_inicio,"fim":item.isencao_fim,"motivo":item.motivo_isencao}|tojson }})'>Editar</button><form method="post" action="{{ url_for('excluir_cortesia', assinatura_id=item.assinatura_id) }}" onsubmit="return confirm('Excluir esta cortesia e voltar a instituição para cobrança normal?')"><button class="ct-mini ct-delete" type="submit">Excluir</button></form></div>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="6">Nenhuma instituição cadastrada.</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+<script>
+const professores={{ professores|map(attribute='id')|list|tojson }};
+const professoresDados={{ professores|map(attribute='nome')|list|tojson }};
+const instituicoes={{ instituicoes|map(attribute='id')|list|tojson }};
+const instituicoesDados={{ instituicoes|map(attribute='nome_instituicao')|list|tojson }};
+const tipo=document.getElementById('tipoConta'), conta=document.getElementById('registroConta'), plano=document.getElementById('planoCodigo');
+function preencher(){const t=tipo.value;conta.innerHTML='<option value="">Selecione</option>';plano.innerHTML='<option value="">Selecione</option>';const ids=t==='professor'?professores:instituicoes;const nomes=t==='professor'?professoresDados:instituicoesDados;ids.forEach((id,i)=>conta.add(new Option(nomes[i],id)));const ps=t==='professor'?[['professor','Professor — R$ 39,90 (isento)']]:[['start','Start — R$ 199 (isento)'],['essencial','Essencial — R$ 299 (isento)']];ps.forEach(p=>plano.add(new Option(p[1],p[0])))}tipo.addEventListener('change',preencher);
+function editarCortesia(d){
+  tipo.value=d.tipo; preencher(); conta.value=String(d.registro_id); plano.value=d.plano || '';
+  document.querySelector('[name=isencao_inicio]').value=d.inicio || '';
+  document.querySelector('[name=isencao_fim]').value=d.fim || '';
+  document.querySelector('[name=motivo_isencao]').value=d.motivo || '';
+  document.querySelector('[name=isento]').checked=true;
+  document.getElementById('btnSalvarCortesia').textContent='Salvar alterações';
+  document.getElementById('btnCancelarEdicao').style.display='inline-flex';
+  document.getElementById('formCortesia').scrollIntoView({behavior:'smooth',block:'start'});
+}
+document.getElementById('btnCancelarEdicao').addEventListener('click',()=>{document.getElementById('formCortesia').reset();conta.innerHTML='<option value="">Selecione primeiro o tipo</option>';plano.innerHTML='<option value="">Selecione</option>';document.getElementById('btnSalvarCortesia').textContent='Salvar configuração';document.getElementById('btnCancelarEdicao').style.display='none';});
+</script>
+{% endblock %}

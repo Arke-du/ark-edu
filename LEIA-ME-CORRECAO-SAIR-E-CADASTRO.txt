@@ -1,0 +1,25 @@
+ARK EDUS — CORREÇÃO DO BOTÃO SAIR E CONFIRMAÇÃO DE CADASTRO
+
+ALTERAÇÕES REALIZADAS
+
+1. BOTÃO SAIR
+- A rota /logout agora aceita GET e POST.
+- A sessão é completamente limpa.
+- O cookie de sessão é removido explicitamente.
+- O navegador recebe cabeçalhos para não reutilizar o dashboard pelo cache.
+- Após sair, o usuário é direcionado ao login e vê uma confirmação de saída segura.
+- O botão do menu passou a usar url_for('logout').
+
+2. CADASTRO DO PROFESSOR AUTÔNOMO
+- Depois da criação bem-sucedida da conta, é exibida uma página de confirmação.
+- A página informa que o cadastro foi realizado e que o professor recebeu 7 dias do Plano Professor.
+- Há um botão para ir ao login e redirecionamento automático após 5 segundos.
+- Erros de cadastro continuam aparecendo no próprio formulário.
+
+3. TELA DE LOGIN
+- A tela agora exibe corretamente mensagens de sucesso, aviso e erro.
+
+PUBLICAÇÃO
+- Faça backup do plataforma.db.
+- Substitua os arquivos do projeto pelos arquivos deste ZIP.
+- Execute: python app.py

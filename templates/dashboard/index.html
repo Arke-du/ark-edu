@@ -10,7 +10,7 @@
         <span class="dashboard-saude">Visão geral</span>
 
         <h1>
-            Olá, {{ session.get("usuario_nome", "Usuário") }}!
+            Olá, {{ (usuario_logado["nome"] if usuario_logado else session.get("usuario_nome", "Usuário")) }}!
         </h1>
 
         {% if session.get("usuario_cargo") == "Administrador Geral" %}

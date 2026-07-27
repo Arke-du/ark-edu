@@ -1,0 +1,237 @@
+"""Regras centralizadas de planos e assinaturas da ARK EDUS."""
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime, date, timezone
+from typing import Any, Optional
+
+RECURSOS_PROFESSOR = {
+    "questoes_discursivas",
+    "correcao_discursivas",
+    "relatorios_completos",
+    "exportacao_pdf_sem_marca",
+    "multiplos_modelos",
+    "embaralhamento",
+    "suporte_prioritario",
+}
+
+STATUS_LIBERADOS = {"ativa", "gratuita", "trial"}
+
+
+def _row_value(row: Any, key: str, default=None):
+    try:
+        value = row[key]
+    except Exception:
+        return default
+    return default if value is None else value
+
+
+def obter_conta(conectar_banco, usuario_id: int):
+    db = conectar_banco()
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    row = cur.execute(
+        """
+        SELECT
+            u.id AS usuario_id,
+            u.escola_id,
+            COALESCE(u.tipo_conta, 'institucional') AS tipo_conta,
+            COALESCE(u.plano_codigo, e.plano_codigo) AS plano_codigo,
+            COALESCE(u.assinatura_status, 'ativa') AS assinatura_status,
+            c.nome AS cargo,
+            p.nome AS plano_nome,
+            p.valor_mensal,
+            p.limite_turmas,
+            p.limite_alunos,
+            p.limite_provas_mes,
+            COALESCE(p.marca_dagua, 0) AS marca_dagua,
+            COALESCE(p.suporte_prioritario, 0) AS suporte_prioritario,
+            COALESCE(a.isento, 0) AS isento,
+            a.motivo_isencao,
+            a.isencao_inicio,
+            a.isencao_fim,
+            a.inicio_em,
+            a.proxima_cobranca,
+            a.gateway,
+            a.metodo_pagamento,
+            a.renovacao_automatica,
+            a.observacao_cobranca,
+            a.teste_inicio,
+            a.teste_fim
+        FROM usuarios u
+        LEFT JOIN cargos c ON c.id = u.cargo_id
+        LEFT JOIN escolas e ON e.id = u.escola_id
+        LEFT JOIN planos_saas p ON p.codigo = COALESCE(u.plano_codigo, e.plano_codigo)
+        LEFT JOIN assinaturas_saas a ON a.id = (
+            SELECT a2.id
+            FROM assinaturas_saas a2
+            WHERE a2.usuario_id = ?
+               OR (
+                    a2.escola_id = u.escola_id
+                    AND COALESCE(u.tipo_conta, 'institucional') != 'autonomo'
+               )
+            ORDER BY
+                CASE WHEN a2.usuario_id = ? THEN 0 ELSE 1 END,
+                a2.id DESC
+            LIMIT 1
+        )
+        WHERE u.id = ?
+        LIMIT 1
+        """,
+        (usuario_id, usuario_id, usuario_id),
+    ).fetchone()
+    db.close()
+    return row
+
+
+def isencao_vigente(conta) -> bool:
+    """Retorna True quando a conta possui cortesia/isenção válida."""
+    if not conta or not bool(int(_row_value(conta, "isento", 0) or 0)):
+        return False
+    inicio = _row_value(conta, "isencao_inicio")
+    fim = _row_value(conta, "isencao_fim")
+    hoje = date.today()
+    try:
+        if inicio and date.fromisoformat(str(inicio)[:10]) > hoje:
+            return False
+        if fim and date.fromisoformat(str(fim)[:10]) < hoje:
+            return False
+    except ValueError:
+        return False
+    return True
+
+
+
+def teste_vigente(conta) -> bool:
+    """Retorna True enquanto o período de teste gratuito estiver válido."""
+    if not conta or str(_row_value(conta, "assinatura_status", "")).lower() != "trial":
+        return False
+    fim = _row_value(conta, "teste_fim")
+    if not fim:
+        return False
+    try:
+        fim_dt = datetime.fromisoformat(str(fim).replace("Z", "+00:00"))
+        if fim_dt.tzinfo is None:
+            fim_dt = fim_dt.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) < fim_dt.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return False
+
+
+def dias_restantes_teste(conta) -> int:
+    fim = _row_value(conta, "teste_fim") if conta else None
+    if not fim:
+        return 0
+    try:
+        fim_dt = datetime.fromisoformat(str(fim).replace("Z", "+00:00"))
+        if fim_dt.tzinfo is None:
+            fim_dt = fim_dt.replace(tzinfo=timezone.utc)
+        segundos = (fim_dt.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+        if segundos <= 0:
+            return 0
+        return max(1, int((segundos + 86399) // 86400))
+    except (TypeError, ValueError):
+        return 0
+
+def assinatura_ativa(conta) -> bool:
+    if not conta:
+        return False
+    # Uma cortesia vigente ignora cobrança, vencimento e status do gateway.
+    if isencao_vigente(conta) or teste_vigente(conta):
+        return True
+    # Contas institucionais legadas sem plano continuam funcionando.
+    if _row_value(conta, "tipo_conta") != "autonomo" and not _row_value(conta, "plano_codigo"):
+        return True
+    return str(_row_value(conta, "assinatura_status", "ativa")).lower() in STATUS_LIBERADOS
+
+
+def possui_recurso(conta, recurso: str) -> bool:
+    if not conta:
+        return False
+    tipo = _row_value(conta, "tipo_conta")
+    plano = (_row_value(conta, "plano_codigo") or "").lower()
+    # Instituições têm todos os recursos funcionais; os planos diferem por alunos e suporte.
+    if tipo != "autonomo":
+        return True
+    if teste_vigente(conta) or plano == "professor":
+        return True
+    if plano == "gratuito":
+        return recurso not in RECURSOS_PROFESSOR
+    return False
+
+
+def motivo_recurso(recurso: str) -> str:
+    nomes = {
+        "questoes_discursivas": "questões discursivas",
+        "correcao_discursivas": "correção de questões discursivas",
+        "relatorios_completos": "relatórios completos",
+        "exportacao_pdf_sem_marca": "exportação sem marca d'água",
+        "multiplos_modelos": "múltiplos modelos de prova",
+        "embaralhamento": "embaralhamento de questões e alternativas",
+        "suporte_prioritario": "suporte prioritário",
+    }
+    return nomes.get(recurso, recurso.replace("_", " "))
+
+
+def contar_turmas(cur, escola_id: int) -> int:
+    return cur.execute("SELECT COUNT(*) FROM turmas WHERE escola_id = ?", (escola_id,)).fetchone()[0]
+
+
+def contar_alunos(cur, escola_id: int) -> int:
+    return cur.execute("SELECT COUNT(*) FROM alunos WHERE escola_id = ?", (escola_id,)).fetchone()[0]
+
+
+def contar_provas_mes(cur, escola_id: int) -> int:
+    """Conta avaliações criadas no mês, aceitando datas ISO e DD/MM/AAAA."""
+    return cur.execute(
+        """
+        SELECT COUNT(*) FROM provas
+        WHERE escola_id = ?
+          AND (
+              strftime('%Y-%m', atualizado_em) = strftime('%Y-%m', 'now', 'localtime')
+              OR strftime('%Y-%m', data_geracao) = strftime('%Y-%m', 'now', 'localtime')
+              OR (
+                  length(data_geracao) >= 10
+                  AND substr(data_geracao, 7, 4) || '-' || substr(data_geracao, 4, 2)
+                      = strftime('%Y-%m', 'now', 'localtime')
+              )
+          )
+        """,
+        (escola_id,),
+    ).fetchone()[0]
+
+
+def verificar_limite(conectar_banco, conta, tipo: str) -> tuple[bool, Optional[str]]:
+    if not conta:
+        return False, "Não foi possível identificar o plano da conta."
+    escola_id = _row_value(conta, "escola_id")
+    limite_key = {
+        "turmas": "limite_turmas",
+        "alunos": "limite_alunos",
+        "provas_mes": "limite_provas_mes",
+    }[tipo]
+    limite = _row_value(conta, limite_key)
+    if limite is None:
+        return True, None
+    db = conectar_banco()
+    cur = db.cursor()
+    try:
+        total = {
+            "turmas": contar_turmas,
+            "alunos": contar_alunos,
+            "provas_mes": contar_provas_mes,
+        }[tipo](cur, escola_id)
+    finally:
+        db.close()
+    if total < int(limite):
+        return True, None
+    mensagens = {
+        "turmas": f"Seu plano permite até {limite} turma(s). Faça upgrade para continuar.",
+        "alunos": f"Seu plano permite até {limite} aluno(s). Faça upgrade para continuar.",
+        "provas_mes": f"Seu plano permite até {limite} prova(s) por mês. Faça upgrade para continuar.",
+    }
+    return False, mensagens[tipo]
+
+
+def usa_marca_dagua(conta) -> bool:
+    return bool(conta and int(_row_value(conta, "marca_dagua", 0) or 0))

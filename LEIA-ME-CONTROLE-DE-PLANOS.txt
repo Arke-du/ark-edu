@@ -1,0 +1,45 @@
+ARK EDUS — CONTROLE DE PLANOS
+
+Esta versão centraliza as regras em services/plano_service.py.
+
+REGRAS IMPLEMENTADAS
+
+Professor Autônomo — Gratuito
+- Até 1 turma.
+- Até 50 alunos.
+- Até 2 provas por mês.
+- Bloqueio de questões discursivas, respostas abertas e numéricas.
+- Bloqueio da correção de discursivas.
+- Marca d'água ARK EDUS nas provas, cartões e relatórios impressos.
+- Mensagens de upgrade quando um limite ou recurso é atingido.
+
+Professor Autônomo — Professor
+- Turmas, alunos e provas ilimitados.
+- Questões e correção discursivas liberadas.
+- Materiais sem marca d'água.
+- Recursos completos e suporte prioritário.
+
+Instituições — Start e Essencial
+- Quando escola.plano_codigo estiver como start: até 300 alunos.
+- Quando escola.plano_codigo estiver como essencial: até 700 alunos.
+- Todos os demais recursos funcionais permanecem liberados.
+- Instituições antigas sem plano_codigo continuam funcionando sem bloqueio para evitar quebra de contas legadas.
+
+ASSINATURAS
+- Conta autônoma paga com status pendente/vencida/cancelada fica bloqueada.
+- Conta gratuita ativa permanece liberada dentro dos limites.
+- Webhook do Asaas mantém a liberação após confirmação do pagamento.
+
+SEGURANÇA
+- As validações são feitas no backend, não apenas escondendo botões.
+- Professor autônomo administra turmas e alunos do próprio espaço.
+
+PUBLICAÇÃO
+1. Faça backup da versão online e do banco.
+2. Substitua os arquivos pelo conteúdo deste ZIP.
+3. Execute normalmente; a migração SaaS é automática na inicialização.
+4. Saia e entre novamente na conta para atualizar a sessão.
+
+VALIDAÇÃO REALIZADA
+- app.py, saas_arkedu.py e services/plano_service.py compilados sem erro de sintaxe.
+- O ambiente usado para empacotamento não tinha Flask instalado, portanto o servidor completo não pôde ser iniciado aqui.

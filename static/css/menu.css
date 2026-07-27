@@ -319,3 +319,19 @@
         margin-top: 16px;
     }
 }
+
+/* Logout confiável: formulário POST sem estilos nativos do botão. */
+.form-sair { margin: 0; width: 100%; display: block; }
+.form-sair .menu-sair {
+    width: 100%;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.sidebar-rodape .plano-upgrade-mini {
+    position: static;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}

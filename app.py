@@ -127,6 +127,9 @@ app.config.update(
     or os.environ.get("MAIL_USERNAME"),
     UPLOAD_FOLDER=UPLOAD_FOLDER,
     MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+    SESSION_COOKIE_PATH="/",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
 )
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -827,7 +830,15 @@ def cargo_permitido(cargos_permitidos):
     if "usuario_id" not in session:
         return False
 
-    return session.get("usuario_cargo") in cargos_permitidos
+    cargo_atual = session.get("usuario_cargo")
+    if cargo_atual in cargos_permitidos:
+        return True
+    if cargo_atual == "Professor Autônomo":
+        # Nas rotas acadêmicas o autônomo administra o próprio workspace.
+        # Áreas institucionais sensíveis permanecem bloqueadas no módulo SaaS.
+        equivalentes = {"Administrador da Instituição", "Coordenador", "Secretaria", "Professor"}
+        return bool(equivalentes.intersection(set(cargos_permitidos)))
+    return False
 
 def criar_tabelas():
     banco = conectar_banco()
@@ -2425,10 +2436,89 @@ def criar_tabelas():
     banco.close()
 
 # =========================================================
+# SITE COMERCIAL PÚBLICO
+# =========================================================
+
+@app.route("/inicio")
+def site_inicio():
+    """Página inicial pública do site comercial, inclusive para usuários logados."""
+    return render_template("site/index.html")
+
+
+@app.route("/recursos")
+def site_recursos():
+    return render_template("site/recursos.html")
+
+
+@app.route("/para-professores")
+def site_professores():
+    return render_template("site/professores.html")
+
+
+@app.route("/para-instituicoes")
+def site_instituicoes():
+    return render_template("site/instituicoes.html")
+
+
+@app.route("/planos")
+def site_planos():
+    return render_template("site/planos.html")
+
+
+@app.route("/sobre")
+def site_sobre():
+    return render_template("site/sobre.html")
+
+
+@app.route("/termos-de-uso")
+def site_termos():
+    return render_template("site/termos.html")
+
+
+@app.route("/politica-de-privacidade")
+def site_privacidade():
+    return render_template("site/privacidade.html")
+
+
+@app.route("/contato", methods=["GET", "POST"])
+def site_contato():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip()
+        telefone = request.form.get("telefone", "").strip()
+        assunto = request.form.get("assunto", "Contato pelo site").strip()
+        mensagem = request.form.get("mensagem", "").strip()
+
+        if not nome or not email or not mensagem:
+            flash("Preencha nome, e-mail e mensagem.", "erro")
+            return render_template("site/contato.html")
+
+        destino = os.environ.get("EMAIL_COMERCIAL") or app.config.get("MAIL_DEFAULT_SENDER")
+        if destino and app.config.get("MAIL_USERNAME") and app.config.get("MAIL_PASSWORD"):
+            try:
+                corpo = (
+                    f"Novo contato pelo site ARK EDUS\n\n"
+                    f"Nome: {nome}\nE-mail: {email}\nTelefone: {telefone or 'Não informado'}\n"
+                    f"Assunto: {assunto}\n\nMensagem:\n{mensagem}"
+                )
+                mail.send(Message(subject=f"ARK EDUS — {assunto}", recipients=[destino], body=corpo, reply_to=email))
+                flash("Mensagem enviada com sucesso. Em breve entraremos em contato.", "success")
+            except Exception:
+                app.logger.exception("Falha ao enviar contato comercial")
+                flash("Recebemos seus dados, mas o envio automático está temporariamente indisponível.", "aviso")
+        else:
+            flash("Contato registrado. Configure EMAIL_COMERCIAL e as variáveis de e-mail no Render para receber as mensagens.", "aviso")
+        return redirect(url_for("site_contato"))
+
+    return render_template("site/contato.html")
+
+
+# =========================================================
 # DASHBOARD
 # =========================================================
 
 @app.route("/")
+@app.route("/dashboard")
 def index():
     """
     Dashboard global da plataforma.
@@ -2439,7 +2529,9 @@ def index():
     """
 
     if "usuario_id" not in session:
-        return redirect("/login")
+        if request.path == "/":
+            return render_template("site/index.html")
+        return redirect(url_for("login"))
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -2747,7 +2839,8 @@ def turmas():
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
-        "Secretaria"
+        "Secretaria",
+        "Professor Autônomo"
     ]
 
     escolas = []
@@ -3121,7 +3214,8 @@ def cadastrar_turma():
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
-        "Secretaria"
+        "Secretaria",
+        "Professor Autônomo"
     ]):
 
         flash(
@@ -4793,7 +4887,8 @@ def cadastrar_aluno():
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
-        "Secretaria"
+        "Secretaria",
+        "Professor Autônomo"
     ]):
         return redirect("/acesso_negado")
 
@@ -5300,9 +5395,8 @@ def questoes():
     filtros = []
     parametros = []
 
-    if cargo != "Administrador Geral" and escola_id:
-        filtros.append("q.escola_id = ?")
-        parametros.append(escola_id)
+    # Banco de questões compartilhado: todos os usuários podem consultar
+    # questões criadas por qualquer professor ou instituição.
 
     if origem == "minhas":
         filtros.append("q.criado_por = ?")
@@ -5376,19 +5470,13 @@ def questoes():
             lista_questoes.append(item)
 
         def distintos(campo):
-            condicao = ""
-            args = []
-            if cargo != "Administrador Geral" and escola_id:
-                condicao = "WHERE escola_id = ?"
-                args = [escola_id]
             cursor.execute(f"""
                 SELECT DISTINCT {campo} AS valor
                 FROM questoes
-                {condicao}
-                {'AND' if condicao else 'WHERE'} {campo} IS NOT NULL
+                WHERE {campo} IS NOT NULL
                   AND TRIM({campo}) <> ''
                 ORDER BY {campo} COLLATE NOCASE
-            """, args)
+            """)
             return [linha["valor"] for linha in cursor.fetchall()]
 
         opcoes = {
@@ -5399,16 +5487,16 @@ def questoes():
             "blooms": distintos("taxonomia_bloom")
         }
 
-        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q {('WHERE q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        cursor.execute("SELECT COUNT(*) AS total FROM questoes")
         total_geral = cursor.fetchone()["total"]
 
-        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.criado_por = ? {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([usuario_id, escola_id] if cargo != 'Administrador Geral' and escola_id else [usuario_id]))
+        cursor.execute("SELECT COUNT(*) AS total FROM questoes WHERE criado_por = ?", (usuario_id,))
         total_minhas = cursor.fetchone()["total"]
 
-        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.tipo_questao IN ('multipla_escolha','multiplas_respostas','verdadeiro_falso') {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        cursor.execute("SELECT COUNT(*) AS total FROM questoes WHERE tipo_questao IN ('multipla_escolha','multiplas_respostas','verdadeiro_falso')")
         total_objetivas = cursor.fetchone()["total"]
 
-        cursor.execute(f"SELECT COUNT(*) AS total FROM questoes q WHERE q.tipo_questao IN ('discursiva','resposta_curta','numerica') {('AND q.escola_id = ?' if cargo != 'Administrador Geral' and escola_id else '')}", ([escola_id] if cargo != 'Administrador Geral' and escola_id else []))
+        cursor.execute("SELECT COUNT(*) AS total FROM questoes WHERE tipo_questao IN ('discursiva','resposta_curta','numerica')")
         total_discursivas = cursor.fetchone()["total"]
 
         return render_template(
@@ -6127,7 +6215,7 @@ def _professor_legado_do_usuario(cursor, usuario_id):
         INNER JOIN cargos AS c
             ON c.id = u.cargo_id
         WHERE u.id = ?
-          AND c.nome = 'Professor'
+          AND c.nome IN ('Professor', 'Professor Autônomo')
         LIMIT 1
     """, (usuario_id,))
 
@@ -6198,7 +6286,7 @@ def _sincronizar_professores_da_escola(cursor, escola_id=None):
         SELECT u.id, u.nome, u.email, u.escola_id
         FROM usuarios AS u
         INNER JOIN cargos AS c ON c.id = u.cargo_id
-        WHERE c.nome = 'Professor'
+        WHERE c.nome IN ('Professor', 'Professor Autônomo')
           AND u.ativo = 1
           AND u.escola_id IS NOT NULL
           {filtro_escola}
@@ -6255,7 +6343,8 @@ def _pode_criar_prova(cargo):
         "Administrador Geral",
         "Administrador da Instituição",
         "Coordenador",
-        "Professor"
+        "Professor",
+        "Professor Autônomo"
     }
 
 
@@ -6332,13 +6421,15 @@ def _pode_gerenciar_prova(
     if exigir_edicao:
         return cargo in {
             "Administrador da Instituição",
-            "Coordenador"
+            "Coordenador",
+            "Professor Autônomo"
         }
 
     return cargo in {
         "Administrador da Instituição",
         "Coordenador",
-        "Secretaria"
+        "Secretaria",
+        "Professor Autônomo"
     }
 
 
@@ -7706,10 +7797,6 @@ def montar_prova(prova_id):
             SELECT q.*
             FROM questoes AS q
             WHERE q.disciplina = ?
-              AND (
-                    q.escola_id = ?
-                    OR q.escola_id IS NULL
-              )
               AND q.id NOT IN (
                     SELECT questao_id
                     FROM prova_questoes
@@ -7718,7 +7805,6 @@ def montar_prova(prova_id):
             ORDER BY q.id DESC
         """, (
             prova["disciplina"],
-            prova["escola_id"],
             prova_id
         ))
         banco_questoes = cursor.fetchall()
@@ -7780,11 +7866,9 @@ def selecionar_questoes_prova(prova_id):
         etapa = request.args.get("etapa", "").strip()
         ano_serie = request.args.get("ano_serie", "").strip()
 
-        escola_id = prova["escola_id"] or prova["turma_escola_id"]
-        filtros = [prova["disciplina"], escola_id, prova_id]
+        filtros = [prova["disciplina"], prova_id]
         condicoes = [
             "q.disciplina = ?",
-            "(q.escola_id = ? OR q.escola_id IS NULL)",
             "q.id NOT IN (SELECT questao_id FROM prova_questoes WHERE prova_id = ?)"
         ]
 
@@ -7899,9 +7983,8 @@ def adicionar_questoes_selecionadas(prova_id):
             cursor.execute("""
                 SELECT id FROM questoes
                 WHERE id = ? AND disciplina = ?
-                  AND (escola_id = ? OR escola_id IS NULL)
                 LIMIT 1
-            """, (questao_id, prova["disciplina"], escola_id))
+            """, (questao_id, prova["disciplina"]))
             if not cursor.fetchone():
                 continue
 
@@ -11294,6 +11377,25 @@ def nova_instituicao():
             ""
         ).strip()
 
+        # =====================================================
+        # PLANO E COBRANÇA DA INSTITUIÇÃO
+        # =====================================================
+        plano_instituicao = (request.form.get("plano_codigo") or "start").strip().lower()
+        if plano_instituicao not in {"start", "essencial"}:
+            plano_instituicao = "start"
+        assinatura_status = (request.form.get("assinatura_status") or "ativa").strip().lower()
+        if assinatura_status not in {"ativa", "pendente", "trial"}:
+            assinatura_status = "ativa"
+        metodo_pagamento = (request.form.get("metodo_pagamento") or "manual").strip().lower()
+        proxima_cobranca = (request.form.get("proxima_cobranca") or "").strip() or None
+        renovacao_automatica = 1 if request.form.get("renovacao_automatica") == "1" else 0
+        observacao_cobranca = (request.form.get("observacao_cobranca") or "").strip() or None
+        isento_instituicao = 1 if request.form.get("isento_cobranca") == "1" else 0
+        motivo_isencao = (request.form.get("motivo_isencao") or "").strip() or None
+        isencao_fim = (request.form.get("isencao_fim") or "").strip() or None
+        if isento_instituicao:
+            assinatura_status = "isenta"
+
         if not nome_instituicao:
             flash(
                 "Informe o nome da instituição.",
@@ -11718,17 +11820,47 @@ def nova_instituicao():
                     cargo_id,
                     ativo,
                     escola_id,
-                    cpf
+                    cpf,
+                    tipo_conta,
+                    plano_codigo,
+                    assinatura_status
                 )
-                VALUES (?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, 1, ?, ?, 'institucional', ?, ?)
             """, (
                 admin_nome,
                 admin_email,
                 admin_senha,
                 cargo_id,
                 escola_id,
-                admin_cpf
+                admin_cpf,
+                plano_instituicao,
+                assinatura_status
             ))
+            admin_usuario_id = cursor.lastrowid
+
+            cursor.execute("UPDATE escolas SET plano_codigo=? WHERE id=?", (plano_instituicao, escola_id))
+            cursor.execute("""
+                INSERT INTO assinaturas_saas (
+                    usuario_id, escola_id, plano_codigo, status, gateway,
+                    proxima_cobranca, isento, motivo_isencao, isencao_inicio,
+                    isencao_fim, concedida_por, metodo_pagamento,
+                    renovacao_automatica, observacao_cobranca
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATE('now'), ?, ?, ?, ?, ?)
+            """, (
+                admin_usuario_id, escola_id, plano_instituicao, assinatura_status,
+                'cortesia' if isento_instituicao else 'manual', proxima_cobranca,
+                isento_instituicao, motivo_isencao, isencao_fim,
+                session.get('usuario_id'), metodo_pagamento, renovacao_automatica,
+                observacao_cobranca
+            ))
+            assinatura_id = cursor.lastrowid
+            if not isento_instituicao:
+                valor_plano = 199.0 if plano_instituicao == 'start' else 299.0
+                cursor.execute("""INSERT INTO pagamentos_saas
+                    (assinatura_id, gateway, forma_pagamento, valor, status, vencimento)
+                    VALUES (?, 'manual', ?, ?, ?, ?)""",
+                    (assinatura_id, metodo_pagamento, valor_plano,
+                     'pendente' if assinatura_status == 'pendente' else 'pago', proxima_cobranca))
 
             banco.commit()
 
@@ -13417,8 +13549,7 @@ def ativar_inativar_usuario(id):
 
 @app.route("/meu-perfil", methods=["GET", "POST"])
 def meu_perfil():
-    """Permite ao usuário autenticado atualizar os próprios dados e senha."""
-
+    """Perfil pessoal e, para autônomos, configuração do próprio espaço."""
     usuario_id = session.get("usuario_id")
     if not usuario_id:
         flash("Faça login para acessar seu perfil.", "aviso")
@@ -13430,7 +13561,32 @@ def meu_perfil():
 
     try:
         garantir_estrutura_usuarios(cursor)
+        # Campos extras de identidade visual do espaço autônomo.
+        colunas_escola = {r[1] for r in cursor.execute("PRAGMA table_info(escolas)").fetchall()}
+        for coluna, definicao in {
+            "cor_primaria": "TEXT",
+            "cor_secundaria": "TEXT",
+            "cabecalho_documentos": "TEXT",
+            "rodape_documentos": "TEXT"
+        }.items():
+            if coluna not in colunas_escola:
+                cursor.execute(f"ALTER TABLE escolas ADD COLUMN {coluna} {definicao}")
         banco.commit()
+
+        cursor.execute("""
+            SELECT u.*, c.nome AS cargo
+            FROM usuarios u
+            LEFT JOIN cargos c ON c.id = u.cargo_id
+            WHERE u.id = ? LIMIT 1
+        """, (usuario_id,))
+        conta = cursor.fetchone()
+        if not conta:
+            session.clear()
+            flash("Usuário não encontrado. Entre novamente.", "erro")
+            return redirect("/login")
+
+        eh_autonomo = (conta["tipo_conta"] == "autonomo" or conta["cargo"] == "Professor Autônomo")
+        escola_id = conta["escola_id"]
 
         if request.method == "POST":
             acao = request.form.get("acao", "dados").strip()
@@ -13441,145 +13597,115 @@ def meu_perfil():
                 cpf = request.form.get("cpf", "").strip()
                 telefone = request.form.get("telefone", "").strip()
                 data_nascimento = request.form.get("data_nascimento", "").strip()
-
-                if not nome:
-                    flash("Informe seu nome.", "erro")
+                if not nome or not email:
+                    flash("Informe seu nome e e-mail.", "erro")
                     return redirect(url_for("meu_perfil"))
-
-                if not email or "@" not in email:
-                    flash("Informe um e-mail válido.", "erro")
+                duplicado = cursor.execute(
+                    "SELECT id FROM usuarios WHERE LOWER(email)=LOWER(?) AND id<>? LIMIT 1",
+                    (email, usuario_id)
+                ).fetchone()
+                if duplicado:
+                    flash("Este e-mail já está sendo utilizado.", "erro")
                     return redirect(url_for("meu_perfil"))
-
-                cursor.execute("""
-                    SELECT id
-                    FROM usuarios
-                    WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
-                      AND id <> ?
-                    LIMIT 1
-                """, (email, usuario_id))
-
-                if cursor.fetchone():
-                    flash("Este e-mail já está sendo utilizado por outro usuário.", "erro")
-                    return redirect(url_for("meu_perfil"))
-
-                cursor.execute("""
-                    UPDATE usuarios
-                    SET nome = ?,
-                        email = ?,
-                        cpf = ?,
-                        telefone = ?,
-                        data_nascimento = ?
-                    WHERE id = ?
-                """, (
-                    nome,
-                    email,
-                    cpf or None,
-                    telefone or None,
-                    data_nascimento or None,
-                    usuario_id
-                ))
-
-                banco.commit()
-                session["usuario_nome"] = nome
+                cursor.execute("""UPDATE usuarios SET nome=?,email=?,cpf=?,telefone=?,data_nascimento=? WHERE id=?""",
+                    (nome,email,cpf or None,telefone or None,data_nascimento or None,usuario_id))
+                banco.commit(); session["usuario_nome"] = nome
                 flash("Informações pessoais atualizadas com sucesso.", "success")
                 return redirect(url_for("meu_perfil"))
 
-            if acao == "senha":
-                senha_atual = request.form.get("senha_atual", "")
-                nova_senha = request.form.get("nova_senha", "")
-                confirmar_senha = request.form.get("confirmar_senha", "")
+            if acao == "institucional":
+                if not eh_autonomo or not escola_id:
+                    flash("Esta configuração é exclusiva do professor autônomo.", "erro")
+                    return redirect(url_for("meu_perfil"))
+                nome_instituicao = request.form.get("nome_instituicao", "").strip()
+                if not nome_instituicao:
+                    flash("Informe o nome da instituição ou identificação profissional.", "erro")
+                    return redirect(url_for("meu_perfil") + "#institucional")
+                ano_letivo = request.form.get("ano_letivo", "").strip()
+                etapas = [x.strip() for x in request.form.getlist("etapas_ensino") if x.strip()]
+                modalidades = [x.strip() for x in request.form.getlist("modalidade_ensino") if x.strip()]
+                componentes_raw = request.form.getlist("componentes_curriculares")
+                componentes=[]; vistos=set()
+                for item in componentes_raw:
+                    try:
+                        obj=json.loads(item); etapa=str(obj.get("etapa","")).strip(); nome=str(obj.get("nome","")).strip(); tipo=str(obj.get("tipo","padrao")).strip()
+                    except Exception:
+                        continue
+                    chave=(etapa.lower(),nome.lower())
+                    if etapa and nome and etapa in etapas and chave not in vistos:
+                        vistos.add(chave); componentes.append((etapa,nome,tipo if tipo in ("padrao","manual") else "padrao"))
+                if etapas and not componentes:
+                    flash("Selecione ao menos um componente curricular para as etapas marcadas.", "erro")
+                    return redirect(url_for("meu_perfil") + "#academico")
 
-                cursor.execute(
-                    "SELECT senha FROM usuarios WHERE id = ? LIMIT 1",
-                    (usuario_id,)
-                )
-                registro = cursor.fetchone()
-
-                if not registro:
-                    session.clear()
-                    flash("Usuário não encontrado. Entre novamente.", "erro")
-                    return redirect("/login")
-
-                senha_salva = registro["senha"] or ""
-                try:
-                    senha_atual_valida = check_password_hash(
-                        senha_salva,
-                        senha_atual
-                    )
-                except (ValueError, TypeError):
-                    senha_atual_valida = senha_salva == senha_atual
-
-                if not senha_atual_valida:
-                    flash("A senha atual está incorreta.", "erro")
-                    return redirect(url_for("meu_perfil") + "#seguranca")
-
-                if len(nova_senha) < 8:
-                    flash("A nova senha deve ter pelo menos 8 caracteres.", "erro")
-                    return redirect(url_for("meu_perfil") + "#seguranca")
-
-                if nova_senha != confirmar_senha:
-                    flash("A confirmação da nova senha não confere.", "erro")
-                    return redirect(url_for("meu_perfil") + "#seguranca")
-
-                if nova_senha == senha_atual:
-                    flash("A nova senha deve ser diferente da senha atual.", "erro")
-                    return redirect(url_for("meu_perfil") + "#seguranca")
+                logo_atual = cursor.execute("SELECT logo FROM escolas WHERE id=?", (escola_id,)).fetchone()
+                nome_logo = logo_atual["logo"] if logo_atual else ""
+                logo=request.files.get("logo")
+                if logo and logo.filename:
+                    extensao=Path(secure_filename(logo.filename)).suffix.lower()
+                    if extensao not in {".png",".jpg",".jpeg",".webp"}:
+                        flash("A logo deve estar em PNG, JPG, JPEG ou WEBP.", "erro")
+                        return redirect(url_for("meu_perfil") + "#identidade")
+                    nome_logo=f"autonomo_{escola_id}_{int(datetime.now().timestamp())}{extensao}"
+                    logo.save(os.path.join(app.config["UPLOAD_FOLDER"], nome_logo))
 
                 cursor.execute("""
-                    UPDATE usuarios
-                    SET senha = ?
-                    WHERE id = ?
-                """, (generate_password_hash(nova_senha), usuario_id))
-
+                    UPDATE escolas SET nome_instituicao=?,codigo_inep=?,cnpj=?,cep=?,endereco=?,cidade=?,estado=?,
+                    telefone=?,whatsapp=?,email=?,site=?,tipo_instituicao=?,ano_letivo=?,modalidade_ensino=?,etapas_ensino=?,
+                    logo=?,cor_primaria=?,cor_secundaria=?,cabecalho_documentos=?,rodape_documentos=? WHERE id=?
+                """, (
+                    nome_instituicao,request.form.get("codigo_inep","").strip() or None,
+                    request.form.get("cnpj","").strip() or None,request.form.get("cep","").strip() or None,
+                    request.form.get("endereco","").strip() or None,request.form.get("cidade","").strip() or None,
+                    request.form.get("estado","").strip() or None,request.form.get("telefone_institucional","").strip() or None,
+                    request.form.get("whatsapp","").strip() or None,request.form.get("email_institucional","").strip().lower() or None,
+                    request.form.get("site","").strip() or None,request.form.get("tipo_instituicao","").strip() or None,
+                    ano_letivo or None,", ".join(modalidades),", ".join(etapas),nome_logo,
+                    request.form.get("cor_primaria","").strip() or None,request.form.get("cor_secundaria","").strip() or None,
+                    request.form.get("cabecalho_documentos","").strip() or None,request.form.get("rodape_documentos","").strip() or None,
+                    escola_id
+                ))
+                if ano_letivo:
+                    sincronizar_ano_letivo_instituicao(cursor, escola_id, ano_letivo, tornar_ativo=True)
+                cursor.execute("DELETE FROM componentes_curriculares WHERE escola_id=?", (escola_id,))
+                for etapa,nome,tipo in componentes:
+                    cursor.execute("INSERT INTO componentes_curriculares(escola_id,etapa_ensino,nome,tipo,ativo) VALUES(?,?,?,?,1)", (escola_id,etapa,nome,tipo))
                 banco.commit()
-                flash("Senha alterada com sucesso.", "success")
-                return redirect(url_for("meu_perfil") + "#seguranca")
+                atualizar_ano_letivo_na_sessao(escola_id)
+                flash("Informações profissionais, acadêmicas e identidade visual salvas com sucesso.", "success")
+                return redirect(url_for("meu_perfil") + "#institucional")
 
-            flash("Ação de perfil inválida.", "erro")
-            return redirect(url_for("meu_perfil"))
+            if acao == "senha":
+                senha_atual=request.form.get("senha_atual",""); nova=request.form.get("nova_senha",""); confirmar=request.form.get("confirmar_senha","")
+                senha_salva=conta["senha"] or ""
+                try: valida=check_password_hash(senha_salva,senha_atual)
+                except (ValueError,TypeError): valida=(senha_salva==senha_atual)
+                if not valida:
+                    flash("A senha atual está incorreta.", "erro"); return redirect(url_for("meu_perfil")+"#seguranca")
+                if len(nova)<8:
+                    flash("A nova senha deve ter pelo menos 8 caracteres.", "erro"); return redirect(url_for("meu_perfil")+"#seguranca")
+                if nova!=confirmar:
+                    flash("A confirmação da nova senha não confere.", "erro"); return redirect(url_for("meu_perfil")+"#seguranca")
+                cursor.execute("UPDATE usuarios SET senha=? WHERE id=?", (generate_password_hash(nova),usuario_id)); banco.commit()
+                flash("Senha alterada com sucesso.", "success"); return redirect(url_for("meu_perfil")+"#seguranca")
 
         cursor.execute("""
-            SELECT
-                usuarios.id,
-                usuarios.nome,
-                usuarios.email,
-                usuarios.cpf,
-                usuarios.telefone,
-                usuarios.data_nascimento,
-                cargos.nome AS cargo,
-                escolas.nome_instituicao
-            FROM usuarios
-            LEFT JOIN cargos
-                ON cargos.id = usuarios.cargo_id
-            LEFT JOIN escolas
-                ON escolas.id = usuarios.escola_id
-            WHERE usuarios.id = ?
-            LIMIT 1
+            SELECT u.id,u.nome,u.email,u.cpf,u.telefone,u.data_nascimento,u.tipo_conta,c.nome AS cargo,
+                   e.*
+            FROM usuarios u LEFT JOIN cargos c ON c.id=u.cargo_id LEFT JOIN escolas e ON e.id=u.escola_id
+            WHERE u.id=? LIMIT 1
         """, (usuario_id,))
-
-        usuario = cursor.fetchone()
-
-        if not usuario:
-            session.clear()
-            flash("Usuário não encontrado. Entre novamente.", "erro")
-            return redirect("/login")
-
-        return render_template(
-            "meu_perfil.html",
-            usuario=usuario
-        )
-
+        usuario=cursor.fetchone()
+        componentes=[]
+        if eh_autonomo and escola_id:
+            componentes=[dict(r) for r in cursor.execute("SELECT etapa_ensino,nome,tipo FROM componentes_curriculares WHERE escola_id=? AND ativo=1 ORDER BY etapa_ensino,nome", (escola_id,)).fetchall()]
+        return render_template("meu_perfil.html", usuario=usuario, eh_autonomo=eh_autonomo, componentes_salvos=componentes,
+            modalidades_marcadas=[x.strip() for x in (usuario["modalidade_ensino"] or "").split(",") if x.strip()] if usuario else [],
+            etapas_marcadas=[x.strip() for x in (usuario["etapas_ensino"] or "").split(",") if x.strip()] if usuario else [])
     except sqlite3.IntegrityError:
-        banco.rollback()
-        flash("Não foi possível salvar. Verifique se o e-mail já está em uso.", "erro")
-        return redirect(url_for("meu_perfil"))
-
+        banco.rollback(); flash("Não foi possível salvar. Verifique dados duplicados.", "erro"); return redirect(url_for("meu_perfil"))
     except sqlite3.Error as erro:
-        banco.rollback()
-        print("ERRO NO MEU PERFIL:", erro)
-        flash("Não foi possível atualizar seu perfil.", "erro")
-        return redirect("/")
-
+        banco.rollback(); app.logger.exception("Erro no perfil"); flash(f"Não foi possível atualizar seu perfil: {erro}", "erro"); return redirect("/")
     finally:
         banco.close()
 
@@ -13587,8 +13713,15 @@ def meu_perfil():
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
+    # O retorno do logout deve sempre mostrar a tela de login, mesmo que o
+    # navegador envie por engano um cookie antigo na primeira requisição.
+    if request.method == "GET" and request.args.get("saiu") == "1":
+        session.clear()
+        session.modified = True
+        return render_template("login.html")
+
     if request.method == "GET" and session.get("usuario_id"):
-        return redirect("/")
+        return redirect(url_for("index"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -13643,7 +13776,12 @@ def login():
             session.clear()
             session["usuario_id"] = usuario["id"]
             session["usuario_nome"] = usuario["nome"]
-            session["usuario_cargo"] = usuario["cargo"] or ""
+            session["usuario_cargo"] = (
+                "Professor Autônomo"
+                if (usuario["tipo_conta"] or "").strip().lower() == "autonomo"
+                else (usuario["cargo"] or "")
+            )
+            session["tipo_conta"] = usuario["tipo_conta"] or "institucional"
             session["escola_id"] = usuario["escola_id"]
 
             if usuario["escola_id"]:
@@ -13656,7 +13794,7 @@ def login():
             else:
                 obter_ano_global_administrador()
 
-            return redirect("/")
+            return redirect(url_for("index"))
 
         except sqlite3.Error as erro:
             print("ERRO NO LOGIN:", erro)
@@ -13668,10 +13806,42 @@ def login():
 
     return render_template("login.html")
 
-@app.route("/logout")
+@app.route("/logout", methods=["GET", "POST"], strict_slashes=False)
+@app.route("/sair", methods=["GET", "POST"], strict_slashes=False)
 def logout():
+    """Encerra totalmente a sessão atual e volta ao login."""
+    # Remove todos os dados do usuário. Não preserva nome, escola, plano ou
+    # qualquer chave usada pelos módulos acadêmico e SaaS.
+    for chave in list(session.keys()):
+        session.pop(chave, None)
     session.clear()
-    return redirect("/login")
+    session.modified = True
+
+    resposta = redirect(url_for("login", saiu="1"), code=303)
+    resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+    resposta.headers["Pragma"] = "no-cache"
+    resposta.headers["Expires"] = "0"
+    resposta.headers["Clear-Site-Data"] = '"cache"'
+
+    # Expira o cookie no mesmo caminho em que o Flask o cria. O próprio
+    # Flask também salvará a sessão vazia ao finalizar a resposta.
+    nome_cookie = app.config.get("SESSION_COOKIE_NAME", "session")
+    resposta.delete_cookie(nome_cookie, path="/")
+    dominio_cookie = app.config.get("SESSION_COOKIE_DOMAIN")
+    if dominio_cookie:
+        resposta.delete_cookie(nome_cookie, path="/", domain=dominio_cookie)
+
+    return resposta
+
+
+@app.after_request
+def impedir_cache_de_paginas_autenticadas(resposta):
+    """Evita que o navegador reapresente o dashboard depois do logout."""
+    if session.get("usuario_id") or request.endpoint in {"logout", "login"}:
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+        resposta.headers["Pragma"] = "no-cache"
+        resposta.headers["Expires"] = "0"
+    return resposta
 
 @app.route("/permissoes/<int:cargo_id>")
 def permissoes(cargo_id):
@@ -13727,6 +13897,10 @@ def permissao_modulo(modulo):
     # Administrador Geral possui acesso completo
     if cargo == "Administrador Geral":
         return True
+
+    # Professor autônomo acessa os módulos pedagógicos do próprio espaço.
+    if cargo == "Professor Autônomo":
+        return modulo in {"Dashboard", "Turmas", "Alunos", "Banco de Questões", "Questões", "Provas", "Relatórios", "Aplicações"}
 
     # Administrador da Instituição possui acesso completo,
     # exceto ao gerenciamento geral das instituições
@@ -16788,7 +16962,7 @@ def reabrir_ano_letivo(ano_letivo_id):
 # =========================================================
 # RELATÓRIOS — VISÃO GERAL
 # Cole este bloco no app.py antes do:
-# if __name__ == "__main__":
+# 
 # =========================================================
 
 
@@ -19886,6 +20060,12 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
 
     finally:
         banco.close()
+
+# =========================================================
+# MÓDULO SAAS: professores autônomos, planos e assinaturas
+# =========================================================
+from saas_arkedu import init_saas
+init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao)
 
 if __name__ == "__main__":
     app.run(

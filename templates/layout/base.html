@@ -332,7 +332,7 @@
             line-height: 1;
         }
 </style>
-</head>
+<style>.plano-upgrade-mini{display:block;margin:12px;padding:10px 12px;border-radius:10px;background:#eef4ff;color:#174ea6;font-weight:800;text-decoration:none;font-size:12px;text-align:center}</style></head>
 
 <body>
 
@@ -391,6 +391,20 @@
                     <span>Instituições</span>
                 </a>
 
+            {% endif %}
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                <a href="{{ url_for('gestao_cortesias') }}" class="{% if request.path.startswith('/gestao/cortesias') %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><path d="M20 12V22H4V12"></path><path d="M2 7H22V12H2Z"></path><path d="M12 22V7"></path><path d="M12 7H7.5A2.5 2.5 0 1 1 10 4.5C10 6 12 7 12 7Z"></path><path d="M12 7H16.5A2.5 2.5 0 1 0 14 4.5C14 6 12 7 12 7Z"></path></svg>
+                    <span>Cortesias</span>
+                </a>
+            {% endif %}
+
+            {% if session.get("usuario_cargo") in ["Professor Autônomo", "Administrador da Instituição"] %}
+                <a href="{{ url_for('minha_assinatura') }}" class="{% if request.path == '/minha-assinatura' %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10H21"></path><path d="M7 15H11"></path></svg>
+                    <span>Minha assinatura</span>
+                </a>
             {% endif %}
 
 
@@ -569,7 +583,7 @@
 
                 <span class="sidebar-usuario-textos">
                     <strong>
-                        {{ session.get("usuario_nome", "Usuário") }}
+                        {{ (usuario_logado["nome"] if usuario_logado else session.get("usuario_nome", "Usuário")) }}
                     </strong>
 
                     <span>
@@ -580,21 +594,25 @@
                 <span class="sidebar-usuario-seta" aria-hidden="true">›</span>
             </a>
 
-            <a href="/logout" class="menu-sair">
+            {% if conta_saas and conta_saas['tipo_conta'] == 'autonomo' %}
+                {% if conta_em_teste %}
+                    <a class="plano-upgrade-mini" href="{{ url_for('minha_assinatura') }}">Teste gratuito · {{ dias_teste_restantes }} dia{% if dias_teste_restantes != 1 %}s{% endif %} restante{% if dias_teste_restantes != 1 %}s{% endif %}</a>
+                {% elif conta_saas['plano_codigo'] == 'gratuito' %}
+                    <a class="plano-upgrade-mini" href="{{ url_for('site_planos') }}">Plano Gratuito · Fazer upgrade</a>
+                {% endif %}
+            {% endif %}
 
+            <a href="{{ url_for('logout') }}" class="menu-sair" id="botao-sair" rel="nofollow">
                 <svg viewBox="0 0 24 24">
                     <path d="M10 17L15 12L10 7"></path>
                     <path d="M15 12H3"></path>
                     <path d="M21 19V5A2 2 0 0 0 19 3H13"></path>
                 </svg>
-
                 <span>Sair</span>
-
             </a>
 
         </div>
-
-    </aside>
+</aside>
 
 
     <!-- =====================================================
@@ -750,7 +768,7 @@
                 <div class="user-box">
 
                     <strong>
-                        {{ session.get("usuario_nome", "Usuário") }}
+                        {{ (usuario_logado["nome"] if usuario_logado else session.get("usuario_nome", "Usuário")) }}
                     </strong>
 
                     <span>
@@ -960,6 +978,22 @@ document.addEventListener("DOMContentLoaded", function () {
         }, { once: true });
     });
 });
+</script>
+
+
+<script>
+(function () {
+    const sair = document.getElementById("botao-sair");
+    if (!sair) return;
+
+    sair.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        // A navegação direta evita que formulários, overlays ou scripts da
+        // página atual capturem o clique e apenas recarreguem o dashboard.
+        window.location.assign(sair.href + (sair.href.includes("?") ? "&" : "?") + "t=" + Date.now());
+    }, true);
+})();
 </script>
 
 {% block scripts %}{% endblock %}

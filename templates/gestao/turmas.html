@@ -615,7 +615,7 @@ body.modal-aberto {
 
             <p>
                 {% if pode_gerenciar %}
-                    Cadastre, consulte e gerencie as turmas da instituição.
+                    {% if cargo == 'Professor Autônomo' %}Cadastre, consulte e gerencie suas turmas.{% else %}Cadastre, consulte e gerencie as turmas da instituição.{% endif %}
                 {% else %}
                     Consulte as turmas em que você está vinculado.
                 {% endif %}
