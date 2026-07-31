@@ -539,6 +539,14 @@
             {% endif %}
 
 
+            <!-- Planejamento Pedagógico -->
+            {% if session.get("usuario_cargo") in ["Administrador Geral", "Administrador da Instituição", "Coordenador", "Secretaria", "Professor", "Professor Autônomo"] %}
+                <a href="{{ url_for('planejamentos_listar') }}" class="{% if request.path.startswith('/planejamentos') %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><path d="M4 4H20V20H4Z"></path><path d="M8 8H16"></path><path d="M8 12H16"></path><path d="M8 16H13"></path></svg>
+                    <span>Planejamentos</span>
+                </a>
+            {% endif %}
+
             <!-- Relatórios -->
 
             {% if permissao_modulo("Relatórios") %}
