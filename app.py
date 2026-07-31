@@ -20062,12 +20062,6 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
         banco.close()
 
 # =========================================================
-# MÓDULO DE PLANEJAMENTO PEDAGÓGICO
-# =========================================================
-from planejamento_arkedu import init_planejamento
-init_planejamento(app, conectar_banco, obter_contexto_plataforma, cargo_permitido)
-
-# =========================================================
 # MÓDULO SAAS: professores autônomos, planos e assinaturas
 # =========================================================
 from saas_arkedu import init_saas
