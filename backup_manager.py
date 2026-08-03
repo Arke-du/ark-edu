@@ -33,16 +33,78 @@ class BackupManager:
         self.app = app
         self.db_path = Path(db_path).resolve()
         self.upload_folder = Path(upload_folder).resolve() if upload_folder else None
-        self.backup_dir = Path(
-            os.environ.get("BACKUP_DIR", str(self.db_path.parent / "backups"))
-        ).resolve()
         self.retention_days = max(1, int(os.environ.get("BACKUP_RETENTION_DAYS", "30")))
         self.interval_hours = max(1, int(os.environ.get("BACKUP_INTERVAL_HOURS", "24")))
         self.include_uploads = os.environ.get("BACKUP_INCLUDE_UPLOADS", "true").lower() == "true"
         self.enabled = os.environ.get("BACKUP_AUTOMATICO", "true").lower() == "true"
         self.encryption_key = os.environ.get("BACKUP_ENCRYPTION_KEY", "").strip()
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.backup_dir = self._preparar_diretorio_backup()
         self._thread_started = False
+
+    def _preparar_diretorio_backup(self) -> Path:
+        """Seleciona um diretório gravável sem impedir a inicialização da aplicação.
+
+        Prioridade:
+        1. BACKUP_DIR, quando configurado;
+        2. RENDER_DISK_PATH/backups, quando houver disco persistente;
+        3. pasta backups ao lado do banco;
+        4. pasta backups na raiz da aplicação;
+        5. diretório temporário do sistema.
+        """
+        candidatos: list[Path] = []
+
+        backup_configurado = os.environ.get("BACKUP_DIR", "").strip()
+        if backup_configurado:
+            candidatos.append(Path(backup_configurado).expanduser())
+
+        render_disk = os.environ.get("RENDER_DISK_PATH", "").strip()
+        if render_disk:
+            candidatos.append(Path(render_disk).expanduser() / "backups")
+
+        candidatos.extend(
+            [
+                self.db_path.parent / "backups",
+                Path(self.app.root_path) / "backups",
+                Path(tempfile.gettempdir()) / "ark_edus_backups",
+            ]
+        )
+
+        tentados: set[str] = set()
+        erros: list[str] = []
+
+        for candidato in candidatos:
+            try:
+                diretorio = candidato.resolve()
+                chave = str(diretorio)
+                if chave in tentados:
+                    continue
+                tentados.add(chave)
+
+                diretorio.mkdir(parents=True, exist_ok=True)
+
+                # Confirma que o processo realmente possui permissão de escrita.
+                teste = diretorio / ".ark_backup_write_test"
+                teste.write_text("ok", encoding="utf-8")
+                teste.unlink(missing_ok=True)
+
+                if backup_configurado and diretorio != Path(backup_configurado).expanduser().resolve():
+                    self.app.logger.warning(
+                        "BACKUP_DIR não pôde ser usado. Backups serão gravados em %s.",
+                        diretorio,
+                    )
+                return diretorio
+            except (OSError, RuntimeError) as exc:
+                erros.append(f"{candidato}: {exc}")
+                self.app.logger.warning(
+                    "Diretório de backup indisponível (%s): %s",
+                    candidato,
+                    exc,
+                )
+
+        raise BackupError(
+            "Não foi possível preparar um diretório gravável para os backups. "
+            + " | ".join(erros)
+        )
 
     def garantir_tabela(self) -> None:
         with sqlite3.connect(self.db_path) as db:
