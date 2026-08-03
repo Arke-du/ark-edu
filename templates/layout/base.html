@@ -602,6 +602,23 @@
                 {% endif %}
             {% endif %}
 
+
+            <a href="{{ url_for('seguranca_privacidade') }}" class="menu-sair" style="color:#123b82">
+                <svg viewBox="0 0 24 24"><path d="M12 3L20 7V12C20 17 16.5 20.5 12 22C7.5 20.5 4 17 4 12V7Z"></path><path d="M9 12L11 14L15 10"></path></svg>
+                <span>Segurança e Privacidade</span>
+            </a>
+            {% if session.get("usuario_cargo") in ["Administrador Geral", "Administrador da Instituição"] %}
+            <a href="{{ url_for('painel_lgpd') }}" class="menu-sair" style="color:#123b82">
+                <svg viewBox="0 0 24 24"><path d="M4 21V10"></path><path d="M10 21V4"></path><path d="M16 21V14"></path><path d="M22 21V8"></path></svg>
+                <span>Painel LGPD</span>
+            </a>
+            {% endif %}
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+            <a href="{{ url_for('gestao_backups') }}" class="menu-sair" style="color:#123b82">
+                <svg viewBox="0 0 24 24"><path d="M4 7H20V20H4Z"></path><path d="M7 4H17V7H7Z"></path><path d="M8 12H16"></path><path d="M8 16H13"></path></svg>
+                <span>Backups do Sistema</span>
+            </a>
+            {% endif %}
             <a href="{{ url_for('logout') }}" class="menu-sair" id="botao-sair" rel="nofollow">
                 <svg viewBox="0 0 24 24">
                     <path d="M10 17L15 12L10 7"></path>
@@ -887,7 +904,9 @@
         <section class="content">
             {% block conteudo %}{% endblock %}
         </section>
-
+        <footer style="padding:18px 24px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #e5edf5;margin-top:24px">
+            © 2026 ARK EDUS · <a href="{{ url_for('site_termos') }}" target="_blank">Termos de Uso</a> · <a href="{{ url_for('site_privacidade') }}" target="_blank">Política de Privacidade</a> · <a href="{{ url_for('seguranca_privacidade') }}">LGPD</a>
+        </footer>
     </main>
 
 </div>

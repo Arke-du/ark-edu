@@ -19,11 +19,13 @@ import cv2
 import numpy as np
 import qrcode
 from PIL import Image
-from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for, send_file, abort
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from lgpd_security import mascarar_cpf, preparar_cpf, somente_digitos
+from backup_manager import BackupManager, BackupError
 
 from bncc_catalogo import garantir_tabela_bncc, consultar_bncc
 from matrizes_catalogo import garantir_tabelas_matrizes, consultar_matrizes
@@ -40,6 +42,10 @@ UPLOAD_FOLDER = os.environ.get(
 )
 
 app = Flask(__name__)
+
+TERMOS_VERSAO = os.environ.get("TERMOS_VERSAO", "1.0")
+PRIVACIDADE_VERSAO = os.environ.get("PRIVACIDADE_VERSAO", "1.0")
+CANAL_PRIVACIDADE = os.environ.get("CANAL_PRIVACIDADE", "privacidade@arkedus.com.br")
 
 # Fuso horário oficial da plataforma (Guaraí/Tocantins).
 FUSO_HORARIO_SISTEMA = ZoneInfo("America/Araguaina")
@@ -130,6 +136,8 @@ app.config.update(
     SESSION_COOKIE_PATH="/",
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true",
+    PERMANENT_SESSION_LIFETIME=int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30")) * 60,
 )
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -148,9 +156,46 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 garantir_tabela_bncc(DB_PATH)
 garantir_tabelas_matrizes(DB_PATH)
 
+backup_manager = BackupManager(app, DB_PATH, UPLOAD_FOLDER)
+backup_manager.garantir_tabela()
+
 
 def conectar_banco():
-    return sqlite3.connect(DB_PATH)
+    banco = sqlite3.connect(DB_PATH)
+
+    # Funções usadas pelos gatilhos de proteção do CPF. O banco armazena
+    # somente a versão mascarada na coluna legada e mantém a versão
+    # criptografada em coluna separada.
+    def _cpf_encrypt(valor):
+        if not valor or "*" in str(valor):
+            return None
+        return preparar_cpf(valor)[0]
+
+    def _cpf_hash(valor):
+        if not valor or "*" in str(valor):
+            return None
+        return preparar_cpf(valor)[1]
+
+    def _cpf_final(valor):
+        if not valor or "*" in str(valor):
+            return None
+        return preparar_cpf(valor)[2]
+
+    def _cpf_mask(valor):
+        return mascarar_cpf(valor) if valor and "*" not in str(valor) else valor
+
+    banco.create_function("cpf_encrypt", 1, _cpf_encrypt)
+    banco.create_function("cpf_hash", 1, _cpf_hash)
+    banco.create_function("cpf_final", 1, _cpf_final)
+    banco.create_function("cpf_mask", 1, _cpf_mask)
+    banco.execute("PRAGMA foreign_keys = ON")
+    banco.execute("PRAGMA busy_timeout = 5000")
+    return banco
+
+
+@app.template_filter("mascarar_cpf")
+def filtro_mascarar_cpf(valor):
+    return mascarar_cpf(valor)
 
 
 def sincronizar_ano_letivo_instituicao(cursor, escola_id, ano, tornar_ativo=True):
@@ -13794,6 +13839,23 @@ def login():
             else:
                 obter_ano_global_administrador()
 
+            token_sessao = uuid.uuid4().hex
+            session["token_sessao"] = token_sessao
+            ip_login = request.headers.get("X-Forwarded-For", request.remote_addr)
+            cursor.execute("""
+                INSERT INTO sessoes_usuario(token, usuario_id, ip, user_agent)
+                VALUES (?, ?, ?, ?)
+            """, (token_sessao, usuario["id"], ip_login, request.headers.get("User-Agent", "")[:500]))
+            cursor.execute("""
+                UPDATE usuarios SET ultimo_login_em=CURRENT_TIMESTAMP, ultimo_login_ip=? WHERE id=?
+            """, (ip_login, usuario["id"]))
+            banco.commit()
+            registrar_auditoria("LOGIN", recurso="autenticacao", recurso_id=usuario["id"])
+
+            termos_ok = usuario["termos_versao"] == TERMOS_VERSAO and bool(usuario["termos_aceitos_em"])
+            privacidade_ok = usuario["privacidade_versao"] == PRIVACIDADE_VERSAO and bool(usuario["privacidade_aceita_em"])
+            if not (termos_ok and privacidade_ok):
+                return redirect(url_for("aceite_legal"))
             return redirect(url_for("index"))
 
         except sqlite3.Error as erro:
@@ -13812,6 +13874,15 @@ def logout():
     """Encerra totalmente a sessão atual e volta ao login."""
     # Remove todos os dados do usuário. Não preserva nome, escola, plano ou
     # qualquer chave usada pelos módulos acadêmico e SaaS.
+    token_sessao = session.get("token_sessao")
+    if token_sessao:
+        try:
+            banco = conectar_banco()
+            banco.execute("UPDATE sessoes_usuario SET ativa=0, encerrado_em=CURRENT_TIMESTAMP WHERE token=?", (token_sessao,))
+            banco.commit(); banco.close()
+        except Exception:
+            app.logger.exception("Falha ao encerrar registro de sessão")
+    registrar_auditoria("LOGOUT", recurso="autenticacao")
     for chave in list(session.keys()):
         session.pop(chave, None)
     session.clear()
@@ -14372,7 +14443,203 @@ def salvar_senha_usuario():
     finally:
         banco.close()
 
+def garantir_estrutura_lgpd():
+    banco = conectar_banco()
+    cursor = banco.cursor()
+    try:
+        colunas = {linha[1] for linha in cursor.execute("PRAGMA table_info(usuarios)").fetchall()}
+        for nome, definicao in (
+            ("cpf_criptografado", "TEXT"),
+            ("cpf_hash", "TEXT"),
+            ("cpf_final", "TEXT"),
+            ("termos_aceitos_em", "TEXT"),
+            ("termos_versao", "TEXT"),
+            ("privacidade_aceita_em", "TEXT"),
+            ("privacidade_versao", "TEXT"),
+            ("ultimo_login_em", "TEXT"),
+            ("ultimo_login_ip", "TEXT"),
+        ):
+            if nome not in colunas:
+                cursor.execute(f"ALTER TABLE usuarios ADD COLUMN {nome} {definicao}")
+
+        cursor.executescript("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_cpf_hash
+                ON usuarios(cpf_hash) WHERE cpf_hash IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS logs_auditoria (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER,
+                escola_id INTEGER,
+                acao TEXT NOT NULL,
+                recurso TEXT,
+                recurso_id TEXT,
+                metodo TEXT,
+                rota TEXT,
+                ip TEXT,
+                user_agent TEXT,
+                detalhes TEXT,
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS solicitacoes_lgpd (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER,
+                escola_id INTEGER,
+                tipo TEXT NOT NULL,
+                descricao TEXT,
+                status TEXT NOT NULL DEFAULT 'aberta',
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                concluido_em TEXT,
+                FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS aceites_legais (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                documento TEXT NOT NULL,
+                versao TEXT NOT NULL,
+                aceito_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ip TEXT,
+                user_agent TEXT,
+                FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS sessoes_usuario (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token TEXT NOT NULL UNIQUE,
+                usuario_id INTEGER NOT NULL,
+                ip TEXT,
+                user_agent TEXT,
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ultimo_acesso_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                encerrado_em TEXT,
+                ativa INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS incidentes_seguranca (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titulo TEXT NOT NULL,
+                descricao TEXT NOT NULL,
+                gravidade TEXT NOT NULL DEFAULT 'baixa',
+                status TEXT NOT NULL DEFAULT 'aberto',
+                escola_id INTEGER,
+                criado_por INTEGER,
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                resolvido_em TEXT,
+                FOREIGN KEY(criado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+            );
+
+            DROP TRIGGER IF EXISTS trg_usuarios_proteger_cpf_insert;
+            DROP TRIGGER IF EXISTS trg_usuarios_proteger_cpf_update;
+
+            CREATE TRIGGER trg_usuarios_proteger_cpf_insert
+            AFTER INSERT ON usuarios
+            WHEN NEW.cpf IS NOT NULL AND instr(NEW.cpf, '*') = 0
+            BEGIN
+                UPDATE usuarios
+                SET cpf_criptografado = cpf_encrypt(NEW.cpf),
+                    cpf_hash = cpf_hash(NEW.cpf),
+                    cpf_final = cpf_final(NEW.cpf),
+                    cpf = cpf_mask(NEW.cpf)
+                WHERE id = NEW.id;
+            END;
+
+            CREATE TRIGGER trg_usuarios_proteger_cpf_update
+            AFTER UPDATE OF cpf ON usuarios
+            WHEN NEW.cpf IS NOT NULL AND instr(NEW.cpf, '*') = 0
+            BEGIN
+                UPDATE usuarios
+                SET cpf_criptografado = cpf_encrypt(NEW.cpf),
+                    cpf_hash = cpf_hash(NEW.cpf),
+                    cpf_final = cpf_final(NEW.cpf),
+                    cpf = cpf_mask(NEW.cpf)
+                WHERE id = NEW.id;
+            END;
+        """)
+
+        # Migra CPFs antigos em texto aberto.
+        antigos = cursor.execute("""
+            SELECT id, cpf FROM usuarios
+            WHERE cpf IS NOT NULL AND TRIM(cpf) <> '' AND instr(cpf, '*') = 0
+        """).fetchall()
+        for usuario_id, cpf in antigos:
+            try:
+                criptografado, assinatura, final = preparar_cpf(cpf)
+                cursor.execute("""
+                    UPDATE usuarios SET cpf_criptografado=?, cpf_hash=?, cpf_final=?, cpf=? WHERE id=?
+                """, (criptografado, assinatura, final, mascarar_cpf(cpf), usuario_id))
+            except (ValueError, RuntimeError):
+                cursor.execute("UPDATE usuarios SET cpf=NULL WHERE id=?", (usuario_id,))
+        banco.commit()
+    finally:
+        banco.close()
+
+
+def registrar_auditoria(acao, recurso=None, recurso_id=None, detalhes=None):
+    try:
+        banco = conectar_banco()
+        banco.execute("""
+            INSERT INTO logs_auditoria
+            (usuario_id, escola_id, acao, recurso, recurso_id, metodo, rota, ip, user_agent, detalhes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            session.get("usuario_id"), session.get("escola_id"), acao, recurso,
+            str(recurso_id) if recurso_id is not None else None, request.method,
+            request.path, request.headers.get("X-Forwarded-For", request.remote_addr),
+            request.headers.get("User-Agent", "")[:500],
+            json.dumps(detalhes, ensure_ascii=False) if detalhes else None,
+        ))
+        banco.commit(); banco.close()
+    except Exception:
+        app.logger.exception("Falha ao registrar auditoria")
+
+
+@app.before_request
+def aplicar_seguranca_sessao():
+    if not session.get("usuario_id"):
+        return None
+    session.permanent = True
+    rotas_livres = {"aceite_legal", "logout", "site_termos", "site_privacidade", "static"}
+    if request.endpoint in rotas_livres or request.path.startswith("/static/"):
+        return None
+    try:
+        banco = conectar_banco(); banco.row_factory = sqlite3.Row
+        usuario = banco.execute("SELECT termos_aceitos_em,termos_versao,privacidade_aceita_em,privacidade_versao FROM usuarios WHERE id=?", (session.get("usuario_id"),)).fetchone()
+        token = session.get("token_sessao")
+        if token:
+            banco.execute("UPDATE sessoes_usuario SET ultimo_acesso_em=CURRENT_TIMESTAMP WHERE token=? AND ativa=1", (token,))
+            banco.commit()
+        banco.close()
+        if usuario and not (usuario["termos_aceitos_em"] and usuario["termos_versao"] == TERMOS_VERSAO and usuario["privacidade_aceita_em"] and usuario["privacidade_versao"] == PRIVACIDADE_VERSAO):
+            return redirect(url_for("aceite_legal"))
+    except sqlite3.Error:
+        app.logger.exception("Falha ao validar aceite legal")
+    return None
+
+
+@app.after_request
+def aplicar_cabecalhos_seguranca(resposta):
+    resposta.headers["X-Content-Type-Options"] = "nosniff"
+    resposta.headers["X-Frame-Options"] = "SAMEORIGIN"
+    resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resposta.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    resposta.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data: blob:; "
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "font-src 'self' data: https://cdnjs.cloudflare.com; connect-src 'self'"
+    )
+    if request.is_secure:
+        resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if session.get("usuario_id") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        registrar_auditoria("ALTERACAO", recurso=request.endpoint)
+    return resposta
+
+
 criar_tabelas()
+garantir_estrutura_lgpd()
 sincronizar_anos_letivos_legados()
 
 @app.route("/gestao/instituicoes/editar/<int:id>", methods=["GET", "POST"])
@@ -20060,6 +20327,174 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
 
     finally:
         banco.close()
+
+
+
+# =========================================================
+# BACKUPS DO SISTEMA
+# =========================================================
+@app.route("/gestao/backups")
+def gestao_backups():
+    if session.get("usuario_cargo") != "Administrador Geral":
+        return redirect(url_for("index"))
+    registros = backup_manager.listar()
+    return render_template(
+        "gestao/backups.html",
+        backups=registros,
+        backup_dir=str(backup_manager.backup_dir),
+        retencao_dias=backup_manager.retention_days,
+        intervalo_horas=backup_manager.interval_hours,
+        automatico_ativo=backup_manager.enabled,
+        inclui_uploads=backup_manager.include_uploads,
+        criptografia_ativa=bool(backup_manager.encryption_key),
+    )
+
+
+@app.route("/gestao/backups/criar", methods=["POST"])
+def criar_backup_manual():
+    if session.get("usuario_cargo") != "Administrador Geral":
+        return redirect(url_for("index"))
+    try:
+        resultado = backup_manager.criar_backup(
+            tipo="manual", criado_por=session.get("usuario_id")
+        )
+        registrar_auditoria(
+            "BACKUP_MANUAL", recurso="backup", recurso_id=resultado["id"],
+            detalhes={"arquivo": resultado["nome_arquivo"]},
+        )
+        flash("Backup criado e validado com sucesso.", "success")
+    except BackupError as exc:
+        flash(str(exc), "erro")
+    except Exception:
+        app.logger.exception("Falha ao criar backup manual")
+        flash("Não foi possível criar o backup. Consulte o registro de falha.", "erro")
+    return redirect(url_for("gestao_backups"))
+
+
+@app.route("/gestao/backups/<int:backup_id>/baixar")
+def baixar_backup(backup_id):
+    if session.get("usuario_cargo") != "Administrador Geral":
+        return redirect(url_for("index"))
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    registro = banco.execute(
+        "SELECT * FROM backups_sistema WHERE id=? AND status='concluido'", (backup_id,)
+    ).fetchone()
+    banco.close()
+    if not registro or not registro["caminho"]:
+        abort(404)
+    caminho = os.path.realpath(registro["caminho"])
+    raiz = os.path.realpath(str(backup_manager.backup_dir)) + os.sep
+    if not caminho.startswith(raiz) or not os.path.isfile(caminho):
+        abort(404)
+    registrar_auditoria("DOWNLOAD_BACKUP", recurso="backup", recurso_id=backup_id)
+    return send_file(caminho, as_attachment=True, download_name=registro["nome_arquivo"])
+
+
+# =========================================================
+# PRIVACIDADE, SEGURANÇA E LGPD
+# =========================================================
+@app.route("/aceite-legal", methods=["GET", "POST"])
+def aceite_legal():
+    usuario_id = session.get("usuario_id")
+    if not usuario_id:
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        if request.form.get("aceite_termos") != "1" or request.form.get("aceite_privacidade") != "1":
+            flash("É necessário aceitar os dois documentos para continuar.", "aviso")
+            return render_template("lgpd/aceite.html", termos_versao=TERMOS_VERSAO, privacidade_versao=PRIVACIDADE_VERSAO, canal_privacidade=CANAL_PRIVACIDADE)
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        agente = request.headers.get("User-Agent", "")[:500]
+        banco = conectar_banco()
+        banco.execute("""UPDATE usuarios SET termos_aceitos_em=CURRENT_TIMESTAMP, termos_versao=?, privacidade_aceita_em=CURRENT_TIMESTAMP, privacidade_versao=? WHERE id=?""", (TERMOS_VERSAO, PRIVACIDADE_VERSAO, usuario_id))
+        banco.executemany("INSERT INTO aceites_legais(usuario_id,documento,versao,ip,user_agent) VALUES(?,?,?,?,?)", [
+            (usuario_id,"Termos de Uso",TERMOS_VERSAO,ip,agente),
+            (usuario_id,"Política de Privacidade",PRIVACIDADE_VERSAO,ip,agente),
+        ])
+        banco.commit(); banco.close()
+        registrar_auditoria("ACEITE_LEGAL", recurso="documentos_legais", detalhes={"termos":TERMOS_VERSAO,"privacidade":PRIVACIDADE_VERSAO})
+        flash("Documentos aceitos. Bem-vindo à ARK EDUS!", "success")
+        return redirect(url_for("index"))
+    return render_template("lgpd/aceite.html", termos_versao=TERMOS_VERSAO, privacidade_versao=PRIVACIDADE_VERSAO, canal_privacidade=CANAL_PRIVACIDADE)
+
+
+@app.route("/seguranca-privacidade", methods=["GET", "POST"])
+def seguranca_privacidade():
+    usuario_id = session.get("usuario_id")
+    if not usuario_id:
+        return redirect(url_for("login"))
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    if request.method == "POST":
+        tipo = request.form.get("tipo", "").strip()
+        descricao = request.form.get("descricao", "").strip()
+        tipos_validos = {"acesso", "correcao", "exportacao", "exclusao", "revogacao", "outro"}
+        if tipo not in tipos_validos:
+            flash("Selecione um tipo de solicitação válido.", "erro")
+        else:
+            banco.execute("INSERT INTO solicitacoes_lgpd(usuario_id,escola_id,tipo,descricao) VALUES(?,?,?,?)", (usuario_id,session.get("escola_id"),tipo,descricao))
+            banco.commit(); registrar_auditoria("SOLICITACAO_LGPD", recurso="solicitacoes_lgpd", detalhes={"tipo":tipo})
+            flash("Solicitação registrada com sucesso.", "success")
+    usuario = banco.execute("SELECT id,nome,email,cpf,termos_aceitos_em,termos_versao,privacidade_aceita_em,privacidade_versao,ultimo_login_em,ultimo_login_ip FROM usuarios WHERE id=?", (usuario_id,)).fetchone()
+    sessoes = banco.execute("SELECT * FROM sessoes_usuario WHERE usuario_id=? ORDER BY criado_em DESC LIMIT 20", (usuario_id,)).fetchall()
+    acessos = banco.execute("SELECT * FROM logs_auditoria WHERE usuario_id=? ORDER BY criado_em DESC LIMIT 30", (usuario_id,)).fetchall()
+    solicitacoes = banco.execute("SELECT * FROM solicitacoes_lgpd WHERE usuario_id=? ORDER BY criado_em DESC", (usuario_id,)).fetchall()
+    banco.close()
+    return render_template("lgpd/seguranca.html", usuario=usuario, sessoes=sessoes, acessos=acessos, solicitacoes=solicitacoes, canal_privacidade=CANAL_PRIVACIDADE)
+
+
+@app.route("/seguranca-privacidade/encerrar-sessao/<int:sessao_id>", methods=["POST"])
+def encerrar_sessao_usuario(sessao_id):
+    usuario_id = session.get("usuario_id")
+    if not usuario_id: return redirect(url_for("login"))
+    banco = conectar_banco()
+    registro = banco.execute("SELECT token FROM sessoes_usuario WHERE id=? AND usuario_id=?", (sessao_id,usuario_id)).fetchone()
+    if registro:
+        banco.execute("UPDATE sessoes_usuario SET ativa=0,encerrado_em=CURRENT_TIMESTAMP WHERE id=?", (sessao_id,)); banco.commit()
+        if registro[0] == session.get("token_sessao"):
+            banco.close(); return redirect(url_for("logout"))
+        flash("Sessão encerrada.", "success")
+    banco.close(); return redirect(url_for("seguranca_privacidade"))
+
+
+@app.route("/meus-dados.json")
+def exportar_meus_dados():
+    usuario_id = session.get("usuario_id")
+    if not usuario_id: return redirect(url_for("login"))
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    u = banco.execute("SELECT id,nome,email,cpf,telefone,data_nascimento,tipo_conta,criado_em,termos_aceitos_em,termos_versao,privacidade_aceita_em,privacidade_versao FROM usuarios WHERE id=?", (usuario_id,)).fetchone()
+    sols = banco.execute("SELECT tipo,descricao,status,criado_em,concluido_em FROM solicitacoes_lgpd WHERE usuario_id=?", (usuario_id,)).fetchall(); banco.close()
+    dados = dict(u) if u else {}; dados["cpf"] = mascarar_cpf(dados.get("cpf")); dados["solicitacoes_lgpd"] = [dict(x) for x in sols]
+    registrar_auditoria("EXPORTACAO_DADOS", recurso="usuario", recurso_id=usuario_id)
+    resposta = jsonify(dados); resposta.headers["Content-Disposition"] = 'attachment; filename="meus_dados_ark_edus.json"'; return resposta
+
+
+@app.route("/gestao/lgpd", methods=["GET", "POST"])
+def painel_lgpd():
+    if session.get("usuario_cargo") not in {"Administrador Geral", "Administrador da Instituição"}:
+        return redirect(url_for("index"))
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    escola_id = session.get("escola_id")
+    filtro, params = ("", []) if session.get("usuario_cargo") == "Administrador Geral" else (" WHERE (s.escola_id=? OR s.escola_id IS NULL)", [escola_id])
+    if request.method == "POST":
+        sid = request.form.get("solicitacao_id"); status=request.form.get("status")
+        if status in {"aberta","em_analise","concluida","negada"}:
+            banco.execute("UPDATE solicitacoes_lgpd SET status=?, concluido_em=CASE WHEN ?='concluida' THEN CURRENT_TIMESTAMP ELSE concluido_em END WHERE id=?", (status,status,sid)); banco.commit()
+            flash("Solicitação atualizada.", "success")
+    solicitacoes = banco.execute("SELECT s.*,u.nome AS usuario_nome,u.email FROM solicitacoes_lgpd s LEFT JOIN usuarios u ON u.id=s.usuario_id"+filtro+" ORDER BY s.criado_em DESC", params).fetchall()
+    logs = banco.execute("SELECT l.*,u.nome AS usuario_nome FROM logs_auditoria l LEFT JOIN usuarios u ON u.id=l.usuario_id ORDER BY l.criado_em DESC LIMIT 150").fetchall()
+    aceites = banco.execute("SELECT a.*,u.nome AS usuario_nome,u.email FROM aceites_legais a JOIN usuarios u ON u.id=a.usuario_id ORDER BY a.aceito_em DESC LIMIT 150").fetchall()
+    incidentes = banco.execute("SELECT i.*,u.nome AS criado_por_nome FROM incidentes_seguranca i LEFT JOIN usuarios u ON u.id=i.criado_por ORDER BY i.criado_em DESC").fetchall()
+    banco.close(); return render_template("lgpd/painel.html", solicitacoes=solicitacoes,logs=logs,aceites=aceites,incidentes=incidentes)
+
+
+@app.route("/gestao/lgpd/incidente", methods=["POST"])
+def registrar_incidente_seguranca():
+    if session.get("usuario_cargo") not in {"Administrador Geral", "Administrador da Instituição"}: return redirect(url_for("index"))
+    titulo=request.form.get("titulo","").strip(); descricao=request.form.get("descricao","").strip(); gravidade=request.form.get("gravidade","baixa")
+    if titulo and descricao and gravidade in {"baixa","media","alta","critica"}:
+        banco=conectar_banco(); banco.execute("INSERT INTO incidentes_seguranca(titulo,descricao,gravidade,escola_id,criado_por) VALUES(?,?,?,?,?)",(titulo,descricao,gravidade,session.get("escola_id"),session.get("usuario_id"))); banco.commit(); banco.close(); flash("Incidente registrado.","success")
+    return redirect(url_for("painel_lgpd"))
+
+backup_manager.iniciar_agendador()
 
 # =========================================================
 # MÓDULO SAAS: professores autônomos, planos e assinaturas

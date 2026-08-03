@@ -317,7 +317,7 @@ body.modal-aberto {
 
                         {% if usuario["cpf"] %}
                             <br>
-                            <small>{{ usuario["cpf"] }}</small>
+                            <small>{{ usuario["cpf"]|mascarar_cpf }}</small>
                         {% endif %}
                     </td>
 

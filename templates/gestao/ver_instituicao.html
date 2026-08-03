@@ -579,7 +579,7 @@
             <div class="campo">
                 <label>CPF</label>
                 <div class="campo-visualizacao">
-                    {{ administrador["cpf"] or "Não informado" }}
+                    {{ administrador["cpf"]|mascarar_cpf }}
                 </div>
             </div>
 

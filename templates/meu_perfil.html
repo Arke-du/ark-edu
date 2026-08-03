@@ -15,7 +15,7 @@
 <form method="post" class="pf-form"><input type="hidden" name="acao" value="dados"><div class="pf-grid">
 <div class="pf-field pf-wide"><label>Nome completo</label><input name="nome" value="{{ usuario['nome'] or '' }}" required></div>
 <div class="pf-field pf-wide"><label>E-mail</label><input type="email" name="email" value="{{ usuario['email'] or '' }}" required></div>
-<div class="pf-field"><label>CPF</label><input name="cpf" value="{{ usuario['cpf'] or '' }}"></div><div class="pf-field"><label>Telefone</label><input name="telefone" value="{{ usuario['telefone'] or '' }}"></div>
+<div class="pf-field"><label>CPF</label><input name="cpf" value="" placeholder="CPF protegido — informe apenas para substituir" autocomplete="off"><small>Atual: {{ usuario['cpf']|mascarar_cpf }}</small></div><div class="pf-field"><label>Telefone</label><input name="telefone" value="{{ usuario['telefone'] or '' }}"></div>
 <div class="pf-field"><label>Data de nascimento</label><input type="date" name="data_nascimento" value="{{ usuario['data_nascimento'] or '' }}"></div><div class="pf-field"><label>Perfil</label><input value="{{ usuario['cargo'] or '' }}" disabled></div>
 </div><div class="pf-actions"><button class="pf-btn">Salvar dados pessoais</button></div></form></section>
 
