@@ -1,10 +1,13 @@
 import base64
+import csv
 import json
 import os
 import sqlite3
 import uuid
 import re
 import unicodedata
+import tempfile
+import time
 
 from dotenv import load_dotenv
 
@@ -14,6 +17,7 @@ load_dotenv(override=True)
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from io import BytesIO
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -24,7 +28,11 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from lgpd_security import mascarar_cpf, preparar_cpf, somente_digitos
+try:
+    from pypdf import PdfReader
+except ImportError:
+    PdfReader = None
+from lgpd_security import mascarar_cpf, preparar_cpf, somente_digitos, validar_cpf
 from backup_manager import BackupManager, BackupError
 
 from bncc_catalogo import garantir_tabela_bncc, consultar_bncc
@@ -169,17 +177,26 @@ def conectar_banco():
     def _cpf_encrypt(valor):
         if not valor or "*" in str(valor):
             return None
-        return preparar_cpf(valor)[0]
+        try:
+            return preparar_cpf(valor)[0]
+        except (ValueError, RuntimeError):
+            return None
 
     def _cpf_hash(valor):
         if not valor or "*" in str(valor):
             return None
-        return preparar_cpf(valor)[1]
+        try:
+            return preparar_cpf(valor)[1]
+        except (ValueError, RuntimeError):
+            return None
 
     def _cpf_final(valor):
         if not valor or "*" in str(valor):
             return None
-        return preparar_cpf(valor)[2]
+        try:
+            return preparar_cpf(valor)[2]
+        except (ValueError, RuntimeError):
+            return None
 
     def _cpf_mask(valor):
         return mascarar_cpf(valor) if valor and "*" not in str(valor) else valor
@@ -571,6 +588,40 @@ def garantir_ano_atual_para_escola(escola_id):
 
         existente = cursor.fetchone()
         if existente:
+            # Correção de consistência: se o ano civil atual existe, mas a
+            # instituição ficou sem nenhum ano letivo ativo (por exemplo, após
+            # migração/backup), reabre automaticamente o ano atual. Isso evita
+            # que o ano corrente apareça como "Encerrado" por engano.
+            cursor.execute("""
+                SELECT id
+                FROM anos_letivos
+                WHERE escola_id = ?
+                  AND ativo = 1
+                  AND encerrado = 0
+                LIMIT 1
+            """, (escola_id,))
+            ativo_existente = cursor.fetchone()
+
+            if ativo_existente is None and (existente["ativo"] != 1 or existente["encerrado"] != 0):
+                cursor.execute("""
+                    UPDATE anos_letivos
+                    SET ativo = 1,
+                        encerrado = 0
+                    WHERE id = ?
+                """, (existente["id"],))
+                cursor.execute("""
+                    UPDATE escolas
+                    SET ano_letivo = ?
+                    WHERE id = ?
+                """, (str(ano_atual), escola_id))
+                banco.commit()
+                cursor.execute("""
+                    SELECT id, escola_id, ano, ativo, encerrado
+                    FROM anos_letivos
+                    WHERE id = ?
+                """, (existente["id"],))
+                return cursor.fetchone()
+
             return existente
 
         cursor.execute("""
@@ -614,6 +665,71 @@ def garantir_ano_atual_para_escola(escola_id):
         print("ERRO AO GARANTIR ANO ATUAL:", erro)
         return None
 
+    finally:
+        banco.close()
+
+
+def corrigir_ano_corrente_inconsistente():
+    """Corrige estados claramente inconsistentes do ano letivo corrente.
+
+    Se o ano civil atual estiver marcado como encerrado enquanto não existe
+    ano ativo, ou enquanto um ano futuro foi ativado por engano, o ano atual
+    volta a ser o ativo. O ano futuro permanece cadastrado como planejado.
+    """
+    ano_atual = datetime.now().year
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    try:
+        cursor.execute("SELECT id FROM escolas WHERE COALESCE(status, 1) = 1")
+        escolas_ids = [r["id"] for r in cursor.fetchall()]
+
+        for escola_id in escolas_ids:
+            cursor.execute("""
+                SELECT id, ano, ativo, encerrado
+                FROM anos_letivos
+                WHERE escola_id = ? AND ano = ?
+                LIMIT 1
+            """, (escola_id, ano_atual))
+            atual = cursor.fetchone()
+            if not atual:
+                continue
+
+            cursor.execute("""
+                SELECT id, ano
+                FROM anos_letivos
+                WHERE escola_id = ? AND ativo = 1 AND encerrado = 0
+                ORDER BY ano DESC
+                LIMIT 1
+            """, (escola_id,))
+            ativo = cursor.fetchone()
+
+            precisa_corrigir = (
+                atual["ativo"] != 1 or atual["encerrado"] != 0
+            ) and (
+                ativo is None or int(ativo["ano"]) > ano_atual
+            )
+
+            if not precisa_corrigir:
+                continue
+
+            # Um ano futuro ativado antes da hora volta para "Planejado".
+            cursor.execute("""
+                UPDATE anos_letivos
+                SET ativo = 0, encerrado = 0
+                WHERE escola_id = ? AND ano > ? AND ativo = 1
+            """, (escola_id, ano_atual))
+            cursor.execute("""
+                UPDATE anos_letivos
+                SET ativo = 1, encerrado = 0
+                WHERE id = ?
+            """, (atual["id"],))
+            cursor.execute("UPDATE escolas SET ano_letivo = ? WHERE id = ?", (str(ano_atual), escola_id))
+
+        banco.commit()
+    except sqlite3.Error as erro:
+        banco.rollback()
+        print("ERRO AO CORRIGIR ANO LETIVO CORRENTE:", erro)
     finally:
         banco.close()
 
@@ -2297,6 +2413,7 @@ def criar_tabelas():
     garantir_coluna("provas", "media_aprovacao", "REAL")
     garantir_coluna("provas", "peso_total", "REAL DEFAULT 10")
     garantir_coluna("provas", "tipo_peso", "TEXT DEFAULT 'automatico'")
+    garantir_coluna("provas", "tem_nota", "INTEGER NOT NULL DEFAULT 0")
     garantir_coluna("prova_questoes", "peso", "REAL DEFAULT 0")
     garantir_coluna("prova_questoes", "ordem", "INTEGER DEFAULT 0")
     garantir_coluna("prova_questoes", "anulada", "INTEGER NOT NULL DEFAULT 0")
@@ -4635,12 +4752,19 @@ def alunos():
                 )
 
             cursor.execute("""
-                SELECT COUNT(*) AS total
+                SELECT
+                    COUNT(*) AS total_registros,
+                    SUM(CASE WHEN ativo = 1 AND encerrado = 0 THEN 1 ELSE 0 END) AS total_ativos
                 FROM anos_letivos
-                WHERE ano = ? AND ativo = 1 AND encerrado = 0
+                WHERE ano = ?
             """, (ano_visualizado,))
-            resultado_ativo = cursor.fetchone()
-            consultando_historico = not resultado_ativo or resultado_ativo["total"] == 0
+            situacao_ano = cursor.fetchone()
+            total_registros = int(situacao_ano["total_registros"] or 0) if situacao_ano else 0
+            total_ativos = int(situacao_ano["total_ativos"] or 0) if situacao_ano else 0
+            # Um ano sem nenhuma instituição cadastrada ainda não é um ano
+            # "encerrado". Isso evita bloquear/confundir o Administrador Geral
+            # em instalações novas, antes do primeiro cadastro de instituição.
+            consultando_historico = total_registros > 0 and total_ativos == 0
 
             # Instituições disponíveis no ano selecionado.
             cursor.execute("""
@@ -4919,6 +5043,434 @@ def gerar_numero_matricula(cursor, escola_id, numero_ano):
             return matricula
 
         proxima_sequencia += 1
+
+
+# =========================================================
+# IMPORTAÇÃO DE ALUNOS POR PDF
+# =========================================================
+
+IMPORTACAO_ALUNOS_DIR = os.path.join(tempfile.gettempdir(), "arkedu_importacoes_alunos")
+os.makedirs(IMPORTACAO_ALUNOS_DIR, exist_ok=True)
+
+
+def _normalizar_nome_importacao(valor):
+    """Limpa espaços sem alterar acentos ou a grafia original do estudante."""
+    return re.sub(r"\s+", " ", str(valor or "")).strip()
+
+
+def _extrair_alunos_texto_pdf(texto):
+    """
+    Extrai pares matrícula/nome de relações alfabéticas escolares.
+
+    O formato principal esperado é semelhante a:
+        2712   1   ANA JÚLIA SANTOS FRAGOSO
+
+    Há também suporte para PDFs cujo extrator quebra as três colunas
+    em linhas consecutivas (matrícula, número de ordem e nome).
+    """
+    if not texto:
+        return []
+
+    linhas = [
+        re.sub(r"\s+", " ", linha.replace("\xa0", " ")).strip()
+        for linha in texto.splitlines()
+    ]
+    linhas = [linha for linha in linhas if linha]
+
+    encontrados = []
+    matriculas_vistas = set()
+
+    # 1) Caso mais comum: todas as colunas permanecem na mesma linha.
+    padrao_linha = re.compile(
+        r"^(?P<matricula>[A-Za-z0-9./_-]{2,30})\s+"
+        r"(?P<ordem>\d{1,4})\s+"
+        r"(?P<nome>[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’ .-]{2,})$"
+    )
+
+    cabecalhos = {
+        "matricula", "matrícula", "nº", "no", "n°", "nome do aluno",
+        "nome", "aluno", "turma", "turno", "curso", "serie", "série"
+    }
+
+    for linha in linhas:
+        m = padrao_linha.match(linha)
+        if not m:
+            continue
+        matricula = m.group("matricula").strip()
+        nome = _normalizar_nome_importacao(m.group("nome"))
+        if nome.casefold() in cabecalhos or len(nome) < 3:
+            continue
+        chave = matricula.casefold()
+        if chave not in matriculas_vistas:
+            encontrados.append({"matricula": matricula, "nome": nome})
+            matriculas_vistas.add(chave)
+
+    # 2) Alguns PDFs devolvem "matrícula", "ordem" e "nome" em linhas separadas.
+    if not encontrados:
+        for i in range(len(linhas) - 2):
+            matricula = linhas[i]
+            ordem = linhas[i + 1]
+            nome = _normalizar_nome_importacao(linhas[i + 2])
+
+            if not re.fullmatch(r"[A-Za-z0-9./_-]{2,30}", matricula):
+                continue
+            if not re.fullmatch(r"\d{1,4}", ordem):
+                continue
+            if not re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’ .-]{2,}", nome):
+                continue
+            if nome.casefold() in cabecalhos:
+                continue
+
+            chave = matricula.casefold()
+            if chave not in matriculas_vistas:
+                encontrados.append({"matricula": matricula, "nome": nome})
+                matriculas_vistas.add(chave)
+
+    return encontrados
+
+
+def _salvar_previa_importacao(usuario_id, turma_id, alunos):
+    token = uuid.uuid4().hex
+    caminho = os.path.join(IMPORTACAO_ALUNOS_DIR, f"{token}.json")
+    dados = {
+        "usuario_id": usuario_id,
+        "turma_id": turma_id,
+        "criado_em": time.time(),
+        "alunos": alunos,
+    }
+    with open(caminho, "w", encoding="utf-8") as arquivo:
+        json.dump(dados, arquivo, ensure_ascii=False)
+    return token
+
+
+def _carregar_previa_importacao(token):
+    if not token or not re.fullmatch(r"[a-f0-9]{32}", token):
+        return None, None
+    caminho = os.path.join(IMPORTACAO_ALUNOS_DIR, f"{token}.json")
+    if not os.path.exists(caminho):
+        return None, None
+    try:
+        with open(caminho, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+    except (OSError, json.JSONDecodeError):
+        return None, None
+
+    # Prévia válida por 30 minutos.
+    if time.time() - float(dados.get("criado_em", 0)) > 1800:
+        try:
+            os.remove(caminho)
+        except OSError:
+            pass
+        return None, None
+    return dados, caminho
+
+
+@app.route("/alunos/importar", methods=["GET"])
+def importar_alunos_pagina():
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria",
+        "Professor Autônomo"
+    ]):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id_usuario = obter_escola_usuario()
+    contexto = obter_contexto_plataforma()
+    ano_visualizado = contexto.get("ano")
+
+    try:
+        parametros = []
+        filtros = ["al.ativo = 1", "al.encerrado = 0"]
+
+        if cargo != "Administrador Geral":
+            if not escola_id_usuario:
+                flash("Não foi possível identificar sua instituição.", "erro")
+                return redirect("/alunos")
+            filtros.append("t.escola_id = ?")
+            parametros.append(escola_id_usuario)
+
+        if ano_visualizado:
+            filtros.append("al.ano = ?")
+            parametros.append(ano_visualizado)
+
+        cursor.execute(f"""
+            SELECT
+                t.id, t.nome, t.ano, t.turno, t.etapa,
+                t.escola_id, t.ano_letivo_id,
+                e.nome_instituicao,
+                al.ano AS ano_letivo
+            FROM turmas AS t
+            INNER JOIN anos_letivos AS al
+                ON al.id = t.ano_letivo_id
+               AND al.escola_id = t.escola_id
+            INNER JOIN escolas AS e ON e.id = t.escola_id
+            WHERE {' AND '.join(filtros)}
+            ORDER BY e.nome_instituicao COLLATE NOCASE,
+                     t.ano COLLATE NOCASE,
+                     t.nome COLLATE NOCASE
+        """, parametros)
+        turmas = cursor.fetchall()
+    finally:
+        banco.close()
+
+    return render_template(
+        "importar_alunos.html",
+        turmas=turmas,
+        ano_letivo_visualizado=ano_visualizado,
+        etapa="upload"
+    )
+
+
+@app.route("/alunos/importar/pdf", methods=["POST"])
+def importar_alunos_pdf():
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria",
+        "Professor Autônomo"
+    ]):
+        return redirect("/acesso_negado")
+
+    arquivo = request.files.get("arquivo_pdf")
+    turma_id = request.form.get("turma_id", type=int)
+
+    if not turma_id:
+        flash("Selecione a turma que receberá os alunos.", "erro")
+        return redirect("/alunos/importar")
+    if not arquivo or not arquivo.filename:
+        flash("Selecione um arquivo PDF.", "erro")
+        return redirect("/alunos/importar")
+    if not arquivo.filename.lower().endswith(".pdf"):
+        flash("O arquivo precisa estar no formato PDF.", "erro")
+        return redirect("/alunos/importar")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id_usuario = obter_escola_usuario()
+
+    try:
+        cursor.execute("""
+            SELECT t.*, e.nome_instituicao, al.ano AS ano_letivo,
+                   al.ativo, al.encerrado
+            FROM turmas t
+            INNER JOIN escolas e ON e.id = t.escola_id
+            INNER JOIN anos_letivos al
+                ON al.id = t.ano_letivo_id
+               AND al.escola_id = t.escola_id
+            WHERE t.id = ?
+            LIMIT 1
+        """, (turma_id,))
+        turma = cursor.fetchone()
+
+        if not turma:
+            flash("A turma selecionada não existe.", "erro")
+            return redirect("/alunos/importar")
+        if cargo != "Administrador Geral" and turma["escola_id"] != escola_id_usuario:
+            return redirect("/acesso_negado")
+        if turma["ativo"] != 1 or turma["encerrado"] == 1:
+            flash("Só é possível importar alunos para o ano letivo ativo.", "erro")
+            return redirect("/alunos/importar")
+
+        if PdfReader is None:
+            flash("A biblioteca de leitura de PDF ainda não está instalada. Execute: pip install -r requirements.txt", "erro")
+            return redirect("/alunos/importar")
+
+        try:
+            leitor = PdfReader(arquivo.stream)
+            textos = []
+            for pagina in leitor.pages:
+                try:
+                    textos.append(pagina.extract_text() or "")
+                except Exception:
+                    textos.append("")
+            texto = "\n".join(textos)
+        except Exception:
+            flash("Não foi possível ler este PDF. Verifique se o arquivo não está corrompido ou protegido por senha.", "erro")
+            return redirect("/alunos/importar")
+
+        alunos_extraidos = _extrair_alunos_texto_pdf(texto)
+
+        if not alunos_extraidos:
+            flash(
+                "Não encontrei matrícula e nome dos alunos neste PDF. "
+                "Ele pode ser uma digitalização/imagem ou ter um formato diferente.",
+                "erro"
+            )
+            return redirect("/alunos/importar")
+
+        token = _salvar_previa_importacao(
+            session.get("usuario_id"),
+            turma_id,
+            alunos_extraidos
+        )
+
+        return render_template(
+            "importar_alunos.html",
+            etapa="revisao",
+            turma=turma,
+            alunos_extraidos=alunos_extraidos,
+            token=token,
+            ano_letivo_visualizado=turma["ano_letivo"]
+        )
+    finally:
+        banco.close()
+
+
+@app.route("/alunos/importar/confirmar", methods=["POST"])
+def confirmar_importacao_alunos():
+    if not cargo_permitido([
+        "Administrador Geral",
+        "Administrador da Instituição",
+        "Coordenador",
+        "Secretaria",
+        "Professor Autônomo"
+    ]):
+        return redirect("/acesso_negado")
+
+    token = request.form.get("token", "").strip()
+    previa, caminho_previa = _carregar_previa_importacao(token)
+    if not previa:
+        flash("A prévia da importação expirou. Envie o PDF novamente.", "erro")
+        return redirect("/alunos/importar")
+    if previa.get("usuario_id") != session.get("usuario_id"):
+        return redirect("/acesso_negado")
+
+    turma_id = int(previa.get("turma_id"))
+    matriculas = request.form.getlist("matricula")
+    nomes = request.form.getlist("nome")
+    incluir = set(request.form.getlist("incluir"))
+
+    # Limita a confirmação à quantidade originalmente extraída.
+    limite = len(previa.get("alunos", []))
+    matriculas = matriculas[:limite]
+    nomes = nomes[:limite]
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_id_usuario = obter_escola_usuario()
+
+    importados = 0
+    ja_matriculados = 0
+    ignorados = 0
+    erros = 0
+    vistos = set()
+
+    try:
+        cursor.execute("""
+            SELECT t.id, t.escola_id, t.ano_letivo_id,
+                   al.ano, al.ativo, al.encerrado
+            FROM turmas t
+            INNER JOIN anos_letivos al
+                ON al.id = t.ano_letivo_id
+               AND al.escola_id = t.escola_id
+            WHERE t.id = ?
+            LIMIT 1
+        """, (turma_id,))
+        turma = cursor.fetchone()
+        if not turma:
+            flash("A turma selecionada não existe mais.", "erro")
+            return redirect("/alunos/importar")
+        if cargo != "Administrador Geral" and turma["escola_id"] != escola_id_usuario:
+            return redirect("/acesso_negado")
+        if turma["ativo"] != 1 or turma["encerrado"] == 1:
+            flash("O ano letivo foi encerrado e a importação não pode ser concluída.", "erro")
+            return redirect("/alunos")
+
+        escola_id = turma["escola_id"]
+        ano_letivo_id = turma["ano_letivo_id"]
+
+        for indice, (matricula_bruta, nome_bruto) in enumerate(zip(matriculas, nomes)):
+            if str(indice) not in incluir:
+                ignorados += 1
+                continue
+
+            matricula = str(matricula_bruta or "").strip()
+            nome = _normalizar_nome_importacao(nome_bruto)
+            chave = matricula.casefold()
+
+            if not matricula or not nome or len(nome) < 3:
+                erros += 1
+                continue
+            if chave in vistos:
+                ignorados += 1
+                continue
+            vistos.add(chave)
+
+            cursor.execute("""
+                SELECT id
+                FROM alunos
+                WHERE escola_id = ?
+                  AND LOWER(TRIM(matricula)) = LOWER(TRIM(?))
+                ORDER BY id ASC
+                LIMIT 1
+            """, (escola_id, matricula))
+            existente = cursor.fetchone()
+
+            if existente:
+                aluno_id = existente["id"]
+                cursor.execute("""
+                    SELECT id
+                    FROM aluno_matriculas
+                    WHERE aluno_id = ? AND ano_letivo_id = ?
+                    LIMIT 1
+                """, (aluno_id, ano_letivo_id))
+                if cursor.fetchone():
+                    ja_matriculados += 1
+                    continue
+
+                cursor.execute("""
+                    UPDATE alunos
+                    SET nome = ?, turma_id = ?, ano_letivo_id = ?
+                    WHERE id = ?
+                """, (nome, turma_id, ano_letivo_id, aluno_id))
+            else:
+                cursor.execute("""
+                    INSERT INTO alunos (nome, matricula, turma_id, escola_id, ano_letivo_id)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (nome, matricula, turma_id, escola_id, ano_letivo_id))
+                aluno_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO aluno_matriculas
+                    (aluno_id, escola_id, ano_letivo_id, turma_id, situacao)
+                VALUES (?, ?, ?, ?, 'Cursando')
+            """, (aluno_id, escola_id, ano_letivo_id, turma_id))
+            importados += 1
+
+        banco.commit()
+    except Exception as erro:
+        banco.rollback()
+        app.logger.exception("Erro ao importar alunos por PDF")
+        flash(f"A importação não pôde ser concluída: {erro}", "erro")
+        return redirect("/alunos/importar")
+    finally:
+        banco.close()
+        if caminho_previa:
+            try:
+                os.remove(caminho_previa)
+            except OSError:
+                pass
+
+    partes = [f"{importados} aluno(s) importado(s)"]
+    if ja_matriculados:
+        partes.append(f"{ja_matriculados} já matriculado(s) no ano")
+    if ignorados:
+        partes.append(f"{ignorados} ignorado(s)")
+    if erros:
+        partes.append(f"{erros} com dados inválidos")
+    flash("Importação concluída: " + ", ".join(partes) + ".", "sucesso")
+    return redirect("/alunos")
 
 
 # =========================================================
@@ -7202,9 +7754,10 @@ def duplicar_prova(prova_id):
                 media_ativa,
                 media_aprovacao,
                 peso_total,
-                tipo_peso
+                tipo_peso,
+                tem_nota
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?, ?)
         """, (
             nome,
             turma_id,
@@ -7219,7 +7772,8 @@ def duplicar_prova(prova_id):
             media_ativa,
             media_aprovacao,
             float(original["peso_total"] or 10),
-            original["tipo_peso"] or "automatico"
+            original["tipo_peso"] or "automatico",
+            int(original["tem_nota"] if "tem_nota" in original.keys() else 1)
         ))
 
         nova_prova_id = cursor.lastrowid
@@ -7295,6 +7849,7 @@ def gerar_prova():
         ""
     ).strip()
 
+    tem_nota = 1 if request.form.get("tem_nota") == "1" else 0
     media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
     media_aprovacao = None
 
@@ -7439,9 +7994,10 @@ def gerar_prova():
                 status,
                 atualizado_em,
                 media_ativa,
-                media_aprovacao
+                media_aprovacao,
+                tem_nota
             )
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'rascunho', ?, ?, ?)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?)
         """, (
             nome,
             turma_id,
@@ -7453,7 +8009,8 @@ def gerar_prova():
             ano_letivo_id,
             agora,
             media_ativa,
-            media_aprovacao
+            media_aprovacao,
+            tem_nota
         ))
 
         prova_id = cursor.lastrowid
@@ -7759,6 +8316,578 @@ def normalizar_ordem_questoes_prova(cursor, prova_id):
             WHERE id = ? AND prova_id = ?
         """, (indice, registro["id"], prova_id))
 
+
+
+# =========================================================
+# IMPORTAÇÃO EM LOTE DE QUESTÕES
+# =========================================================
+
+def _normalizar_cabecalho_importacao(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    texto = re.sub(r"[^a-zA-Z0-9]+", "_", texto.lower()).strip("_")
+    return texto
+
+
+def _valor_linha_importacao(linha, *aliases):
+    for alias in aliases:
+        chave = _normalizar_cabecalho_importacao(alias)
+        if chave in linha and linha[chave] not in (None, ""):
+            return str(linha[chave]).strip()
+    return ""
+
+
+def _tipo_importacao(valor, tem_alternativas=False):
+    v = _normalizar_cabecalho_importacao(valor)
+    mapa = {
+        "multipla_escolha": "multipla_escolha", "multipla_escolha_unica": "multipla_escolha",
+        "objetiva": "multipla_escolha", "objetiva_unica": "multipla_escolha",
+        "multiplas_respostas": "multiplas_respostas", "multipla_resposta": "multiplas_respostas",
+        "verdadeiro_falso": "verdadeiro_falso", "vf": "verdadeiro_falso",
+        "discursiva": "discursiva", "dissertativa": "discursiva", "aberta": "discursiva",
+        "resposta_curta": "resposta_curta", "curta": "resposta_curta",
+        "numerica": "numerica", "numerico": "numerica",
+    }
+    if v in mapa:
+        return mapa[v]
+    return "multipla_escolha" if tem_alternativas else "discursiva"
+
+
+def _dificuldade_importacao(valor, padrao="Média"):
+    v = _normalizar_cabecalho_importacao(valor)
+    if v in {"facil", "fácil"}: return "Fácil"
+    if v in {"dificil", "difícil"}: return "Difícil"
+    if v in {"media", "medio", "média", "médio"}: return "Média"
+    return padrao or "Média"
+
+
+def _questao_de_linha_importacao(linha, defaults):
+    linha = {_normalizar_cabecalho_importacao(k): ("" if v is None else v) for k, v in linha.items()}
+    enunciado = _valor_linha_importacao(linha, "enunciado", "questao", "pergunta", "texto")
+    if not enunciado:
+        return None
+
+    alternativas = []
+    for letra in "ABCDEFGH":
+        texto = _valor_linha_importacao(
+            linha, f"alternativa_{letra.lower()}", f"alternativa {letra}", letra.lower()
+        )
+        if texto:
+            alternativas.append({"letra": letra, "texto": texto, "imagem": ""})
+
+    correta_raw = _valor_linha_importacao(linha, "gabarito", "correta", "resposta_correta", "respostas_corretas")
+    corretas = []
+    if correta_raw:
+        for pedaco in re.split(r"[,;/|\s]+", correta_raw.upper()):
+            pedaco = re.sub(r"[^A-HVF]", "", pedaco)
+            if pedaco and pedaco not in corretas:
+                corretas.append(pedaco)
+
+    tipo = _tipo_importacao(_valor_linha_importacao(linha, "tipo", "tipo_questao"), bool(alternativas))
+    if tipo == "verdadeiro_falso" and not alternativas:
+        alternativas = [
+            {"letra": "V", "texto": "Verdadeiro", "imagem": ""},
+            {"letra": "F", "texto": "Falso", "imagem": ""},
+        ]
+
+    return {
+        "disciplina": _valor_linha_importacao(linha, "disciplina", "componente", "componente_curricular", "componente curricular") or defaults.get("disciplina", ""),
+        "turma": _valor_linha_importacao(linha, "turma", "classe"),
+        "etapa_ensino": _valor_linha_importacao(linha, "etapa", "etapa_ensino") or defaults.get("etapa_ensino", ""),
+        "ano_serie": _valor_linha_importacao(linha, "ano_serie", "ano", "serie", "ano série") or _valor_linha_importacao(linha, "turma", "classe") or defaults.get("ano_serie", ""),
+        "tipo_questao": tipo,
+        "enunciado": enunciado,
+        "alternativas": alternativas,
+        "respostas_corretas": corretas,
+        "resposta_esperada": _valor_linha_importacao(linha, "resposta_esperada", "resposta esperada"),
+        "criterios_correcao": _valor_linha_importacao(linha, "criterios_correcao", "criterios", "critério", "criterio"),
+        "dificuldade": _dificuldade_importacao(_valor_linha_importacao(linha, "dificuldade", "nivel", "nivel_de_dificuldade", "nível de dificuldade"), defaults.get("dificuldade", "Média")),
+        "habilidade_bncc": _valor_linha_importacao(linha, "habilidade_bncc", "bncc", "habilidade"),
+        "unidade_tematica": _valor_linha_importacao(linha, "unidade_tematica", "unidade temática"),
+        "objeto_conhecimento": _valor_linha_importacao(linha, "objeto_conhecimento", "objeto de conhecimento", "objeto do conhecimento"),
+        "sistema_matriz": (_valor_linha_importacao(linha, "sistema_matriz", "matriz_sistema") or "").upper(),
+        "matriz_referencia": _valor_linha_importacao(linha, "matriz_referencia", "matriz de referencia"),
+        "descritor_saeb": _valor_linha_importacao(linha, "descritor_saeb", "descritor", "saeb", "saeto"),
+        "taxonomia_bloom": _valor_linha_importacao(linha, "taxonomia_bloom", "bloom"),
+        "fonte": _valor_linha_importacao(linha, "fonte"),
+        "tags": _valor_linha_importacao(linha, "tags", "etiquetas"),
+        "observacoes": _valor_linha_importacao(linha, "observacoes", "observação", "observacao"),
+    }
+
+
+def _linhas_planilha_importacao(caminho, extensao):
+    if extensao == ".csv":
+        dados = Path(caminho).read_bytes()
+        texto = None
+        for enc in ("utf-8-sig", "utf-8", "latin-1"):
+            try:
+                texto = dados.decode(enc)
+                break
+            except UnicodeDecodeError:
+                pass
+        if texto is None:
+            raise ValueError("Não foi possível identificar a codificação do CSV.")
+        amostra = texto[:4096]
+        try:
+            dialeto = csv.Sniffer().sniff(amostra, delimiters=",;\t|")
+        except csv.Error:
+            dialeto = csv.excel
+            dialeto.delimiter = ";"
+        leitor = csv.DictReader(texto.splitlines(), dialect=dialeto)
+        return list(leitor)
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("Para importar Excel, instale a dependência openpyxl.") from exc
+    wb = load_workbook(caminho, read_only=True, data_only=True)
+    ws = wb.active
+    linhas = list(ws.iter_rows(values_only=True))
+    if not linhas:
+        return []
+    cabecalhos = [str(v or "").strip() for v in linhas[0]]
+    return [dict(zip(cabecalhos, valores)) for valores in linhas[1:] if any(v not in (None, "") for v in valores)]
+
+
+def _texto_arquivo_importacao(caminho, extensao):
+    if extensao == ".txt":
+        dados = Path(caminho).read_bytes()
+        for enc in ("utf-8-sig", "utf-8", "latin-1"):
+            try:
+                return dados.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        return dados.decode("utf-8", errors="replace")
+    if extensao == ".pdf":
+        if PdfReader is None:
+            raise ValueError("A biblioteca pypdf não está instalada.")
+        leitor = PdfReader(caminho)
+        return "\n".join((pagina.extract_text() or "") for pagina in leitor.pages)
+    if extensao == ".docx":
+        try:
+            from docx import Document
+        except ImportError as exc:
+            raise ValueError("Para importar Word, instale a dependência python-docx.") from exc
+        doc = Document(caminho)
+        partes = [p.text for p in doc.paragraphs]
+        for tabela in doc.tables:
+            for linha in tabela.rows:
+                partes.append("\t".join(c.text for c in linha.cells))
+        return "\n".join(partes)
+    raise ValueError("Formato de arquivo não suportado.")
+
+
+def _questoes_texto_importacao(texto, defaults):
+    """Reconhece questões em Word/PDF/TXT usando uma estrutura pedagógica explícita.
+
+    Estrutura recomendada por questão:
+      Tipo de questão: Objetiva
+      Componente curricular: História
+      Turma: 8º ano B
+      Questão: ...
+      Alternativas:
+      A) ...
+      B) ...
+      C) ...
+      D) ...
+      Gabarito: A
+      Nível de dificuldade: Média
+      BNCC
+      Unidade temática: ...
+      Objeto do conhecimento: ...
+      Habilidade: EF08HI...
+
+    Cada bloco pode ter um componente curricular diferente, inclusive quando
+    todas as questões serão adicionadas à mesma avaliação.
+    """
+    texto = (texto or "").replace("\r\n", "\n").replace("\r", "\n")
+    texto = re.sub(r"\u00a0", " ", texto)
+
+    # Um novo bloco começa em "Questão 1", "QUESTÃO 02" ou em "Tipo de questão:"
+    # quando o arquivo segue o modelo estruturado sem numeração.
+    inicio_num = re.compile(r"(?im)^\s*(?:quest[aã]o\s*)?(\d{1,3})\s*[\.)\-:]\s*(?=\S|$)")
+    matches = list(inicio_num.finditer(texto))
+    blocos = []
+    if matches:
+        for i, m in enumerate(matches):
+            ini = m.end()
+            fim = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
+            bloco = texto[ini:fim].strip()
+            if bloco:
+                blocos.append(bloco)
+    else:
+        # Em documentos estruturados, cada ocorrência de "Tipo de questão" pode
+        # marcar o início de uma nova questão.
+        partes = re.split(r"(?im)(?=^\s*tipo\s+de\s+quest[aã]o\s*[:\-])", texto)
+        blocos = [b.strip() for b in partes if b.strip()]
+        if len(blocos) <= 1:
+            blocos = [b.strip() for b in re.split(r"\n\s*\n+", texto) if b.strip()]
+
+    aliases_meta = {
+        "tipo": ["tipo", "tipo de questao", "tipo da questao"],
+        "disciplina": ["componente curricular", "componente", "disciplina"],
+        "turma": ["turma", "classe"],
+        "gabarito": ["gabarito", "resposta correta", "resposta"],
+        "dificuldade": ["nivel de dificuldade", "nível de dificuldade", "dificuldade", "nivel"],
+        "unidade_tematica": ["unidade tematica", "unidade temática"],
+        "objeto_conhecimento": ["objeto do conhecimento", "objeto de conhecimento"],
+        "habilidade": ["habilidade", "habilidade bncc", "codigo da habilidade", "código da habilidade"],
+        "bncc": ["bncc"],
+        "fonte": ["fonte"],
+        "tags": ["tag", "tags"],
+    }
+    alias_para_chave = {}
+    for chave, nomes in aliases_meta.items():
+        for nome in nomes:
+            alias_para_chave[_normalizar_cabecalho_importacao(nome)] = chave
+
+    resultado = []
+    for bloco in blocos:
+        linhas = [re.sub(r"\s+", " ", l).strip() for l in bloco.split("\n") if l.strip()]
+        if not linhas:
+            continue
+
+        metadados = {}
+        alternativas = []
+        enunciado_linhas = []
+        secao = None
+        ultima_alt = None
+        bncc_ativo = False
+
+        for linha in linhas:
+            # Títulos de seção que não carregam valor.
+            if re.fullmatch(r"(?i)alternativas?\s*:?", linha):
+                secao = "alternativas"
+                ultima_alt = None
+                continue
+            if re.fullmatch(r"(?i)bncc\s*:?", linha):
+                bncc_ativo = True
+                secao = "bncc"
+                continue
+
+            alt = re.match(r"^([A-H])\s*[\)\.\-:]\s*(.+)$", linha, flags=re.I)
+            if alt:
+                secao = "alternativas"
+                ultima_alt = {"letra": alt.group(1).upper(), "texto": alt.group(2).strip(), "imagem": ""}
+                alternativas.append(ultima_alt)
+                continue
+
+            # Qualquer rótulo "Nome: valor" é normalizado e comparado aos aliases.
+            meta = re.match(r"^([^:]{2,60})\s*[:\-]\s*(.*)$", linha)
+            if meta:
+                rotulo = _normalizar_cabecalho_importacao(meta.group(1))
+                valor = meta.group(2).strip()
+                chave = alias_para_chave.get(rotulo)
+                if chave:
+                    if chave == "bncc" and not valor:
+                        bncc_ativo = True
+                        secao = "bncc"
+                    else:
+                        metadados[chave] = valor
+                        if chave in {"unidade_tematica", "objeto_conhecimento", "habilidade"}:
+                            bncc_ativo = True
+                    secao = "meta"
+                    ultima_alt = None
+                    continue
+                if rotulo in {"questao", "enunciado", "pergunta"}:
+                    if valor:
+                        enunciado_linhas.append(valor)
+                    secao = "enunciado"
+                    ultima_alt = None
+                    continue
+
+            # Caso "Questão" venha em uma linha e o enunciado na linha seguinte.
+            if re.fullmatch(r"(?i)(quest[aã]o|enunciado|pergunta)\s*:?", linha):
+                secao = "enunciado"
+                ultima_alt = None
+                continue
+
+            # Continuação de alternativa quebrada em mais de uma linha.
+            if secao == "alternativas" and ultima_alt is not None:
+                ultima_alt["texto"] += " " + linha
+                continue
+
+            # Texto livre após "Questão:" faz parte do enunciado.
+            if secao == "enunciado" or not secao:
+                enunciado_linhas.append(linha)
+                secao = "enunciado"
+                continue
+
+            # Evita perder texto de enunciado em PDFs cuja ordem de extração varie.
+            if not bncc_ativo and secao != "meta":
+                enunciado_linhas.append(linha)
+
+        enunciado = " ".join(enunciado_linhas).strip()
+        if not enunciado:
+            continue
+
+        gabarito = metadados.get("gabarito", "")
+        corretas = []
+        for pedaco in re.split(r"[,;/|\s]+", gabarito.upper()):
+            letra = re.sub(r"[^A-HVF]", "", pedaco)
+            if letra and letra not in corretas:
+                corretas.append(letra)
+
+        tipo = _tipo_importacao(metadados.get("tipo", ""), bool(alternativas))
+        resposta_esperada = ""
+        if tipo in {"discursiva", "resposta_curta", "numerica"} and not alternativas:
+            resposta_esperada = gabarito
+            corretas = []
+
+        turma = metadados.get("turma", "")
+        resultado.append({
+            "disciplina": metadados.get("disciplina") or defaults.get("disciplina", ""),
+            "turma": turma,
+            "etapa_ensino": defaults.get("etapa_ensino", ""),
+            "ano_serie": turma or defaults.get("ano_serie", ""),
+            "tipo_questao": tipo,
+            "enunciado": enunciado,
+            "alternativas": alternativas,
+            "respostas_corretas": corretas,
+            "resposta_esperada": resposta_esperada,
+            "criterios_correcao": "",
+            "dificuldade": _dificuldade_importacao(metadados.get("dificuldade", ""), defaults.get("dificuldade", "Média")),
+            "habilidade_bncc": metadados.get("habilidade", ""),
+            "unidade_tematica": metadados.get("unidade_tematica", ""),
+            "objeto_conhecimento": metadados.get("objeto_conhecimento", ""),
+            "sistema_matriz": "BNCC" if any(metadados.get(k) for k in ("habilidade", "unidade_tematica", "objeto_conhecimento")) else "",
+            "matriz_referencia": "",
+            "descritor_saeb": "",
+            "taxonomia_bloom": "",
+            "fonte": metadados.get("fonte", ""),
+            "tags": metadados.get("tags", ""),
+            "observacoes": "",
+        })
+    return resultado
+
+def _validar_questoes_importadas(questoes):
+    validas, avisos = [], []
+    for i, q in enumerate(questoes, 1):
+        if not (q.get("enunciado") or "").strip():
+            avisos.append(f"Item {i}: ignorado porque não possui enunciado.")
+            continue
+        if not (q.get("disciplina") or "").strip():
+            avisos.append(f"Item {i}: ignorado porque não possui componente curricular.")
+            continue
+        tipo = q.get("tipo_questao") or "multipla_escolha"
+        alternativas = q.get("alternativas") or []
+        corretas = q.get("respostas_corretas") or []
+        if tipo in {"multipla_escolha", "multiplas_respostas"}:
+            if len(alternativas) < 2:
+                avisos.append(f"Item {i}: ignorado porque uma questão objetiva precisa de pelo menos 2 alternativas.")
+                continue
+            if not corretas:
+                avisos.append(f"Item {i}: objetiva sem gabarito. Ela será importada, mas revise antes de aplicar.")
+        validas.append(q)
+    return validas, avisos
+
+
+def _salvar_preview_importacao_questoes(questoes, prova_id):
+    pasta = os.path.join(UPLOAD_FOLDER, "importacoes_questoes")
+    os.makedirs(pasta, exist_ok=True)
+    token = uuid.uuid4().hex
+    caminho = os.path.join(pasta, f"{token}.json")
+    payload = {
+        "usuario_id": session.get("usuario_id"),
+        "prova_id": prova_id,
+        "criado_em": datetime.now().isoformat(),
+        "questoes": questoes,
+    }
+    with open(caminho, "w", encoding="utf-8") as arq:
+        json.dump(payload, arq, ensure_ascii=False)
+    return token
+
+
+def _carregar_preview_importacao_questoes(token):
+    if not re.fullmatch(r"[a-f0-9]{32}", token or ""):
+        return None, None
+    caminho = os.path.join(UPLOAD_FOLDER, "importacoes_questoes", f"{token}.json")
+    if not os.path.isfile(caminho):
+        return None, None
+    try:
+        with open(caminho, "r", encoding="utf-8") as arq:
+            payload = json.load(arq)
+        if payload.get("usuario_id") != session.get("usuario_id"):
+            return None, None
+        return payload, caminho
+    except (OSError, json.JSONDecodeError):
+        return None, None
+
+
+@app.route("/questoes/importar", methods=["GET", "POST"])
+def importar_questoes():
+    if not cargo_permitido(["Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"]):
+        return redirect("/login")
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    prova_id = request.values.get("prova_id", type=int)
+    prova = None
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    try:
+        if prova_id:
+            if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
+                return _redirecionar_acesso_negado_prova()
+            cursor.execute("""
+                SELECT p.id, p.nome, p.disciplina, COALESCE(p.escola_id,t.escola_id) escola_id,
+                       t.etapa, t.nome AS turma_nome
+                FROM provas p INNER JOIN turmas t ON t.id=p.turma_id
+                WHERE p.id=?
+            """, (prova_id,))
+            prova = cursor.fetchone()
+            if not prova:
+                flash("Avaliação não encontrada.", "erro")
+                return redirect("/provas")
+
+        if request.method == "GET":
+            return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None)
+
+        arquivo = request.files.get("arquivo")
+        if not arquivo or not arquivo.filename:
+            flash("Selecione um arquivo para importar.", "erro")
+            return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None)
+
+        nome = secure_filename(arquivo.filename)
+        extensao = os.path.splitext(nome)[1].lower()
+        permitidas = {".xlsx", ".csv", ".docx", ".txt", ".pdf"}
+        if extensao not in permitidas:
+            flash("Formato não suportado. Use XLSX, CSV, DOCX, TXT ou PDF.", "erro")
+            return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None)
+
+        disciplina_padrao = (request.form.get("disciplina_padrao") or (prova["disciplina"] if prova else "")).strip()
+        defaults = {
+            "disciplina": disciplina_padrao,
+            "etapa_ensino": (request.form.get("etapa_ensino") or (prova["etapa"] if prova else "")).strip(),
+            "ano_serie": (request.form.get("ano_serie") or "").strip(),
+            "dificuldade": (request.form.get("dificuldade_padrao") or "Média").strip(),
+        }
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extensao) as temp:
+            arquivo.save(temp.name)
+            caminho_temp = temp.name
+        try:
+            if extensao in {".xlsx", ".csv"}:
+                linhas = _linhas_planilha_importacao(caminho_temp, extensao)
+                questoes = []
+                for linha in linhas:
+                    q = _questao_de_linha_importacao(linha, defaults)
+                    if q:
+                        questoes.append(q)
+            else:
+                texto = _texto_arquivo_importacao(caminho_temp, extensao)
+                if not texto.strip():
+                    raise ValueError("Não foi encontrado texto legível no arquivo. Se for um PDF escaneado, converta-o para PDF com texto ou use a planilha modelo.")
+                questoes = _questoes_texto_importacao(texto, defaults)
+        finally:
+            try: os.remove(caminho_temp)
+            except OSError: pass
+
+        questoes, avisos = _validar_questoes_importadas(questoes)
+        if not questoes:
+            flash("Nenhuma questão válida foi encontrada. Confira o formato do arquivo.", "erro")
+            return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None, avisos=avisos)
+
+        token = _salvar_preview_importacao_questoes(questoes, prova_id)
+        return render_template(
+            "questoes/importar.html", prova=prova, prova_id=prova_id,
+            preview=questoes, token=token, avisos=avisos, nome_arquivo=arquivo.filename
+        )
+    except ValueError as erro:
+        flash(str(erro), "erro")
+        return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None)
+    finally:
+        banco.close()
+
+
+@app.route("/questoes/importar/confirmar", methods=["POST"])
+def confirmar_importacao_questoes():
+    if not cargo_permitido(["Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"]):
+        return redirect("/login")
+    if not permissao_modulo("Questões"):
+        return redirect("/acesso_negado")
+
+    token = request.form.get("token", "")
+    payload, caminho_preview = _carregar_preview_importacao_questoes(token)
+    if not payload:
+        flash("A prévia da importação expirou ou não é válida. Envie o arquivo novamente.", "erro")
+        return redirect("/questoes/importar")
+
+    prova_id = payload.get("prova_id")
+    questoes = payload.get("questoes") or []
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    importadas = 0
+    try:
+        escola_id = obter_escola_usuario()
+        proxima_ordem = 1
+        if prova_id:
+            if not _pode_gerenciar_prova(cursor, int(prova_id), exigir_edicao=True):
+                return _redirecionar_acesso_negado_prova()
+            cursor.execute("""
+                SELECT p.disciplina, COALESCE(p.escola_id,t.escola_id) escola_id
+                FROM provas p INNER JOIN turmas t ON t.id=p.turma_id WHERE p.id=?
+            """, (prova_id,))
+            prova = cursor.fetchone()
+            if not prova:
+                flash("Avaliação de destino não encontrada.", "erro")
+                return redirect("/provas")
+            escola_id = prova["escola_id"]
+            cursor.execute("SELECT COALESCE(MAX(ordem),0)+1 AS ordem FROM prova_questoes WHERE prova_id=?", (prova_id,))
+            proxima_ordem = cursor.fetchone()["ordem"]
+
+        for q in questoes:
+            alternativas = q.get("alternativas") or []
+            corretas = q.get("respostas_corretas") or []
+            textos = [(a.get("texto") or "") for a in alternativas[:4]] + [""] * 4
+            correta_legada = corretas[0] if corretas else ""
+            habilidade = " | ".join(x for x in [q.get("habilidade_bncc", ""), q.get("descritor_saeb", "")] if x)
+            cursor.execute("""
+                INSERT INTO questoes (
+                    disciplina, etapa_ensino, ano_serie, assunto, assunto_temporario, subassunto,
+                    tipo_questao, enunciado, enunciado_html, imagem,
+                    alternativa_a, alternativa_b, alternativa_c, alternativa_d,
+                    correta, alternativas_json, respostas_corretas, resposta_esperada,
+                    criterios_correcao, habilidade, habilidade_bncc, unidade_tematica,
+                    objeto_conhecimento, sistema_matriz, matriz_referencia, descritor_saeb,
+                    taxonomia_bloom, dificuldade, fonte, tags, observacoes,
+                    linhas_resposta, escola_id, criado_por, criado_em
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                q.get("disciplina", ""), q.get("etapa_ensino", ""), q.get("ano_serie", ""), "", 0, "",
+                q.get("tipo_questao", "multipla_escolha"), q.get("enunciado", ""), "", "",
+                textos[0], textos[1], textos[2], textos[3], correta_legada,
+                json.dumps(alternativas, ensure_ascii=False), json.dumps(corretas, ensure_ascii=False),
+                q.get("resposta_esperada", ""), q.get("criterios_correcao", ""), habilidade,
+                q.get("habilidade_bncc", ""), q.get("unidade_tematica", ""), q.get("objeto_conhecimento", ""),
+                q.get("sistema_matriz", ""), q.get("matriz_referencia", ""), q.get("descritor_saeb", ""),
+                q.get("taxonomia_bloom", ""), q.get("dificuldade", "Média"), q.get("fonte", ""),
+                q.get("tags", ""), q.get("observacoes", ""), 5 if q.get("tipo_questao") == "discursiva" else None,
+                escola_id, session.get("usuario_id"), datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+            questao_id = cursor.lastrowid
+            if prova_id:
+                cursor.execute("INSERT INTO prova_questoes (prova_id,questao_id,peso,ordem) VALUES (?,?,0,?)", (prova_id, questao_id, proxima_ordem))
+                proxima_ordem += 1
+            importadas += 1
+
+        if prova_id:
+            cursor.execute("""
+                UPDATE provas SET quantidade=(SELECT COUNT(*) FROM prova_questoes WHERE prova_id=?), atualizado_em=? WHERE id=?
+            """, (prova_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id))
+        banco.commit()
+        try: os.remove(caminho_preview)
+        except OSError: pass
+        flash(f"{importadas} questão(ões) importada(s) com sucesso!", "sucesso")
+        return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
+    except Exception as erro:
+        banco.rollback()
+        app.logger.exception("Erro ao confirmar importação de questões")
+        flash(f"Não foi possível concluir a importação: {erro}", "erro")
+        return redirect(f"/questoes/importar?prova_id={prova_id}" if prova_id else "/questoes/importar")
+    finally:
+        banco.close()
 
 @app.route("/provas/<int:prova_id>/montar")
 def montar_prova(prova_id):
@@ -9375,6 +10504,7 @@ def atualizar_prova(prova_id):
     nome = request.form.get("nome", "").strip()
     disciplina = request.form.get("disciplina", "").strip()
     data_aplicacao = request.form.get("data_aplicacao", "").strip()
+    tem_nota = 1 if request.form.get("tem_nota") == "1" else 0
     media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
     media_aprovacao = None
 
@@ -9432,12 +10562,12 @@ def atualizar_prova(prova_id):
         cursor.execute("""
             UPDATE provas
             SET nome = ?, turma_id = ?, professor_id = ?, disciplina = ?,
-                data_aplicacao = ?, media_ativa = ?, media_aprovacao = ?,
+                data_aplicacao = ?, media_ativa = ?, media_aprovacao = ?, tem_nota = ?,
                 atualizado_em = ?
             WHERE id = ?
         """, (
             nome, turma_id, professor_id, disciplina, data_aplicacao,
-            media_ativa, media_aprovacao,
+            media_ativa, media_aprovacao, tem_nota,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id
         ))
         banco.commit()
@@ -11530,6 +12660,20 @@ def nova_instituicao():
                 "gestao/nova_instituicao.html"
             )
 
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", admin_email):
+            flash("Informe um e-mail válido para o administrador.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if admin_cpf:
+            cpf_digitos = somente_digitos(admin_cpf)
+            if len(cpf_digitos) != 11:
+                flash("O CPF do administrador deve possuir 11 dígitos.", "erro")
+                return render_template("gestao/nova_instituicao.html")
+            if not validar_cpf(cpf_digitos):
+                flash("Informe um CPF válido para o administrador.", "erro")
+                return render_template("gestao/nova_instituicao.html")
+            admin_cpf = cpf_digitos
+
         # =====================================================
         # DADOS ACADÊMICOS
         # =====================================================
@@ -11575,6 +12719,17 @@ def nova_instituicao():
             return render_template(
                 "gestao/nova_instituicao.html"
             )
+
+        try:
+            ano_letivo_int = int(ano_letivo)
+        except (TypeError, ValueError):
+            flash("O ano letivo informado é inválido.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+
+        if ano_letivo_int < 2000 or ano_letivo_int > datetime.now().year + 5:
+            flash("Selecione um ano letivo válido.", "erro")
+            return render_template("gestao/nova_instituicao.html")
+        ano_letivo = str(ano_letivo_int)
 
         if not etapas:
             flash(
@@ -11699,6 +12854,29 @@ def nova_instituicao():
         cursor = banco.cursor()
 
         try:
+
+            # -------------------------------------------------
+            # Evita duplicidade de instituição por INEP/CNPJ
+            # -------------------------------------------------
+            if codigo_inep:
+                cursor.execute("SELECT id FROM escolas WHERE TRIM(codigo_inep) = TRIM(?) LIMIT 1", (codigo_inep,))
+                if cursor.fetchone():
+                    flash("Já existe uma instituição cadastrada com esse código INEP.", "erro")
+                    return render_template("gestao/nova_instituicao.html")
+
+            if cnpj:
+                cnpj_digitos = re.sub(r"\D", "", cnpj)
+                if len(cnpj_digitos) != 14:
+                    flash("O CNPJ deve possuir 14 dígitos.", "erro")
+                    return render_template("gestao/nova_instituicao.html")
+                cursor.execute("""
+                    SELECT id FROM escolas
+                    WHERE REPLACE(REPLACE(REPLACE(REPLACE(TRIM(cnpj), '.', ''), '/', ''), '-', ''), ' ', '') = ?
+                    LIMIT 1
+                """, (cnpj_digitos,))
+                if cursor.fetchone():
+                    flash("Já existe uma instituição cadastrada com esse CNPJ.", "erro")
+                    return render_template("gestao/nova_instituicao.html")
 
             # -------------------------------------------------
             # Verifica se o e-mail do administrador já existe
@@ -11874,7 +13052,7 @@ def nova_instituicao():
             """, (
                 admin_nome,
                 admin_email,
-                admin_senha,
+                generate_password_hash(admin_senha),
                 cargo_id,
                 escola_id,
                 admin_cpf,
@@ -11930,29 +13108,14 @@ def nova_instituicao():
                 repr(erro)
             )
 
+            mensagem_erro = str(erro)
+            if "user-defined function raised exception" in mensagem_erro.lower():
+                mensagem_erro = (
+                    "Falha ao proteger os dados pessoais do administrador. "
+                    "Verifique o CPF informado e tente novamente."
+                )
             flash(
-                f"Erro ao cadastrar a instituição: {erro}",
-                "erro"
-            )
-
-            return render_template(
-                "gestao/nova_instituicao.html"
-            )
-
-        except Exception as erro:
-
-            banco.rollback()
-
-            import traceback
-            traceback.print_exc()
-
-            print(
-                "ERRO COMPLETO AO CADASTRAR INSTITUIÇÃO:",
-                repr(erro)
-            )
-
-            flash(
-                f"Erro ao cadastrar a instituição: {erro}",
+                f"Erro ao cadastrar a instituição: {mensagem_erro}",
                 "erro"
             )
 
@@ -14641,6 +15804,7 @@ def aplicar_cabecalhos_seguranca(resposta):
 criar_tabelas()
 garantir_estrutura_lgpd()
 sincronizar_anos_letivos_legados()
+corrigir_ano_corrente_inconsistente()
 
 @app.route("/gestao/instituicoes/editar/<int:id>", methods=["GET", "POST"])
 def editar_instituicao(id):
@@ -18504,6 +19668,7 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
     try:
         cursor.execute("""
             SELECT a.*, p.nome AS prova_nome, p.disciplina, p.professor_id,
+                   CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
                    t.nome AS turma_nome, e.nome_instituicao, e.logo,
                    e.cidade, e.estado,
                    COALESCE(pr.nome, 'Não informado') AS professor_nome

@@ -1,0 +1,10 @@
+ARK EDUS - AJUSTE DE IMPRESSAO 07/08/2026
+
+Alteracao aplicada em templates/aplicacoes/modelo_prova.html:
+- moldura dupla preta no estilo Word;
+- moldura repetida em todas as paginas impressas;
+- margem A4 real de 16/17 mm para o conteudo;
+- remocao da borda do container principal para evitar cortes nas paginas seguintes;
+- mantidas as regras de quebra para nao cortar questoes.
+
+O arquivo plataforma.db nao acompanha este pacote.

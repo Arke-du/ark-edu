@@ -1,0 +1,18 @@
+ARK EDUS — Correções de 07/08/2026
+
+1. ANO LETIVO 2026
+- Corrigida a rotina do ano letivo corrente.
+- Se 2026 estiver encerrado por inconsistência e não houver ano ativo, ele volta a ser ativo.
+- Se um ano futuro tiver sido ativado por engano enquanto 2026 ficou encerrado, o futuro volta para Planejado e 2026 volta para Ativo.
+- A correção é executada na inicialização da aplicação.
+
+2. PERFIL
+- Segurança e Privacidade, Painel LGPD e Backups do Sistema foram removidos do rodapé lateral.
+- Esses atalhos agora ficam dentro de Meu Perfil, na seção "Privacidade e administração".
+- As permissões originais foram mantidas: Painel LGPD apenas para administradores; Backups apenas para Administrador Geral.
+
+3. IMPORTAÇÃO DE ALUNOS
+- O botão "Importar alunos (PDF)" fica visível na página Alunos e Matrículas.
+- Mantido o fluxo: selecionar turma > enviar PDF > revisar > confirmar.
+- O pypdf permanece no requirements.txt.
+- Se a dependência ainda não tiver sido instalada localmente, a aplicação não quebra na inicialização; a tela informa para executar pip install -r requirements.txt.

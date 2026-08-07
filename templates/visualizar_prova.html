@@ -1843,6 +1843,171 @@ img {
     }
 }
 
+
+
+/* =========================================================
+   CABEÇALHO HARMÔNICO + MOLDURA DA PROVA — 08/2026
+========================================================= */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 11mm 12mm 12mm;
+    }
+
+    body::before,
+    body::after {
+        content: "";
+        position: fixed;
+        pointer-events: none;
+        z-index: 9998;
+    }
+
+    body::before {
+        inset: 4.5mm;
+        border: 1.15px solid #334155;
+        border-radius: 3.2mm;
+    }
+
+    body::after {
+        inset: 5.8mm;
+        border: .4px solid #cbd5e1;
+        border-radius: 2.6mm;
+    }
+
+    .print-exam-header {
+        margin: 0 0 4mm !important;
+        padding: 4.5mm 5.5mm 4mm !important;
+        border: 1.15px solid #64748b !important;
+        border-radius: 4mm !important;
+        background: #fff !important;
+    }
+
+    .print-header-top {
+        grid-template-columns: 34mm minmax(0, 1fr) !important;
+        gap: 5mm !important;
+        min-height: 30mm !important;
+        align-items: stretch !important;
+    }
+
+    .print-ark-brand {
+        min-height: 30mm !important;
+        padding: 2mm 5mm 2mm 0 !important;
+        border-right: 1px solid #cbd5e1 !important;
+    }
+
+    .print-ark-brand img {
+        width: 29mm !important;
+        max-width: 29mm !important;
+        max-height: 25mm !important;
+        filter: none !important;
+    }
+
+    .print-institution-area {
+        min-width: 0 !important;
+        padding-left: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+    }
+
+    .print-institution-name {
+        min-height: 0 !important;
+        padding: 0 0 2.6mm !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        text-align: center !important;
+    }
+
+    .print-institution-name .print-field-value {
+        font-size: 15.5pt !important;
+        line-height: 1.05 !important;
+        font-weight: 800 !important;
+        letter-spacing: .01em !important;
+        color: #0f172a !important;
+    }
+
+    .print-header-data {
+        grid-template-columns: .82fr 1.24fr 1.08fr 1.14fr .78fr !important;
+        margin-top: 0 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+
+    .print-data-item {
+        min-height: 15mm !important;
+        padding: 2.2mm 2.5mm !important;
+        border-right: 1px solid #e2e8f0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+    }
+
+    .print-data-item:first-child { padding-left: 2.5mm !important; }
+    .print-data-item:last-child { padding-right: 2.5mm !important; border-right: 0 !important; }
+
+    .print-field-label {
+        min-height: 0 !important;
+        margin: 0 0 1.2mm !important;
+        font-size: 7.3pt !important;
+        line-height: 1.05 !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: .025em !important;
+        color: #475569 !important;
+    }
+
+    .print-field-value {
+        margin-top: 0 !important;
+        font-size: 9.2pt !important;
+        line-height: 1.15 !important;
+        color: #111827 !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+    }
+
+    .print-student-row {
+        grid-template-columns: minmax(0, 1fr) 42mm !important;
+        gap: 8mm !important;
+        margin-top: 4mm !important;
+    }
+
+    .print-student-field,
+    .print-grade-field {
+        font-size: 9.8pt !important;
+        color: #111827 !important;
+    }
+
+    .print-line {
+        min-height: 5mm !important;
+        border-bottom: 1px solid #334155 !important;
+    }
+
+    .print-exam-title {
+        display: block !important;
+        margin-top: 3.2mm !important;
+        padding: 2.6mm 3mm 0 !important;
+        border-top: 1px solid #cbd5e1 !important;
+        text-align: center !important;
+    }
+
+    .print-exam-title > span { display: none !important; }
+
+    .print-exam-title strong {
+        display: block !important;
+        max-width: none !important;
+        font-size: 12.3pt !important;
+        line-height: 1.15 !important;
+        font-weight: 800 !important;
+        letter-spacing: .02em !important;
+        color: #0f172a !important;
+        text-transform: uppercase !important;
+        overflow-wrap: normal !important;
+    }
+
+    .instructions-box {
+        border: 1px solid #94a3b8 !important;
+        border-left: 3px solid #334155 !important;
+        border-radius: 2.5mm !important;
+    }
+}
 </style>
 
 </head>

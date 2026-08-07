@@ -1,0 +1,14 @@
+CORREÇÃO DE IMPRESSÃO - MARGENS EM TODAS AS PÁGINAS
+
+Arquivo alterado:
+- templates/aplicacoes/modelo_prova.html
+
+O que foi corrigido:
+1. Removidas as pseudo-molduras fixed que atravessavam o conteúdo nas páginas seguintes.
+2. @page com margem física de segurança.
+3. .page com padding interno real e box-decoration-break: clone para repetir o recuo em cada folha.
+4. Borda aplicada diretamente ao container da prova e clonada nas quebras de página.
+5. Questões com espaço superior próprio para não ficarem coladas/cortadas no início de nova folha.
+6. Mantida a lógica de ocultação do campo Nota quando tem_nota != 1.
+
+Este pacote não contém plataforma.db.

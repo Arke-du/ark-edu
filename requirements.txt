@@ -12,3 +12,6 @@ qrcode[pil]>=7.4,<9
 pyzbar>=0.1.9,<1
 requests>=2.31,<3
 gunicorn>=21,<27
+pypdf>=5.0,<7
+openpyxl>=3.1,<4
+python-docx>=1.1,<2

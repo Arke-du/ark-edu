@@ -1,0 +1,19 @@
+ARK EDUS — AJUSTE VISUAL DA PROVA
+Data: 07/08/2026
+
+Alterações realizadas:
+- Cabeçalho da avaliação reorganizado para ficar mais harmônico e compacto.
+- Logo redimensionada e alinhada com o nome da instituição.
+- Nome da instituição com melhor hierarquia visual.
+- Campos Turma, Componente, Professor(a), Cidade/UF e Data reorganizados.
+- UF abreviada no modelo de aplicação (ex.: Tocantins -> TO), reduzindo quebras de linha.
+- Área de Estudante e Nota refinada.
+- Título da avaliação centralizado e mais equilibrado.
+- Instruções com borda mais leve.
+- Adicionada moldura dupla discreta ao redor da prova impressa/PDF.
+- A moldura é aplicada também às páginas seguintes na impressão.
+
+IMPORTANTE SOBRE DADOS:
+O arquivo plataforma.db foi propositalmente removido deste ZIP para NÃO substituir
+nem apagar os dados já cadastrados no seu ambiente. Extraia este ZIP sobre o projeto
+atual mantendo o seu plataforma.db existente.

@@ -1,0 +1,49 @@
+ARK EDUS — IMPORTAÇÃO ESTRUTURADA DE QUESTÕES
+
+A importação reconhece questões de VÁRIOS COMPONENTES CURRICULARES no mesmo arquivo e pode adicioná-las à mesma avaliação.
+
+ESTRUTURA RECOMENDADA PARA WORD, PDF OU TXT
+
+Tipo de questão: Objetiva
+Componente curricular: História
+Turma: 8º ano B
+Questão: Qual acontecimento marcou o início da Revolução Francesa?
+Alternativas:
+A) Queda da Bastilha
+B) Congresso de Viena
+C) Revolução Gloriosa
+D) Primavera dos Povos
+Gabarito: A
+Nível de dificuldade: Média
+BNCC
+Unidade temática: O mundo contemporâneo: o Antigo Regime em crise
+Objeto do conhecimento: Revolução Francesa e seus desdobramentos
+Habilidade: EF08HI04
+
+Para a questão seguinte, repita a estrutura. O "Componente curricular" pode mudar, por exemplo, de História para Geografia, Língua Portuguesa, Ciências etc.
+
+TIPOS RECONHECIDOS
+- Objetiva / Múltipla escolha
+- Múltiplas respostas
+- Verdadeiro ou falso
+- Discursiva / Dissertativa / Aberta
+- Resposta curta
+- Numérica
+
+PLANILHA
+Use o arquivo MODELO_IMPORTACAO_QUESTOES.csv. Cabeçalhos reconhecidos incluem:
+- tipo_questao
+- componente_curricular
+- turma
+- enunciado (ou questao)
+- alternativa_a, alternativa_b, alternativa_c, alternativa_d
+- gabarito
+- nivel_de_dificuldade
+- unidade_tematica
+- objeto_do_conhecimento
+- habilidade
+
+OBSERVAÇÕES
+- O componente curricular padrão na tela é opcional e serve apenas como fallback.
+- Se cada questão trouxer seu componente, a ARK EDUS preserva cada componente individualmente.
+- PDFs escaneados sem camada de texto ainda precisam ser convertidos para PDF pesquisável antes da importação.

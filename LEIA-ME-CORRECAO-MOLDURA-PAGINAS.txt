@@ -1,0 +1,12 @@
+CORREÇÃO DA IMPRESSÃO / PDF - 07/08/2026
+
+Problema corrigido:
+- A moldura fixa estava sendo desenhada DENTRO da área útil definida por @page.
+- Nas páginas seguintes, as questões começavam antes da moldura e pareciam atravessar a borda.
+
+Correção aplicada:
+- A moldura agora é desenhada na área de margem da página, usando inset negativo.
+- O conteúdo permanece integralmente dentro da área útil em todas as páginas.
+- Questões, títulos, alternativas e imagens mantêm regras para evitar quebras inadequadas.
+- A regra de exibição condicional do campo Nota foi preservada.
+- O banco plataforma.db não faz parte deste pacote.

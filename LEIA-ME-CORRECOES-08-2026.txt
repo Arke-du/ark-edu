@@ -1,0 +1,27 @@
+ARK EDUS — CORREÇÕES DE IMPORTAÇÃO E CADASTRO
+
+1. Importação de alunos por PDF
+- Botão destacado e funcional na tela Alunos e Matrículas.
+- Rota /alunos/importar ligada ao botão com url_for.
+- Upload e revisão de matrícula/nome antes da confirmação.
+- Proteção contra matrícula duplicada e matrícula repetida no mesmo ano.
+- Mensagem clara quando ainda não existem turmas disponíveis.
+- A aplicação continua iniciando mesmo se pypdf não estiver instalado; nesse caso mostra orientação para instalar requirements.txt.
+
+2. Ano letivo
+- O Administrador Geral não recebe mais mensagem de "ano encerrado" quando a plataforma ainda não possui nenhuma instituição/ano cadastrado.
+- Mantida a correção automática do ano civil corrente quando houver inconsistência real de status.
+
+3. Cadastro de instituição
+- Administrador da instituição passa a ter senha armazenada com hash seguro.
+- Validação de e-mail do administrador.
+- Validação básica de CPF (11 dígitos quando informado).
+- Validação do ano letivo.
+- Proteção contra duplicidade de código INEP e CNPJ.
+- Validação do CNPJ com 14 dígitos quando informado.
+- Removido bloco de tratamento de exceção duplicado.
+- Mantida a criação automática do primeiro ano letivo como ativo.
+
+Após substituir o projeto, execute:
+pip install -r requirements.txt
+python app.py

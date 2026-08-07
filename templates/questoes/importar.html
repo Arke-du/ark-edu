@@ -1,0 +1,140 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Importar questões | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+.import-shell{--navy:#0b2f68;--blue:#1457c7;--cyan:#11b8d6;--ink:#10213f;--muted:#71809b;--line:#e5ebf4;--soft:#f6f9fd;--green:#16a36a;display:grid;gap:22px;max-width:1280px;margin:0 auto;padding-bottom:34px}
+.import-back{display:inline-flex;align-items:center;gap:7px;width:max-content;color:var(--navy);font-size:13px;font-weight:800;text-decoration:none}.import-back:hover{gap:10px}
+.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}.hero-kicker{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid #cde4f7;border-radius:999px;background:#f2f9ff;color:#0d5f9f;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.hero h1{margin:10px 0 5px;color:var(--navy);font-size:clamp(30px,3.2vw,42px);line-height:1;font-weight:950;letter-spacing:-.04em}.hero p{margin:0;color:var(--muted);font-size:14px}.destination{display:flex;align-items:center;gap:10px;max-width:420px;padding:12px 14px;border:1px solid #cce2f6;border-radius:15px;background:linear-gradient(135deg,#f8fcff,#edf8ff);box-shadow:0 8px 24px rgba(14,74,130,.06)}.destination-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#fff;color:var(--blue);box-shadow:0 4px 12px rgba(20,87,199,.10)}.destination small{display:block;color:#7b8ca6;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.destination strong{display:block;margin-top:2px;color:var(--navy);font-size:12px}
+.stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.step{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}.step-num{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#eef3fa;color:#7e8ba0;font-size:11px;font-weight:900}.step span{color:#77859c;font-size:11px;font-weight:800}.step.active{border-color:#b9d8ff;background:#f4f9ff}.step.active .step-num{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff}.step.active span{color:var(--navy)}.step.done .step-num{background:#e9fbf4;color:#11835a}
+.alerts{display:grid;gap:7px;padding:14px 16px;border:1px solid #fde6a7;border-radius:14px;background:#fffaf0;color:#8a5b00;font-size:12px}
+.import-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}.panel{border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 14px 42px rgba(17,44,83,.07);overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 24px;border-bottom:1px solid var(--line)}.panel-head h2{margin:0;color:var(--ink);font-size:18px;font-weight:900}.panel-head p{margin:5px 0 0;color:var(--muted);font-size:12px}.panel-body{padding:24px}
+.format-row{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:18px}.format-pill{display:grid;place-items:center;gap:5px;min-height:62px;padding:8px;border:1px solid var(--line);border-radius:13px;background:#fbfcfe;text-align:center}.format-pill b{color:var(--navy);font-size:11px}.format-pill small{color:#99a4b5;font-size:9px}.format-pill.primary{border-color:#bddfff;background:#f1f8ff}
+.dropzone{position:relative;display:grid;place-items:center;min-height:230px;padding:30px;border:2px dashed #c7d6e8;border-radius:18px;background:radial-gradient(circle at 50% 0,#f3faff 0,#fbfdff 55%,#f8fbfe 100%);text-align:center;transition:.2s ease}.dropzone.drag,.dropzone:hover{border-color:#55a3ee;background:#f1f8ff;transform:translateY(-1px)}.upload-icon{display:grid;place-items:center;width:62px;height:62px;margin:0 auto 14px;border-radius:18px;background:linear-gradient(135deg,#e6f5ff,#ecf0ff);color:var(--blue);box-shadow:0 8px 22px rgba(20,87,199,.12)}.dropzone h3{margin:0;color:var(--ink);font-size:16px;font-weight:900}.dropzone p{margin:7px 0 0;color:var(--muted);font-size:12px}.browse{display:inline-flex;margin-top:14px;padding:9px 14px;border:1px solid #bcd6f6;border-radius:10px;background:#fff;color:var(--blue);font-size:11px;font-weight:900}.dropzone input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file-card{display:none;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #bcebd9;border-radius:14px;background:#f1fcf7}.file-card.show{display:flex}.file-check{display:grid;place-items:center;min-width:36px;height:36px;border-radius:10px;background:#ddf8ec;color:var(--green)}.file-meta{min-width:0;flex:1}.file-meta strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#164f3b;font-size:12px}.file-meta span{color:#6b8b80;font-size:10px}.file-remove{border:0;background:transparent;color:#79928a;font-size:18px;cursor:pointer}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}.field{display:grid;gap:7px}.field label{color:#344563;font-size:11px;font-weight:900}.field input,.field select{width:100%;height:44px;padding:0 12px;border:1px solid #dce5f1;border-radius:11px;background:#fff;color:#132442;font:inherit;font-size:12px;outline:none;box-sizing:border-box}.field input:focus,.field select:focus{border-color:#73aef2;box-shadow:0 0 0 3px rgba(73,143,226,.10)}.field small{color:#98a4b7;font-size:9px}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:11px;font:inherit;font-size:12px;font-weight:900;text-decoration:none;cursor:pointer;transition:.18s}.btn-secondary{border:1px solid #d9e3f0;background:#fff;color:var(--navy)}.btn-primary{border:0;background:linear-gradient(135deg,var(--navy),#155ccf);color:#fff;box-shadow:0 8px 20px rgba(20,87,199,.20)}.btn:hover{transform:translateY(-1px)}
+.side{display:grid;gap:14px}.side-card{padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(17,44,83,.05)}.side-title{display:flex;align-items:center;gap:9px;margin-bottom:12px;color:var(--ink);font-size:12px;font-weight:900}.tip{display:flex;gap:9px;padding:10px 0;border-top:1px solid #edf1f6}.tip:first-of-type{border-top:0}.tip-num{display:grid;place-items:center;min-width:25px;height:25px;border-radius:8px;background:#eef5ff;color:var(--blue);font-size:9px;font-weight:900}.tip p{margin:0;color:#74839a;font-size:10px;line-height:1.5}.model-box{padding:13px;border:1px solid #d9e9f8;border-radius:13px;background:#f7fbff}.model-box strong{color:var(--navy);font-size:11px}.model-box p{margin:6px 0 0;color:#71809a;font-size:9px;line-height:1.55}.status-dot{display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#1bbf83;box-shadow:0 0 0 4px #e8faf3}
+.preview-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 16px;border:1px solid #bfe0fa;border-radius:14px;background:#f3f9ff}.preview-summary strong{color:var(--navy);font-size:13px}.preview-summary span{color:#6d7e96;font-size:10px}.question-list{display:grid;gap:11px;margin-top:15px}.question{padding:16px;border:1px solid var(--line);border-radius:15px;background:#fff}.q-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.q-num{display:grid;place-items:center;min-width:32px;height:32px;border-radius:10px;background:#edf5ff;color:var(--blue);font-size:11px;font-weight:950}.badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.badge{padding:5px 8px;border-radius:999px;background:#f1f4f8;color:#64748b;font-size:9px;font-weight:850}.q-text{margin:12px 0 0;color:#192a45;font-size:12px;line-height:1.58;font-weight:650}.alts{display:grid;gap:6px;margin-top:10px}.alt{padding:8px 10px;border-radius:9px;background:#f7f9fc;color:#53627a;font-size:10px}.alt.correct{border:1px solid #b9ebd4;background:#edfbf5;color:#16704f}.meta{margin-top:10px;color:#8492a6;font-size:9px}
+@media(max-width:1050px){.import-grid{grid-template-columns:1fr}.side{grid-template-columns:repeat(2,1fr)}.format-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){.stepper{grid-template-columns:1fr}.format-row{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}.side{grid-template-columns:1fr}.actions{display:grid}.btn{width:100%}.hero{align-items:flex-start}.destination{width:100%;max-width:none}}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="import-shell">
+  <a class="import-back" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">← {% if prova_id %}Voltar para a avaliação{% else %}Voltar ao Banco de Questões{% endif %}</a>
+
+  <header class="hero">
+    <div>
+      <span class="hero-kicker">Importação inteligente</span>
+      <h1>Importar questões</h1>
+      <p>Envie seu arquivo, revise o conteúdo identificado e importe tudo de uma só vez.</p>
+    </div>
+    {% if prova %}
+    <div class="destination">
+      <div class="destination-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div><small>Destino da importação</small><strong>{{ prova['nome'] }} · aceita questões de vários componentes</strong></div>
+    </div>
+    {% endif %}
+  </header>
+
+  <div class="stepper">
+    <div class="step {% if not preview %}active{% else %}done{% endif %}"><div class="step-num">{% if preview %}✓{% else %}1{% endif %}</div><span>Enviar arquivo</span></div>
+    <div class="step {% if preview %}active{% endif %}"><div class="step-num">2</div><span>Revisar questões</span></div>
+    <div class="step"><div class="step-num">3</div><span>Concluir importação</span></div>
+  </div>
+
+  {% if avisos %}<div class="alerts">{% for aviso in avisos %}<div>⚠ {{ aviso }}</div>{% endfor %}</div>{% endif %}
+
+  {% if not preview %}
+  <form method="POST" enctype="multipart/form-data">
+    {% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
+    <div class="import-grid">
+      <section class="panel">
+        <div class="panel-head"><div><h2>Escolha o arquivo</h2><p>A ARK EDUS organiza as questões automaticamente antes de salvar.</p></div><span style="font-size:10px;color:#8492a6;font-weight:800">Etapa 1 de 3</span></div>
+        <div class="panel-body">
+          <div class="format-row">
+            <div class="format-pill primary"><b>Excel</b><small>.xlsx</small></div>
+            <div class="format-pill"><b>CSV</b><small>.csv</small></div>
+            <div class="format-pill"><b>Word</b><small>.docx</small></div>
+            <div class="format-pill"><b>PDF</b><small>.pdf</small></div>
+            <div class="format-pill"><b>Texto</b><small>.txt</small></div>
+          </div>
+
+          <div class="dropzone" id="dropArquivo">
+            <div>
+              <div class="upload-icon"><svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg></div>
+              <h3>Arraste seu arquivo aqui</h3>
+              <p>ou escolha um arquivo do seu computador</p>
+              <span class="browse">Selecionar arquivo</span>
+            </div>
+            <input id="arquivo" type="file" name="arquivo" accept=".xlsx,.csv,.docx,.txt,.pdf" required>
+          </div>
+          <div class="file-card" id="fileCard"><div class="file-check">✓</div><div class="file-meta"><strong id="arquivoNome"></strong><span id="arquivoTamanho">Arquivo pronto para leitura</span></div><button type="button" class="file-remove" id="removerArquivo" title="Remover">×</button></div>
+
+          <div class="form-grid">
+            <div class="field"><label>Componente curricular padrão <span style="font-weight:600;color:#8a98ac">(opcional)</span></label><input name="disciplina_padrao" value="{{ prova['disciplina'] if prova else '' }}" placeholder="Ex.: História"><small>Só será usado nas questões em que o arquivo não informar o componente curricular. O mesmo arquivo pode conter várias disciplinas.</small></div>
+            <div class="field"><label>Dificuldade padrão</label><select name="dificuldade_padrao"><option>Fácil</option><option selected>Média</option><option>Difícil</option></select></div>
+            <div class="field"><label>Etapa de ensino</label><input name="etapa_ensino" value="{{ prova['etapa'] if prova else '' }}" placeholder="Ex.: Ensino Fundamental II"></div>
+            <div class="field"><label>Ano/Série</label><input name="ano_serie" placeholder="Ex.: 8º ano"></div>
+          </div>
+
+          <div class="actions"><a class="btn btn-secondary" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn btn-primary" type="submit">Continuar para revisão <span>→</span></button></div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="side-card">
+          <div class="side-title"><span class="status-dot"></span>Como funciona</div>
+          <div class="tip"><div class="tip-num">1</div><p>Envie um arquivo com várias questões.</p></div>
+          <div class="tip"><div class="tip-num">2</div><p>A plataforma identifica enunciados, alternativas e gabaritos.</p></div>
+          <div class="tip"><div class="tip-num">3</div><p>Você revisa tudo antes de confirmar o cadastro.</p></div>
+        </div>
+        <div class="side-card">
+          <div class="side-title">Formato recomendado</div>
+          <div class="model-box"><strong>Estrutura reconhecida</strong><p><b>Tipo de questão:</b> Objetiva<br><b>Componente curricular:</b> História<br><b>Turma:</b> 8º ano B<br><b>Questão:</b> enunciado<br><b>Alternativas:</b> A) ... B) ... C) ... D) ...<br><b>Gabarito:</b> A<br><b>Nível de dificuldade:</b> Média<br><b>BNCC</b><br><b>Unidade temática:</b> ...<br><b>Objeto do conhecimento:</b> ...<br><b>Habilidade:</b> EF08HI...</p></div>
+          <div class="model-box" style="margin-top:9px"><strong>Prova interdisciplinar</strong><p>Cada questão pode informar seu próprio componente curricular. História, Geografia, Língua Portuguesa e outros componentes podem ser reconhecidos no mesmo arquivo e adicionados à mesma avaliação.</p></div>
+        </div>
+      </aside>
+    </div>
+  </form>
+
+  {% else %}
+  <section class="panel">
+    <div class="panel-head"><div><h2>Revise as questões encontradas</h2><p>Nada foi salvo ainda. Confira o conteúdo antes de concluir.</p></div><span style="font-size:10px;color:#8492a6;font-weight:800">Etapa 2 de 3</span></div>
+    <div class="panel-body">
+      <div class="preview-summary"><strong>{{ preview|length }} questão(ões) pronta(s) para importar</strong><span>{{ nome_arquivo }}</span></div>
+      <div class="question-list">
+        {% for q in preview %}
+        <article class="question">
+          <div class="q-head"><span class="q-num">{{ loop.index }}</span><div class="badges"><span class="badge">{{ q.disciplina }}</span>{% if q.turma %}<span class="badge">{{ q.turma }}</span>{% endif %}<span class="badge">{{ q.dificuldade }}</span><span class="badge">{{ q.tipo_questao|replace('_',' ')|title }}</span></div></div>
+          <div class="q-text">{{ q.enunciado }}</div>
+          {% if q.alternativas %}<div class="alts">{% for a in q.alternativas %}<div class="alt {% if a.letra in q.respostas_corretas %}correct{% endif %}"><strong>{{ a.letra }})</strong> {{ a.texto }}{% if a.letra in q.respostas_corretas %} ✓{% endif %}</div>{% endfor %}</div>{% endif %}
+          {% if q.unidade_tematica or q.objeto_conhecimento or q.habilidade_bncc %}<div class="meta"><strong>BNCC</strong>{% if q.unidade_tematica %} · Unidade temática: {{ q.unidade_tematica }}{% endif %}{% if q.objeto_conhecimento %} · Objeto do conhecimento: {{ q.objeto_conhecimento }}{% endif %}{% if q.habilidade_bncc %} · Habilidade: {{ q.habilidade_bncc }}{% endif %}</div>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      <form method="POST" action="/questoes/importar/confirmar"><input type="hidden" name="token" value="{{ token }}"><div class="actions"><a class="btn btn-secondary" href="/questoes/importar{% if prova_id %}?prova_id={{ prova_id }}{% endif %}">← Escolher outro arquivo</a><button class="btn btn-primary" type="submit">Confirmar importação de {{ preview|length }} questão(ões) <span>✓</span></button></div></form>
+    </div>
+  </section>
+  {% endif %}
+</div>
+
+<script>
+const input=document.getElementById('arquivo');
+const drop=document.getElementById('dropArquivo');
+const card=document.getElementById('fileCard');
+const nome=document.getElementById('arquivoNome');
+const tamanho=document.getElementById('arquivoTamanho');
+const remover=document.getElementById('removerArquivo');
+function formatBytes(bytes){if(!bytes)return 'Arquivo pronto para leitura';const kb=bytes/1024;return kb<1024?kb.toFixed(1)+' KB':(kb/1024).toFixed(1)+' MB'}
+function atualizar(){if(!input||!input.files||!input.files[0]){card&&card.classList.remove('show');return}const f=input.files[0];nome.textContent=f.name;tamanho.textContent=formatBytes(f.size)+' · pronto para leitura';card.classList.add('show')}
+if(input){input.addEventListener('change',atualizar)}
+if(drop){['dragenter','dragover'].forEach(e=>drop.addEventListener(e,()=>drop.classList.add('drag')));['dragleave','drop'].forEach(e=>drop.addEventListener(e,()=>drop.classList.remove('drag')))}
+if(remover){remover.addEventListener('click',()=>{input.value='';atualizar()})}
+</script>
+{% endblock %}

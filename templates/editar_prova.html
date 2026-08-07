@@ -362,6 +362,19 @@
                     <div class="editar-prova-media-card">
                         <div class="editar-prova-media-linha">
                             <div class="editar-prova-media-texto">
+                                <strong>A avaliação terá nota?</strong>
+                                <span>Desative quando a atividade não tiver valor. O campo de nota será ocultado na impressão.</span>
+                            </div>
+                            <label class="editar-prova-switch" aria-label="A avaliação terá nota">
+                                <input type="checkbox" id="temNotaProva" name="tem_nota" value="1" {% if (prova['tem_nota']|default(0)|int) == 1 %}checked{% endif %}>
+                                <span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="editar-prova-media-card">
+                        <div class="editar-prova-media-linha">
+                            <div class="editar-prova-media-texto">
                                 <strong>Definir média para aprovação</strong>
                                 <span>Quando ativa, a média será usada para classificar os resultados.</span>
                             </div>

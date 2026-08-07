@@ -347,6 +347,30 @@
     }
 
 
+.alunos-btn-importar {
+    min-height: 44px;
+    padding: 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid #123b82;
+    border-radius: 12px;
+    background: #123b82;
+    color: #ffffff !important;
+    font-size: 13px;
+    font-weight: 850;
+    text-decoration: none !important;
+    box-shadow: 0 6px 16px rgba(18, 59, 130, .18);
+}
+.alunos-btn-importar:hover,
+.alunos-btn-importar:focus {
+    background: #0d2f6c;
+    border-color: #0d2f6c;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
 /* Força texto branco no botão Excluir */
 .alunos-modal-btn-excluir,
 .alunos-modal-btn-excluir:link,
@@ -379,9 +403,14 @@
             </p>
         </div>
 
-        <a href="/" class="alunos-btn-voltar">
-            ← Voltar ao painel
-        </a>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+            <a href="{{ url_for('importar_alunos_pagina') }}" class="alunos-btn-importar">
+                <span aria-hidden="true">⇩</span> Importar alunos por PDF
+            </a>
+            <a href="/" class="alunos-btn-voltar">
+                ← Voltar ao painel
+            </a>
+        </div>
 
     </div>
 

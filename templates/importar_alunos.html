@@ -1,0 +1,154 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Importar alunos | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+    .importacao-pagina{max-width:1180px;margin:0 auto;padding:28px 20px 48px}
+    .importacao-topo{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}
+    .importacao-etiqueta{display:inline-block;margin-bottom:8px;color:#2563eb;font-size:.78rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .importacao-topo h1{margin:0;color:#123b82;font-size:clamp(1.7rem,3vw,2.35rem)}
+    .importacao-topo p{margin:8px 0 0;color:#64748b;line-height:1.55}
+    .importacao-voltar{display:inline-flex;align-items:center;min-height:42px;padding:0 15px;border:1px solid #dbe4f0;border-radius:11px;background:#fff;color:#334155;font-weight:800;text-decoration:none;white-space:nowrap}
+    .importacao-card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 12px 34px rgba(15,23,42,.07);overflow:hidden}
+    .importacao-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 24px;border-bottom:1px solid #e2e8f0}
+    .importacao-card-topo h2{margin:2px 0 5px;color:#123b82;font-size:1.25rem}
+    .importacao-card-topo p{margin:0;color:#64748b;font-size:.92rem;line-height:1.5}
+    .importacao-selo{padding:8px 12px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-weight:900;font-size:.84rem;white-space:nowrap}
+    .importacao-corpo{padding:24px}
+    .importacao-grade{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .importacao-campo{display:flex;flex-direction:column;gap:8px}
+    .importacao-campo-completo{grid-column:1/-1}
+    .importacao-campo label{color:#334155;font-size:.88rem;font-weight:850}
+    .importacao-campo select,.importacao-campo input[type=file],.importacao-tabela input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#0f172a;font:inherit}
+    .importacao-campo select,.importacao-campo input[type=file]{min-height:46px;padding:10px 12px}
+    .importacao-campo small{color:#64748b;line-height:1.45}
+    .importacao-info{margin-top:18px;padding:15px 16px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;color:#1e40af;font-size:.9rem;line-height:1.55}
+    .importacao-rodape{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #e2e8f0}
+    .importacao-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:11px;font:inherit;font-weight:850;cursor:pointer;text-decoration:none}
+    .importacao-btn-secundario{border:1px solid #cbd5e1;background:#fff;color:#475569}
+    .importacao-btn-primario{border:1px solid #1d4ed8;background:#1d4ed8;color:#fff}
+    .importacao-resumo{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+    .importacao-resumo-item{padding:11px 14px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:.87rem}
+    .importacao-resumo-item strong{display:block;margin-top:3px;color:#0f172a;font-size:1rem}
+    .importacao-tabela-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:13px}
+    .importacao-tabela{width:100%;border-collapse:collapse;min-width:760px}
+    .importacao-tabela th{padding:11px 12px;background:#f8fafc;color:#475569;text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+    .importacao-tabela td{padding:9px 12px;border-top:1px solid #eef2f7;vertical-align:middle}
+    .importacao-tabela input[type=text]{padding:8px 10px;min-height:38px}
+    .importacao-check{width:18px;height:18px;accent-color:#1d4ed8}
+    .importacao-ajuda{margin-top:15px;color:#64748b;font-size:.87rem;line-height:1.5}
+    @media(max-width:760px){.importacao-topo{flex-direction:column}.importacao-grade{grid-template-columns:1fr}.importacao-card-topo{flex-direction:column}.importacao-corpo{padding:18px}.importacao-rodape{flex-direction:column-reverse}.importacao-btn{width:100%}}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="importacao-pagina">
+    <div class="importacao-topo">
+        <div>
+            <span class="importacao-etiqueta">Gestão acadêmica</span>
+            <h1>Importar alunos por PDF</h1>
+            <p>Envie a relação da turma e cadastre matrícula e nome dos estudantes de uma só vez.</p>
+        </div>
+        <a class="importacao-voltar" href="/alunos">← Voltar para alunos</a>
+    </div>
+
+    {% if etapa == 'upload' %}
+    <section class="importacao-card">
+        <div class="importacao-card-topo">
+            <div>
+                <span class="importacao-etiqueta">Etapa 1 de 2</span>
+                <h2>Selecionar turma e arquivo</h2>
+                <p>O sistema primeiro lê o PDF e mostra uma prévia. Nenhum aluno é salvo nesta etapa.</p>
+            </div>
+            <span class="importacao-selo">Ano {{ ano_letivo_visualizado or 'ativo' }}</span>
+        </div>
+        <div class="importacao-corpo">
+            <form action="/alunos/importar/pdf" method="POST" enctype="multipart/form-data">
+                <div class="importacao-grade">
+                    <div class="importacao-campo importacao-campo-completo">
+                        <label for="turma_id">Turma de destino</label>
+                        <select id="turma_id" name="turma_id" required>
+                            <option value="">Selecione a turma</option>
+                            {% for turma in turmas %}
+                            <option value="{{ turma['id'] }}">
+                                {% if session.get('usuario_cargo') == 'Administrador Geral' %}{{ turma['nome_instituicao'] }} — {% endif %}
+                                {{ turma['nome'] }}{% if turma['ano'] %} — {{ turma['ano'] }}{% endif %}{% if turma['turno'] %} — {{ turma['turno'] }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="importacao-campo importacao-campo-completo">
+                        <label for="arquivo_pdf">Relação de alunos em PDF</label>
+                        <input id="arquivo_pdf" name="arquivo_pdf" type="file" accept="application/pdf,.pdf" required>
+                        <small>Use, de preferência, o PDF original exportado pelo sistema escolar. PDFs digitalizados como imagem podem não ter texto reconhecível.</small>
+                    </div>
+                </div>
+                {% if not turmas %}
+                <div class="importacao-info" style="border-color:#f3d88c;background:#fff8df;color:#854d0e;">
+                    <strong>Nenhuma turma disponível para importação.</strong> Cadastre uma instituição e uma turma no ano letivo ativo antes de importar os alunos.
+                </div>
+                {% else %}
+                <div class="importacao-info">
+                    A importação procura automaticamente as colunas <strong>Matrícula</strong>, <strong>Nº</strong> e <strong>Nome do Aluno</strong>, como na relação alfabética apresentada pela escola.
+                </div>
+                {% endif %}
+                <div class="importacao-rodape">
+                    <a class="importacao-btn importacao-btn-secundario" href="/alunos">Cancelar</a>
+                    <button class="importacao-btn importacao-btn-primario" type="submit" {% if not turmas %}disabled style="opacity:.55;cursor:not-allowed"{% endif %}>Ler PDF e revisar →</button>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% else %}
+    <section class="importacao-card">
+        <div class="importacao-card-topo">
+            <div>
+                <span class="importacao-etiqueta">Etapa 2 de 2</span>
+                <h2>Conferir alunos encontrados</h2>
+                <p>Revise matrícula e nome antes de confirmar. Você pode corrigir os campos ou desmarcar uma linha.</p>
+            </div>
+            <span class="importacao-selo">{{ alunos_extraidos|length }} encontrados</span>
+        </div>
+        <div class="importacao-corpo">
+            <div class="importacao-resumo">
+                <div class="importacao-resumo-item">Instituição<strong>{{ turma['nome_instituicao'] }}</strong></div>
+                <div class="importacao-resumo-item">Turma<strong>{{ turma['nome'] }}{% if turma['ano'] %} — {{ turma['ano'] }}{% endif %}</strong></div>
+                <div class="importacao-resumo-item">Ano letivo<strong>{{ turma['ano_letivo'] }}</strong></div>
+            </div>
+
+            <form action="/alunos/importar/confirmar" method="POST">
+                <input type="hidden" name="token" value="{{ token }}">
+                <div class="importacao-tabela-wrap">
+                    <table class="importacao-tabela">
+                        <thead>
+                            <tr>
+                                <th style="width:64px">Importar</th>
+                                <th style="width:70px">Nº</th>
+                                <th style="width:180px">Matrícula</th>
+                                <th>Nome do aluno</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for aluno in alunos_extraidos %}
+                            <tr>
+                                <td><input class="importacao-check" type="checkbox" name="incluir" value="{{ loop.index0 }}" checked aria-label="Importar {{ aluno['nome'] }}"></td>
+                                <td>{{ loop.index }}</td>
+                                <td><input type="text" name="matricula" value="{{ aluno['matricula'] }}" required></td>
+                                <td><input type="text" name="nome" value="{{ aluno['nome'] }}" required></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="importacao-ajuda">Se uma matrícula já estiver cadastrada na instituição, a ARK EDUS reutiliza o cadastro do estudante. Se ele já estiver matriculado no mesmo ano letivo, a linha será ignorada para evitar duplicidade.</p>
+                <div class="importacao-rodape">
+                    <a class="importacao-btn importacao-btn-secundario" href="/alunos/importar">← Escolher outro PDF</a>
+                    <button class="importacao-btn importacao-btn-primario" type="submit">Confirmar importação</button>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
