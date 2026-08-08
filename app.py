@@ -17115,146 +17115,60 @@ def professor_vinculos(professor_id):
             return redirect("/usuarios")
 
         # =================================================
-        # SALVA UM NOVO VÍNCULO
+        # SALVA VÍNCULOS EM LOTE
         # =================================================
 
         if request.method == "POST":
+            selecionados = request.form.getlist("vinculos")
+            pares = set()
+            for valor in selecionados:
+                try:
+                    turma_txt, componente_txt = valor.split(":", 1)
+                    pares.add((int(turma_txt), int(componente_txt)))
+                except (ValueError, TypeError):
+                    continue
 
-            turma_id = request.form.get(
-                "turma_id",
-                ""
-            ).strip()
-
-            componente_id = request.form.get(
-                "componente_id",
-                ""
-            ).strip()
-
-            if not turma_id:
-                flash(
-                    "Selecione uma turma.",
-                    "erro"
-                )
-                return redirect(
-                    f"/professor/{professor_id}/vinculos"
-                )
-
-            if not componente_id:
-                flash(
-                    "Selecione um componente curricular.",
-                    "erro"
-                )
-                return redirect(
-                    f"/professor/{professor_id}/vinculos"
-                )
-
-            # Confirma que a turma pertence à mesma instituição
+            # Carrega combinações válidas da instituição. O componente só pode
+            # ser vinculado a turmas da mesma etapa de ensino.
             cursor.execute("""
-                SELECT
-                    id,
-                    etapa
-                FROM turmas
-                WHERE id = ?
-                  AND escola_id = ?
-                LIMIT 1
-            """, (
-                turma_id,
-                escola_professor_id
-            ))
-
-            turma = cursor.fetchone()
-
-            if turma is None:
-                flash(
-                    "A turma selecionada não pertence à instituição do professor.",
-                    "erro"
-                )
-                return redirect(
-                    f"/professor/{professor_id}/vinculos"
-                )
-
-            # Confirma que o componente pertence à mesma instituição
-            cursor.execute("""
-                SELECT
-                    id,
-                    TRIM(nome) AS nome,
-                    TRIM(etapa_ensino) AS etapa_ensino
-                FROM componentes_curriculares
-                WHERE id = ?
-                  AND escola_id = ?
-                  AND ativo = 1
-                  AND LOWER(TRIM(etapa_ensino)) =
-                      LOWER(TRIM(?))
-                LIMIT 1
-            """, (
-                componente_id,
-                escola_professor_id,
-                turma["etapa"]
-            ))
-
-            componente = cursor.fetchone()
-
-            if componente is None:
-                flash(
-                    "O componente curricular selecionado é inválido.",
-                    "erro"
-                )
-                return redirect(
-                    f"/professor/{professor_id}/vinculos"
-                )
-
-            # Verifica vínculo duplicado pelo nome normalizado.
-            # Dessa forma, registros antigos do mesmo componente com IDs
-            # diferentes não geram vínculos visualmente repetidos.
-            cursor.execute("""
-                SELECT pv.id
-                FROM professor_vinculos AS pv
+                SELECT t.id AS turma_id, cc.id AS componente_id
+                FROM turmas AS t
                 INNER JOIN componentes_curriculares AS cc
-                    ON cc.id = pv.componente_id
-                WHERE pv.professor_id = ?
-                  AND pv.turma_id = ?
-                  AND LOWER(TRIM(cc.nome)) = LOWER(TRIM(?))
-                LIMIT 1
-            """, (
-                professor_id,
-                turma_id,
-                componente["nome"]
-            ))
+                    ON cc.escola_id = t.escola_id
+                   AND cc.ativo = 1
+                   AND LOWER(TRIM(cc.etapa_ensino)) = LOWER(TRIM(t.etapa))
+                WHERE t.escola_id = ?
+            """, (escola_professor_id,))
+            validos = {(int(r["turma_id"]), int(r["componente_id"])) for r in cursor.fetchall()}
+            pares = pares.intersection(validos)
 
-            vinculo_existente = cursor.fetchone()
+            # Sincroniza apenas os vínculos deste professor. Não altera turmas,
+            # componentes, usuários ou qualquer outro cadastro.
+            cursor.execute("SELECT turma_id, componente_id FROM professor_vinculos WHERE professor_id = ?", (professor_id,))
+            atuais = {(int(r["turma_id"]), int(r["componente_id"])) for r in cursor.fetchall()}
 
-            if vinculo_existente:
-                flash(
-                    "Esse vínculo já está cadastrado.",
-                    "erro"
-                )
-                return redirect(
-                    f"/professor/{professor_id}/vinculos"
-                )
+            adicionar = pares - atuais
+            remover = atuais - pares
 
-            cursor.execute("""
-                INSERT INTO professor_vinculos (
-                    professor_id,
-                    turma_id,
-                    componente_id
-                )
-                VALUES (?, ?, ?)
-            """, (
-                professor_id,
-                turma_id,
-                componente_id
-            ))
+            for turma_id, componente_id in adicionar:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO professor_vinculos
+                        (professor_id, turma_id, componente_id)
+                    VALUES (?, ?, ?)
+                """, (professor_id, turma_id, componente_id))
+
+            for turma_id, componente_id in remover:
+                cursor.execute("""
+                    DELETE FROM professor_vinculos
+                    WHERE professor_id = ? AND turma_id = ? AND componente_id = ?
+                """, (professor_id, turma_id, componente_id))
 
             banco.commit()
-
             flash(
-                "Vínculo cadastrado com sucesso.",
+                f"Vínculos atualizados com sucesso: {len(adicionar)} adicionado(s) e {len(remover)} removido(s).",
                 "success"
             )
-
-            return redirect(
-                f"/professor/{professor_id}/vinculos"
-            )
+            return redirect(f"/professor/{professor_id}/vinculos")
 
         # =================================================
         # LISTA AS TURMAS DA INSTITUIÇÃO
@@ -17281,10 +17195,15 @@ def professor_vinculos(professor_id):
         turmas = cursor.fetchall()
 
         # =================================================
-        # COMPONENTES CARREGADOS APÓS SELECIONAR A TURMA
+        # COMPONENTES DISPONÍVEIS POR ETAPA
         # =================================================
-
-        componentes = []
+        cursor.execute("""
+            SELECT id, TRIM(nome) AS nome, TRIM(etapa_ensino) AS etapa_ensino
+            FROM componentes_curriculares
+            WHERE escola_id = ? AND ativo = 1
+            ORDER BY etapa_ensino COLLATE NOCASE, nome COLLATE NOCASE
+        """, (escola_professor_id,))
+        componentes = cursor.fetchall()
 
         # =================================================
         # LISTA OS VÍNCULOS DO PROFESSOR
