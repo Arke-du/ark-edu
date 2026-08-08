@@ -249,14 +249,38 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
     timer = setTimeout(paginate, 40);
   }
 
-  window.addEventListener('load', function(){
+  function aguardarImagensERepaginar(){
+    const imagens = Array.from(source.querySelectorAll('img'));
+    if(!imagens.length){ paginate(); return; }
+    let pendentes = 0;
+    imagens.forEach(img => {
+      if(!img.complete){
+        pendentes++;
+        const terminou = () => {
+          pendentes--;
+          if(pendentes <= 0) paginate();
+        };
+        img.addEventListener('load', terminou, {once:true});
+        img.addEventListener('error', terminou, {once:true});
+      }
+    });
     paginate();
+    if(pendentes === 0) requestAnimationFrame(paginate);
+  }
+
+  window.addEventListener('load', function(){
+    aguardarImagensERepaginar();
     if(document.fonts && document.fonts.ready){
-      document.fonts.ready.then(paginate);
+      document.fonts.ready.then(aguardarImagensERepaginar);
     }
   });
+  /* Imagens inseridas no enunciado/alternativas podem terminar de carregar depois
+     da primeira medição. Sempre repagina quando isso acontecer. */
+  source.addEventListener('load', function(e){
+    if(e.target && e.target.tagName === 'IMG') repaginate();
+  }, true);
   window.addEventListener('resize', repaginate);
-  window.addEventListener('beforeprint', paginate);
+  window.addEventListener('beforeprint', aguardarImagensERepaginar);
 })();
 </script>
 </body>
