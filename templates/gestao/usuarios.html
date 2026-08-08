@@ -7,6 +7,30 @@
 
 <style>
 /* =====================================================
+   FILTROS DE USUÁRIOS
+===================================================== */
+.filtros-usuarios {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 22px;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+.filtro-grupo label { display:block; margin-bottom:6px; font-size:12px; font-weight:800; color:#334155; }
+.filtro-grupo input, .filtro-grupo select { width:100%; min-height:42px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:10px; background:#fff; padding:0 12px; font:inherit; color:#0f172a; }
+.filtro-grupo input:focus, .filtro-grupo select:focus { outline:2px solid rgba(14,165,233,.18); border-color:#0ea5e9; }
+.btn-limpar-filtros { min-height:42px; padding:0 16px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#334155; font:inherit; font-weight:800; cursor:pointer; }
+.btn-limpar-filtros:hover { background:#f1f5f9; }
+.resultado-filtros { margin:-8px 0 14px; color:#64748b; font-size:13px; }
+.sem-resultados-filtro { display:none; padding:28px 12px; text-align:center; color:#64748b; }
+@media (max-width: 1100px) { .filtros-usuarios { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .filtros-usuarios { grid-template-columns: 1fr; } .btn-limpar-filtros { width:100%; } }
+
+/* =====================================================
    MODAL DE USUÁRIO — PADRÃO ARK EDU
 ===================================================== */
 
@@ -291,6 +315,35 @@ body.modal-aberto {
 
     {% if usuarios %}
 
+    <div class="filtros-usuarios" aria-label="Filtros de usuários">
+        <div class="filtro-grupo">
+            <label for="filtroBuscaUsuario">Nome ou e-mail</label>
+            <input id="filtroBuscaUsuario" type="search" placeholder="Buscar usuário..." autocomplete="off">
+        </div>
+        <div class="filtro-grupo">
+            <label for="filtroCargoUsuario">Cargo</label>
+            <select id="filtroCargoUsuario">
+                <option value="">Todos os cargos</option>
+            </select>
+        </div>
+        <div class="filtro-grupo">
+            <label for="filtroInstituicaoUsuario">Instituição</label>
+            <select id="filtroInstituicaoUsuario">
+                <option value="">Todas as instituições</option>
+            </select>
+        </div>
+        <div class="filtro-grupo">
+            <label for="filtroStatusUsuario">Status</label>
+            <select id="filtroStatusUsuario">
+                <option value="">Todos</option>
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+            </select>
+        </div>
+        <button type="button" class="btn-limpar-filtros" id="limparFiltrosUsuario">Limpar filtros</button>
+    </div>
+    <div class="resultado-filtros" id="resultadoFiltrosUsuario" aria-live="polite"></div>
+
     <div class="tabela-container">
 
         <table class="tabela">
@@ -310,7 +363,7 @@ body.modal-aberto {
 
                 {% for usuario in usuarios %}
 
-                <tr>
+                <tr class="linha-usuario" data-nome="{{ usuario['nome']|lower }}" data-email="{{ (usuario['email'] or '')|lower }}" data-cargo="{{ (usuario['cargo'] or 'Não definido')|lower }}" data-instituicao="{{ (usuario['nome_instituicao'] or 'Administração Geral')|lower }}" data-status="{{ 'ativo' if usuario['ativo'] == 1 else 'inativo' }}">
 
                     <td>
                         <strong>{{ usuario["nome"] }}</strong>
@@ -439,6 +492,7 @@ body.modal-aberto {
             </tbody>
 
         </table>
+        <div class="sem-resultados-filtro" id="semResultadosFiltro">Nenhum usuário encontrado com os filtros selecionados.</div>
 
     </div>
 
@@ -739,6 +793,43 @@ document.addEventListener("DOMContentLoaded", function () {
         modal.classList.remove("aberto");
         modal.setAttribute("aria-hidden", "true");
     }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const busca = document.getElementById("filtroBuscaUsuario");
+    const cargo = document.getElementById("filtroCargoUsuario");
+    const instituicao = document.getElementById("filtroInstituicaoUsuario");
+    const status = document.getElementById("filtroStatusUsuario");
+    const limpar = document.getElementById("limparFiltrosUsuario");
+    const linhas = Array.from(document.querySelectorAll(".linha-usuario"));
+    const resultado = document.getElementById("resultadoFiltrosUsuario");
+    const vazio = document.getElementById("semResultadosFiltro");
+    if (!busca || !linhas.length) return;
+
+    const normalizar = (v) => (v || "").toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const preencher = (select, campo) => {
+        const valores = [...new Set(linhas.map(l => l.dataset[campo]).filter(Boolean))].sort((a,b) => a.localeCompare(b, "pt-BR"));
+        valores.forEach(v => { const o=document.createElement("option"); o.value=v; o.textContent=v.replace(/(^|\s)\S/g, c=>c.toUpperCase()); select.appendChild(o); });
+    };
+    preencher(cargo, "cargo");
+    preencher(instituicao, "instituicao");
+
+    function aplicar() {
+        const q=normalizar(busca.value), c=normalizar(cargo.value), i=normalizar(instituicao.value), st=status.value;
+        let visiveis=0;
+        linhas.forEach(l => {
+            const texto=normalizar((l.dataset.nome||"")+" "+(l.dataset.email||""));
+            const ok=(!q || texto.includes(q)) && (!c || normalizar(l.dataset.cargo)===c) && (!i || normalizar(l.dataset.instituicao)===i) && (!st || l.dataset.status===st);
+            l.style.display=ok ? "" : "none"; if(ok) visiveis++;
+        });
+        resultado.textContent = visiveis + (visiveis === 1 ? " usuário encontrado" : " usuários encontrados");
+        vazio.style.display = visiveis ? "none" : "block";
+    }
+    [busca,cargo,instituicao,status].forEach(el => el.addEventListener(el===busca ? "input" : "change", aplicar));
+    limpar.addEventListener("click", () => { busca.value=""; cargo.value=""; instituicao.value=""; status.value=""; aplicar(); busca.focus(); });
+    aplicar();
 });
 </script>
 
