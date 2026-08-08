@@ -12255,7 +12255,7 @@ def resultados(prova_id):
                 e.cidade,
                 e.estado,
                 COALESCE(al.ano, p.ano_letivo_id) AS ano_letivo,
-                COALESCE(u.nome, prof.nome, '—') AS professor_nome
+                COALESCE(prof.nome, u.nome, '—') AS professor_nome
             FROM provas p
             LEFT JOIN turmas t ON t.id = p.turma_id
             LEFT JOIN escolas e ON e.id = p.escola_id

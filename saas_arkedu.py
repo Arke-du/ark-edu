@@ -1,4 +1,4 @@
-"""Módulo SaaS da ARK EDUS.
+git status"""Módulo SaaS da ARK EDUS.
 
 Adiciona cadastro de professor autônomo, planos, assinaturas e limites sem
 alterar o fluxo das instituições já existentes.
