@@ -5,6 +5,9 @@
 {% block conteudo %}
 
 <style>
+
+.filtros-instituicoes{margin:0 0 22px;padding:18px;border:1px solid #dbe7f3;border-radius:16px;background:#f8fbff}.filtros-instituicoes-grid{display:grid;grid-template-columns:1.5fr 1fr 1.2fr 1fr 1fr auto;gap:12px;align-items:end}.filtros-instituicoes label{display:block;margin-bottom:6px;color:#334155;font-size:12px;font-weight:800}.filtros-instituicoes input,.filtros-instituicoes select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font:inherit}.filtros-instituicoes button{min-height:42px;padding:0 15px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#123b82;font-weight:800;cursor:pointer}.filtros-instituicoes-resultado{margin-top:10px;color:#64748b;font-size:13px}@media(max-width:1100px){.filtros-instituicoes-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.filtros-instituicoes-grid{grid-template-columns:1fr}}
+
 /* =====================================================
    MODAL DE INSTITUIÇÃO — PADRÃO ARK EDU
 ===================================================== */
@@ -286,6 +289,16 @@ body.modal-aberto {
 
     {% if escolas %}
 
+    <div class="filtros-instituicoes">
+      <div class="filtros-instituicoes-grid">
+        <div><label for="filtroInstNome">Instituição</label><input id="filtroInstNome" type="search" placeholder="Nome da instituição"></div>
+        <div><label for="filtroInstInep">Código INEP</label><input id="filtroInstInep" type="search" placeholder="Código INEP"></div>
+        <div><label for="filtroInstCidade">Cidade/UF</label><input id="filtroInstCidade" type="search" placeholder="Cidade ou UF"></div>
+        <div><label for="filtroInstAno">Ano letivo</label><select id="filtroInstAno"><option value="">Todos</option></select></div>
+        <div><label for="filtroInstStatus">Status</label><select id="filtroInstStatus"><option value="">Todos</option><option value="ativa">Ativa</option><option value="inativa">Inativa</option></select></div>
+        <button type="button" id="limparFiltrosInstituicoes">Limpar filtros</button>
+      </div><div id="resultadoFiltrosInstituicoes" class="filtros-instituicoes-resultado"></div>
+    </div>
     <div class="tabela-container">
         <table class="tabela">
             <thead>
@@ -302,7 +315,7 @@ body.modal-aberto {
 
             <tbody>
                 {% for escola in escolas %}
-                <tr>
+                <tr class="linha-instituicao" data-nome="{{ (escola['nome_instituicao'] or '')|lower|e }}" data-inep="{{ (escola['codigo_inep'] or '')|string|lower|e }}" data-cidade="{{ ((escola['cidade'] or '') ~ ' ' ~ (escola['estado'] or ''))|lower|e }}" data-ano="{{ (escola['ano_letivo_ativo'] or escola['ano_letivo'] or '')|string|lower|e }}" data-status="{{ 'ativa' if escola['status'] == 1 else 'inativa' }}">
                     <td>
                         <strong>{{ escola["nome_instituicao"] }}</strong><br>
                         <small>{{ escola["email"] or "" }}</small>
@@ -648,7 +661,11 @@ document.addEventListener("keydown", function(event) {
     }
 });
 
+
+function configurarFiltrosInstituicoes(){const linhas=[...document.querySelectorAll('.linha-instituicao')];if(!linhas.length)return;const nome=document.getElementById('filtroInstNome'),inep=document.getElementById('filtroInstInep'),cidade=document.getElementById('filtroInstCidade'),ano=document.getElementById('filtroInstAno'),status=document.getElementById('filtroInstStatus'),res=document.getElementById('resultadoFiltrosInstituicoes');[...new Set(linhas.map(l=>l.dataset.ano).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;ano.appendChild(o)});const aplicar=()=>{let n=0;linhas.forEach(l=>{const ok=(!nome.value.trim()||l.dataset.nome.includes(nome.value.trim().toLowerCase()))&&(!inep.value.trim()||l.dataset.inep.includes(inep.value.trim().toLowerCase()))&&(!cidade.value.trim()||l.dataset.cidade.includes(cidade.value.trim().toLowerCase()))&&(!ano.value||l.dataset.ano===ano.value)&&(!status.value||l.dataset.status===status.value);l.style.display=ok?'':'none';if(ok)n++});res.textContent=`${n} instituição${n===1?'':'ões'} encontrada${n===1?'':'s'}.`};[nome,inep,cidade].forEach(e=>e.addEventListener('input',aplicar));[ano,status].forEach(e=>e.addEventListener('change',aplicar));document.getElementById('limparFiltrosInstituicoes').addEventListener('click',()=>{[nome,inep,cidade,ano,status].forEach(e=>e.value='');aplicar()});aplicar()}
+
 document.addEventListener("DOMContentLoaded", function() {
+    configurarFiltrosInstituicoes();
     const modal = document.getElementById("modalConfirmacao");
 
     modal.classList.remove("aberto");

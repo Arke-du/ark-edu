@@ -73,6 +73,16 @@
     }
 
 
+
+    .filtros-listagem { margin: 0 0 22px; padding: 18px; border: 1px solid #dbe7f3; border-radius: 16px; background: #f8fbff; }
+    .filtros-grid { display:grid; grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1fr auto; gap:12px; align-items:end; }
+    .filtro-campo label { display:block; margin-bottom:6px; color:#334155; font-size:12px; font-weight:800; }
+    .filtro-campo input,.filtro-campo select { width:100%; min-height:42px; padding:9px 11px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#0f172a; font:inherit; }
+    .btn-limpar-filtros { min-height:42px; padding:0 15px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#123b82; font-weight:800; cursor:pointer; }
+    .filtros-resultado { margin-top:10px; color:#64748b; font-size:13px; }
+    @media(max-width:1100px){.filtros-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:650px){.filtros-grid{grid-template-columns:1fr}}
+
     /* =====================================================
        MODAL DE EXCLUSÃO — PADRÃO ARK EDU
     ===================================================== */
@@ -696,6 +706,18 @@
 
         {% if alunos %}
 
+            <div class="filtros-listagem" aria-label="Filtros de alunos">
+                <div class="filtros-grid">
+                    <div class="filtro-campo"><label for="filtroAlunoBusca">Nome ou matrícula</label><input id="filtroAlunoBusca" type="search" placeholder="Digite nome ou matrícula"></div>
+                    {% if session.get("usuario_cargo") == "Administrador Geral" %}<div class="filtro-campo"><label for="filtroAlunoInstituicao">Instituição</label><select id="filtroAlunoInstituicao"><option value="">Todas</option></select></div>{% endif %}
+                    <div class="filtro-campo"><label for="filtroAlunoTurma">Turma</label><select id="filtroAlunoTurma"><option value="">Todas</option></select></div>
+                    <div class="filtro-campo"><label for="filtroAlunoTurno">Turno</label><select id="filtroAlunoTurno"><option value="">Todos</option></select></div>
+                    <div class="filtro-campo"><label for="filtroAlunoAno">Ano letivo</label><select id="filtroAlunoAno"><option value="">Todos</option></select></div>
+                    <button type="button" class="btn-limpar-filtros" id="limparFiltrosAlunos">Limpar filtros</button>
+                </div>
+                <div class="filtros-resultado" id="resultadoFiltrosAlunos"></div>
+            </div>
+
             <div class="alunos-tabela-container">
 
                 <table class="alunos-tabela">
@@ -720,7 +742,7 @@
 
                         {% for aluno in alunos %}
 
-                            <tr>
+                            <tr class="linha-aluno" data-nome="{{ aluno['nome']|lower|e }}" data-matricula="{{ (aluno['matricula'] or '')|lower|e }}" data-turma="{{ (aluno['nome_turma'] or '')|lower|e }}" data-turno="{{ (aluno['turno'] or '')|lower|e }}" data-instituicao="{{ (aluno['nome_instituicao'] or '')|lower|e }}" data-ano="{{ (aluno['ano_letivo'] or ano_contexto or '')|string|lower|e }}">
 
                                 <td>
                                     <div class="alunos-identificacao">
@@ -1203,7 +1225,19 @@
         }
     }
 
+
+    function configurarFiltrosAlunos() {
+        const linhas=[...document.querySelectorAll('.linha-aluno')]; if(!linhas.length) return;
+        const busca=document.getElementById('filtroAlunoBusca'), inst=document.getElementById('filtroAlunoInstituicao'), turma=document.getElementById('filtroAlunoTurma'), turno=document.getElementById('filtroAlunoTurno'), ano=document.getElementById('filtroAlunoAno'), resultado=document.getElementById('resultadoFiltrosAlunos');
+        const preencher=(el,chave)=>{if(!el)return; [...new Set(linhas.map(l=>l.dataset[chave]).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v.replace(/(^|\s)\S/g,m=>m.toUpperCase());el.appendChild(o);});};
+        preencher(inst,'instituicao'); preencher(turma,'turma'); preencher(turno,'turno'); preencher(ano,'ano');
+        const aplicar=()=>{const q=(busca?.value||'').trim().toLowerCase(); let n=0; linhas.forEach(l=>{const ok=(!q||(l.dataset.nome+' '+l.dataset.matricula).includes(q))&&(!inst||!inst.value||l.dataset.instituicao===inst.value)&&(!turma.value||l.dataset.turma===turma.value)&&(!turno.value||l.dataset.turno===turno.value)&&(!ano.value||l.dataset.ano===ano.value); l.style.display=ok?'':'none'; if(ok)n++;}); if(resultado)resultado.textContent=`${n} aluno${n===1?'':'s'} encontrado${n===1?'':'s'}.`;};
+        [busca,inst,turma,turno,ano].filter(Boolean).forEach(e=>e.addEventListener(e.tagName==='INPUT'?'input':'change',aplicar));
+        document.getElementById('limparFiltrosAlunos')?.addEventListener('click',()=>{[busca,inst,turma,turno,ano].filter(Boolean).forEach(e=>e.value='');aplicar();}); aplicar();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
+        configurarFiltrosAlunos();
         configurarMatricula();
         configurarFiltroInstituicao();
         configurarModalExcluirAluno();
