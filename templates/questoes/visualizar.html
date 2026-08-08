@@ -446,7 +446,7 @@
 
                 {% if questao['imagem'] %}
                 <img
-                    src="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                    src="{{ upload_url(questao['imagem']) }}"
                     alt="Imagem do enunciado"
                     class="vq-imagem-principal"
                 >

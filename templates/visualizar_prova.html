@@ -2549,7 +2549,7 @@ img {
                             <div class="question-image-area">
                                 <img
                                     class="question-image"
-                                    src="/static/uploads/{{ questao['imagem'] }}"
+                                    src="{{ upload_url(questao['imagem']) }}"
                                     alt="Imagem da questão {{ loop.index }}"
                                 >
                             </div>
@@ -2564,31 +2564,17 @@ img {
                             </div>
                         {% else %}
                         <div class="alternatives">
-
+                            {% for alternativa in questao.get('alternativas_render', []) %}
                             <div class="alternative">
-                                <div class="alternative-letter">A</div>
-
-                                <div class="alternative-text">{{ questao['alternativa_a'] }}</div>
+                                <div class="alternative-letter">{{ alternativa.get('letra') or loop.index }}</div>
+                                <div class="alternative-text">
+                                    {% if alternativa.get('texto') %}{{ alternativa.get('texto') }}{% endif %}
+                                    {% if alternativa.get('imagem') %}
+                                    <img class="question-image" style="margin:10px 0 0;max-height:220px" src="{{ upload_url(alternativa.get('imagem')) }}" alt="Imagem da alternativa {{ alternativa.get('letra') }}">
+                                    {% endif %}
+                                </div>
                             </div>
-
-                            <div class="alternative">
-                                <div class="alternative-letter">B</div>
-
-                                <div class="alternative-text">{{ questao['alternativa_b'] }}</div>
-                            </div>
-
-                            <div class="alternative">
-                                <div class="alternative-letter">C</div>
-
-                                <div class="alternative-text">{{ questao['alternativa_c'] }}</div>
-                            </div>
-
-                            <div class="alternative">
-                                <div class="alternative-letter">D</div>
-
-                                <div class="alternative-text">{{ questao['alternativa_d'] }}</div>
-                            </div>
-
+                            {% endfor %}
                         </div>
                         {% endif %}
 

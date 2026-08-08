@@ -10,7 +10,7 @@
 .stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.step{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}.step-num{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#eef3fa;color:#7e8ba0;font-size:11px;font-weight:900}.step span{color:#77859c;font-size:11px;font-weight:800}.step.active{border-color:#b9d8ff;background:#f4f9ff}.step.active .step-num{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff}.step.active span{color:var(--navy)}.step.done .step-num{background:#e9fbf4;color:#11835a}
 .alerts{display:grid;gap:7px;padding:14px 16px;border:1px solid #fde6a7;border-radius:14px;background:#fffaf0;color:#8a5b00;font-size:12px}
 .import-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}.panel{border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 14px 42px rgba(17,44,83,.07);overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 24px;border-bottom:1px solid var(--line)}.panel-head h2{margin:0;color:var(--ink);font-size:18px;font-weight:900}.panel-head p{margin:5px 0 0;color:var(--muted);font-size:12px}.panel-body{padding:24px}
-.format-row{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:18px}.format-pill{display:grid;place-items:center;gap:5px;min-height:62px;padding:8px;border:1px solid var(--line);border-radius:13px;background:#fbfcfe;text-align:center}.format-pill b{color:var(--navy);font-size:11px}.format-pill small{color:#99a4b5;font-size:9px}.format-pill.primary{border-color:#bddfff;background:#f1f8ff}
+.format-row{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:18px}.format-pill{display:grid;place-items:center;gap:5px;min-height:62px;padding:8px;border:1px solid var(--line);border-radius:13px;background:#fbfcfe;text-align:center}.format-pill b{color:var(--navy);font-size:11px}.format-pill small{color:#99a4b5;font-size:9px}.format-pill.primary{border-color:#bddfff;background:#f1f8ff}
 .dropzone{position:relative;display:grid;place-items:center;min-height:230px;padding:30px;border:2px dashed #c7d6e8;border-radius:18px;background:radial-gradient(circle at 50% 0,#f3faff 0,#fbfdff 55%,#f8fbfe 100%);text-align:center;transition:.2s ease}.dropzone.drag,.dropzone:hover{border-color:#55a3ee;background:#f1f8ff;transform:translateY(-1px)}.upload-icon{display:grid;place-items:center;width:62px;height:62px;margin:0 auto 14px;border-radius:18px;background:linear-gradient(135deg,#e6f5ff,#ecf0ff);color:var(--blue);box-shadow:0 8px 22px rgba(20,87,199,.12)}.dropzone h3{margin:0;color:var(--ink);font-size:16px;font-weight:900}.dropzone p{margin:7px 0 0;color:var(--muted);font-size:12px}.browse{display:inline-flex;margin-top:14px;padding:9px 14px;border:1px solid #bcd6f6;border-radius:10px;background:#fff;color:var(--blue);font-size:11px;font-weight:900}.dropzone input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .file-card{display:none;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #bcebd9;border-radius:14px;background:#f1fcf7}.file-card.show{display:flex}.file-check{display:grid;place-items:center;min-width:36px;height:36px;border-radius:10px;background:#ddf8ec;color:var(--green)}.file-meta{min-width:0;flex:1}.file-meta strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#164f3b;font-size:12px}.file-meta span{color:#6b8b80;font-size:10px}.file-remove{border:0;background:transparent;color:#79928a;font-size:18px;cursor:pointer}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}.field{display:grid;gap:7px}.field label{color:#344563;font-size:11px;font-weight:900}.field input,.field select{width:100%;height:44px;padding:0 12px;border:1px solid #dce5f1;border-radius:11px;background:#fff;color:#132442;font:inherit;font-size:12px;outline:none;box-sizing:border-box}.field input:focus,.field select:focus{border-color:#73aef2;box-shadow:0 0 0 3px rgba(73,143,226,.10)}.field small{color:#98a4b7;font-size:9px}
@@ -63,16 +63,17 @@
             <div class="format-pill"><b>Word</b><small>.docx</small></div>
             <div class="format-pill"><b>PDF</b><small>.pdf</small></div>
             <div class="format-pill"><b>Texto</b><small>.txt</small></div>
+            <div class="format-pill primary"><b>Foto/Print ✨</b><small>.png .jpg</small></div>
           </div>
 
           <div class="dropzone" id="dropArquivo">
             <div>
               <div class="upload-icon"><svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg></div>
               <h3>Arraste seu arquivo aqui</h3>
-              <p>ou escolha um arquivo do seu computador</p>
+              <p>ou escolha um arquivo do seu computador — inclusive print/foto de questão</p>
               <span class="browse">Selecionar arquivo</span>
             </div>
-            <input id="arquivo" type="file" name="arquivo" accept=".xlsx,.csv,.docx,.txt,.pdf" required>
+            <input id="arquivo" type="file" name="arquivo" accept=".xlsx,.csv,.docx,.txt,.pdf,.png,.jpg,.jpeg,.webp" required>
           </div>
           <div class="file-card" id="fileCard"><div class="file-check">✓</div><div class="file-meta"><strong id="arquivoNome"></strong><span id="arquivoTamanho">Arquivo pronto para leitura</span></div><button type="button" class="file-remove" id="removerArquivo" title="Remover">×</button></div>
 
@@ -90,8 +91,8 @@
       <aside class="side">
         <div class="side-card">
           <div class="side-title"><span class="status-dot"></span>Como funciona</div>
-          <div class="tip"><div class="tip-num">1</div><p>Envie um arquivo com várias questões.</p></div>
-          <div class="tip"><div class="tip-num">2</div><p>A plataforma identifica enunciados, alternativas e gabaritos.</p></div>
+          <div class="tip"><div class="tip-num">1</div><p>Envie arquivo, print ou foto de uma questão do livro.</p></div>
+          <div class="tip"><div class="tip-num">2</div><p>Em fotos, a IA identifica enunciado, alternativas e separa a figura da questão quando houver.</p></div>
           <div class="tip"><div class="tip-num">3</div><p>Você revisa tudo antes de confirmar o cadastro.</p></div>
         </div>
         <div class="side-card">
@@ -113,6 +114,8 @@
         <article class="question">
           <div class="q-head"><span class="q-num">{{ loop.index }}</span><div class="badges"><span class="badge">{{ q.disciplina }}</span>{% if q.turma %}<span class="badge">{{ q.turma }}</span>{% endif %}<span class="badge">{{ q.dificuldade }}</span><span class="badge">{{ q.tipo_questao|replace('_',' ')|title }}</span></div></div>
           <div class="q-text">{{ q.enunciado }}</div>
+          {% if q.imagem %}<div style="margin-top:10px"><img src="{{ upload_url(q.imagem) }}" alt="Figura reconhecida da questão" style="max-width:420px;max-height:260px;border-radius:10px;border:1px solid #e4eaf2;object-fit:contain"></div>{% endif %}
+          {% if q.gabarito_confianca == 'nao_visivel' %}<div class="meta" style="color:#a16400"><strong>⚠ Gabarito não visível:</strong> revise a questão depois da importação antes de aplicá-la.</div>{% endif %}
           {% if q.alternativas %}<div class="alts">{% for a in q.alternativas %}<div class="alt {% if a.letra in q.respostas_corretas %}correct{% endif %}"><strong>{{ a.letra }})</strong> {{ a.texto }}{% if a.letra in q.respostas_corretas %} ✓{% endif %}</div>{% endfor %}</div>{% endif %}
           {% if q.unidade_tematica or q.objeto_conhecimento or q.habilidade_bncc %}<div class="meta"><strong>BNCC</strong>{% if q.unidade_tematica %} · Unidade temática: {{ q.unidade_tematica }}{% endif %}{% if q.objeto_conhecimento %} · Objeto do conhecimento: {{ q.objeto_conhecimento }}{% endif %}{% if q.habilidade_bncc %} · Habilidade: {{ q.habilidade_bncc }}{% endif %}</div>{% endif %}
         </article>

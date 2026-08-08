@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 import qrcode
 from PIL import Image
-from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for, send_file, abort
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for, send_file, send_from_directory, abort
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -149,6 +149,32 @@ app.config.update(
 )
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+def _nome_upload(valor):
+    """Normaliza referências antigas e novas sem alterar o valor salvo no banco."""
+    valor = (valor or "").replace("\\", "/").strip()
+    if not valor:
+        return ""
+    if valor.startswith("/static/uploads/"):
+        return valor[len("/static/uploads/"):]
+    if valor.startswith("static/uploads/"):
+        return valor[len("static/uploads/"):]
+    if valor.startswith("/uploads/"):
+        return valor[len("/uploads/"):]
+    if valor.startswith("uploads/"):
+        return valor[len("uploads/"):]
+    return valor.lstrip("/")
+
+@app.route("/uploads/<path:nome_arquivo>")
+def servir_upload(nome_arquivo):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], nome_arquivo)
+
+@app.context_processor
+def disponibilizar_url_upload():
+    def upload_url(valor):
+        nome = _nome_upload(valor)
+        return url_for("servir_upload", nome_arquivo=nome) if nome else ""
+    return {"upload_url": upload_url}
 
 mail = Mail(app)
 
@@ -8163,19 +8189,57 @@ def editar_questao(questao_id):
                 + (f"?prova_id={prova_id}" if prova_id else "")
             )
 
+        extensoes_permitidas = {".png", ".jpg", ".jpeg", ".webp"}
+
+        def salvar_imagem_edicao(arquivo, prefixo):
+            if not arquivo or not arquivo.filename:
+                return ""
+            nome_seguro = secure_filename(arquivo.filename)
+            extensao = os.path.splitext(nome_seguro)[1].lower()
+            if extensao not in extensoes_permitidas:
+                raise ValueError("Envie apenas imagens PNG, JPG, JPEG ou WEBP.")
+            nome_arquivo = f"{prefixo}_{uuid.uuid4().hex}{extensao}"
+            arquivo.save(os.path.join(app.config["UPLOAD_FOLDER"], nome_arquivo))
+            return nome_arquivo
+
+        imagem_questao = questao["imagem"] or ""
+        if request.form.get("remover_imagem") == "1":
+            imagem_questao = ""
+        try:
+            nova_imagem = salvar_imagem_edicao(request.files.get("imagem"), "questao")
+            if nova_imagem:
+                imagem_questao = nova_imagem
+        except ValueError as erro:
+            flash(str(erro), "erro")
+            return redirect(f"/questoes/{questao_id}/editar" + (f"?prova_id={prova_id}" if prova_id else ""))
+
         alternativas = []
         respostas_corretas = []
 
         if tipo_questao in {"multipla_escolha", "multiplas_respostas"}:
             textos = request.form.getlist("alternativas[]")
+            imagens_novas = request.files.getlist("imagens_alternativas[]")
+            imagens_atuais = request.form.getlist("imagens_atuais[]")
+            remover_imagens = set(request.form.getlist("remover_imagens[]"))
             corretas = set(request.form.getlist("corretas[]"))
 
             for indice, texto in enumerate(textos):
                 texto = (texto or "").strip()
-                if not texto:
+                imagem_alt = imagens_atuais[indice] if indice < len(imagens_atuais) else ""
+                if str(indice) in remover_imagens:
+                    imagem_alt = ""
+                arquivo = imagens_novas[indice] if indice < len(imagens_novas) else None
+                try:
+                    nova_alt = salvar_imagem_edicao(arquivo, "alternativa")
+                    if nova_alt:
+                        imagem_alt = nova_alt
+                except ValueError as erro:
+                    flash(f"Alternativa {indice + 1}: {erro}", "erro")
+                    return redirect(f"/questoes/{questao_id}/editar" + (f"?prova_id={prova_id}" if prova_id else ""))
+                if not texto and not imagem_alt:
                     continue
                 letra = chr(65 + len(alternativas))
-                alternativas.append({"letra": letra, "texto": texto, "imagem": ""})
+                alternativas.append({"letra": letra, "texto": texto, "imagem": imagem_alt})
                 if str(indice) in corretas:
                     respostas_corretas.append(letra)
 
@@ -8254,7 +8318,7 @@ def editar_questao(questao_id):
         """, (
             disciplina, etapa_ensino, ano_serie, assunto,
             questao["assunto_temporario"], questao["subassunto"],
-            tipo_questao, enunciado, questao["enunciado_html"], questao["imagem"],
+            tipo_questao, enunciado, questao["enunciado_html"], imagem_questao,
             textos_legados[0], textos_legados[1],
             textos_legados[2], textos_legados[3],
             correta_legada,
@@ -8660,6 +8724,175 @@ def _questoes_texto_importacao(texto, defaults):
         })
     return resultado
 
+
+def _extrair_texto_resposta_openai(payload):
+    """Obtém o texto final da Responses API sem depender do SDK."""
+    if isinstance(payload, dict) and isinstance(payload.get("output_text"), str):
+        return payload["output_text"].strip()
+    partes = []
+    for item in (payload or {}).get("output", []) if isinstance(payload, dict) else []:
+        for conteudo in item.get("content", []) if isinstance(item, dict) else []:
+            if not isinstance(conteudo, dict):
+                continue
+            if conteudo.get("type") in {"output_text", "text"} and conteudo.get("text"):
+                partes.append(str(conteudo["text"]))
+    return "\n".join(partes).strip()
+
+
+def _salvar_recorte_figura_importacao(caminho_imagem, caixa):
+    """Recorta apenas a figura/ilustração da questão, evitando duplicar o print inteiro."""
+    if not isinstance(caixa, dict):
+        return ""
+    try:
+        x1 = max(0.0, min(1.0, float(caixa.get("x1", 0))))
+        y1 = max(0.0, min(1.0, float(caixa.get("y1", 0))))
+        x2 = max(0.0, min(1.0, float(caixa.get("x2", 0))))
+        y2 = max(0.0, min(1.0, float(caixa.get("y2", 0))))
+        if x2 <= x1 or y2 <= y1 or (x2-x1) < .08 or (y2-y1) < .05:
+            return ""
+        with Image.open(caminho_imagem) as img:
+            img = img.convert("RGB")
+            w, h = img.size
+            margem_x = int(w * .01)
+            margem_y = int(h * .01)
+            box = (
+                max(0, int(x1*w)-margem_x), max(0, int(y1*h)-margem_y),
+                min(w, int(x2*w)+margem_x), min(h, int(y2*h)+margem_y),
+            )
+            recorte = img.crop(box)
+            nome = f"questao_ia_{uuid.uuid4().hex}.jpg"
+            destino = os.path.join(app.config["UPLOAD_FOLDER"], nome)
+            recorte.save(destino, "JPEG", quality=92, optimize=True)
+            return nome
+    except Exception:
+        return ""
+
+
+def _questoes_de_imagem_com_ia(caminho_imagem, extensao, defaults):
+    """Lê print/foto de livro com visão e devolve questões estruturadas para revisão."""
+    import requests
+
+    chave = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not chave:
+        raise ValueError(
+            "A importação por foto precisa da variável OPENAI_API_KEY configurada no servidor. "
+            "Nenhum dado do banco é alterado por essa configuração."
+        )
+
+    modelo = (os.environ.get("OPENAI_VISION_MODEL") or "gpt-5.6-luna").strip()
+    mime = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"
+    }.get(extensao, "image/jpeg")
+    dados = Path(caminho_imagem).read_bytes()
+    if len(dados) > 15 * 1024 * 1024:
+        raise ValueError("A imagem deve ter no máximo 15 MB.")
+    data_url = f"data:{mime};base64,{base64.b64encode(dados).decode('ascii')}"
+
+    instrucao = f"""
+Você está importando uma questão escolar a partir de uma FOTO ou PRINT de livro para a plataforma ARK EDUS.
+Leia apenas o conteúdo visível. Retorne SOMENTE JSON válido.
+
+Regras:
+- Identifique uma ou mais questões presentes na imagem.
+- Preserve o enunciado e as alternativas, corrigindo apenas quebras de linha causadas pela foto.
+- Não invente gabarito. Se ele não estiver visível, use respostas_corretas=[] e gabarito_confianca="nao_visivel".
+- Se houver uma figura, tirinha, gráfico, mapa, tabela ou ilustração que FAÇA PARTE da questão e deva aparecer na prova, informe figura_caixa com coordenadas normalizadas de 0 a 1: x1,y1,x2,y2. A caixa deve conter SOMENTE a figura necessária, sem incluir enunciado nem alternativas. Se não houver figura necessária, use null.
+- Sugira disciplina, dificuldade, BNCC, unidade temática, objeto do conhecimento e habilidade apenas quando houver base suficiente; caso contrário deixe string vazia. Campo sugerido deve poder ser revisado pelo professor.
+- tipo_questao: multipla_escolha, multiplas_respostas, verdadeiro_falso, discursiva, resposta_curta ou numerica.
+- alternativas: lista de objetos {{"letra":"A","texto":"...","imagem":""}}.
+- respostas_corretas: lista de letras.
+
+Padrões informados pelo professor, use apenas se a imagem não indicar algo melhor:
+Disciplina: {defaults.get('disciplina','')}
+Etapa: {defaults.get('etapa_ensino','')}
+Ano/série: {defaults.get('ano_serie','')}
+Dificuldade: {defaults.get('dificuldade','Média')}
+
+Formato JSON obrigatório:
+{{"questoes":[{{"disciplina":"","turma":"","etapa_ensino":"","ano_serie":"","tipo_questao":"multipla_escolha","enunciado":"","alternativas":[],"respostas_corretas":[],"gabarito_confianca":"nao_visivel","resposta_esperada":"","criterios_correcao":"","dificuldade":"Média","habilidade_bncc":"","unidade_tematica":"","objeto_conhecimento":"","sistema_matriz":"","matriz_referencia":"","descritor_saeb":"","taxonomia_bloom":"","fonte":"","tags":"","observacoes":"","figura_caixa":null}}]}}
+""".strip()
+
+    corpo = {
+        "model": modelo,
+        "input": [{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": instrucao},
+                {"type": "input_image", "image_url": data_url, "detail": "high"},
+            ],
+        }],
+        "text": {"format": {"type": "json_object"}},
+    }
+    try:
+        resposta = requests.post(
+            "https://api.openai.com/v1/responses",
+            headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
+            json=corpo,
+            timeout=90,
+        )
+    except requests.RequestException as exc:
+        raise ValueError("Não foi possível conectar ao serviço de leitura por IA. Tente novamente.") from exc
+
+    if resposta.status_code >= 400:
+        detalhe = ""
+        try:
+            detalhe = (resposta.json().get("error") or {}).get("message", "")
+        except Exception:
+            pass
+        if resposta.status_code in {401, 403}:
+            raise ValueError("A chave da IA não foi aceita. Confira OPENAI_API_KEY no Render.")
+        if resposta.status_code == 429:
+            raise ValueError("O limite da IA foi atingido no momento. Aguarde e tente novamente.")
+        raise ValueError("A IA não conseguiu processar a imagem." + (f" Detalhe: {detalhe[:180]}" if detalhe else ""))
+
+    try:
+        texto = _extrair_texto_resposta_openai(resposta.json())
+        resultado = json.loads(texto)
+    except Exception as exc:
+        raise ValueError("A leitura da imagem retornou um formato inesperado. Tente uma foto mais nítida.") from exc
+
+    questoes = resultado.get("questoes", []) if isinstance(resultado, dict) else []
+    saida = []
+    for q in questoes:
+        if not isinstance(q, dict):
+            continue
+        alternativas = q.get("alternativas") if isinstance(q.get("alternativas"), list) else []
+        alternativas_ok = []
+        for i, alt in enumerate(alternativas[:8]):
+            if not isinstance(alt, dict):
+                continue
+            letra = (str(alt.get("letra") or chr(65+i)).strip().upper()[:1] or chr(65+i))
+            alternativas_ok.append({"letra": letra, "texto": str(alt.get("texto") or "").strip(), "imagem": ""})
+        corretas = [str(x).strip().upper()[:1] for x in (q.get("respostas_corretas") or []) if str(x).strip()]
+        imagem = _salvar_recorte_figura_importacao(caminho_imagem, q.get("figura_caixa"))
+        saida.append({
+            "disciplina": str(q.get("disciplina") or defaults.get("disciplina", "")).strip(),
+            "turma": str(q.get("turma") or "").strip(),
+            "etapa_ensino": str(q.get("etapa_ensino") or defaults.get("etapa_ensino", "")).strip(),
+            "ano_serie": str(q.get("ano_serie") or defaults.get("ano_serie", "")).strip(),
+            "tipo_questao": _tipo_importacao(q.get("tipo_questao", ""), bool(alternativas_ok)),
+            "enunciado": str(q.get("enunciado") or "").strip(),
+            "imagem": imagem,
+            "alternativas": alternativas_ok,
+            "respostas_corretas": corretas,
+            "resposta_esperada": str(q.get("resposta_esperada") or "").strip(),
+            "criterios_correcao": str(q.get("criterios_correcao") or "").strip(),
+            "dificuldade": _dificuldade_importacao(q.get("dificuldade", ""), defaults.get("dificuldade", "Média")),
+            "habilidade_bncc": str(q.get("habilidade_bncc") or "").strip(),
+            "unidade_tematica": str(q.get("unidade_tematica") or "").strip(),
+            "objeto_conhecimento": str(q.get("objeto_conhecimento") or "").strip(),
+            "sistema_matriz": str(q.get("sistema_matriz") or "").strip().upper(),
+            "matriz_referencia": str(q.get("matriz_referencia") or "").strip(),
+            "descritor_saeb": str(q.get("descritor_saeb") or "").strip(),
+            "taxonomia_bloom": str(q.get("taxonomia_bloom") or "").strip(),
+            "fonte": str(q.get("fonte") or "").strip(),
+            "tags": str(q.get("tags") or "").strip(),
+            "observacoes": str(q.get("observacoes") or "").strip(),
+            "gabarito_confianca": str(q.get("gabarito_confianca") or "").strip(),
+        })
+    return saida
+
+
 def _validar_questoes_importadas(questoes):
     validas, avisos = [], []
     for i, q in enumerate(questoes, 1):
@@ -8751,9 +8984,9 @@ def importar_questoes():
 
         nome = secure_filename(arquivo.filename)
         extensao = os.path.splitext(nome)[1].lower()
-        permitidas = {".xlsx", ".csv", ".docx", ".txt", ".pdf"}
+        permitidas = {".xlsx", ".csv", ".docx", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".webp"}
         if extensao not in permitidas:
-            flash("Formato não suportado. Use XLSX, CSV, DOCX, TXT ou PDF.", "erro")
+            flash("Formato não suportado. Use XLSX, CSV, DOCX, TXT, PDF, PNG, JPG, JPEG ou WEBP.", "erro")
             return render_template("questoes/importar.html", prova=prova, prova_id=prova_id, preview=None)
 
         disciplina_padrao = (request.form.get("disciplina_padrao") or (prova["disciplina"] if prova else "")).strip()
@@ -8774,10 +9007,12 @@ def importar_questoes():
                     q = _questao_de_linha_importacao(linha, defaults)
                     if q:
                         questoes.append(q)
+            elif extensao in {".png", ".jpg", ".jpeg", ".webp"}:
+                questoes = _questoes_de_imagem_com_ia(caminho_temp, extensao, defaults)
             else:
                 texto = _texto_arquivo_importacao(caminho_temp, extensao)
                 if not texto.strip():
-                    raise ValueError("Não foi encontrado texto legível no arquivo. Se for um PDF escaneado, converta-o para PDF com texto ou use a planilha modelo.")
+                    raise ValueError("Não foi encontrado texto legível no arquivo. Se for um PDF escaneado, envie um print/foto em PNG ou JPG para leitura por IA.")
                 questoes = _questoes_texto_importacao(texto, defaults)
         finally:
             try: os.remove(caminho_temp)
@@ -8856,7 +9091,7 @@ def confirmar_importacao_questoes():
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 q.get("disciplina", ""), q.get("etapa_ensino", ""), q.get("ano_serie", ""), "", 0, "",
-                q.get("tipo_questao", "multipla_escolha"), q.get("enunciado", ""), "", "",
+                q.get("tipo_questao", "multipla_escolha"), q.get("enunciado", ""), "", q.get("imagem", ""),
                 textos[0], textos[1], textos[2], textos[3], correta_legada,
                 json.dumps(alternativas, ensure_ascii=False), json.dumps(corretas, ensure_ascii=False),
                 q.get("resposta_esperada", ""), q.get("criterios_correcao", ""), habilidade,
@@ -9875,7 +10110,21 @@ def visualizar_prova(prova_id):
                 pq.id
         """, (prova_id,))
 
-        questoes = cursor.fetchall()
+        questoes_banco = cursor.fetchall()
+        questoes = []
+        for registro in questoes_banco:
+            item = dict(registro)
+            try:
+                alternativas_render = json.loads(item.get("alternativas_json") or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                alternativas_render = []
+            if not alternativas_render and item.get("tipo_questao") in {"multipla_escolha", "multiplas_respostas"}:
+                for indice, campo in enumerate(("alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d")):
+                    texto = item.get(campo) or ""
+                    if texto:
+                        alternativas_render.append({"letra": chr(65 + indice), "texto": texto, "imagem": ""})
+            item["alternativas_render"] = alternativas_render
+            questoes.append(item)
 
         # =====================================================
         # RESUMO DOS PESOS

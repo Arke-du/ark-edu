@@ -1112,13 +1112,13 @@
 
                         {% if questao['imagem'] %}
                             <a
-                                href="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                                href="{{ upload_url(questao['imagem']) }}"
                                 target="_blank"
                                 title="Abrir imagem em tamanho maior"
                             >
                                 <img
                                     class="preview-imagem"
-                                    src="{{ url_for('static', filename='uploads/' ~ questao['imagem']) }}"
+                                    src="{{ upload_url(questao['imagem']) }}"
                                     alt="Imagem da questão"
                                 >
                             </a>

@@ -62,7 +62,7 @@
                         <h3>{{ questao['enunciado'] }}</h3>
 
                         {% if questao['imagem'] %}
-                        <img class="questao-imagem" src="{{ url_for('static', filename=questao['imagem']) if not questao['imagem'].startswith('/static/') else questao['imagem'] }}" alt="Imagem da questão">
+                        <img class="questao-imagem" src="{{ upload_url(questao['imagem']) }}" alt="Imagem da questão">
                         {% endif %}
 
                         {% if questao['alternativas'] %}
@@ -73,7 +73,7 @@
                                 <div>
                                     {% if alternativa.get('texto') %}<span>{{ alternativa.get('texto') }}</span>{% endif %}
                                     {% if alternativa.get('imagem') %}
-                                    <img src="{{ url_for('static', filename=alternativa.get('imagem')) if not alternativa.get('imagem').startswith('/static/') else alternativa.get('imagem') }}" alt="Imagem da alternativa">
+                                    <img src="{{ upload_url(alternativa.get('imagem')) }}" alt="Imagem da alternativa">
                                     {% endif %}
                                 </div>
                             </div>
