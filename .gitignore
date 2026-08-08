@@ -3,3 +3,11 @@
 # Backups locais
 backups/
 *.zip.fernet
+# Banco SQLite: NUNCA versionar o banco de produção/local.
+plataforma.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Uploads locais; em produção ficam no Persistent Disk.
+static/uploads/

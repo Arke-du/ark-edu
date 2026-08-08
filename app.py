@@ -16119,6 +16119,44 @@ def aplicar_cabecalhos_seguranca(resposta):
 
 
 criar_tabelas()
+
+# Migração defensiva para bancos persistentes criados por versões antigas.
+# IMPORTANTE: apenas cria estruturas ausentes; nunca apaga tabelas nem dados.
+def garantir_schema_persistente_critico():
+    banco = conectar_banco()
+    try:
+        cursor = banco.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS componentes_curriculares (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                escola_id INTEGER NOT NULL,
+                etapa_ensino TEXT NOT NULL,
+                nome TEXT NOT NULL,
+                tipo TEXT NOT NULL DEFAULT 'padrao',
+                ativo INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+                UNIQUE (escola_id, etapa_ensino, nome)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS professor_vinculos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professor_id INTEGER NOT NULL,
+                turma_id INTEGER NOT NULL,
+                componente_id INTEGER NOT NULL,
+                FOREIGN KEY (professor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+                FOREIGN KEY (componente_id) REFERENCES componentes_curriculares(id) ON DELETE CASCADE,
+                UNIQUE (professor_id, turma_id, componente_id)
+            )
+        """)
+        banco.commit()
+        print("[ARK EDUS] Schema persistente crítico verificado sem apagar dados.")
+    finally:
+        banco.close()
+
+garantir_schema_persistente_critico()
 garantir_estrutura_lgpd()
 sincronizar_anos_letivos_legados()
 corrigir_ano_corrente_inconsistente()
