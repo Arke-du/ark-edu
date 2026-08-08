@@ -8206,6 +8206,7 @@ def editar_questao(questao_id):
         dificuldade = (request.form.get("dificuldade") or "").strip()
         tipo_questao = (request.form.get("tipo_questao") or "multipla_escolha").strip()
         enunciado = (request.form.get("enunciado") or "").strip()
+        enunciado_html = (request.form.get("enunciado_html") or "").strip()
         resposta_esperada = (request.form.get("resposta_esperada") or "").strip()
         criterios_correcao = (request.form.get("criterios_correcao") or "").strip()
         etapa_ensino = (request.form.get("etapa_ensino") or questao["etapa_ensino"] or "").strip()
@@ -8256,16 +8257,34 @@ def editar_questao(questao_id):
             arquivo.save(os.path.join(app.config["UPLOAD_FOLDER"], nome_arquivo))
             return nome_arquivo
 
-        imagem_questao = questao["imagem"] or ""
-        if request.form.get("remover_imagem") == "1":
-            imagem_questao = ""
+        def salvar_imagens_embutidas_edicao(conteudo_html):
+            if not conteudo_html:
+                return ""
+            padrao = re.compile(r'src=["\']data:image/(?P<tipo>png|jpeg|jpg|webp);base64,(?P<dados>[^"\']+)["\']', re.IGNORECASE)
+            def substituir(match):
+                tipo=match.group("tipo").lower(); ext=".jpg" if tipo in {"jpg","jpeg"} else f".{tipo}"
+                try: dados=base64.b64decode(match.group("dados"), validate=True)
+                except Exception as erro: raise ValueError("Uma das imagens inseridas no enunciado é inválida.") from erro
+                if len(dados)>8*1024*1024: raise ValueError("Cada imagem do enunciado deve ter no máximo 8 MB.")
+                nome=f"enunciado_{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(app.config["UPLOAD_FOLDER"],nome),"wb") as destino: destino.write(dados)
+                return f'src="/uploads/{nome}"'
+            conteudo_html=padrao.sub(substituir,conteudo_html)
+            conteudo_html=re.sub(r'<\s*(script|iframe|object|embed)[^>]*>.*?<\s*/\s*\1\s*>','',conteudo_html,flags=re.I|re.S)
+            conteudo_html=re.sub(r'\son[a-z]+\s*=\s*(["\']).*?\1','',conteudo_html,flags=re.I|re.S)
+            conteudo_html=re.sub(r'javascript\s*:','',conteudo_html,flags=re.I)
+            return conteudo_html
+
+
         try:
-            nova_imagem = salvar_imagem_edicao(request.files.get("imagem"), "questao")
-            if nova_imagem:
-                imagem_questao = nova_imagem
+            enunciado_html = salvar_imagens_embutidas_edicao(enunciado_html)
         except ValueError as erro:
             flash(str(erro), "erro")
             return redirect(f"/questoes/{questao_id}/editar" + (f"?prova_id={prova_id}" if prova_id else ""))
+
+        # A imagem do enunciado agora vive dentro de enunciado_html.
+        # O campo legado fica vazio nas novas cópias para não duplicar a figura.
+        imagem_questao = ""
 
         alternativas = []
         respostas_corretas = []
@@ -8372,7 +8391,7 @@ def editar_questao(questao_id):
         """, (
             disciplina, etapa_ensino, ano_serie, assunto,
             questao["assunto_temporario"], questao["subassunto"],
-            tipo_questao, enunciado, questao["enunciado_html"], imagem_questao,
+            tipo_questao, enunciado, enunciado_html, imagem_questao,
             textos_legados[0], textos_legados[1],
             textos_legados[2], textos_legados[3],
             correta_legada,

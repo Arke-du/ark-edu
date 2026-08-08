@@ -137,11 +137,7 @@
                     <input type="hidden" id="enunciadoQuestao" name="enunciado">
                     <input type="hidden" id="enunciadoHtml" name="enunciado_html">
                     <span class="ajuda editor-ajuda"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Ao colar uma questão completa, enunciado, alternativas e gabarito serão organizados automaticamente. Clique e arraste a imagem para movê-la; use o canto inferior direito para aumentar ou diminuir.</span>
-                    <div style="margin-top:12px;display:grid;gap:7px">
-                        <label for="imagemQuestao" style="font-size:12px;font-weight:850;color:#334155">Imagem principal da questão <span class="ajuda">(opcional)</span></label>
-                        <input id="imagemQuestao" type="file" name="imagem" accept="image/png,image/jpeg,image/webp" style="min-height:46px;padding:9px 12px;border:1px solid #dbe4f0;border-radius:12px;background:#fff">
-                        <span class="ajuda">Use este campo para figura, gráfico, mapa ou tirinha que deve aparecer na visualização e na prova impressa/PDF.</span>
-                    </div>
+
                 </div>
                 <div class="questoes-grupo largo" id="blocoAlternativas"><div class="alternativas-cabecalho"><div><span class="titulo-campo">Alternativas</span><div class="ajuda">Cada alternativa pode conter texto, imagem ou ambos.</div></div><button type="button" class="btn-adicionar" id="adicionarAlternativa">+ Adicionar alternativa</button></div><div class="alternativas-lista" id="listaAlternativas"></div></div>
                 <div class="questoes-grupo largo oculto" id="blocoVerdadeiroFalso"><span class="titulo-campo">Resposta correta</span><div class="vf-grid"><label class="vf-opcao"><input type="radio" name="resposta_vf" value="V"><span>Verdadeiro</span></label><label class="vf-opcao"><input type="radio" name="resposta_vf" value="F"><span>Falso</span></label></div></div>
@@ -168,25 +164,19 @@
                 <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAETO, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
                 <div class="classificacao-conteudo"><div class="questoes-grid">
                     <div class="subsecao">BNCC</div>
-                    <div class="questoes-grupo">
-                        <label for="unidadeTematica">Unidade temática / prática de linguagem</label>
-                        <select id="unidadeTematica" name="unidade_tematica" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" disabled>
-                            <option value="">Selecione a unidade temática</option>
-                        </select>
-                        <span class="ajuda bncc-status" id="ajudaUnidadeBncc">Selecione componente, etapa e ano/série para carregar a BNCC.</span>
+                    <div class="questoes-grupo largo">
+                        <label for="habilidadeBncc">Habilidade BNCC</label>
+                        <input id="habilidadeBncc" name="habilidade_bncc" list="listaHabilidadesBncc" autocomplete="off" value="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" placeholder="Digite o código (ex.: EF05LP06) ou parte da descrição">
+                        <datalist id="listaHabilidadesBncc"></datalist>
+                        <span class="ajuda bncc-status" id="ajudaUnidadeBncc">Digite ou selecione uma habilidade; unidade temática e objeto serão preenchidos automaticamente.</span>
                     </div>
                     <div class="questoes-grupo">
                         <label for="objetoConhecimento">Objeto do conhecimento</label>
-                        <select id="objetoConhecimento" name="objeto_conhecimento" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" disabled>
-                            <option value="">Primeiro selecione a unidade temática</option>
-                        </select>
+                        <input id="objetoConhecimento" name="objeto_conhecimento" value="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" placeholder="Preenchido pela habilidade" readonly>
                     </div>
-                    <div class="questoes-grupo largo">
-                        <label for="habilidadeBncc">Habilidade BNCC</label>
-                        <select id="habilidadeBncc" name="habilidade_bncc" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" disabled>
-                            <option value="">Primeiro selecione o objeto do conhecimento</option>
-                        </select>
-                        <span class="ajuda">Selecione uma habilidade para vinculá-la à questão.</span>
+                    <div class="questoes-grupo">
+                        <label for="unidadeTematica">Unidade temática / prática de linguagem</label>
+                        <input id="unidadeTematica" name="unidade_tematica" value="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" placeholder="Preenchida pela habilidade" readonly>
                     </div>
                     <div class="subsecao">Outras matrizes</div>
                     <div class="questoes-grupo">
@@ -442,7 +432,15 @@ document.addEventListener("DOMContentLoaded", () => {
         atualizarAlternativas();
     }
     document.querySelectorAll(".editor-btn[data-comando]").forEach(botao => {
-        botao.addEventListener("click", () => { editor.focus(); document.execCommand(botao.dataset.comando, false, null); });
+        botao.addEventListener("click", () => {
+            const cmd=botao.dataset.comando;
+            if(figuraSelecionada && ["justifyLeft","justifyCenter","justifyRight"].includes(cmd)){
+                figuraSelecionada.style.marginLeft = cmd==="justifyRight" ? "auto" : (cmd==="justifyCenter" ? "auto" : "0");
+                figuraSelecionada.style.marginRight = cmd==="justifyLeft" ? "auto" : (cmd==="justifyCenter" ? "auto" : "0");
+                return;
+            }
+            editor.focus(); document.execCommand(cmd, false, null);
+        });
     });
     document.getElementById("inserirImagemEnunciado").addEventListener("click", () => arquivoImagemEnunciado.click());
     arquivoImagemEnunciado.addEventListener("change", () => { inserirImagemNoEditor(arquivoImagemEnunciado.files[0]); arquivoImagemEnunciado.value = ""; });
@@ -555,6 +553,10 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.focus();
             return alert("Digite o enunciado da questão.");
         }
+        const tipo=document.querySelector('input[name="tipo_questao"]:checked')?.value;
+        if(tipo==="multipla_escolha" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return alert("Selecione a alternativa correta antes de salvar a questão. Nada foi apagado.");}
+        if(tipo==="multiplas_respostas" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return alert("Marque pelo menos uma alternativa correta antes de salvar. Nada foi apagado.");}
+        if(tipo==="verdadeiro_falso" && !document.querySelector('input[name="resposta_vf"]:checked')){evento.preventDefault(); return alert("Selecione Verdadeiro ou Falso antes de salvar. Nada foi apagado.");}
     });
 
     atualizarSeries();
@@ -565,311 +567,21 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const disciplina = document.getElementById("disciplinaQuestao");
-    const etapa = document.getElementById("etapaEnsino");
-    const anoSerie = document.getElementById("anoSerie");
-    const unidade = document.getElementById("unidadeTematica");
-    const objeto = document.getElementById("objetoConhecimento");
-    const habilidade = document.getElementById("habilidadeBncc");
-    const ajuda = document.getElementById("ajudaUnidadeBncc");
-
-    if (!disciplina || !etapa || !anoSerie || !unidade || !objeto || !habilidade) return;
-
-    let controle = null;
-
-    const iniciais = {
-        unidade: unidade.dataset.valorInicial || "",
-        objeto: objeto.dataset.valorInicial || "",
-        habilidade: habilidade.dataset.valorInicial || ""
-    };
-
-    function criarOption(valor, texto = valor) {
-        const option = document.createElement("option");
-        option.value = valor;
-        option.textContent = texto;
-        option.title = texto;
-        return option;
+    const disciplina=document.getElementById("disciplinaQuestao"), etapa=document.getElementById("etapaEnsino"), ano=document.getElementById("anoSerie");
+    const habilidade=document.getElementById("habilidadeBncc"), lista=document.getElementById("listaHabilidadesBncc"), unidade=document.getElementById("unidadeTematica"), objeto=document.getElementById("objetoConhecimento"), ajuda=document.getElementById("ajudaUnidadeBncc");
+    if(!habilidade) return; let mapa=new Map(), ctrl=null;
+    async function carregar(){
+        if(!disciplina.value||!etapa.value||!ano.value){lista.innerHTML=""; ajuda.textContent="Selecione componente, etapa e ano/série para pesquisar habilidades."; return;}
+        if(ctrl) ctrl.abort(); ctrl=new AbortController();
+        try{const q=new URLSearchParams({componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value}); const r=await fetch('/api/bncc/opcoes?'+q,{signal:ctrl.signal}); const d=await r.json();
+            lista.innerHTML=""; mapa.clear(); (d.habilidades||[]).forEach(h=>{const valor=h.valor||`${h.codigo} — ${h.descricao}`; const op=document.createElement('option'); op.value=valor; op.label=valor; lista.appendChild(op); mapa.set(valor,h); mapa.set((h.codigo||'').toUpperCase(),h);});
+            ajuda.textContent=(d.habilidades||[]).length?`${d.habilidades.length} habilidade(s) disponível(is). Digite o código ou parte da descrição.`:'Nenhuma habilidade encontrada para esta classificação.'; aplicar();
+        }catch(e){if(e.name!=='AbortError') ajuda.textContent='Erro ao carregar a BNCC.'}
     }
-
-    function preencherLista(select, itens, placeholder, selecionado = "") {
-        select.innerHTML = "";
-        select.appendChild(criarOption("", placeholder));
-
-        for (const item of itens || []) {
-            if (typeof item === "string") {
-                select.appendChild(criarOption(item));
-            } else {
-                const valor = item.valor || `${item.codigo} — ${item.descricao}`;
-                const texto = `${item.codigo} — ${item.descricao}`;
-                select.appendChild(criarOption(valor, texto));
-            }
-        }
-
-        if (selecionado) {
-            const existe = Array.from(select.options).some(op => op.value === selecionado);
-            if (existe) select.value = selecionado;
-        }
+    function aplicar(){let v=habilidade.value.trim(), h=mapa.get(v)||mapa.get(v.toUpperCase()); if(!h&&v){const up=v.toUpperCase(); h=[...new Set(mapa.values())].find(x=>(x.codigo||'').toUpperCase()===up || (x.valor||'').toLowerCase()===v.toLowerCase());}
+        if(h){habilidade.value=h.valor||`${h.codigo} — ${h.descricao}`; objeto.value=h.objeto_conhecimento||''; unidade.value=h.unidade_tematica||''; ajuda.textContent=`${h.codigo}: classificação BNCC preenchida automaticamente.`;}
     }
-
-    function contextoValido() {
-        return Boolean(
-            disciplina.value.trim() &&
-            etapa.value.trim() &&
-            anoSerie.value.trim()
-        );
-    }
-
-    async function buscarBncc({ unidadeSelecionada = "", objetoSelecionado = "" } = {}) {
-        if (!contextoValido()) {
-            return { unidades: [], objetos: [], habilidades: [] };
-        }
-
-        if (controle) controle.abort();
-        controle = new AbortController();
-
-        const params = new URLSearchParams({
-            componente: disciplina.value.trim(),
-            etapa: etapa.value.trim(),
-            ano_serie: anoSerie.value.trim()
-        });
-
-        if (unidadeSelecionada) params.set("unidade", unidadeSelecionada);
-        if (objetoSelecionado) params.set("objeto", objetoSelecionado);
-
-        const resposta = await fetch(
-            `/api/bncc/opcoes?${params.toString()}`,
-            {
-                signal: controle.signal,
-                headers: { "Accept": "application/json" }
-            }
-        );
-
-        const dados = await resposta.json();
-
-        if (!resposta.ok) {
-            throw new Error(dados.erro || "Não foi possível consultar a BNCC.");
-        }
-
-        return dados;
-    }
-
-    function definirCarregando(mensagem) {
-        ajuda.className = "ajuda bncc-status";
-        ajuda.textContent = mensagem;
-    }
-
-    function definirErro(erro) {
-        ajuda.className = "ajuda bncc-status erro";
-        ajuda.textContent = erro?.message || "Não foi possível carregar o catálogo da BNCC.";
-    }
-
-    async function carregarUnidades({ restaurarInicial = false } = {}) {
-        if (!contextoValido()) {
-            preencherLista(unidade, [], "Selecione componente, etapa e ano/série");
-            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
-            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
-            unidade.disabled = true;
-            objeto.disabled = true;
-            habilidade.disabled = true;
-            ajuda.className = "ajuda bncc-status";
-            ajuda.textContent = "Selecione componente, etapa e ano/série para carregar a BNCC.";
-            return;
-        }
-
-        definirCarregando("Carregando unidades temáticas...");
-
-        try {
-            const dados = await buscarBncc();
-
-            const valorInicialUnidade = restaurarInicial ? iniciais.unidade : "";
-            preencherLista(
-                unidade,
-                dados.unidades || [],
-                "Selecione a unidade temática",
-                valorInicialUnidade
-            );
-
-            unidade.disabled = !(dados.unidades || []).length;
-
-            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
-            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
-            objeto.disabled = true;
-            habilidade.disabled = true;
-
-            if (restaurarInicial && unidade.value) {
-                await carregarObjetos({
-                    unidadeSelecionada: unidade.value,
-                    restaurarInicial: true
-                });
-                return;
-            }
-
-            ajuda.className = "ajuda bncc-status sucesso";
-            ajuda.textContent = (dados.unidades || []).length
-                ? "Selecione uma unidade temática para carregar os objetos."
-                : "Nenhuma opção da BNCC foi encontrada para esta classificação.";
-        } catch (erro) {
-            if (erro.name === "AbortError") return;
-            definirErro(erro);
-        }
-    }
-
-    async function carregarObjetos({
-        unidadeSelecionada = unidade.value,
-        restaurarInicial = false
-    } = {}) {
-        const unidadeEscolhida = unidadeSelecionada.trim();
-
-        preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
-        habilidade.disabled = true;
-
-        if (!unidadeEscolhida) {
-            preencherLista(objeto, [], "Primeiro selecione a unidade temática");
-            objeto.disabled = true;
-            ajuda.className = "ajuda bncc-status sucesso";
-            ajuda.textContent = "Selecione uma unidade temática para carregar os objetos.";
-            return;
-        }
-
-        objeto.disabled = true;
-        preencherLista(objeto, [], "Carregando objetos...");
-        definirCarregando("Carregando objetos do conhecimento...");
-
-        try {
-            const dados = await buscarBncc({
-                unidadeSelecionada: unidadeEscolhida
-            });
-
-            const valorInicialObjeto = restaurarInicial ? iniciais.objeto : "";
-
-            const objetosEncontrados = dados.objetos || [];
-            const habilidadesEncontradas = dados.habilidades || [];
-
-            preencherLista(
-                objeto,
-                objetosEncontrados,
-                objetosEncontrados.length
-                    ? "Selecione o objeto do conhecimento"
-                    : "Objeto não informado na planilha",
-                valorInicialObjeto
-            );
-
-            objeto.disabled = !objetosEncontrados.length;
-
-            // Algumas linhas da planilha BNCC não trazem o objeto do
-            // conhecimento preenchido. Nesses casos, o sistema não deve
-            // bloquear o professor: carrega diretamente as habilidades
-            // relacionadas à unidade temática selecionada.
-            if (!objetosEncontrados.length) {
-                const valorInicialHabilidade = restaurarInicial
-                    ? iniciais.habilidade
-                    : "";
-
-                preencherLista(
-                    habilidade,
-                    habilidadesEncontradas,
-                    habilidadesEncontradas.length
-                        ? "Selecione a habilidade BNCC"
-                        : "Nenhuma habilidade encontrada",
-                    valorInicialHabilidade
-                );
-
-                habilidade.disabled = !habilidadesEncontradas.length;
-
-                ajuda.className = "ajuda bncc-status sucesso";
-                ajuda.textContent = habilidadesEncontradas.length
-                    ? `Objeto não informado na planilha. ${habilidadesEncontradas.length} habilidade(s) disponível(is) para esta unidade.`
-                    : "Nenhum objeto ou habilidade foi encontrado para esta unidade.";
-                return;
-            }
-
-            if (restaurarInicial && objeto.value) {
-                await carregarHabilidades({
-                    unidadeSelecionada: unidadeEscolhida,
-                    objetoSelecionado: objeto.value,
-                    restaurarInicial: true
-                });
-                return;
-            }
-
-            ajuda.className = "ajuda bncc-status sucesso";
-            ajuda.textContent =
-                `${objetosEncontrados.length} objeto(s) encontrado(s). Selecione um objeto.`;
-        } catch (erro) {
-            if (erro.name === "AbortError") return;
-            definirErro(erro);
-        }
-    }
-
-    async function carregarHabilidades({
-        unidadeSelecionada = unidade.value,
-        objetoSelecionado = objeto.value,
-        restaurarInicial = false
-    } = {}) {
-        const unidadeEscolhida = unidadeSelecionada.trim();
-        const objetoEscolhido = objetoSelecionado.trim();
-
-        if (!unidadeEscolhida || !objetoEscolhido) {
-            preencherLista(habilidade, [], "Primeiro selecione o objeto do conhecimento");
-            habilidade.disabled = true;
-            return;
-        }
-
-        habilidade.disabled = true;
-        preencherLista(habilidade, [], "Carregando habilidades...");
-        definirCarregando("Carregando habilidades da BNCC...");
-
-        try {
-            const dados = await buscarBncc({
-                unidadeSelecionada: unidadeEscolhida,
-                objetoSelecionado: objetoEscolhido
-            });
-
-            const valorInicialHabilidade = restaurarInicial ? iniciais.habilidade : "";
-
-            preencherLista(
-                habilidade,
-                dados.habilidades || [],
-                "Selecione a habilidade BNCC",
-                valorInicialHabilidade
-            );
-
-            habilidade.disabled = !(dados.habilidades || []).length;
-
-            ajuda.className = "ajuda bncc-status sucesso";
-            ajuda.textContent = (dados.habilidades || []).length
-                ? `${dados.habilidades.length} habilidade(s) encontrada(s).`
-                : "Nenhuma habilidade foi encontrada para este objeto.";
-        } catch (erro) {
-            if (erro.name === "AbortError") return;
-            definirErro(erro);
-        }
-    }
-
-    [disciplina, etapa, anoSerie].forEach(campo => {
-        campo.addEventListener("change", () => {
-            iniciais.unidade = "";
-            iniciais.objeto = "";
-            iniciais.habilidade = "";
-            carregarUnidades();
-        });
-    });
-
-    unidade.addEventListener("change", () => {
-        iniciais.objeto = "";
-        iniciais.habilidade = "";
-        carregarObjetos({ unidadeSelecionada: unidade.value });
-    });
-
-    objeto.addEventListener("change", () => {
-        iniciais.habilidade = "";
-        carregarHabilidades({
-            unidadeSelecionada: unidade.value,
-            objetoSelecionado: objeto.value
-        });
-    });
-
-    carregarUnidades({ restaurarInicial: true });
+    [disciplina,etapa,ano].forEach(el=>el.addEventListener('change',()=>{habilidade.value='';objeto.value='';unidade.value='';carregar()})); habilidade.addEventListener('change',aplicar); habilidade.addEventListener('blur',aplicar); carregar();
 });
 </script>
 
