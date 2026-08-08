@@ -1,0 +1,26 @@
+ARK EDUS — correção de questões
+
+Alterações desta versão:
+1. Habilidade BNCC pesquisável enquanto o professor digita (código ou descrição).
+   - Pesquisa primeiro o catálogo local existente.
+   - Se o catálogo ainda não estiver preenchido no banco persistente, usa a API pública bncc.dev como fallback.
+   - Ao selecionar/encontrar a habilidade, preenche automaticamente Objeto do Conhecimento e Unidade Temática/Prática de Linguagem.
+   - Implementado no cadastro e na edição.
+
+2. Validação do gabarito no padrão visual ARK EDUS.
+   - Se o professor esquecer a alternativa correta, a página NÃO é enviada e NÃO é recarregada.
+   - O conteúdo já digitado, imagens e demais campos permanecem na tela.
+   - É exibido um modal visual com botão "Entendi".
+   - Implementado no cadastro e na edição.
+
+3. Imagens dentro do enunciado na visualização e impressão/PDF.
+   - A imagem continua sendo inserida diretamente no editor do enunciado.
+   - No servidor, imagens inseridas no editor são armazenadas no UPLOAD_FOLDER persistente.
+   - Nas telas de visualização, montagem e impressão, as imagens são embutidas no HTML como data URI no momento da renderização. Isso evita falhas de carregamento da rota /uploads durante a geração do PDF.
+   - O banco continua armazenando caminhos, não imagens base64 permanentes.
+   - CSS de impressão reforçado para respeitar tamanho/alinhamento e evitar corte.
+
+SEGURANÇA DOS DADOS
+- Nenhum arquivo .db deve ser enviado no deploy.
+- Mantenha DATABASE_PATH=/var/data/plataforma.db no Render.
+- Mantenha UPLOAD_FOLDER=/var/data/uploads no Render.

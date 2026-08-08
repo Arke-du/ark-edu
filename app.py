@@ -8,6 +8,7 @@ import re
 import unicodedata
 import tempfile
 import time
+import requests
 
 from dotenv import load_dotenv
 
@@ -229,6 +230,35 @@ def normalizar_html_uploads(valor):
     html = html.replace('src="static/uploads/', 'src="/uploads/')
     html = html.replace("src='static/uploads/", "src='/uploads/")
     return html
+
+
+@app.template_filter("embutir_imagens_html")
+def embutir_imagens_html(valor):
+    """Embutir imagens persistentes em data URI para visualização e impressão/PDF."""
+    html = normalizar_html_uploads(valor or "")
+    padrao = re.compile(r"src=(?P<q>[\"'])(?:https?://[^/]+)?/uploads/(?P<nome>[^\"'?]+)(?:\\?[^\"']*)?(?P=q)", re.I)
+
+    def substituir(match):
+        nome = os.path.basename(match.group("nome"))
+        caminho = os.path.join(app.config["UPLOAD_FOLDER"], nome)
+        if not os.path.isfile(caminho):
+            return match.group(0)
+        ext = os.path.splitext(nome)[1].lower()
+        mime = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".webp": "image/webp", ".gif": "image/gif"
+        }.get(ext)
+        if not mime:
+            return match.group(0)
+        try:
+            with open(caminho, "rb") as arquivo:
+                dados = base64.b64encode(arquivo.read()).decode("ascii")
+            q = match.group("q")
+            return f"src={q}data:{mime};base64,{dados}{q}"
+        except OSError:
+            return match.group(0)
+
+    return padrao.sub(substituir, html)
 
 mail = Mail(app)
 
@@ -6336,6 +6366,130 @@ def api_bncc_opcoes():
     except sqlite3.Error as erro:
         print("ERRO AO CONSULTAR BNCC:", erro)
         return jsonify({"erro": "Não foi possível consultar o catálogo da BNCC."}), 500
+
+
+def _mapear_bncc_dev_item(item):
+    """Normaliza registros da API pública bncc.dev para o formato usado pela ARK EDUS."""
+    if not isinstance(item, dict):
+        return None
+    codigo = str(item.get("codigo") or item.get("code") or "").strip().upper()
+    descricao = str(item.get("texto") or item.get("descricao") or item.get("habilidade") or "").strip()
+    if not codigo or not descricao:
+        return None
+
+    organizacao = item.get("organizacao") or {}
+    nomes = organizacao.get("nomes") if isinstance(organizacao, dict) else {}
+    nomes = nomes if isinstance(nomes, dict) else {}
+    unidade = (
+        nomes.get("unidadeTematica") or nomes.get("praticaLinguagem") or
+        nomes.get("praticaDeLinguagem") or nomes.get("campoAtuacao") or ""
+    )
+
+    objetos = item.get("objetosConhecimento") or item.get("objetos_conhecimento") or []
+    if isinstance(objetos, dict):
+        objetos = [objetos]
+    nomes_objetos = []
+    for objeto in objetos if isinstance(objetos, list) else []:
+        if isinstance(objeto, dict):
+            nome = objeto.get("nome") or objeto.get("texto") or objeto.get("descricao")
+        else:
+            nome = str(objeto or "")
+        if nome and str(nome).strip():
+            nomes_objetos.append(str(nome).strip())
+
+    componente = item.get("componente") or {}
+    if isinstance(componente, dict):
+        componente_nome = componente.get("nome") or ""
+    else:
+        componente_nome = str(componente or "")
+
+    return {
+        "codigo": codigo,
+        "descricao": descricao,
+        "valor": f"{codigo} — {descricao}",
+        "unidade_tematica": str(unidade or "").strip(),
+        "objeto_conhecimento": " • ".join(nomes_objetos),
+        "componente": str(componente_nome or "").strip(),
+    }
+
+
+def _buscar_bncc_remota(termo, limite=30):
+    """Consulta bncc.dev quando o catálogo local ainda não foi importado no banco persistente."""
+    termo = str(termo or "").strip()
+    if len(termo) < 2:
+        return []
+    try:
+        codigo = re.sub(r"[^A-Za-z0-9]", "", termo).upper()
+        if re.fullmatch(r"(?:EF|EM)[A-Z0-9]{5,}", codigo):
+            resposta = requests.get(
+                f"https://api.bncc.dev/v1/aprendizagens/{codigo}", timeout=5
+            )
+            if resposta.ok:
+                normalizado = _mapear_bncc_dev_item(resposta.json())
+                return [normalizado] if normalizado else []
+
+        resposta = requests.get(
+            "https://api.bncc.dev/v1/busca",
+            params={"q": termo}, timeout=5
+        )
+        if not resposta.ok:
+            return []
+        dados = resposta.json()
+        if isinstance(dados, dict):
+            itens = (
+                dados.get("resultados") or dados.get("itens") or dados.get("items") or
+                dados.get("dados") or dados.get("habilidades") or []
+            )
+        else:
+            itens = dados
+        resultado = []
+        for item in itens if isinstance(itens, list) else []:
+            normalizado = _mapear_bncc_dev_item(item)
+            if normalizado:
+                resultado.append(normalizado)
+            if len(resultado) >= limite:
+                break
+        return resultado
+    except Exception as erro:
+        print("AVISO BNCC REMOTA:", erro)
+        return []
+
+
+@app.route("/api/bncc/buscar")
+def api_bncc_buscar():
+    if not permissao_modulo("Questões"):
+        return jsonify({"erro": "Acesso negado."}), 403
+
+    termo = (request.args.get("q") or "").strip()
+    etapa = (request.args.get("etapa") or "").strip()
+    componente = (request.args.get("componente") or "").strip()
+    ano_serie = (request.args.get("ano_serie") or "").strip()
+    if len(termo) < 2:
+        return jsonify({"habilidades": []})
+
+    habilidades = []
+    try:
+        dados = consultar_bncc(
+            DB_PATH, etapa=etapa, componente=componente, ano_serie=ano_serie
+        ) if etapa and componente else {"habilidades": []}
+        normal = unicodedata.normalize("NFD", termo.casefold())
+        chave = "".join(c for c in normal if unicodedata.category(c) != "Mn")
+        for h in dados.get("habilidades", []):
+            alvo = f"{h.get('codigo','')} {h.get('descricao','')}".casefold()
+            alvo = "".join(c for c in unicodedata.normalize("NFD", alvo) if unicodedata.category(c) != "Mn")
+            if chave in alvo:
+                habilidades.append(h)
+            if len(habilidades) >= 30:
+                break
+    except sqlite3.Error as erro:
+        print("ERRO AO PESQUISAR BNCC LOCAL:", erro)
+
+    # O banco persistente de instalações antigas pode não conter o catálogo BNCC.
+    # Nessa situação a pesquisa pública mantém o campo funcional sem alterar dados existentes.
+    if not habilidades:
+        habilidades = _buscar_bncc_remota(termo, 30)
+
+    return jsonify({"habilidades": habilidades})
 
 
 @app.route("/api/matrizes/opcoes")

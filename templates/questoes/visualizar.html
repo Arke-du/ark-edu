@@ -442,7 +442,7 @@
                 </div>
 
                 <p class="vq-enunciado-titulo">Enunciado</p>
-                <div class="vq-enunciado">{% if questao['enunciado_html'] %}{{ questao['enunciado_html']|normalizar_html_uploads|safe }}{% else %}{{ questao['enunciado'] }}{% endif %}</div>
+                <div class="vq-enunciado">{% if questao['enunciado_html'] %}{{ questao['enunciado_html']|embutir_imagens_html|safe }}{% else %}{{ questao['enunciado'] }}{% endif %}</div>
 
                 {% if questao['imagem'] %}
                 <img

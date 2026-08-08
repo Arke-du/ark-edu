@@ -1108,7 +1108,7 @@
                             </div>
                         </div>
 
-                        <div class="preview-enunciado">{% if questao.get('enunciado_html') %}{{ questao.get('enunciado_html')|normalizar_html_uploads|safe }}{% else %}{{ questao['enunciado'] }}{% endif %}</div>
+                        <div class="preview-enunciado">{% if questao.get('enunciado_html') %}{{ questao.get('enunciado_html')|embutir_imagens_html|safe }}{% else %}{{ questao['enunciado'] }}{% endif %}</div>
 
                         {% if questao['imagem'] %}
                             <a

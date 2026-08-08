@@ -49,6 +49,8 @@
 .classificacao-conteudo{border-top:1px solid var(--ark-borda);padding:22px 24px;background:#fbfdff}.subsecao{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:3px;color:var(--ark-azul);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.subsecao:after{content:"";height:1px;flex:1;background:#e5edf7}
 .manter-box{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #bfdbfe;border-radius:14px;background:#f8fbff}.manter-box input{width:18px;height:18px;margin-top:1px}.manter-box strong{display:block;color:#1e3a8a;font-size:12px}.manter-box small{display:block;margin-top:3px;color:#64748b;font-size:11px}
 .questoes-rodape{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 24px 23px;border-top:1px solid var(--ark-borda)}.acoes-direita{display:flex;gap:10px}.questoes-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer}.secundario{border:1px solid var(--ark-borda);background:#fff;color:var(--ark-azul)}.principal{border:1px solid var(--ark-azul);background:linear-gradient(135deg,var(--ark-azul),var(--ark-azul-2));color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.2)}
+
+.ark-modal-fundo{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.ark-modal-fundo.ativo{display:flex}.ark-modal{width:min(440px,100%);overflow:hidden;border:1px solid #dbe4f0;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25);animation:arkModalEntrada .18s ease-out}.ark-modal-topo{display:flex;align-items:center;gap:12px;padding:20px 22px 14px}.ark-modal-icone{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:#fff7ed;color:#ea580c;font-size:23px}.ark-modal h3{margin:0;color:#0f2f66;font-size:18px}.ark-modal p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5}.ark-modal-acoes{display:flex;justify-content:flex-end;padding:14px 22px 20px}.ark-modal-ok{min-height:42px;padding:0 18px;border:0;border-radius:11px;background:linear-gradient(135deg,#17468f,#2563eb);color:#fff;font:inherit;font-size:13px;font-weight:850;cursor:pointer;box-shadow:0 8px 18px rgba(37,99,235,.2)}@keyframes arkModalEntrada{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @media(max-width:850px){.questoes-grid,.tipo-grid,.linha-classificacao{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa-item{grid-template-columns:38px minmax(0,1fr)}.alternativa-acoes{grid-column:2}.questoes-rodape,.acoes-direita{display:grid;width:100%}.questoes-btn{width:100%}}
 </style>
 {% endblock %}
@@ -217,6 +219,15 @@
         </section>
     </form>
 </div>
+<div class="ark-modal-fundo" id="modalValidacao" role="dialog" aria-modal="true" aria-labelledby="modalValidacaoTitulo">
+    <div class="ark-modal">
+        <div class="ark-modal-topo">
+            <div class="ark-modal-icone">!</div>
+            <div><h3 id="modalValidacaoTitulo">Falta uma informação</h3><p id="modalValidacaoTexto"></p></div>
+        </div>
+        <div class="ark-modal-acoes"><button type="button" class="ark-modal-ok" id="modalValidacaoOk">Entendi</button></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -236,6 +247,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const arquivoImagemEnunciado = document.getElementById("arquivoImagemEnunciado");
     const etapa = document.getElementById("etapaEnsino");
     const anoSerie = document.getElementById("anoSerie");
+    const modalValidacao = document.getElementById("modalValidacao");
+    const modalValidacaoTexto = document.getElementById("modalValidacaoTexto");
+    const modalValidacaoOk = document.getElementById("modalValidacaoOk");
+    let focoDepoisModal = null;
+    function avisoArk(mensagem, foco=null){
+        focoDepoisModal = foco;
+        modalValidacaoTexto.textContent = mensagem;
+        modalValidacao.classList.add("ativo");
+        modalValidacaoOk.focus();
+    }
+    function fecharAvisoArk(){
+        modalValidacao.classList.remove("ativo");
+        if(focoDepoisModal){ setTimeout(()=>focoDepoisModal.focus(),30); focoDepoisModal=null; }
+    }
+    modalValidacaoOk.addEventListener("click", fecharAvisoArk);
+    modalValidacao.addEventListener("click", e=>{ if(e.target===modalValidacao) fecharAvisoArk(); });
 
     const seriesPorEtapa = {
         "Educação Infantil":["Berçário","Maternal I","Maternal II","Pré I","Pré II"],
@@ -551,12 +578,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if(!enunciadoTexto.value && !clone.querySelector("img")){
             evento.preventDefault();
             editor.focus();
-            return alert("Digite o enunciado da questão.");
+            return avisoArk("Digite o enunciado da questão antes de cadastrar.", editor);
         }
         const tipo=document.querySelector('input[name="tipo_questao"]:checked')?.value;
-        if(tipo==="multipla_escolha" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return alert("Selecione a alternativa correta antes de salvar a questão. Nada foi apagado.");}
-        if(tipo==="multiplas_respostas" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return alert("Marque pelo menos uma alternativa correta antes de salvar. Nada foi apagado.");}
-        if(tipo==="verdadeiro_falso" && !document.querySelector('input[name="resposta_vf"]:checked')){evento.preventDefault(); return alert("Selecione Verdadeiro ou Falso antes de salvar. Nada foi apagado.");}
+        if(tipo==="multipla_escolha" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return avisoArk("Selecione a alternativa correta antes de cadastrar a questão. O que você já preencheu foi mantido.", document.querySelector('.marcar-correta input'));}
+        if(tipo==="multiplas_respostas" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return avisoArk("Marque pelo menos uma alternativa correta antes de cadastrar a questão. O que você já preencheu foi mantido.", document.querySelector('.marcar-correta input'));}
+        if(tipo==="verdadeiro_falso" && !document.querySelector('input[name="resposta_vf"]:checked')){evento.preventDefault(); return avisoArk("Selecione Verdadeiro ou Falso antes de cadastrar a questão. O que você já preencheu foi mantido.", document.querySelector('input[name="resposta_vf"]'));}
     });
 
     atualizarSeries();
@@ -569,19 +596,38 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
     const disciplina=document.getElementById("disciplinaQuestao"), etapa=document.getElementById("etapaEnsino"), ano=document.getElementById("anoSerie");
     const habilidade=document.getElementById("habilidadeBncc"), lista=document.getElementById("listaHabilidadesBncc"), unidade=document.getElementById("unidadeTematica"), objeto=document.getElementById("objetoConhecimento"), ajuda=document.getElementById("ajudaUnidadeBncc");
-    if(!habilidade) return; let mapa=new Map(), ctrl=null;
-    async function carregar(){
-        if(!disciplina.value||!etapa.value||!ano.value){lista.innerHTML=""; ajuda.textContent="Selecione componente, etapa e ano/série para pesquisar habilidades."; return;}
-        if(ctrl) ctrl.abort(); ctrl=new AbortController();
-        try{const q=new URLSearchParams({componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value}); const r=await fetch('/api/bncc/opcoes?'+q,{signal:ctrl.signal}); const d=await r.json();
-            lista.innerHTML=""; mapa.clear(); (d.habilidades||[]).forEach(h=>{const valor=h.valor||`${h.codigo} — ${h.descricao}`; const op=document.createElement('option'); op.value=valor; op.label=valor; lista.appendChild(op); mapa.set(valor,h); mapa.set((h.codigo||'').toUpperCase(),h);});
-            ajuda.textContent=(d.habilidades||[]).length?`${d.habilidades.length} habilidade(s) disponível(is). Digite o código ou parte da descrição.`:'Nenhuma habilidade encontrada para esta classificação.'; aplicar();
-        }catch(e){if(e.name!=='AbortError') ajuda.textContent='Erro ao carregar a BNCC.'}
+    if(!habilidade) return;
+    let mapa=new Map(), controle=null, timer=null;
+    function registrar(h){
+        if(!h || !h.codigo) return;
+        const valor=h.valor||`${h.codigo} — ${h.descricao||""}`;
+        const op=document.createElement("option"); op.value=valor; op.label=valor; lista.appendChild(op);
+        mapa.set(valor,h); mapa.set(String(h.codigo).toUpperCase(),h);
     }
-    function aplicar(){let v=habilidade.value.trim(), h=mapa.get(v)||mapa.get(v.toUpperCase()); if(!h&&v){const up=v.toUpperCase(); h=[...new Set(mapa.values())].find(x=>(x.codigo||'').toUpperCase()===up || (x.valor||'').toLowerCase()===v.toLowerCase());}
-        if(h){habilidade.value=h.valor||`${h.codigo} — ${h.descricao}`; objeto.value=h.objeto_conhecimento||''; unidade.value=h.unidade_tematica||''; ajuda.textContent=`${h.codigo}: classificação BNCC preenchida automaticamente.`;}
+    function aplicar(){
+        const v=habilidade.value.trim(); if(!v) return;
+        let h=mapa.get(v)||mapa.get(v.toUpperCase());
+        if(!h){const up=v.toUpperCase(); h=[...new Set(mapa.values())].find(x=>String(x.codigo||"").toUpperCase()===up);}
+        if(h){habilidade.value=h.valor||`${h.codigo} — ${h.descricao||""}`; objeto.value=h.objeto_conhecimento||""; unidade.value=h.unidade_tematica||""; ajuda.className="ajuda bncc-status sucesso"; ajuda.textContent=`${h.codigo}: habilidade encontrada e classificação preenchida automaticamente.`;}
     }
-    [disciplina,etapa,ano].forEach(el=>el.addEventListener('change',()=>{habilidade.value='';objeto.value='';unidade.value='';carregar()})); habilidade.addEventListener('change',aplicar); habilidade.addEventListener('blur',aplicar); carregar();
+    async function pesquisar(){
+        const termo=habilidade.value.trim();
+        if(termo.length<2){ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição.";return;}
+        if(controle) controle.abort(); controle=new AbortController();
+        ajuda.textContent="Pesquisando habilidade BNCC..."; ajuda.className="ajuda bncc-status";
+        const q=new URLSearchParams({q:termo,componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value});
+        try{
+            const r=await fetch('/api/bncc/buscar?'+q,{signal:controle.signal}); const d=await r.json();
+            if(!r.ok) throw new Error(d.erro||"Não foi possível pesquisar a BNCC.");
+            lista.innerHTML=""; mapa.clear(); (d.habilidades||[]).forEach(registrar);
+            if((d.habilidades||[]).length){ajuda.textContent=`${d.habilidades.length} resultado(s). Continue digitando ou selecione uma habilidade.`; aplicar();}
+            else{ajuda.className="ajuda bncc-status erro"; ajuda.textContent="Nenhuma habilidade encontrada. Confira o código ou tente parte da descrição.";}
+        }catch(e){if(e.name!=="AbortError"){ajuda.className="ajuda bncc-status erro";ajuda.textContent="Não foi possível carregar as habilidades agora. Tente novamente.";}}
+    }
+    habilidade.addEventListener("input",()=>{objeto.value="";unidade.value="";clearTimeout(timer);timer=setTimeout(pesquisar,280);});
+    habilidade.addEventListener("change",aplicar); habilidade.addEventListener("blur",()=>setTimeout(aplicar,120));
+    [disciplina,etapa,ano].forEach(el=>el.addEventListener("change",()=>{lista.innerHTML="";mapa.clear(); if(habilidade.value.trim()) pesquisar();}));
+    if(habilidade.value.trim()) pesquisar();
 });
 </script>
 
