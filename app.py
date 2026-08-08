@@ -12,7 +12,7 @@ import time
 from dotenv import load_dotenv
 
 # Carrega automaticamente as variáveis do arquivo .env
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -40,14 +40,58 @@ from matrizes_catalogo import garantir_tabelas_matrizes, consultar_matrizes
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get(
-    "DATABASE_PATH",
-    os.path.join(BASE_DIR, "plataforma.db")
-)
-UPLOAD_FOLDER = os.environ.get(
-    "UPLOAD_FOLDER",
-    os.path.join(BASE_DIR, "static", "uploads")
-)
+
+
+def _resolver_armazenamento_persistente():
+    """Resolve banco e uploads sem depender do disco efêmero do Render.
+
+    Prioridade:
+    1. variáveis DATABASE_PATH / UPLOAD_FOLDER;
+    2. RENDER_DISK_PATH (recomendado: /var/data);
+    3. /var/data quando o diretório existir;
+    4. caminhos locais do projeto apenas para desenvolvimento.
+    """
+    disk_path = os.environ.get("RENDER_DISK_PATH", "").strip()
+    if not disk_path and os.path.isdir("/var/data"):
+        disk_path = "/var/data"
+
+    db_path = os.environ.get("DATABASE_PATH", "").strip()
+    upload_folder = os.environ.get("UPLOAD_FOLDER", "").strip()
+
+    if not db_path:
+        db_path = (
+            os.path.join(disk_path, "plataforma.db")
+            if disk_path
+            else os.path.join(BASE_DIR, "plataforma.db")
+        )
+
+    if not upload_folder:
+        upload_folder = (
+            os.path.join(disk_path, "uploads")
+            if disk_path
+            else os.path.join(BASE_DIR, "static", "uploads")
+        )
+
+    return os.path.abspath(db_path), os.path.abspath(upload_folder), disk_path
+
+
+DB_PATH, UPLOAD_FOLDER, PERSISTENT_DISK_PATH = _resolver_armazenamento_persistente()
+
+# Garante que o diretório do banco exista antes de qualquer CREATE TABLE.
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+# Quando houver disco persistente, mantém também os backups no mesmo volume.
+if PERSISTENT_DISK_PATH and not os.environ.get("BACKUP_DIR"):
+    os.environ["BACKUP_DIR"] = os.path.join(PERSISTENT_DISK_PATH, "backups")
+
+# Diagnóstico visível no log do Render. Não imprime segredos.
+print(f"[ARK EDUS] Banco de dados: {DB_PATH}")
+print(f"[ARK EDUS] Uploads: {UPLOAD_FOLDER}")
+if os.environ.get("RENDER") and not PERSISTENT_DISK_PATH and not os.environ.get("DATABASE_PATH"):
+    print(
+        "[ARK EDUS][ATENCAO] Render sem armazenamento persistente configurado. "
+        "Configure um Persistent Disk em /var/data e DATABASE_PATH=/var/data/plataforma.db."
+    )
 
 app = Flask(__name__)
 

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ark-edus
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    disk:
+      name: ark-edus-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_PATH
+        value: /var/data/plataforma.db
+      - key: UPLOAD_FOLDER
+        value: /var/data/uploads
+      - key: BACKUP_DIR
+        value: /var/data/backups
+      - key: RENDER_DISK_PATH
+        value: /var/data

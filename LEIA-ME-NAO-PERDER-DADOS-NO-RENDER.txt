@@ -1,0 +1,45 @@
+ARK EDUS - PROTECAO CONTRA PERDA DE DADOS EM DEPLOYS
+Data: 08/08/2026
+
+O QUE FOI CORRIGIDO NESTA VERSAO
+--------------------------------
+1. O codigo agora prioriza DATABASE_PATH, UPLOAD_FOLDER e RENDER_DISK_PATH.
+2. Se existir /var/data, o banco passa automaticamente a usar /var/data/plataforma.db.
+3. As imagens enviadas passam a usar /var/data/uploads quando o disco persistente estiver montado.
+4. Backups passam a usar /var/data/backups quando houver disco persistente.
+5. O .env local NAO sobrescreve mais as variaveis configuradas no Render.
+6. Foi incluido render.yaml como referencia para a configuracao correta.
+7. O log do Render mostra o caminho real do banco e dos uploads na inicializacao.
+
+IMPORTANTE - ANTES DE FAZER A PRIMEIRA MUDANCA PARA O DISCO PERSISTENTE
+------------------------------------------------------------------------
+Se a plataforma ONLINE ainda possui dados que voce quer manter, faca um BACKUP AGORA,
+antes de qualquer novo deploy. O disco efemero atual pode desaparecer no deploy.
+
+CONFIGURACAO NO RENDER
+----------------------
+Persistent Disk:
+  Mount Path: /var/data
+
+Environment Variables:
+  DATABASE_PATH=/var/data/plataforma.db
+  UPLOAD_FOLDER=/var/data/uploads
+  BACKUP_DIR=/var/data/backups
+  RENDER_DISK_PATH=/var/data
+
+Depois do deploy, confira no log:
+  [ARK EDUS] Banco de dados: /var/data/plataforma.db
+  [ARK EDUS] Uploads: /var/data/uploads
+
+MUITO IMPORTANTE
+----------------
+- Nao substitua manualmente /var/data/plataforma.db em deploys futuros.
+- Nao apague o Persistent Disk.
+- O arquivo plataforma.db que estiver dentro do repositorio NAO deve ser usado como banco online.
+- As imagens tambem precisam ficar no Persistent Disk, ou elas desaparecerao em deploys futuros.
+
+PRIMEIRA MIGRACAO
+-----------------
+O Render nao transfere automaticamente o banco que estava no disco efemero antigo para o novo
+Persistent Disk. Por isso o backup ANTES da mudanca e indispensavel. Depois que o disco estiver
+ativo, restaure o backup para o banco persistente, se necessario.
