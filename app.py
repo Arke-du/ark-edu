@@ -232,33 +232,60 @@ def normalizar_html_uploads(valor):
     return html
 
 
+def _arquivo_upload_data_uri(valor):
+    """Retorna um upload persistente como data URI, ideal para impressão/PDF."""
+    nome = _nome_upload(valor)
+    if not nome:
+        return ""
+    nome = os.path.basename(nome.split("?", 1)[0].split("#", 1)[0])
+    caminho = os.path.join(app.config["UPLOAD_FOLDER"], nome)
+    if not os.path.isfile(caminho):
+        return ""
+    ext = os.path.splitext(nome)[1].lower()
+    mime = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".webp": "image/webp", ".gif": "image/gif"
+    }.get(ext)
+    if not mime:
+        return ""
+    try:
+        with open(caminho, "rb") as arquivo:
+            dados = base64.b64encode(arquivo.read()).decode("ascii")
+        return f"data:{mime};base64,{dados}"
+    except OSError:
+        return ""
+
+
+@app.template_filter("imagem_data_uri")
+def imagem_data_uri(valor):
+    """Converte o nome/caminho de uma imagem de upload em data URI quando possível."""
+    nome = _nome_upload(valor)
+    if not nome:
+        return ""
+    return _arquivo_upload_data_uri(nome) or url_for("servir_upload", nome_arquivo=nome)
+
+
 @app.template_filter("embutir_imagens_html")
 def embutir_imagens_html(valor):
-    """Embutir imagens persistentes em data URI para visualização e impressão/PDF."""
+    """Embutir imagens do editor em data URI para visualização e impressão/PDF."""
     html = normalizar_html_uploads(valor or "")
-    padrao = re.compile(r"src=(?P<q>[\"'])(?:https?://[^/]+)?/uploads/(?P<nome>[^\"'?]+)(?:\\?[^\"']*)?(?P=q)", re.I)
+    padrao = re.compile(
+        r'''src=(?P<q>["'])(?P<src>(?!data:)(?:https?://[^"']+)?(?:/)?(?:static/)?uploads/[^"']+)(?P=q)''',
+        re.I,
+    )
 
     def substituir(match):
-        nome = os.path.basename(match.group("nome"))
-        caminho = os.path.join(app.config["UPLOAD_FOLDER"], nome)
-        if not os.path.isfile(caminho):
+        src = match.group("src")
+        caminho_src = re.sub(r"^https?://[^/]+/", "/", src, flags=re.I)
+        nome = _nome_upload(caminho_src.split("?", 1)[0].split("#", 1)[0])
+        data_uri = _arquivo_upload_data_uri(nome)
+        if not data_uri:
             return match.group(0)
-        ext = os.path.splitext(nome)[1].lower()
-        mime = {
-            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-            ".webp": "image/webp", ".gif": "image/gif"
-        }.get(ext)
-        if not mime:
-            return match.group(0)
-        try:
-            with open(caminho, "rb") as arquivo:
-                dados = base64.b64encode(arquivo.read()).decode("ascii")
-            q = match.group("q")
-            return f"src={q}data:{mime};base64,{dados}{q}"
-        except OSError:
-            return match.group(0)
+        q = match.group("q")
+        return f"src={q}{data_uri}{q}"
 
     return padrao.sub(substituir, html)
+
 
 mail = Mail(app)
 
@@ -6381,12 +6408,19 @@ def _mapear_bncc_dev_item(item):
     nomes = organizacao.get("nomes") if isinstance(organizacao, dict) else {}
     nomes = nomes if isinstance(nomes, dict) else {}
     unidade = (
+        item.get("unidade_tematica") or item.get("unidadeTematica") or
+        item.get("pratica_linguagem") or item.get("praticaLinguagem") or
         nomes.get("unidadeTematica") or nomes.get("praticaLinguagem") or
         nomes.get("praticaDeLinguagem") or nomes.get("campoAtuacao") or ""
     )
 
-    objetos = item.get("objetosConhecimento") or item.get("objetos_conhecimento") or []
+    objetos = (
+        item.get("objetosConhecimento") or item.get("objetos_conhecimento") or
+        item.get("objeto_conhecimento") or item.get("objetoConhecimento") or []
+    )
     if isinstance(objetos, dict):
+        objetos = [objetos]
+    elif isinstance(objetos, str):
         objetos = [objetos]
     nomes_objetos = []
     for objeto in objetos if isinstance(objetos, list) else []:
@@ -6467,29 +6501,101 @@ def api_bncc_buscar():
     if len(termo) < 2:
         return jsonify({"habilidades": []})
 
+    def normalizar_busca(valor):
+        txt = unicodedata.normalize("NFD", str(valor or "").casefold())
+        return "".join(c for c in txt if unicodedata.category(c) != "Mn")
+
+    chave = normalizar_busca(termo)
     habilidades = []
+    vistos = set()
+
+    # 1) Pesquisa ampla no catálogo local. Não exige que etapa/componente estejam
+    # perfeitamente iguais ao cadastro, evitando o caso em que o professor digita
+    # EF05LP06 e a lista fica vazia por diferença de nomenclatura.
     try:
-        dados = consultar_bncc(
-            DB_PATH, etapa=etapa, componente=componente, ano_serie=ano_serie
-        ) if etapa and componente else {"habilidades": []}
-        normal = unicodedata.normalize("NFD", termo.casefold())
-        chave = "".join(c for c in normal if unicodedata.category(c) != "Mn")
-        for h in dados.get("habilidades", []):
-            alvo = f"{h.get('codigo','')} {h.get('descricao','')}".casefold()
-            alvo = "".join(c for c in unicodedata.normalize("NFD", alvo) if unicodedata.category(c) != "Mn")
-            if chave in alvo:
-                habilidades.append(h)
-            if len(habilidades) >= 30:
-                break
+        banco_bncc = sqlite3.connect(DB_PATH)
+        banco_bncc.row_factory = sqlite3.Row
+        cur_bncc = banco_bncc.cursor()
+        cur_bncc.execute("""
+            SELECT etapa_ensino, ano_serie, area_conhecimento, componente,
+                   unidade_tematica, objeto_conhecimento, codigo, descricao
+            FROM bncc_habilidades
+            WHERE ativo = 1
+              AND (LOWER(codigo) LIKE LOWER(?) OR LOWER(descricao) LIKE LOWER(?))
+            ORDER BY
+              CASE WHEN LOWER(codigo) = LOWER(?) THEN 0
+                   WHEN LOWER(codigo) LIKE LOWER(?) THEN 1 ELSE 2 END,
+              codigo COLLATE NOCASE
+            LIMIT 80
+        """, (f"%{termo}%", f"%{termo}%", termo, f"{termo}%"))
+        linhas = cur_bncc.fetchall()
+        banco_bncc.close()
+
+        for r in linhas:
+            alvo_contexto = True
+            # Contexto é apenas preferência, nunca bloqueio absoluto.
+            contexto_score = 0
+            if componente and normalizar_busca(componente) in normalizar_busca(r["componente"] or r["area_conhecimento"]):
+                contexto_score += 2
+            if etapa and normalizar_busca(etapa).split("-")[0].strip() in normalizar_busca(r["etapa_ensino"]):
+                contexto_score += 1
+            if ano_serie and _ano_compativel_bncc_seguro(r["ano_serie"], ano_serie, etapa):
+                contexto_score += 1
+            item = {
+                "codigo": r["codigo"],
+                "descricao": r["descricao"],
+                "valor": f"{r['codigo']} — {r['descricao']}",
+                "unidade_tematica": r["unidade_tematica"] or "",
+                "objeto_conhecimento": r["objeto_conhecimento"] or "",
+                "componente": r["componente"] or "",
+                "contexto_score": contexto_score,
+            }
+            codigo = str(item["codigo"]).upper()
+            if codigo not in vistos:
+                vistos.add(codigo)
+                habilidades.append(item)
+        habilidades.sort(key=lambda h: (-int(h.get("contexto_score", 0)), str(h.get("codigo", ""))))
+        habilidades = habilidades[:30]
     except sqlite3.Error as erro:
         print("ERRO AO PESQUISAR BNCC LOCAL:", erro)
 
-    # O banco persistente de instalações antigas pode não conter o catálogo BNCC.
-    # Nessa situação a pesquisa pública mantém o campo funcional sem alterar dados existentes.
+    # 2) Complementa com consulta contextual do catálogo local quando disponível.
+    if len(habilidades) < 10 and etapa and componente:
+        try:
+            dados = consultar_bncc(DB_PATH, etapa=etapa, componente=componente, ano_serie=ano_serie)
+            for h in dados.get("habilidades", []):
+                alvo = normalizar_busca(f"{h.get('codigo','')} {h.get('descricao','')}")
+                codigo = str(h.get("codigo") or "").upper()
+                if chave in alvo and codigo and codigo not in vistos:
+                    vistos.add(codigo)
+                    habilidades.append(h)
+                    if len(habilidades) >= 30:
+                        break
+        except sqlite3.Error as erro:
+            print("ERRO AO COMPLEMENTAR BNCC LOCAL:", erro)
+
+    # 3) Se o banco persistente ainda não recebeu o catálogo, usa a API pública
+    # da BNCC como fallback. O resultado continua sendo apenas sugestão ao professor.
     if not habilidades:
         habilidades = _buscar_bncc_remota(termo, 30)
 
-    return jsonify({"habilidades": habilidades})
+    for h in habilidades:
+        h.pop("contexto_score", None)
+    return jsonify({"habilidades": habilidades[:30]})
+
+
+def _ano_compativel_bncc_seguro(ano_registro, ano_selecionado, etapa):
+    """Comparação tolerante usada apenas para ordenar sugestões BNCC."""
+    ar = re.sub(r"\D", "", str(ano_registro or ""))
+    asel = re.sub(r"\D", "", str(ano_selecionado or ""))
+    if not ar or not asel or "medio" in normalizar_sem_acentos(str(etapa or "")):
+        return True
+    return ar == asel or asel in ar
+
+
+def normalizar_sem_acentos(valor):
+    txt = unicodedata.normalize("NFD", str(valor or "").casefold())
+    return "".join(c for c in txt if unicodedata.category(c) != "Mn")
 
 
 @app.route("/api/matrizes/opcoes")
@@ -19665,12 +19771,7 @@ def _garantir_tabelas_aplicacoes():
 
 
 def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
-    """Monta um modelo estável, embaralhando questões e alternativas.
-
-    A mesma aplicação/modelo sempre produz exatamente a mesma ordem. Isso é
-    essencial para que a impressão, o cartão-resposta e a correção automática
-    utilizem o mesmo gabarito.
-    """
+    """Monta um modelo estável preservando texto, HTML e imagens das questões."""
     import random
 
     cursor.execute("""
@@ -19694,20 +19795,9 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
         ORDER BY COALESCE(NULLIF(pq.ordem, 0), pq.id), pq.id
     """, (app_reg["prova_id"],))
 
-    # sqlite3.Row é somente leitura. Transformamos cada registro em dicionário
-    # para poder atualizar a letra correta após o embaralhamento.
     questoes = [dict(registro) for registro in cursor.fetchall()]
-
     modelo = int(modelo)
 
-    # Separa as questões por tipo. As objetivas são embaralhadas entre si,
-    # enquanto as discursivas permanecem sempre nas últimas posições.
-    #
-    # Exemplo: prova com 12 questões e 2 discursivas:
-    #   01 a 10 = objetivas embaralhadas
-    #   11 e 12 = discursivas
-    #
-    # Essa regra vale igualmente para todos os modelos da aplicação.
     questoes_objetivas = [
         questao for questao in questoes
         if not _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
@@ -19717,31 +19807,59 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
         if _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
     ]
 
-    # Mantém o embaralhamento estável por aplicação e modelo.
     gerador_questoes = random.Random(
         f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}:QUESTOES"
     )
     gerador_questoes.shuffle(questoes_objetivas)
-
-    # As discursivas ficam no final e preservam a ordem original cadastrada.
     questoes = questoes_objetivas + questoes_discursivas
-
-    letras = ["A", "B", "C", "D"]
 
     for questao in questoes:
         if _tipo_discursivo_aplicacao(questao.get("tipo_questao")):
             questao["alternativas"] = []
             continue
 
-        correta_original = (questao.get("correta") or "").strip().upper()
-        alternativas = []
+        # Fonte principal: JSON moderno, que preserva imagens das alternativas.
+        try:
+            alternativas_origem = json.loads(questao.get("alternativas_json") or "[]")
+            if not isinstance(alternativas_origem, list):
+                alternativas_origem = []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            alternativas_origem = []
 
-        for letra in letras:
-            texto_alternativa = questao.get(f"alternativa_{letra.lower()}") or ""
-            if str(texto_alternativa).strip():
+        # Compatibilidade com questões antigas que só possuem A/B/C/D legados.
+        if not alternativas_origem:
+            alternativas_origem = []
+            for indice, letra in enumerate(["A", "B", "C", "D"]):
+                texto_alt = questao.get(f"alternativa_{letra.lower()}") or ""
+                if str(texto_alt).strip():
+                    alternativas_origem.append({
+                        "letra": letra,
+                        "texto": texto_alt,
+                        "imagem": "",
+                    })
+
+        corretas_originais = set()
+        try:
+            lista_corretas = json.loads(questao.get("respostas_corretas") or "[]")
+            if isinstance(lista_corretas, list):
+                corretas_originais = {str(x).strip().upper() for x in lista_corretas if str(x).strip()}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        if not corretas_originais and (questao.get("correta") or "").strip():
+            corretas_originais.add((questao.get("correta") or "").strip().upper())
+
+        alternativas = []
+        for indice, alt in enumerate(alternativas_origem):
+            if not isinstance(alt, dict):
+                continue
+            letra_original = str(alt.get("letra") or chr(65 + indice)).strip().upper()
+            texto_alt = str(alt.get("texto") or "").strip()
+            imagem_alt = str(alt.get("imagem") or "").strip()
+            if texto_alt or imagem_alt:
                 alternativas.append({
-                    "letra_original": letra,
-                    "texto": texto_alternativa
+                    "letra_original": letra_original,
+                    "texto": texto_alt,
+                    "imagem": imagem_alt,
                 })
 
         gerador_alternativas = random.Random(
@@ -19750,25 +19868,24 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
         gerador_alternativas.shuffle(alternativas)
 
         alternativas_exibicao = []
-        nova_correta = ""
-
+        novas_corretas = []
         for indice, alternativa in enumerate(alternativas):
-            nova_letra = letras[indice]
+            nova_letra = chr(65 + indice)
             alternativas_exibicao.append({
                 "letra": nova_letra,
-                "texto": alternativa["texto"]
+                "texto": alternativa["texto"],
+                "imagem": alternativa.get("imagem") or "",
             })
-
-            if alternativa["letra_original"] == correta_original:
-                nova_correta = nova_letra
+            if alternativa["letra_original"] in corretas_originais:
+                novas_corretas.append(nova_letra)
 
         questao["alternativas"] = alternativas_exibicao
-        questao["correta_original"] = correta_original
-        questao["correta"] = nova_correta
+        questao["correta_original"] = next(iter(corretas_originais), "")
+        questao["correta"] = novas_corretas[0] if novas_corretas else ""
+        questao["respostas_corretas_modelo"] = novas_corretas
 
-        # Mantém compatibilidade com trechos antigos que ainda leem os campos
-        # alternativa_a, alternativa_b, alternativa_c e alternativa_d.
-        for indice, letra in enumerate(letras):
+        # Mantém compatibilidade com trechos antigos que ainda leem A/B/C/D.
+        for indice, letra in enumerate(["A", "B", "C", "D"]):
             questao[f"alternativa_{letra.lower()}"] = (
                 alternativas_exibicao[indice]["texto"]
                 if indice < len(alternativas_exibicao)

@@ -1,0 +1,19 @@
+ARK EDUS - Correção de imagens na prova aplicada e pesquisa BNCC
+
+1. Impressão / Aplicações / Modelo
+- O modelo de aplicação agora usa enunciado_html, preservando imagens inseridas diretamente no editor.
+- Imagens do enunciado são embutidas como data URI na renderização para impressão/PDF.
+- Alternativas agora são montadas a partir de alternativas_json e preservam o campo imagem durante o embaralhamento dos modelos.
+- Imagens das alternativas são renderizadas na prova aplicada e embutidas para impressão/PDF.
+- Mantida compatibilidade com questões antigas que usam alternativa_a/b/c/d e imagem legada.
+
+2. Habilidades BNCC
+- A busca não depende mais de correspondência exata entre nomes de etapa/componente para exibir resultados.
+- Pesquisa local por código ou descrição em bncc_habilidades, priorizando o contexto da questão.
+- Fallback para API pública bncc.dev quando o catálogo local estiver vazio.
+- Cadastro e edição agora exibem uma lista visual clicável abaixo do campo de habilidade, em vez de depender apenas do datalist do navegador.
+- Ao selecionar a habilidade, objeto do conhecimento e unidade temática/prática de linguagem são preenchidos automaticamente.
+
+3. Segurança do deploy
+- Nenhum arquivo .db/.sqlite está incluído neste pacote.
+- O banco persistente do Render deve continuar em /var/data/plataforma.db.
