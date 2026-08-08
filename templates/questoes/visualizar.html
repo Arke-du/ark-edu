@@ -442,7 +442,7 @@
                 </div>
 
                 <p class="vq-enunciado-titulo">Enunciado</p>
-                <div class="vq-enunciado">{{ questao['enunciado'] }}</div>
+                <div class="vq-enunciado">{% if questao['enunciado_html'] %}{{ questao['enunciado_html']|normalizar_html_uploads|safe }}{% else %}{{ questao['enunciado'] }}{% endif %}</div>
 
                 {% if questao['imagem'] %}
                 <img
@@ -469,7 +469,7 @@
 
                             {% if alternativa.get('imagem') %}
                             <img
-                                src="{{ url_for('static', filename='uploads/' ~ alternativa.get('imagem')) }}"
+                                src="{{ upload_url(alternativa.get('imagem')) }}"
                                 alt="Imagem da alternativa {{ alternativa.get('letra', loop.index) }}"
                                 class="vq-alternativa-imagem"
                             >
@@ -640,3 +640,8 @@
     </div>
 </div>
 {% endblock %}
+<style>
+.statement figure,.vq-enunciado figure,.preview-enunciado figure{margin:12px auto;max-width:100%;break-inside:avoid;page-break-inside:avoid}
+.statement figure img,.vq-enunciado figure img,.preview-enunciado figure img{display:block;max-width:100%;max-height:420px;width:auto;height:auto;object-fit:contain;margin:0 auto}
+.vq-enunciado img,.preview-enunciado img,.statement img{max-width:100%;height:auto;object-fit:contain}
+</style>

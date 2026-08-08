@@ -2541,9 +2541,13 @@ img {
 
                     <div class="question-body">
 
-                        <p class="statement">
-                            {{ questao['enunciado'] }}
-                        </p>
+                        <div class="statement">
+                            {% if questao['enunciado_html'] %}
+                                {{ questao['enunciado_html']|normalizar_html_uploads|safe }}
+                            {% else %}
+                                {{ questao['enunciado'] }}
+                            {% endif %}
+                        </div>
 
                         {% if questao['imagem'] %}
                             <div class="question-image-area">
@@ -2736,3 +2740,8 @@ function confirmarAlteracaoQuestao(form, numero, estaAnulada) {
 
 </body>
 </html>
+<style>
+.statement figure,.vq-enunciado figure,.preview-enunciado figure{margin:12px auto;max-width:100%;break-inside:avoid;page-break-inside:avoid}
+.statement figure img,.vq-enunciado figure img,.preview-enunciado figure img{display:block;max-width:100%;max-height:420px;width:auto;height:auto;object-fit:contain;margin:0 auto}
+.vq-enunciado img,.preview-enunciado img,.statement img{max-width:100%;height:auto;object-fit:contain}
+</style>

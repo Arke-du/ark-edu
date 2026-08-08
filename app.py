@@ -176,6 +176,16 @@ def disponibilizar_url_upload():
         return url_for("servir_upload", nome_arquivo=nome) if nome else ""
     return {"upload_url": upload_url}
 
+@app.template_filter("normalizar_html_uploads")
+def normalizar_html_uploads(valor):
+    """Faz HTML antigo e novo de enunciados apontar para a rota persistente de uploads."""
+    html = valor or ""
+    html = html.replace('src="/static/uploads/', 'src="/uploads/')
+    html = html.replace("src='/static/uploads/", "src='/uploads/")
+    html = html.replace('src="static/uploads/', 'src="/uploads/')
+    html = html.replace("src='static/uploads/", "src='/uploads/")
+    return html
+
 mail = Mail(app)
 
 print("=" * 60)
@@ -6580,7 +6590,7 @@ def cadastrar_questao():
             nome_arquivo = f"enunciado_{uuid.uuid4().hex}{extensao}"
             with open(os.path.join(app.config["UPLOAD_FOLDER"], nome_arquivo), "wb") as destino:
                 destino.write(dados)
-            return f'src="/static/uploads/{nome_arquivo}"'
+            return f'src="/uploads/{nome_arquivo}"'
 
         conteudo_html = padrao.sub(substituir, conteudo_html)
         conteudo_html = re.sub(r'<\s*(script|iframe|object|embed)[^>]*>.*?<\s*/\s*\1\s*>', '', conteudo_html, flags=re.I | re.S)
@@ -9200,7 +9210,21 @@ def montar_prova(prova_id):
             WHERE pq.prova_id = ?
             ORDER BY pq.ordem, pq.id
         """, (prova_id,))
-        questoes_adicionadas = cursor.fetchall()
+        questoes_adicionadas_raw = cursor.fetchall()
+        questoes_adicionadas = []
+        for registro in questoes_adicionadas_raw:
+            item = dict(registro)
+            try:
+                alternativas_render = json.loads(item.get("alternativas_json") or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                alternativas_render = []
+            if not alternativas_render and item.get("tipo_questao") in {"multipla_escolha", "multiplas_respostas"}:
+                for indice, campo in enumerate(("alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d")):
+                    texto = item.get(campo) or ""
+                    if texto:
+                        alternativas_render.append({"letra": chr(65 + indice), "texto": texto, "imagem": ""})
+            item["alternativas_render"] = alternativas_render
+            questoes_adicionadas.append(item)
 
         cursor.execute("""
             SELECT q.*
