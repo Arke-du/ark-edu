@@ -12546,6 +12546,27 @@ def resultados(prova_id):
             except sqlite3.Error:
                 descricoes_habilidades = {}
 
+        # Fallback remoto: bancos antigos podem conter apenas o código na questão
+        # sem a linha correspondente em bncc_habilidades. Nesse caso, consulta a
+        # fonte BNCC já utilizada pela própria tela de cadastro para obter a
+        # descrição, sem alterar os registros da avaliação.
+        codigos_sem_descricao = [
+            codigo for codigo in codigos_habilidades
+            if not descricoes_habilidades.get(codigo)
+        ]
+        for codigo in codigos_sem_descricao:
+            try:
+                itens_remotos = _buscar_bncc_remota(codigo, limite=3)
+                item_exato = next(
+                    (item for item in itens_remotos
+                     if str(item.get("codigo") or "").strip().upper() == codigo.upper()),
+                    itens_remotos[0] if itens_remotos else None
+                )
+                if item_exato and (item_exato.get("descricao") or "").strip():
+                    descricoes_habilidades[codigo] = (item_exato.get("descricao") or "").strip()
+            except Exception as erro:
+                print(f"AVISO DESCRICAO BNCC {codigo}: {erro}")
+
         for q in relatorio_questoes:
             codigo = (q.get("habilidade") or "").strip()
             q["habilidade_descricao"] = descricoes_habilidades.get(codigo, "")
@@ -19950,6 +19971,73 @@ def _sincronizar_alunos_aplicacao(cursor, aplicacao_id):
     return criados
 
 
+def _garantir_aluno_qr_na_aplicacao(cursor, aplicacao_id, aluno_id, modelo=1):
+    """Garante o vínculo do aluno identificado pelo QR sem aceitar aluno de outra turma.
+
+    É um segundo nível de proteção para aplicações antigas: se a sincronização em
+    lote não encontrou o vínculo por diferenças de migração, valida diretamente
+    se o aluno pertence à turma da aplicação e cria somente o vínculo ausente.
+    """
+    cursor.execute("""
+        SELECT a.turma_id, a.ano_letivo_id
+        FROM aplicacoes a
+        WHERE a.id = ?
+    """, (aplicacao_id,))
+    aplicacao = cursor.fetchone()
+    if not aplicacao:
+        return False
+
+    cursor.execute("""
+        SELECT 1
+        FROM aplicacao_alunos
+        WHERE aplicacao_id = ? AND aluno_id = ?
+    """, (aplicacao_id, aluno_id))
+    if cursor.fetchone():
+        return True
+
+    pertence = False
+    # Compatibilidade com o vínculo legado alunos.turma_id.
+    try:
+        cursor.execute("""
+            SELECT 1 FROM alunos
+            WHERE id = ? AND turma_id = ?
+        """, (aluno_id, aplicacao["turma_id"]))
+        pertence = cursor.fetchone() is not None
+    except sqlite3.Error:
+        pertence = False
+
+    # Compatibilidade com a estrutura atual aluno_matriculas.
+    if not pertence:
+        try:
+            cursor.execute("""
+                SELECT 1
+                FROM aluno_matriculas am
+                WHERE am.aluno_id = ?
+                  AND am.turma_id = ?
+                  AND (? IS NULL OR am.ano_letivo_id = ?)
+                  AND LOWER(TRIM(COALESCE(am.situacao, 'Cursando'))) = 'cursando'
+                LIMIT 1
+            """, (
+                aluno_id,
+                aplicacao["turma_id"],
+                aplicacao["ano_letivo_id"],
+                aplicacao["ano_letivo_id"],
+            ))
+            pertence = cursor.fetchone() is not None
+        except sqlite3.Error:
+            pertence = False
+
+    if not pertence:
+        return False
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO aplicacao_alunos
+            (aplicacao_id, aluno_id, modelo)
+        VALUES (?, ?, ?)
+    """, (aplicacao_id, aluno_id, max(1, int(modelo or 1))))
+    return True
+
+
 def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
     """Monta um modelo estável preservando texto, HTML e imagens das questões."""
     import random
@@ -20852,6 +20940,18 @@ def importar_cartoes_aplicacao(aplicacao_id):
 
                         aluno_id = int(dados_qr["ALUNO"])
                         modelo_qr = int(dados_qr.get("MODELO", 1))
+
+                        # Aplicações antigas podem ter cartões válidos gerados
+                        # antes da criação dos vínculos em aplicacao_alunos. O QR
+                        # identifica o aluno de forma inequívoca; valida a turma e
+                        # recompõe somente esse vínculo antes da correção.
+                        if not _garantir_aluno_qr_na_aplicacao(
+                            cursor, aplicacao_id, aluno_id, modelo_qr
+                        ):
+                            raise ValueError(
+                                "O aluno identificado pelo QR não pertence à turma desta aplicação."
+                            )
+
                         modelo_visual = ler_modelo_cartao(
                             caminho,
                             aplicacao["quantidade_modelos"] or 1
