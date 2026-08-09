@@ -12354,6 +12354,10 @@ def resultados(prova_id):
                 e.logo,
                 e.cidade,
                 e.estado,
+                e.diretor,
+                e.coordenador1,
+                e.coordenador2,
+                e.coordenador3,
                 COALESCE(al.ano, p.ano_letivo_id) AS ano_letivo,
                 COALESCE(prof.nome, u.nome, '—') AS professor_nome
             FROM provas p
@@ -12519,6 +12523,34 @@ def resultados(prova_id):
 
         habilidades = agrupar_indicador("habilidade")
         descritores = agrupar_indicador("descritor")
+
+        # Acrescenta a descrição oficial da habilidade BNCC ao relatório.
+        # A questão continua guardando o código, mas a impressão exibe código + descrição.
+        codigos_habilidades = sorted({
+            (q.get("habilidade") or "").strip()
+            for q in relatorio_questoes
+            if (q.get("habilidade") or "").strip()
+        })
+        descricoes_habilidades = {}
+        if codigos_habilidades:
+            try:
+                placeholders = ",".join("?" for _ in codigos_habilidades)
+                cursor.execute(
+                    f"SELECT codigo, descricao FROM bncc_habilidades WHERE codigo IN ({placeholders})",
+                    codigos_habilidades
+                )
+                descricoes_habilidades = {
+                    (r["codigo"] or "").strip(): (r["descricao"] or "").strip()
+                    for r in cursor.fetchall()
+                }
+            except sqlite3.Error:
+                descricoes_habilidades = {}
+
+        for q in relatorio_questoes:
+            codigo = (q.get("habilidade") or "").strip()
+            q["habilidade_descricao"] = descricoes_habilidades.get(codigo, "")
+        for h in habilidades:
+            h["descricao"] = descricoes_habilidades.get((h.get("codigo") or "").strip(), "")
 
         # Resumo das discursivas
         cursor.execute("""
