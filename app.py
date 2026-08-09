@@ -12007,38 +12007,48 @@ def ler_respostas_cartao(caminho_imagem, quantidade):
     return respostas
 
 
-def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
-    """Lê o modelo no layout atual do cartão ARK EDUS.
+def _taxa_escura_melhor_circulo(cinza, centro_x, centro_y, raio=14, busca=10):
+    """Mede uma bolha tolerando pequenos deslocamentos de scan/foto."""
+    altura, largura = cinza.shape[:2]
+    melhor = 0.0
+    # limiar 165 é mais tolerante a impressão/scanner do que 120.
+    for dy in range(-busca, busca + 1, 2):
+        for dx in range(-busca, busca + 1, 2):
+            x0 = int(centro_x + dx)
+            y0 = int(centro_y + dy)
+            x1, x2 = max(0, x0 - raio), min(largura, x0 + raio + 1)
+            y1, y2 = max(0, y0 - raio), min(altura, y0 + raio + 1)
+            roi = cinza[y1:y2, x1:x2]
+            if roi.size == 0:
+                continue
+            yy, xx = np.ogrid[:roi.shape[0], :roi.shape[1]]
+            cx, cy = x0 - x1, y0 - y1
+            mascara = (xx - cx) ** 2 + (yy - cy) ** 2 <= raio ** 2
+            pixels = roi[mascara]
+            if pixels.size:
+                taxa = float(np.mean(pixels < 165))
+                melhor = max(melhor, taxa)
+    return melhor
 
-    O cartão é normalizado para o tamanho-base do modelo impresso e a leitura
-    considera apenas o miolo das quatro bolhas do quadro "MODELO DA PROVA".
-    """
+
+def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
+    """Lê o modelo com tolerância a PDF escaneado, foto, escala e deslocamento."""
     imagem = cv2.imread(caminho_imagem)
     if imagem is None:
         return None
 
     quantidade_modelos = max(1, min(4, int(quantidade_modelos or 1)))
-
-    # Normaliza o cartão para as mesmas proporções do arquivo gerado.
     largura_base, altura_base = 1449, 2048
     normalizada = cv2.resize(imagem, (largura_base, altura_base))
     cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
+    cinza = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8)).apply(cinza)
 
     centros_x = [1134, 1204, 1274, 1344]
     centro_y = 515
-    raio = 16
-
-    preenchimentos = []
-    yy, xx = np.ogrid[:altura_base, :largura_base]
-
-    for x in centros_x[:quantidade_modelos]:
-        mascara = (xx - x) ** 2 + (yy - centro_y) ** 2 <= raio ** 2
-        pixels = cinza[mascara]
-        if pixels.size == 0:
-            preenchimentos.append(0.0)
-        else:
-            preenchimentos.append(float(np.mean(pixels < 120)))
-
+    preenchimentos = [
+        _taxa_escura_melhor_circulo(cinza, x, centro_y, raio=15, busca=12)
+        for x in centros_x[:quantidade_modelos]
+    ]
     if not preenchimentos:
         return None
 
@@ -12046,19 +12056,17 @@ def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
     melhor = preenchimentos[int(ordem[0])]
     segundo = preenchimentos[int(ordem[1])] if len(ordem) > 1 else 0.0
 
-    # Uma bolha preenchida fica muito mais escura do que as vazias.
-    if melhor < 0.45 or (melhor - segundo) < 0.22:
+    # Em scanner, preenchimento sólido costuma ficar entre 0.25 e 0.90.
+    if melhor < 0.24 or (len(preenchimentos) > 1 and (melhor - segundo) < 0.10):
         return None
-
     return int(ordem[0]) + 1
 
 
 def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
-    """Lê as respostas objetivas no layout atual do cartão ARK EDUS.
+    """Lê A/B/C/D também em cartões impressos e posteriormente escaneados.
 
-    A imagem é normalizada para o tamanho-base do cartão. Cada alternativa é
-    medida somente em seu miolo, evitando que a letra e o contorno da bolha
-    sejam interpretados como marcação.
+    Em vez de exigir coordenada perfeita e preto absoluto, procura o centro mais
+    escuro perto da posição esperada e compara cada alternativa com as demais.
     """
     imagem = cv2.imread(caminho_imagem)
     if imagem is None:
@@ -12071,58 +12079,35 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
     largura_base, altura_base = 1449, 2048
     normalizada = cv2.resize(imagem, (largura_base, altura_base))
     cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
+    cinza = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8)).apply(cinza)
 
-    # Centros calibrados no cartão gerado pela plataforma.
     centros_x = [636, 739, 843, 946]
     primeiro_y = 1032
     passo_y = 49
-    raio = 14
     letras = ["A", "B", "C", "D"]
-
-    yy, xx = np.ogrid[:altura_base, :largura_base]
     resultado = {}
 
     for indice in range(quantidade):
         centro_y = primeiro_y + (indice * passo_y)
-        preenchimentos = []
-
-        for centro_x in centros_x:
-            mascara = (
-                (xx - centro_x) ** 2
-                + (yy - centro_y) ** 2
-                <= raio ** 2
-            )
-            pixels = cinza[mascara]
-            taxa_escura = (
-                float(np.mean(pixels < 120))
-                if pixels.size else 0.0
-            )
-            preenchimentos.append(taxa_escura)
-
-        maior = max(preenchimentos)
+        preenchimentos = [
+            _taxa_escura_melhor_circulo(cinza, x, centro_y, raio=14, busca=11)
+            for x in centros_x
+        ]
         ordem = np.argsort(preenchimentos)[::-1]
+        maior = preenchimentos[int(ordem[0])]
         segundo = preenchimentos[int(ordem[1])]
 
-        marcadas_indices = [
-            i for i, valor in enumerate(preenchimentos)
-            if valor >= 0.45
-        ]
-
-        if maior < 0.45:
-            situacao = "em_branco"
-            resposta = ""
-            marcadas = []
-        elif len(marcadas_indices) >= 2:
-            situacao = "dupla_marcacao"
-            resposta = ""
+        # Limiares deliberadamente conservadores: dúvida vai para revisão,
+        # nunca é descartada nem transformada silenciosamente em resposta.
+        marcadas_indices = [i for i, v in enumerate(preenchimentos) if v >= 0.28]
+        if maior < 0.20:
+            situacao, resposta, marcadas = "em_branco", "", []
+        elif len(marcadas_indices) >= 2 and segundo >= 0.25:
+            situacao, resposta = "dupla_marcacao", ""
             marcadas = [letras[i] for i in marcadas_indices]
-        elif (maior - segundo) < 0.20:
-            situacao = "dupla_marcacao"
-            resposta = ""
-            marcadas = [
-                letras[int(ordem[0])],
-                letras[int(ordem[1])]
-            ]
+        elif (maior - segundo) < 0.09:
+            situacao, resposta = "dupla_marcacao", ""
+            marcadas = [letras[int(ordem[0])], letras[int(ordem[1])]]
         else:
             situacao = "respondida"
             resposta = letras[int(ordem[0])]
@@ -12134,7 +12119,6 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
             "marcadas": marcadas,
             "preenchimentos": [round(v, 4) for v in preenchimentos],
         }
-
     return resultado
 
 
@@ -20892,6 +20876,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
             importados = 0
             revisoes = 0
             descartados = 0
+            erros_importacao = []
 
             for arquivo in arquivos:
                 nome_original = secure_filename(arquivo.filename)
@@ -21364,15 +21349,23 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             f"{f' PÁGINA {numero_pagina}' if numero_pagina else ''}: "
                             f"{erro}"
                         )
+                        erros_importacao.append(
+                            f"{nome_original}{f' · página {numero_pagina}' if numero_pagina else ''}: {erro}"
+                        )
                         _remover_arquivo_silenciosamente(caminho)
                         descartados += 1
 
             _sincronizar_status_aplicacao(cursor, aplicacao_id)
             banco.commit()
 
-            flash(
+            mensagem_flash = (
                 f"Importação concluída: {importados} corrigido(s), "
-                f"{revisoes} para revisão e {descartados} descartado(s).",
+                f"{revisoes} para revisão e {descartados} descartado(s)."
+            )
+            if erros_importacao:
+                mensagem_flash += " Motivo: " + " | ".join(erros_importacao[:3])
+            flash(
+                mensagem_flash,
                 "sucesso" if not descartados else "aviso"
             )
             return redirect(url_for(
