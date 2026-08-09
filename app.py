@@ -3808,7 +3808,12 @@ def visualizar_turma(turma_id):
         cursor.execute("""
             SELECT
                 turmas.*,
-                escolas.nome_instituicao
+                escolas.nome_instituicao,
+                escolas.logo AS escola_logo,
+                escolas.coordenador1,
+                escolas.coordenador2,
+                escolas.coordenador3,
+                escolas.secretario
             FROM turmas
             LEFT JOIN escolas
                 ON escolas.id = turmas.escola_id
@@ -3938,6 +3943,34 @@ def visualizar_turma(turma_id):
 
         professores = cursor.fetchall()
 
+        # Dados prontos para a impressão da lista da turma. Mantemos somente
+        # nomes únicos de professores e usamos os responsáveis institucionais
+        # cadastrados na própria escola (coordenadores e secretário/a).
+        nomes_professores_impressao = []
+        vistos_professores = set()
+        for professor in professores:
+            nome_professor = (professor["nome"] or "").strip()
+            chave = nome_professor.casefold()
+            if nome_professor and chave not in vistos_professores:
+                vistos_professores.add(chave)
+                nomes_professores_impressao.append(nome_professor)
+
+        coordenadores_impressao = [
+            (turma["coordenador1"] or "").strip(),
+            (turma["coordenador2"] or "").strip(),
+            (turma["coordenador3"] or "").strip(),
+        ]
+        coordenadores_impressao = [nome for nome in coordenadores_impressao if nome]
+
+        secretario_impressao = (turma["secretario"] or "").strip()
+        alunos_impressao = [
+            {
+                "nome": (aluno["nome"] or "").strip(),
+                "matricula": str(aluno["matricula"] or "").strip(),
+            }
+            for aluno in alunos
+        ]
+
         pode_gerenciar_professores = cargo in [
             "Administrador Geral",
             "Administrador da Instituição",
@@ -4024,7 +4057,11 @@ def visualizar_turma(turma_id):
             avaliacoes=avaliacoes,
             cargo=cargo,
             pode_editar=pode_editar,
-            pode_gerenciar_professores=pode_gerenciar_professores
+            pode_gerenciar_professores=pode_gerenciar_professores,
+            nomes_professores_impressao=nomes_professores_impressao,
+            coordenadores_impressao=coordenadores_impressao,
+            secretario_impressao=secretario_impressao,
+            alunos_impressao=alunos_impressao
         )
 
     except sqlite3.Error as erro:

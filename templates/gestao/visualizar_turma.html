@@ -1087,8 +1087,20 @@ body.vt-modal-aberto {
                     </p>
                 </div>
 
-                {% if pode_editar %}
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+                    <button
+                        type="button"
+                        class="vt-btn-adicionar"
+                        data-abrir-modal="modal-imprimir-lista"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M6 9V3h12v6"></path>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <path d="M6 14h12v7H6z"></path>
+                        </svg>
+                        Imprimir lista
+                    </button>
+                    {% if pode_editar %}
                     <a href="{{ url_for('importar_alunos_pagina', turma_id=turma['id']) }}" class="vt-btn-adicionar" style="text-decoration:none">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
                         Importar alunos
@@ -1104,8 +1116,8 @@ body.vt-modal-aberto {
                         </svg>
                         Matricular aluno
                     </button>
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
 
             </div>
 
@@ -1520,6 +1532,46 @@ body.vt-modal-aberto {
 </div>
 
 
+<!-- MODAL: IMPRIMIR LISTA DE ALUNOS -->
+<div class="vt-modal-fundo" id="modal-imprimir-lista" aria-hidden="true">
+    <div class="vt-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-imprimir-lista">
+        <div class="vt-modal-topo">
+            <div>
+                <h3 id="titulo-imprimir-lista">Imprimir lista de alunos</h3>
+                <p>Escolha as informações que deseja incluir no cabeçalho da lista.</p>
+            </div>
+            <button type="button" class="vt-modal-fechar" data-fechar-modal aria-label="Fechar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="vt-modal-corpo">
+            <div class="vt-dado">
+                <span>Informações padrão</span>
+                <strong>Logo, escola, turma, professor(es) e lista completa dos alunos</strong>
+            </div>
+            <div class="vt-campo" style="margin-top:16px">
+                <label>Informações adicionais</label>
+                <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:12px;cursor:pointer;margin-top:8px">
+                    <input type="checkbox" id="imprimir-coordenadores" style="width:18px;height:18px">
+                    <span>Incluir coordenador(es)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:12px;cursor:pointer;margin-top:8px">
+                    <input type="checkbox" id="imprimir-secretaria" style="width:18px;height:18px">
+                    <span>Incluir secretário(a)</span>
+                </label>
+            </div>
+            <p style="margin:14px 0 0;color:#65758b;font-size:.9rem">A lista será numerada e mostrará nome completo e matrícula de cada estudante.</p>
+        </div>
+        <div class="vt-modal-acoes">
+            <button type="button" class="vt-btn-cancelar" data-fechar-modal>Cancelar</button>
+            <button type="button" class="vt-btn-adicionar" id="btn-gerar-impressao-lista">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg>
+                Gerar impressão
+            </button>
+        </div>
+    </div>
+</div>
+
 {% if pode_editar %}
 
 <!-- MODAL: MATRICULAR ALUNO -->
@@ -1902,6 +1954,80 @@ document.addEventListener("DOMContentLoaded", function () {
             abrirModal(modalEditar);
         });
     });
+
+    const dadosImpressaoLista = {
+        escola: {{ (turma["nome_instituicao"] or "")|tojson }},
+        logo: {{ upload_url(turma["escola_logo"])|tojson }},
+        turma: {{ ((turma["ano"] or "") ~ " / " ~ (turma["nome"] or ""))|tojson }},
+        turno: {{ (turma["turno"] or "")|tojson }},
+        professores: {{ nomes_professores_impressao|tojson }},
+        coordenadores: {{ coordenadores_impressao|tojson }},
+        secretario: {{ secretario_impressao|tojson }},
+        alunos: {{ alunos_impressao|tojson }}
+    };
+
+    function escaparHtml(valor) {
+        return String(valor == null ? "" : valor)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    const botaoGerarImpressaoLista = document.getElementById("btn-gerar-impressao-lista");
+    if (botaoGerarImpressaoLista) {
+        botaoGerarImpressaoLista.addEventListener("click", function () {
+            const incluirCoordenadores = document.getElementById("imprimir-coordenadores")?.checked;
+            const incluirSecretaria = document.getElementById("imprimir-secretaria")?.checked;
+            const janela = window.open("", "_blank");
+            if (!janela) {
+                alert("O navegador bloqueou a janela de impressão. Permita pop-ups para a ARK EDUS e tente novamente.");
+                return;
+            }
+
+            const professores = dadosImpressaoLista.professores.length
+                ? dadosImpressaoLista.professores.join(", ")
+                : "Não informado";
+            const coordenadores = dadosImpressaoLista.coordenadores.length
+                ? dadosImpressaoLista.coordenadores.join(", ")
+                : "Não informado";
+            const secretario = dadosImpressaoLista.secretario || "Não informado";
+            const logoAbsoluta = dadosImpressaoLista.logo
+                ? new URL(dadosImpressaoLista.logo, window.location.origin).href
+                : "";
+
+            const linhas = dadosImpressaoLista.alunos.map(function (aluno, indice) {
+                return `<tr><td class="numero">${indice + 1}</td><td>${escaparHtml(aluno.nome)}</td><td class="matricula">${escaparHtml(aluno.matricula || "—")}</td></tr>`;
+            }).join("");
+
+            const extras = [
+                incluirCoordenadores ? `<div><b>Coordenação:</b> ${escaparHtml(coordenadores)}</div>` : "",
+                incluirSecretaria ? `<div><b>Secretário(a):</b> ${escaparHtml(secretario)}</div>` : ""
+            ].filter(Boolean).join("");
+
+            const html = `<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Lista de alunos - ${escaparHtml(dadosImpressaoLista.turma)}</title>
+<style>
+@page{size:A4;margin:14mm 13mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;font-size:11pt}.cabecalho{display:grid;grid-template-columns:86px 1fr;gap:16px;align-items:center;border-bottom:2px solid #0d3766;padding-bottom:12px;margin-bottom:14px}.logo{width:78px;max-height:78px;object-fit:contain}.sem-logo{width:78px;height:62px;border:1px solid #d6dfeb;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#0d3766}.escola{font-size:17pt;font-weight:700;color:#0d3766;margin:0 0 4px}.titulo{font-size:14pt;font-weight:700;margin:0 0 8px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;font-size:10.5pt}.meta .full{grid-column:1/-1}.resumo{margin:10px 0 12px;padding:8px 10px;background:#f5f8fc;border:1px solid #dce5ef;border-radius:7px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:#0d3766;color:white;text-align:left;padding:7px 8px;font-size:10pt}td{padding:6px 8px;border-bottom:1px solid #dce3ec;vertical-align:middle}tr{break-inside:avoid}.numero{width:44px;text-align:center}.matricula{width:120px}.rodape{margin-top:12px;font-size:9pt;color:#6b7280;text-align:right}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none}}
+</style></head><body>
+<header class="cabecalho">
+<div>${logoAbsoluta ? `<img class="logo" src="${escaparHtml(logoAbsoluta)}" alt="Logo da escola">` : `<div class="sem-logo">ARK EDUS</div>`}</div>
+<div><div class="escola">${escaparHtml(dadosImpressaoLista.escola)}</div><div class="titulo">Lista de alunos</div>
+<div class="meta"><div><b>Turma:</b> ${escaparHtml(dadosImpressaoLista.turma)}</div><div><b>Turno:</b> ${escaparHtml(dadosImpressaoLista.turno)}</div><div class="full"><b>Professor(es):</b> ${escaparHtml(professores)}</div>${extras}</div></div>
+</header>
+<div class="resumo"><b>Total de estudantes:</b> ${dadosImpressaoLista.alunos.length}</div>
+<table><thead><tr><th class="numero">Nº</th><th>Nome do aluno</th><th class="matricula">Matrícula</th></tr></thead><tbody>${linhas}</tbody></table>
+<div class="rodape">ARK EDUS • Lista gerada pela plataforma</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print()},250)});<\/script>
+</body></html>`;
+
+            janela.document.open();
+            janela.document.write(html);
+            janela.document.close();
+            fecharModal(document.getElementById("modal-imprimir-lista"));
+        });
+    }
 
     const modalExcluir = document.getElementById("modal-excluir-vinculo");
     const formExcluir = document.getElementById("form-excluir-vinculo");
