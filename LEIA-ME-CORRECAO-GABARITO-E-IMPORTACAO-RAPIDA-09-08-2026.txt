@@ -1,0 +1,30 @@
+ARK EDUS — CORREÇÃO DE GABARITO E IMPORTAÇÃO EM LOTE
+
+Principais ajustes desta versão:
+1. Compatibilidade restaurada com os modelos já impressos:
+   - Modelo 1 mantém a ordem original da prova.
+   - Modelos 2+ usam o mesmo embaralhamento histórico por aplicação/modelo.
+   - As alternativas não trocam de letra durante a reconstrução do gabarito.
+
+2. Cartões novos passam a gravar no QR Code o gabarito exato do modelo (GAB:...).
+   Esse gabarito acompanha o cartão e é usado como fonte principal na correção,
+   evitando mudança de resultado depois de deploy, edição ou reconstrução do modelo.
+
+3. Cartões antigos continuam compatíveis. Quando um cartão antigo totalmente
+   legível resultar em 0 acertos, o sistema exige revisão em vez de publicar
+   silenciosamente uma nota potencialmente incompatível.
+
+4. A revisão manual preserva o mesmo gabarito usado durante a importação, evitando
+   que a nota mude ao abrir/salvar a conferência.
+
+5. Importação mais rápida:
+   - PDF renderizado em resolução otimizada (1.6x), validada nos scans de teste.
+   - Leitura de QR com caminho rápido antes do processamento pesado.
+   - Pré-leitura paralela dos QR Codes de PDFs com várias páginas.
+
+6. OMR mantém correção de perspectiva pelos quatro marcadores do cartão e só
+   corrige automaticamente marcações sólidas e inequívocas; rasuras, X ou
+   ambiguidades continuam indo para revisão.
+
+IMPORTANTE: o pacote NÃO contém banco .db/.sqlite. O banco persistente do Render
+continua separado em /var/data/plataforma.db.

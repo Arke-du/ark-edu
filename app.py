@@ -20241,7 +20241,16 @@ def _garantir_aluno_qr_na_aplicacao(cursor, aplicacao_id, aluno_id, modelo=1):
 
 
 def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
-    """Monta um modelo estável preservando texto, HTML e imagens das questões."""
+    """Monta o modelo de forma compatível com os cartões já impressos.
+
+    Regra histórica da ARK EDUS:
+      * modelo 1 mantém a ordem original da prova;
+      * modelos 2+ embaralham apenas a ordem das questões com seed estável;
+      * as alternativas NÃO mudam de letra.
+
+    Essa compatibilidade é crítica: cartões impressos antes de um deploy não
+    podem passar a ter outro gabarito quando forem corrigidos depois.
+    """
     import random
 
     cursor.execute("""
@@ -20266,37 +20275,29 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
     """, (app_reg["prova_id"],))
 
     questoes = [dict(registro) for registro in cursor.fetchall()]
-    modelo = int(modelo)
+    modelo = max(1, int(modelo or 1))
 
-    questoes_objetivas = [
-        questao for questao in questoes
-        if not _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
-    ]
-    questoes_discursivas = [
-        questao for questao in questoes
-        if _tipo_discursivo_aplicacao(questao.get("tipo_questao"))
-    ]
-
-    gerador_questoes = random.Random(
-        f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}:QUESTOES"
-    )
-    gerador_questoes.shuffle(questoes_objetivas)
-    questoes = questoes_objetivas + questoes_discursivas
+    # Compatibilidade exata com o gerador original da aplicação.
+    if modelo > 1:
+        gerador = random.Random(
+            f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}"
+        )
+        gerador.shuffle(questoes)
 
     for questao in questoes:
         if _tipo_discursivo_aplicacao(questao.get("tipo_questao")):
             questao["alternativas"] = []
             continue
 
-        # Fonte principal: JSON moderno, que preserva imagens das alternativas.
         try:
-            alternativas_origem = json.loads(questao.get("alternativas_json") or "[]")
+            alternativas_origem = json.loads(
+                questao.get("alternativas_json") or "[]"
+            )
             if not isinstance(alternativas_origem, list):
                 alternativas_origem = []
         except (TypeError, ValueError, json.JSONDecodeError):
             alternativas_origem = []
 
-        # Compatibilidade com questões antigas que só possuem A/B/C/D legados.
         if not alternativas_origem:
             alternativas_origem = []
             for indice, letra in enumerate(["A", "B", "C", "D"]):
@@ -20308,53 +20309,68 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
                         "imagem": "",
                     })
 
-        corretas_originais = set()
-        try:
-            lista_corretas = json.loads(questao.get("respostas_corretas") or "[]")
-            if isinstance(lista_corretas, list):
-                corretas_originais = {str(x).strip().upper() for x in lista_corretas if str(x).strip()}
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-        if not corretas_originais and (questao.get("correta") or "").strip():
-            corretas_originais.add((questao.get("correta") or "").strip().upper())
-
-        alternativas = []
+        alternativas_exibicao = []
         for indice, alt in enumerate(alternativas_origem):
             if not isinstance(alt, dict):
                 continue
-            letra_original = str(alt.get("letra") or chr(65 + indice)).strip().upper()
+            letra = str(
+                alt.get("letra") or chr(65 + indice)
+            ).strip().upper()
             texto_alt = str(alt.get("texto") or "").strip()
             imagem_alt = str(alt.get("imagem") or "").strip()
             if texto_alt or imagem_alt:
-                alternativas.append({
-                    "letra_original": letra_original,
+                alternativas_exibicao.append({
+                    "letra": letra,
                     "texto": texto_alt,
                     "imagem": imagem_alt,
                 })
 
-        gerador_alternativas = random.Random(
-            f"ARKEDUS:{aplicacao_id}:MODELO:{modelo}:QUESTAO:{questao['id']}:ALTERNATIVAS"
-        )
-        gerador_alternativas.shuffle(alternativas)
+        # Obtém o gabarito original sem mudar a letra da alternativa.
+        corretas = []
+        try:
+            lista_corretas = json.loads(
+                questao.get("respostas_corretas") or "[]"
+            )
+            if isinstance(lista_corretas, list):
+                for valor in lista_corretas:
+                    letra = _normalizar_letra_gabarito(valor)
+                    if letra and letra not in corretas:
+                        corretas.append(letra)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
 
-        alternativas_exibicao = []
-        novas_corretas = []
-        for indice, alternativa in enumerate(alternativas):
-            nova_letra = chr(65 + indice)
-            alternativas_exibicao.append({
-                "letra": nova_letra,
-                "texto": alternativa["texto"],
-                "imagem": alternativa.get("imagem") or "",
-            })
-            if alternativa["letra_original"] in corretas_originais:
-                novas_corretas.append(nova_letra)
+        if not corretas:
+            letra = _normalizar_letra_gabarito(questao.get("correta"))
+            if letra:
+                corretas.append(letra)
+
+        # Compatibilidade extra com JSONs que marcam a alternativa correta
+        # dentro do próprio item.
+        if not corretas:
+            for indice, alt in enumerate(alternativas_origem):
+                if not isinstance(alt, dict):
+                    continue
+                flag = alt.get("correta")
+                if flag is None:
+                    flag = alt.get("correto")
+                if flag is None:
+                    flag = alt.get("is_correct")
+                if flag is None:
+                    flag = alt.get("correct")
+                if str(flag).strip().lower() in {
+                    "1", "true", "sim", "yes", "on"
+                }:
+                    letra = str(
+                        alt.get("letra") or chr(65 + indice)
+                    ).strip().upper()
+                    letra = _normalizar_letra_gabarito(letra)
+                    if letra and letra not in corretas:
+                        corretas.append(letra)
 
         questao["alternativas"] = alternativas_exibicao
-        questao["correta_original"] = next(iter(corretas_originais), "")
-        questao["correta"] = novas_corretas[0] if novas_corretas else ""
-        questao["respostas_corretas_modelo"] = novas_corretas
+        questao["correta"] = corretas[0] if corretas else ""
+        questao["respostas_corretas_modelo"] = corretas
 
-        # Mantém compatibilidade com trechos antigos que ainda leem A/B/C/D.
         for indice, letra in enumerate(["A", "B", "C", "D"]):
             questao[f"alternativa_{letra.lower()}"] = (
                 alternativas_exibicao[indice]["texto"]
@@ -20825,12 +20841,23 @@ def cartoes_aplicacao(aplicacao_id):
                 for item in discursivas
             )
 
+            # Congela no próprio QR o gabarito EXATO do modelo impresso.
+            # Assim a correção nunca depende de reconstruir o embaralhamento
+            # depois de um deploy ou de uma edição posterior da questão.
+            gabarito_objetivo_qr = "".join(
+                _normalizar_letra_gabarito(q.get("correta"))
+                for q in questoes
+                if not _tipo_discursivo_aplicacao(q.get("tipo_questao"))
+            )
+
             def gerar_qr_cartao(tipo_folha):
                 conteudo_qr = (
                     f"CODIGO:{codigo_prova}|PROVA:{aplicacao['prova_id']}|"
                     f"ALUNO:{aluno['id']}|APLICACAO:{aplicacao_id}|"
-                    f"MODELO:{aluno['modelo']}|FOLHA:{tipo_folha}"
+                    f"MODELO:{aluno['modelo']}|FOLHA:{tipo_folha}|VERSAO:3"
                 )
+                if tipo_folha == "OBJETIVAS" and gabarito_objetivo_qr:
+                    conteudo_qr += f"|GAB:{gabarito_objetivo_qr}"
 
                 if tipo_folha == "DISCURSIVAS" and mapa_discursivas:
                     conteudo_qr += f"|QUESTOES:{mapa_discursivas}"
@@ -20873,10 +20900,12 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Lê o QR Code usando somente OpenCV.
+    """Lê o QR do cartão com caminho rápido e fallback robusto.
 
-    Faz tentativas na imagem inteira e na região superior direita, aplicando
-    escalas, rotações e tratamentos de contraste para fotos e PDFs digitalizados.
+    A maioria dos cartões ARK EDUS chega já orientada e com o QR no topo
+    direito. Tentamos primeiro poucas versões baratas; só executamos rotações,
+    ampliações e limiarizações extras quando o caminho rápido falha. Isso reduz
+    muito o tempo de importação em lote sem sacrificar cartões difíceis.
     """
     imagem = cv2.imread(caminho_imagem)
     if imagem is None:
@@ -20884,11 +20913,15 @@ def _decodificar_qr_cartao(caminho_imagem):
 
     detector = cv2.QRCodeDetector()
 
-    def tentar_decodificar(candidata):
+    def tentar(candidata):
         if candidata is None or candidata.size == 0:
             return None
-
-        # Primeiro tenta detectar vários QR Codes (quando suportado pelo OpenCV).
+        try:
+            texto, _, _ = detector.detectAndDecode(candidata)
+            if texto and texto.strip():
+                return texto.strip()
+        except cv2.error:
+            pass
         try:
             resultado = detector.detectAndDecodeMulti(candidata)
             if len(resultado) == 4:
@@ -20899,30 +20932,43 @@ def _decodificar_qr_cartao(caminho_imagem):
                             return texto.strip()
         except (cv2.error, AttributeError, TypeError, ValueError):
             pass
-
-        # Depois tenta o detector tradicional para um único QR Code.
-        try:
-            texto, _, _ = detector.detectAndDecode(candidata)
-            if texto and texto.strip():
-                return texto.strip()
-        except cv2.error:
-            pass
-
         return None
 
     altura, largura = imagem.shape[:2]
-    regioes = [imagem]
-
-    # Nos cartões do ARK EDUS, o QR costuma ficar no topo direito.
-    recorte_superior_direito = imagem[
-        0:max(1, int(altura * 0.32)),
-        max(0, int(largura * 0.58)):largura
+    recorte = imagem[
+        0:max(1, int(altura * 0.34)),
+        max(0, int(largura * 0.55)):largura
     ]
-    if recorte_superior_direito.size:
-        regioes.append(recorte_superior_direito)
 
-    for regiao in regioes:
-        for angulo in (0, 90, 180, 270):
+    # Caminho rápido: QR no topo direito, sem rotação.
+    for base in (recorte, imagem):
+        if base is None or base.size == 0:
+            continue
+        for escala in (1.0, 1.5):
+            candidata = base if escala == 1.0 else cv2.resize(
+                base, None, fx=escala, fy=escala,
+                interpolation=cv2.INTER_CUBIC
+            )
+            texto = tentar(candidata)
+            if texto:
+                return texto
+            cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY) \
+                if len(candidata.shape) == 3 else candidata
+            texto = tentar(cinza)
+            if texto:
+                return texto
+            _, otsu = cv2.threshold(
+                cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+            )
+            texto = tentar(otsu)
+            if texto:
+                return texto
+
+    # Fallback: cartões inclinados, girados ou com contraste ruim.
+    for regiao in (recorte, imagem):
+        if regiao is None or regiao.size == 0:
+            continue
+        for angulo in (0, 90, 270, 180):
             if angulo == 0:
                 rotacionada = regiao
             elif angulo == 90:
@@ -20932,49 +20978,28 @@ def _decodificar_qr_cartao(caminho_imagem):
             else:
                 rotacionada = cv2.rotate(regiao, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-            for escala in (1.0, 1.5, 2.0, 3.0, 4.0):
+            for escala in (1.0, 2.0, 3.0):
                 candidata = rotacionada if escala == 1.0 else cv2.resize(
-                    rotacionada,
-                    None,
-                    fx=escala,
-                    fy=escala,
+                    rotacionada, None, fx=escala, fy=escala,
                     interpolation=cv2.INTER_CUBIC
                 )
-
-                texto = tentar_decodificar(candidata)
+                texto = tentar(candidata)
                 if texto:
                     return texto
-
-                if len(candidata.shape) == 3:
-                    cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY)
-                else:
-                    cinza = candidata
-
-                versoes = [cinza]
-
-                # Melhora contraste local em digitalizações com iluminação irregular.
-                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-                versoes.append(clahe.apply(cinza))
-
-                _, otsu = cv2.threshold(
-                    cinza,
-                    0,
-                    255,
-                    cv2.THRESH_BINARY + cv2.THRESH_OTSU
-                )
-                versoes.append(otsu)
-
-                versoes.append(cv2.adaptiveThreshold(
-                    cinza,
-                    255,
-                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                    cv2.THRESH_BINARY,
-                    31,
-                    5
-                ))
-
-                for versao in versoes:
-                    texto = tentar_decodificar(versao)
+                cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY) \
+                    if len(candidata.shape) == 3 else candidata
+                clahe = cv2.createCLAHE(
+                    clipLimit=2.0, tileGridSize=(8, 8)
+                ).apply(cinza)
+                for versao in (cinza, clahe):
+                    texto = tentar(versao)
+                    if texto:
+                        return texto
+                    _, otsu = cv2.threshold(
+                        versao, 0, 255,
+                        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                    )
+                    texto = tentar(otsu)
                     if texto:
                         return texto
 
@@ -21002,7 +21027,7 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
 
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            matriz = fitz.Matrix(2.2, 2.2)
+            matriz = fitz.Matrix(1.6, 1.6)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
             nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
             caminho = os.path.join(pasta_destino, nome)
@@ -21122,11 +21147,46 @@ def importar_cartoes_aplicacao(aplicacao_id):
                     descartados += 1
                     continue
 
+                # Pré-leitura paralela dos QR Codes quando um PDF contém
+                # várias páginas. O banco continua sendo atualizado em série,
+                # mas a etapa de visão computacional mais cara aproveita os
+                # núcleos disponíveis do servidor.
+                qr_precalculados = {}
+                if len(paginas) > 1:
+                    try:
+                        from concurrent.futures import ThreadPoolExecutor
+                        max_workers = min(
+                            3, len(paginas), max(1, os.cpu_count() or 1)
+                        )
+                        with ThreadPoolExecutor(
+                            max_workers=max_workers
+                        ) as executor:
+                            futuros = {
+                                executor.submit(
+                                    _decodificar_qr_cartao, caminho_pg
+                                ): caminho_pg
+                                for caminho_pg, _ in paginas
+                            }
+                            for futuro, caminho_pg in [
+                                (fut, cam) for fut, cam in futuros.items()
+                            ]:
+                                try:
+                                    qr_precalculados[caminho_pg] = futuro.result()
+                                except Exception:
+                                    qr_precalculados[caminho_pg] = None
+                    except Exception as erro_qr_lote:
+                        print(
+                            "Pré-leitura paralela de QR indisponível: ",
+                            erro_qr_lote
+                        )
+
                 for caminho, numero_pagina in paginas:
                     cursor.execute("SAVEPOINT importar_pagina")
 
                     try:
-                        qr_texto = _decodificar_qr_cartao(caminho)
+                        qr_texto = qr_precalculados.get(caminho)
+                        if not qr_texto:
+                            qr_texto = _decodificar_qr_cartao(caminho)
                         if not qr_texto:
                             raise ValueError("QR Code não identificado.")
 
@@ -21143,6 +21203,11 @@ def importar_cartoes_aplicacao(aplicacao_id):
 
                         aluno_id = int(dados_qr["ALUNO"])
                         modelo_qr = int(dados_qr.get("MODELO", 1))
+                        gabarito_qr_texto = re.sub(
+                            r"[^A-D]", "",
+                            str(dados_qr.get("GAB", "")).upper()
+                        )
+                        versao_qr = str(dados_qr.get("VERSAO", "1")).strip()
 
                         # Aplicações antigas podem ter cartões válidos gerados
                         # antes da criação dos vínculos em aplicacao_alunos. O QR
@@ -21337,6 +21402,22 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             caminho, len(objetivas)
                         )
 
+                        # Fonte de verdade do gabarito: cartões novos carregam
+                        # o gabarito exato do modelo dentro do QR. Para cartões
+                        # antigos, usa o modelo determinístico do banco.
+                        gabarito_qr_valido = (
+                            len(gabarito_qr_texto) == len(objetivas)
+                            and all(letra in "ABCD" for letra in gabarito_qr_texto)
+                        )
+                        gabarito_objetivo = {}
+                        for indice_obj, (numero_modelo, questao_obj) in enumerate(objetivas):
+                            if gabarito_qr_valido:
+                                gabarito_objetivo[numero_modelo] = gabarito_qr_texto[indice_obj]
+                            else:
+                                gabarito_objetivo[numero_modelo] = _normalizar_letra_gabarito(
+                                    questao_obj.get("correta")
+                                )
+
                         cursor.execute("""
                             DELETE FROM aplicacao_respostas_objetivas
                             WHERE aplicacao_id = ? AND aluno_id = ?
@@ -21389,9 +21470,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             situacao = dado.get(
                                 "situacao", "em_branco"
                             )
-                            correta = _normalizar_letra_gabarito(
-                                questao.get("correta")
-                            )
+                            correta = gabarito_objetivo.get(numero, "")
                             anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
 
                             if anulada:
@@ -21471,8 +21550,30 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             ))
 
                         modelo_pendente = False
+                        gabarito_incompleto = any(
+                            not gabarito_objetivo.get(numero, "")
+                            for numero, _ in objetivas
+                        )
+                        respostas_confiantes = sum(
+                            1 for dado in leitura.values()
+                            if dado.get("situacao") == "respondida"
+                            and float(dado.get("confianca") or 0) >= 0.18
+                        )
+                        # Um cartão totalmente legível com 0 acertos pode ser
+                        # legítimo, mas também é o principal sintoma de gabarito
+                        # reconstruído diferente do papel antigo. Em cartões sem
+                        # GAB no QR, manda para revisão em vez de publicar 0/5
+                        # silenciosamente. Cartões V3 usam o GAB congelado e não
+                        # precisam dessa proteção extra.
+                        suspeita_gabarito_legado = bool(
+                            not gabarito_qr_valido
+                            and total_objetivas >= 3
+                            and respostas_confiantes == total_objetivas
+                            and acertos == 0
+                        )
                         precisa_revisao = bool(
                             modelo_divergente or ambiguas or brancas
+                            or gabarito_incompleto or suspeita_gabarito_legado
                         )
                         status_importacao = (
                             "Revisão necessária"
@@ -21487,6 +21588,17 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         if modelo_divergente:
                             partes_mensagem.append(
                                 f"modelo visual {modelo_visual} diverge do QR {modelo_qr}"
+                            )
+                        partes_mensagem.append(
+                            "gabarito congelado no QR"
+                            if gabarito_qr_valido
+                            else "gabarito reconstruído do modelo legado"
+                        )
+                        if gabarito_incompleto:
+                            partes_mensagem.append("gabarito incompleto: revisão obrigatória")
+                        if suspeita_gabarito_legado:
+                            partes_mensagem.append(
+                                "0 acertos em cartão totalmente legível: revisar compatibilidade do gabarito antigo"
                             )
                         partes_mensagem.append(
                             f"nota objetiva {nota_objetiva:.2f}/"
@@ -21806,6 +21918,20 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
             cursor, aplicacao_id, modelo
         )
 
+        # Preserva o gabarito usado na importação original (especialmente o
+        # gabarito congelado no QR) antes de substituir as respostas na revisão.
+        cursor.execute("""
+            SELECT numero_questao, resposta_correta
+            FROM aplicacao_respostas_objetivas
+            WHERE aplicacao_id = ? AND aluno_id = ?
+        """, (aplicacao_id, aluno_id))
+        gabarito_importado = {
+            int(linha["numero_questao"]): _normalizar_letra_gabarito(
+                linha["resposta_correta"]
+            )
+            for linha in cursor.fetchall()
+        }
+
         cursor.execute("""
             DELETE FROM aplicacao_respostas_objetivas
             WHERE aplicacao_id = ? AND aluno_id = ?
@@ -21869,7 +21995,9 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
                 situacao = "em_branco"
                 resposta = ""
 
-            correta = _normalizar_letra_gabarito(questao.get("correta"))
+            correta = gabarito_importado.get(
+                numero, _normalizar_letra_gabarito(questao.get("correta"))
+            )
 
             if anulada:
                 situacao = "anulada"
