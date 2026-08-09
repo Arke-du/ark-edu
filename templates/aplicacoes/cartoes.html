@@ -795,6 +795,17 @@ html,body{
 <body>
 <button class="print" type="button" onclick="window.print()">Salvar em PDF</button>
 
+{% if not cartoes %}
+<section class="pagina pagina-vazia">
+    <div style="min-height:250mm;display:flex;align-items:center;justify-content:center;text-align:center;padding:20mm;">
+        <div>
+            <h2 style="margin:0 0 3mm;">Nenhum cartão para gerar</h2>
+            <p style="margin:0;color:#555;">Não foram encontrados alunos vinculados a esta aplicação ou matriculados na turma.</p>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 {% for c in cartoes %}
 <section class="pagina">
 
@@ -804,7 +815,7 @@ html,body{
                 {% if aplicacao.logo %}
                     {% set logo_src = aplicacao.logo %}
                     {% if not logo_src.startswith('http') and not logo_src.startswith('/') %}
-                        {% set logo_src = url_for('static', filename='uploads/' ~ logo_src) %}
+                        {% set logo_src = upload_url(logo_src) %}
                     {% endif %}
                     <img src="{{ logo_src }}" alt="Logo da instituição">
                 {% else %}
@@ -932,7 +943,7 @@ html,body{
                 {% if aplicacao.logo %}
                     {% set logo_src_disc = aplicacao.logo %}
                     {% if not logo_src_disc.startswith('http') and not logo_src_disc.startswith('/') %}
-                        {% set logo_src_disc = url_for('static', filename='uploads/' ~ logo_src_disc) %}
+                        {% set logo_src_disc = upload_url(logo_src_disc) %}
                     {% endif %}
                     <img src="{{ logo_src_disc }}" alt="Logo da instituição">
                 {% else %}

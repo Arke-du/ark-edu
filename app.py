@@ -20396,7 +20396,39 @@ def cartoes_aplicacao(aplicacao_id):
             WHERE aa.aplicacao_id = ?
             ORDER BY al.nome COLLATE NOCASE
         """, (aplicacao_id,))
-        alunos = cursor.fetchall()
+        alunos = [dict(linha) for linha in cursor.fetchall()]
+
+        # Compatibilidade/recuperação para aplicações antigas: algumas aplicações
+        # podem existir sem linhas em aplicacao_alunos (por exemplo, aplicações
+        # criadas antes da estrutura atual ou após migração). Nessa situação a
+        # página de cartões não deve ficar completamente em branco. Usamos, apenas
+        # para a geração desta tela, os alunos atualmente matriculados na turma e
+        # distribuímos os modelos de forma determinística. Não gravamos nada no
+        # banco aqui, portanto não alteramos a aplicação nem os dados existentes.
+        if not alunos:
+            cursor.execute("""
+                SELECT DISTINCT al.id, al.nome,
+                       COALESCE(al.matricula, '') AS matricula
+                FROM alunos al
+                LEFT JOIN aluno_matriculas am
+                  ON am.aluno_id = al.id
+                 AND am.turma_id = ?
+                 AND (? IS NULL OR am.ano_letivo_id = ?)
+                 AND COALESCE(am.situacao, 'Cursando') = 'Cursando'
+                WHERE am.id IS NOT NULL OR al.turma_id = ?
+                ORDER BY al.nome COLLATE NOCASE
+            """, (
+                aplicacao["turma_id"],
+                aplicacao["ano_letivo_id"],
+                aplicacao["ano_letivo_id"],
+                aplicacao["turma_id"],
+            ))
+            quantidade_modelos = max(1, int(aplicacao["quantidade_modelos"] or 1))
+            alunos = []
+            for indice, linha in enumerate(cursor.fetchall()):
+                item = dict(linha)
+                item["modelo"] = (indice % quantidade_modelos) + 1
+                alunos.append(item)
 
         cartoes = []
         for aluno in alunos:
