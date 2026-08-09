@@ -20772,8 +20772,8 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
         import fitz
     except ImportError as erro:
         raise RuntimeError(
-            "Para importar PDF, instale a dependência PyMuPDF: "
-            "pip install PyMuPDF"
+            "O servidor não possui o conversor de PDF (PyMuPDF). "
+            "Atualize as dependências e faça novo deploy antes de importar PDFs."
         ) from erro
 
     caminhos = []
@@ -21490,19 +21490,28 @@ def dados_importacao_cartao(aplicacao_id, importacao_id):
 
         caminho = importacao["caminho_arquivo"] or ""
         relativo = ""
+        imagem_url = ""
         try:
-            relativo = os.path.relpath(
-                caminho, app.config["UPLOAD_FOLDER"]
-            ).replace(os.sep, "/")
-        except ValueError:
+            caminho_abs = os.path.abspath(caminho)
+            upload_abs = os.path.abspath(app.config["UPLOAD_FOLDER"])
+            if (
+                caminho_abs == upload_abs
+                or caminho_abs.startswith(upload_abs + os.sep)
+            ) and os.path.isfile(caminho_abs):
+                relativo = os.path.relpath(
+                    caminho_abs, upload_abs
+                ).replace(os.sep, "/")
+                imagem_url = url_for(
+                    "servir_upload", nome_arquivo=relativo
+                )
+        except (ValueError, OSError):
             relativo = ""
+            imagem_url = ""
 
         return jsonify({
             "importacao": {
                 **dict(importacao),
-                "imagem_url": (
-                    f"/static/uploads/{relativo}" if relativo else ""
-                )
+                "imagem_url": imagem_url
             },
             "respostas": respostas
         })
