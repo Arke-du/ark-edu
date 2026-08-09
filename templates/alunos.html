@@ -9,70 +9,30 @@
 >
 
 <style>
-    .alunos-tabela-container {
-        width: 100%;
-        overflow: visible;
-    }
-
-    .alunos-tabela {
-        width: 100%;
-        min-width: 0;
-        table-layout: fixed;
-    }
-
-    .alunos-tabela th,
-    .alunos-tabela td {
-        padding-left: 12px;
-        padding-right: 12px;
-        white-space: normal;
-        overflow-wrap: anywhere;
-    }
-
-    .alunos-tabela th:nth-child(1),
-    .alunos-tabela td:nth-child(1) { width: 22%; }
-
-    .alunos-tabela th:nth-child(2),
-    .alunos-tabela td:nth-child(2) { width: 10%; }
-
-    .alunos-tabela th:nth-child(3),
-    .alunos-tabela td:nth-child(3) { width: 20%; }
-
-    .alunos-tabela th:nth-child(4),
-    .alunos-tabela td:nth-child(4) { width: 9%; }
-
+    /* Tabela de alunos — distribuição harmoniosa com seleção em lote */
+    .alunos-tabela-container { width:100%; overflow-x:auto; overflow-y:visible; border-radius:0 0 16px 16px; }
+    .alunos-tabela { width:100%; min-width:980px; table-layout:fixed; }
+    .alunos-tabela th, .alunos-tabela td { padding-left:12px; padding-right:12px; vertical-align:middle; white-space:normal; word-break:normal; overflow-wrap:break-word; }
+    .alunos-coluna-selecao { width:42px !important; min-width:42px; max-width:42px; padding-left:14px !important; padding-right:6px !important; text-align:center; }
+    .alunos-coluna-selecao input[type="checkbox"] { width:17px; height:17px; margin:0; accent-color:#123b82; cursor:pointer; }
+    .alunos-tabela th:nth-child(2), .alunos-tabela td:nth-child(2) { width:25%; }
+    .alunos-tabela th:nth-child(3), .alunos-tabela td:nth-child(3) { width:9%; }
+    .alunos-tabela th:nth-child(4), .alunos-tabela td:nth-child(4) { width:18%; }
+    .alunos-tabela th:nth-child(5), .alunos-tabela td:nth-child(5) { width:9%; }
     {% if session.get("usuario_cargo") == "Administrador Geral" %}
-        .alunos-tabela th:nth-child(5),
-        .alunos-tabela td:nth-child(5) { width: 23%; }
-
-        .alunos-tabela th:nth-child(6),
-        .alunos-tabela td:nth-child(6) { width: 9%; }
-
-        .alunos-tabela th:nth-child(7),
-        .alunos-tabela td:nth-child(7) { width: 7%; }
+        .alunos-tabela th:nth-child(6), .alunos-tabela td:nth-child(6) { width:22%; }
+        .alunos-tabela th:nth-child(7), .alunos-tabela td:nth-child(7) { width:9%; }
+        .alunos-tabela th:nth-child(8), .alunos-tabela td:nth-child(8) { width:8%; }
     {% else %}
-        .alunos-tabela th:nth-child(5),
-        .alunos-tabela td:nth-child(5) { width: 11%; }
-
-        .alunos-tabela th:nth-child(6),
-        .alunos-tabela td:nth-child(6) { width: 8%; }
+        .alunos-tabela th:nth-child(6), .alunos-tabela td:nth-child(6) { width:12%; }
+        .alunos-tabela th:nth-child(7), .alunos-tabela td:nth-child(7) { width:10%; }
     {% endif %}
-
-    .alunos-coluna-acoes {
-        text-align: center;
-    }
-
-    .alunos-identificacao,
-    .alunos-identificacao > div:last-child {
-        min-width: 0;
-    }
-
-    .alunos-identificacao strong,
-    .alunos-identificacao small {
-        display: block;
-        white-space: normal;
-    }
-
-
+    .alunos-coluna-acoes { text-align:center; white-space:nowrap !important; }
+    .alunos-identificacao { display:flex; align-items:center; gap:12px; min-width:0; }
+    .alunos-identificacao > div:last-child { min-width:0; flex:1; }
+    .alunos-identificacao strong { display:block; white-space:normal; line-height:1.25; overflow-wrap:normal; word-break:normal; }
+    .alunos-identificacao small { display:block; margin-top:3px; white-space:normal; }
+    .alunos-ano-tabela { white-space:nowrap; }
 
     .filtros-listagem { margin: 0 0 22px; padding: 18px; border: 1px solid #dbe7f3; border-radius: 16px; background: #f8fbff; }
     .filtros-grid { display:grid; grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1fr auto; gap:12px; align-items:end; }
