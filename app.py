@@ -19870,6 +19870,54 @@ def _garantir_tabelas_aplicacoes():
     banco.close()
 
 
+def _sincronizar_alunos_aplicacao(cursor, aplicacao_id):
+    """Garante que os alunos matriculados na turma existam em aplicacao_alunos.
+
+    A rotina é idempotente: preserva vínculos já existentes e cria apenas os
+    que estiverem ausentes. Isso corrige aplicações antigas/migradas sem
+    apagar resultados já registrados.
+    """
+    cursor.execute("""
+        SELECT a.turma_id, a.ano_letivo_id, a.quantidade_modelos
+        FROM aplicacoes a
+        WHERE a.id = ?
+    """, (aplicacao_id,))
+    aplicacao = cursor.fetchone()
+    if not aplicacao:
+        return 0
+
+    cursor.execute("""
+        SELECT DISTINCT al.id, al.nome
+        FROM alunos al
+        LEFT JOIN aluno_matriculas am
+          ON am.aluno_id = al.id
+         AND am.turma_id = ?
+         AND (? IS NULL OR am.ano_letivo_id = ?)
+         AND COALESCE(am.situacao, 'Cursando') = 'Cursando'
+        WHERE am.id IS NOT NULL OR al.turma_id = ?
+        ORDER BY al.nome COLLATE NOCASE, al.id
+    """, (
+        aplicacao["turma_id"],
+        aplicacao["ano_letivo_id"],
+        aplicacao["ano_letivo_id"],
+        aplicacao["turma_id"],
+    ))
+    alunos_turma = cursor.fetchall()
+    quantidade_modelos = max(1, int(aplicacao["quantidade_modelos"] or 1))
+
+    criados = 0
+    for indice, aluno in enumerate(alunos_turma):
+        modelo_padrao = (indice % quantidade_modelos) + 1
+        cursor.execute("""
+            INSERT OR IGNORE INTO aplicacao_alunos
+                (aplicacao_id, aluno_id, modelo)
+            VALUES (?, ?, ?)
+        """, (aplicacao_id, aluno["id"], modelo_padrao))
+        criados += max(0, cursor.rowcount)
+
+    return criados
+
+
 def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
     """Monta um modelo estável preservando texto, HTML e imagens das questões."""
     import random
@@ -20389,6 +20437,11 @@ def cartoes_aplicacao(aplicacao_id):
         ):
             return _redirecionar_acesso_negado_prova()
 
+        # Corrige automaticamente aplicações antigas que ficaram sem
+        # aplicacao_alunos. A operação só cria vínculos ausentes.
+        _sincronizar_alunos_aplicacao(cursor, aplicacao_id)
+        banco.commit()
+
         cursor.execute("""
             SELECT aa.modelo, al.id, al.nome, COALESCE(al.matricula, '') AS matricula
             FROM aplicacao_alunos aa
@@ -20691,6 +20744,11 @@ def importar_cartoes_aplicacao(aplicacao_id):
             permitir_finalizada=True
         ):
             return _redirecionar_acesso_negado_prova()
+
+        # Importação e cartões precisam usar a mesma fonte de alunos.
+        # Para aplicações antigas, recompõe apenas os vínculos faltantes.
+        _sincronizar_alunos_aplicacao(cursor, aplicacao_id)
+        banco.commit()
 
         if request.method == "POST":
             arquivos = [
