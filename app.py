@@ -5359,6 +5359,7 @@ def importar_alunos_pagina():
     return render_template(
         "importar_alunos.html",
         turmas=turmas,
+        turma_preselecionada=request.args.get("turma_id", ""),
         ano_letivo_visualizado=ano_visualizado,
         etapa="upload"
     )
@@ -11322,6 +11323,68 @@ def atualizar_professor(professor_id):
     banco.close()
 
     return redirect("/professores")
+
+# ==========================
+# AÇÕES EM LOTE - ALUNOS
+# ==========================
+
+@app.route("/alunos/acoes-lote", methods=["POST"])
+def acoes_lote_alunos():
+    if not cargo_permitido(["Administrador Geral", "Administrador da Instituição", "Coordenador", "Secretaria"]):
+        flash("Você não possui permissão para alterar alunos em lote.", "erro")
+        return redirect("/acesso_negado")
+
+    ids = []
+    for valor in request.form.getlist("aluno_ids"):
+        try:
+            ids.append(int(valor))
+        except (TypeError, ValueError):
+            pass
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        flash("Selecione pelo menos um aluno.", "erro")
+        return redirect("/alunos")
+
+    acao = (request.form.get("acao") or "").strip()
+    cargo = session.get("usuario_cargo", "").strip()
+    escola_usuario_id = obter_escola_usuario()
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row; cursor = banco.cursor()
+    try:
+        placeholders = ",".join("?" for _ in ids)
+        cursor.execute(f"SELECT id, escola_id FROM alunos WHERE id IN ({placeholders})", ids)
+        encontrados = cursor.fetchall()
+        permitidos = [r["id"] for r in encontrados if cargo == "Administrador Geral" or r["escola_id"] == escola_usuario_id]
+        if len(permitidos) != len(ids):
+            flash("Há alunos selecionados fora da sua instituição.", "erro")
+            return redirect("/alunos")
+
+        ph = ",".join("?" for _ in permitidos)
+        if acao == "mover":
+            try: turma_id = int(request.form.get("turma_destino_id") or 0)
+            except ValueError: turma_id = 0
+            cursor.execute("SELECT id, escola_id, ano_letivo_id FROM turmas WHERE id = ? LIMIT 1", (turma_id,))
+            turma = cursor.fetchone()
+            if not turma or (cargo != "Administrador Geral" and turma["escola_id"] != escola_usuario_id):
+                flash("Turma de destino inválida.", "erro"); return redirect("/alunos")
+            # Evita mover cadastros entre instituições por engano.
+            if any(r["escola_id"] != turma["escola_id"] for r in encontrados):
+                flash("A turma de destino deve pertencer à mesma instituição dos alunos selecionados.", "erro"); return redirect("/alunos")
+            cursor.execute(f"UPDATE alunos SET turma_id = ?, escola_id = ?, ano_letivo_id = ? WHERE id IN ({ph})", [turma_id, turma["escola_id"], turma["ano_letivo_id"], *permitidos])
+            flash(f"{len(permitidos)} aluno(s) movido(s) com sucesso.", "sucesso")
+        elif acao == "excluir":
+            cursor.execute("PRAGMA foreign_keys = ON")
+            cursor.execute(f"DELETE FROM alunos WHERE id IN ({ph})", permitidos)
+            flash(f"{len(permitidos)} aluno(s) excluído(s) com sucesso.", "sucesso")
+        else:
+            flash("Ação em lote inválida.", "erro"); return redirect("/alunos")
+        banco.commit()
+    except sqlite3.IntegrityError:
+        banco.rollback(); flash("Não foi possível concluir a ação porque existem registros vinculados a um ou mais alunos.", "erro")
+    except Exception:
+        banco.rollback(); app.logger.exception("Erro em ação em lote de alunos"); flash("Não foi possível concluir a ação em lote.", "erro")
+    finally:
+        banco.close()
+    return redirect("/alunos")
 
 # ==========================
 # EXCLUIR ALUNO

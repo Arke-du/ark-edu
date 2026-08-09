@@ -392,6 +392,8 @@
     text-decoration:none !important;
 }
 
+
+.alunos-coluna-selecao{width:42px;text-align:center}.aluno-check,.aluno-check-todos{width:18px;height:18px;accent-color:#123b82;cursor:pointer}.acoes-lote{display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;margin:0 0 14px;border:1px solid #cfe0f5;border-radius:14px;background:#f5f9ff}.acoes-lote.ativo{display:flex}.acoes-lote strong{color:#123b82;margin-right:auto}.acoes-lote select{min-width:230px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}.acoes-lote button{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}.btn-lote-mover{background:#123b82;color:#fff}.btn-lote-excluir{background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3!important}
 </style>
 {% endblock %}
 
@@ -718,12 +720,23 @@
                 <div class="filtros-resultado" id="resultadoFiltrosAlunos"></div>
             </div>
 
+            <form id="form-acoes-lote" method="POST" action="/alunos/acoes-lote">
+                <div class="acoes-lote" id="acoes-lote">
+                    <strong id="contador-selecionados">0 alunos selecionados</strong>
+                    <select name="turma_destino_id" id="turma-destino-lote">
+                        <option value="">Mover para outra turma...</option>
+                        {% for turma in turmas %}<option value="{{ turma['id'] }}">{{ turma['ano'] or '' }} {{ turma['nome'] }}{% if turma['turno'] %} — {{ turma['turno'] }}{% endif %}</option>{% endfor %}
+                    </select>
+                    <button class="btn-lote-mover" type="submit" name="acao" value="mover">Mover selecionados</button>
+                    {% if not consultando_ano_antigo %}<button class="btn-lote-excluir" type="submit" name="acao" value="excluir" onclick="return confirm('Excluir permanentemente os alunos selecionados? Esta ação não poderá ser desfeita.')">Excluir selecionados</button>{% endif %}
+                </div>
             <div class="alunos-tabela-container">
 
                 <table class="alunos-tabela">
 
                     <thead>
                         <tr>
+                            <th class="alunos-coluna-selecao"><input class="aluno-check-todos" id="selecionar-todos-alunos" type="checkbox" aria-label="Selecionar todos os alunos visíveis"></th>
                             <th>Aluno</th>
                             <th>Matrícula</th>
                             <th>Turma</th>
@@ -744,6 +757,7 @@
 
                             <tr class="linha-aluno" data-nome="{{ aluno['nome']|lower|e }}" data-matricula="{{ (aluno['matricula'] or '')|lower|e }}" data-turma="{{ (aluno['nome_turma'] or '')|lower|e }}" data-turno="{{ (aluno['turno'] or '')|lower|e }}" data-instituicao="{{ (aluno['nome_instituicao'] or '')|lower|e }}" data-ano="{{ (aluno['ano_letivo'] or ano_contexto or '')|string|lower|e }}">
 
+                                <td class="alunos-coluna-selecao"><input class="aluno-check" type="checkbox" name="aluno_ids" value="{{ aluno['id'] }}" aria-label="Selecionar {{ aluno['nome']|e }}"></td>
                                 <td>
                                     <div class="alunos-identificacao">
 
@@ -853,6 +867,7 @@
                 </table>
 
             </div>
+            </form>
 
         {% else %}
 
@@ -1236,8 +1251,24 @@
         document.getElementById('limparFiltrosAlunos')?.addEventListener('click',()=>{[busca,inst,turma,turno,ano].filter(Boolean).forEach(e=>e.value='');aplicar();}); aplicar();
     }
 
+
+    function configurarSelecaoEmLote(){
+        const todos=document.getElementById('selecionar-todos-alunos');
+        const checks=[...document.querySelectorAll('.aluno-check')];
+        const barra=document.getElementById('acoes-lote');
+        const contador=document.getElementById('contador-selecionados');
+        const form=document.getElementById('form-acoes-lote');
+        if(!checks.length||!barra)return;
+        const atualizar=()=>{const n=checks.filter(c=>c.checked).length;barra.classList.toggle('ativo',n>0);contador.textContent=`${n} aluno${n===1?'':'s'} selecionado${n===1?'':'s'}`;if(todos){const vis=checks.filter(c=>c.closest('tr').style.display!=='none');todos.checked=vis.length>0&&vis.every(c=>c.checked);todos.indeterminate=vis.some(c=>c.checked)&&!todos.checked;}};
+        todos?.addEventListener('change',()=>{checks.filter(c=>c.closest('tr').style.display!=='none').forEach(c=>c.checked=todos.checked);atualizar();});
+        checks.forEach(c=>c.addEventListener('change',atualizar));
+        form?.addEventListener('submit',e=>{const acao=e.submitter?.value;if(acao==='mover'&&!document.getElementById('turma-destino-lote').value){e.preventDefault();alert('Selecione a turma de destino.');}});
+        atualizar();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         configurarFiltrosAlunos();
+        configurarSelecaoEmLote();
         configurarMatricula();
         configurarFiltroInstituicao();
         configurarModalExcluirAluno();

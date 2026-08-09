@@ -71,7 +71,7 @@
                         <select id="turma_id" name="turma_id" required>
                             <option value="">Selecione a turma</option>
                             {% for turma in turmas %}
-                            <option value="{{ turma['id'] }}">
+                            <option value="{{ turma['id'] }}" {% if turma_preselecionada and turma_preselecionada|string == turma['id']|string %}selected{% endif %}>
                                 {% if session.get('usuario_cargo') == 'Administrador Geral' %}{{ turma['nome_instituicao'] }} — {% endif %}
                                 {{ turma['nome'] }}{% if turma['ano'] %} — {{ turma['ano'] }}{% endif %}{% if turma['turno'] %} — {{ turma['turno'] }}{% endif %}
                             </option>

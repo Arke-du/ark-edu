@@ -1088,6 +1088,11 @@ body.vt-modal-aberto {
                 </div>
 
                 {% if pode_editar %}
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+                    <a href="{{ url_for('importar_alunos_pagina', turma_id=turma['id']) }}" class="vt-btn-adicionar" style="text-decoration:none">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+                        Importar alunos
+                    </a>
                     <button
                         type="button"
                         class="vt-btn-adicionar"
@@ -1099,6 +1104,7 @@ body.vt-modal-aberto {
                         </svg>
                         Matricular aluno
                     </button>
+                    </div>
                 {% endif %}
 
             </div>
