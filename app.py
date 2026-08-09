@@ -12007,32 +12007,208 @@ def ler_respostas_cartao(caminho_imagem, quantidade):
     return respostas
 
 
-def _taxa_escura_melhor_circulo(cinza, centro_x, centro_y, raio=14, busca=10):
-    """Mede uma bolha tolerando pequenos deslocamentos de scan/foto."""
+def _taxa_escura_melhor_circulo(cinza, centro_x, centro_y, raio=14, busca=4):
+    """Mede a escuridão dentro da bolha, ignorando boa parte do contorno impresso.
+
+    A busca pequena existe apenas para compensar 1 ou 2 pixels de deslocamento após
+    a correção de perspectiva. Uma busca muito grande acaba capturando letras,
+    números e linhas próximas, gerando falsos positivos e falsas duplas marcações.
+    """
     altura, largura = cinza.shape[:2]
     melhor = 0.0
-    # limiar 165 é mais tolerante a impressão/scanner do que 120.
+    raio_interno = max(5, int(raio * 0.72))
+
     for dy in range(-busca, busca + 1, 2):
         for dx in range(-busca, busca + 1, 2):
-            x0 = int(centro_x + dx)
-            y0 = int(centro_y + dy)
+            x0 = int(round(centro_x + dx))
+            y0 = int(round(centro_y + dy))
             x1, x2 = max(0, x0 - raio), min(largura, x0 + raio + 1)
             y1, y2 = max(0, y0 - raio), min(altura, y0 + raio + 1)
             roi = cinza[y1:y2, x1:x2]
             if roi.size == 0:
                 continue
+
             yy, xx = np.ogrid[:roi.shape[0], :roi.shape[1]]
             cx, cy = x0 - x1, y0 - y1
-            mascara = (xx - cx) ** 2 + (yy - cy) ** 2 <= raio ** 2
+            mascara = (xx - cx) ** 2 + (yy - cy) ** 2 <= raio_interno ** 2
             pixels = roi[mascara]
             if pixels.size:
-                taxa = float(np.mean(pixels < 165))
+                # 180 funciona melhor com digitalizações cinza e mantém a região
+                # interna da bolha vazia muito abaixo de uma marcação sólida.
+                taxa = float(np.mean(pixels < 180))
                 melhor = max(melhor, taxa)
     return melhor
 
 
+def _detectar_quatro_marcadores_cartao(imagem):
+    """Localiza os quatro quadrados pretos que delimitam a área de respostas.
+
+    Os marcadores foram criados justamente para permitir que scans inclinados,
+    redimensionados ou fotografados sejam retificados antes da leitura das bolhas.
+    """
+    if imagem is None or imagem.size == 0:
+        return None
+
+    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
+    altura, largura = cinza.shape[:2]
+    _, binaria = cv2.threshold(cinza, 180, 255, cv2.THRESH_BINARY_INV)
+    contornos, _ = cv2.findContours(
+        binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    candidatos = []
+    for contorno in contornos:
+        x, y, w, h = cv2.boundingRect(contorno)
+        area = cv2.contourArea(contorno)
+        if h <= 0 or w <= 0:
+            continue
+        proporcao = w / float(h)
+        preenchimento = area / float(w * h)
+
+        # Os quatro marcadores ficam no bloco inferior e próximos das bordas.
+        if y < altura * 0.35:
+            continue
+        if not (0.65 <= proporcao <= 1.35):
+            continue
+        if not (largura * 0.007 <= w <= largura * 0.06):
+            continue
+        if preenchimento < 0.68:
+            continue
+
+        cx = x + (w / 2.0)
+        cy = y + (h / 2.0)
+        if cx > largura * 0.23 and cx < largura * 0.77:
+            continue
+        candidatos.append((cx, cy, area))
+
+    if len(candidatos) < 4:
+        return None
+
+    # Mantém os maiores componentes laterais. Em seguida, ordena por geometria:
+    # superior esquerdo, superior direito, inferior direito, inferior esquerdo.
+    maiores = sorted(candidatos, key=lambda item: item[2], reverse=True)[:12]
+    pontos = np.array([[item[0], item[1]] for item in maiores], dtype="float32")
+
+    soma = pontos.sum(axis=1)
+    diferenca = np.diff(pontos, axis=1).reshape(-1)
+    ordenados = np.zeros((4, 2), dtype="float32")
+    ordenados[0] = pontos[np.argmin(soma)]
+    ordenados[2] = pontos[np.argmax(soma)]
+    ordenados[1] = pontos[np.argmin(diferenca)]
+    ordenados[3] = pontos[np.argmax(diferenca)]
+
+    # Rejeita quadriláteros degenerados e marcadores repetidos.
+    if len({(round(float(x), 1), round(float(y), 1)) for x, y in ordenados}) < 4:
+        return None
+    largura_sup = np.linalg.norm(ordenados[1] - ordenados[0])
+    largura_inf = np.linalg.norm(ordenados[2] - ordenados[3])
+    altura_esq = np.linalg.norm(ordenados[3] - ordenados[0])
+    altura_dir = np.linalg.norm(ordenados[2] - ordenados[1])
+    if min(largura_sup, largura_inf, altura_esq, altura_dir) < 150:
+        return None
+
+    return ordenados
+
+
+def _normalizar_area_respostas_cartao(caminho_imagem):
+    """Retifica a área entre os quatro marcadores para coordenadas canônicas."""
+    imagem = cv2.imread(caminho_imagem)
+    if imagem is None:
+        raise ValueError("Não foi possível abrir a imagem enviada.")
+
+    marcadores = _detectar_quatro_marcadores_cartao(imagem)
+    if marcadores is None:
+        return None
+
+    largura_saida, altura_saida = 1200, 900
+    destino = np.array([
+        [0, 0],
+        [largura_saida - 1, 0],
+        [largura_saida - 1, altura_saida - 1],
+        [0, altura_saida - 1],
+    ], dtype="float32")
+    matriz = cv2.getPerspectiveTransform(marcadores, destino)
+    retificada = cv2.warpPerspective(
+        imagem, matriz, (largura_saida, altura_saida),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
+    return retificada
+
+
+def _detectar_linhas_bolhas_retificadas(cinza, quantidade):
+    """Detecta os centros verticais das linhas da grade já retificada."""
+    _, binaria = cv2.threshold(cinza, 180, 255, cv2.THRESH_BINARY_INV)
+    contornos, _ = cv2.findContours(
+        binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    centros_y = []
+    for contorno in contornos:
+        x, y, w, h = cv2.boundingRect(contorno)
+        if h <= 0:
+            continue
+        proporcao = w / float(h)
+        # A grade fica centralizada; esse filtro elimina textos, bordas e os
+        # próprios marcadores dos quatro cantos.
+        if not (420 <= x <= 850 and 18 <= w <= 48 and 18 <= h <= 48):
+            continue
+        if not (0.65 <= proporcao <= 1.35):
+            continue
+        centros_y.append(y + h / 2.0)
+
+    if not centros_y:
+        return []
+
+    # Agrupa contornos interno/externo da mesma bolha e quatro bolhas da mesma linha.
+    centros_y.sort()
+    grupos = []
+    for valor in centros_y:
+        if not grupos or abs(np.mean(grupos[-1]) - valor) > 8:
+            grupos.append([valor])
+        else:
+            grupos[-1].append(valor)
+
+    linhas = [float(np.mean(grupo)) for grupo in grupos if len(grupo) >= 3]
+    linhas = [y for y in linhas if 35 <= y <= 820]
+    linhas.sort()
+
+    # O cabeçalho da grade pode criar pequenos círculos espúrios em scans ruins.
+    # Seleciona a sequência com espaçamento aproximadamente regular.
+    if len(linhas) > quantidade and quantidade > 0:
+        melhor_seq = None
+        melhor_erro = None
+        for inicio in range(0, len(linhas) - quantidade + 1):
+            seq = linhas[inicio:inicio + quantidade]
+            if len(seq) <= 1:
+                erro = 0
+            else:
+                passos = np.diff(seq)
+                mediana = float(np.median(passos))
+                erro = float(np.mean(np.abs(passos - mediana)))
+            if melhor_erro is None or erro < melhor_erro:
+                melhor_erro = erro
+                melhor_seq = seq
+        linhas = melhor_seq or linhas[:quantidade]
+
+    return linhas[:quantidade]
+
+
+def _normalizar_letra_gabarito(valor):
+    """Aceita A, (A), 'Alternativa A' etc. e devolve apenas A-D."""
+    texto = str(valor or "").strip().upper()
+    if texto in {"A", "B", "C", "D"}:
+        return texto
+    encontrado = re.search(r"(?:^|[^A-Z])([A-D])(?:$|[^A-Z])", texto)
+    return encontrado.group(1) if encontrado else ""
+
+
 def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
-    """Lê o modelo com tolerância a PDF escaneado, foto, escala e deslocamento."""
+    """Lê a marca visual do modelo apenas como conferência.
+
+    O QR Code contém o modelo gerado para aquele aluno e é a fonte de verdade.
+    A marca visual é usada para detectar divergência, não para trocar o gabarito.
+    """
     imagem = cv2.imread(caminho_imagem)
     if imagem is None:
         return None
@@ -12041,12 +12217,12 @@ def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
     largura_base, altura_base = 1449, 2048
     normalizada = cv2.resize(imagem, (largura_base, altura_base))
     cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
-    cinza = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8)).apply(cinza)
+    cinza = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8)).apply(cinza)
 
     centros_x = [1134, 1204, 1274, 1344]
     centro_y = 515
     preenchimentos = [
-        _taxa_escura_melhor_circulo(cinza, x, centro_y, raio=15, busca=12)
+        _taxa_escura_melhor_circulo(cinza, x, centro_y, raio=15, busca=4)
         for x in centros_x[:quantidade_modelos]
     ]
     if not preenchimentos:
@@ -12055,70 +12231,112 @@ def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
     ordem = np.argsort(preenchimentos)[::-1]
     melhor = preenchimentos[int(ordem[0])]
     segundo = preenchimentos[int(ordem[1])] if len(ordem) > 1 else 0.0
-
-    # Em scanner, preenchimento sólido costuma ficar entre 0.25 e 0.90.
-    if melhor < 0.24 or (len(preenchimentos) > 1 and (melhor - segundo) < 0.10):
+    if melhor < 0.50 or (len(preenchimentos) > 1 and (melhor - segundo) < 0.22):
         return None
     return int(ordem[0]) + 1
 
 
 def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
-    """Lê A/B/C/D também em cartões impressos e posteriormente escaneados.
+    """Lê A/B/C/D com correção de perspectiva pelos quatro marcadores.
 
-    Em vez de exigir coordenada perfeita e preto absoluto, procura o centro mais
-    escuro perto da posição esperada e compara cada alternativa com as demais.
+    Fluxo principal:
+      1. localiza os quatro quadrados pretos;
+      2. retifica a área de respostas para uma geometria fixa;
+      3. detecta as linhas reais da grade;
+      4. mede somente o interior das quatro bolhas de cada linha;
+      5. aceita automaticamente apenas marcações sólidas e inequívocas.
+
+    Marcações fracas, X, rasuras ou duas bolhas ficam para revisão, evitando
+    transformar incerteza de visão computacional em erro de nota.
     """
-    imagem = cv2.imread(caminho_imagem)
-    if imagem is None:
-        raise ValueError("Não foi possível abrir a imagem enviada.")
-
     quantidade = max(0, int(quantidade or 0))
     if quantidade == 0:
         return {}
 
-    largura_base, altura_base = 1449, 2048
-    normalizada = cv2.resize(imagem, (largura_base, altura_base))
-    cinza = cv2.cvtColor(normalizada, cv2.COLOR_BGR2GRAY)
-    cinza = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8)).apply(cinza)
+    retificada = _normalizar_area_respostas_cartao(caminho_imagem)
 
-    centros_x = [636, 739, 843, 946]
-    primeiro_y = 1032
-    passo_y = 49
+    # Fallback para cartões muito antigos sem marcadores reconhecíveis.
+    if retificada is None:
+        imagem = cv2.imread(caminho_imagem)
+        if imagem is None:
+            raise ValueError("Não foi possível abrir a imagem enviada.")
+        retificada = cv2.resize(imagem, (1200, 900))
+        # Sem os marcadores não existe geometria confiável: usa apenas uma
+        # estimativa de linhas e força casos duvidosos para revisão.
+        linhas_y = [87 + 47 * i for i in range(quantidade)]
+    else:
+        cinza_tmp = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
+        linhas_y = _detectar_linhas_bolhas_retificadas(cinza_tmp, quantidade)
+        if len(linhas_y) < quantidade:
+            # A grade do ARK EDUS usa passo praticamente constante. Quando uma
+            # bolha preenchida perdeu o contorno, completa a sequência a partir
+            # das linhas detectadas em vez de abandonar a página.
+            if len(linhas_y) >= 2:
+                passo = float(np.median(np.diff(linhas_y)))
+                primeiro = linhas_y[0]
+                linhas_y = [primeiro + passo * i for i in range(quantidade)]
+            elif len(linhas_y) == 1:
+                linhas_y = [linhas_y[0] + 47 * i for i in range(quantidade)]
+            else:
+                linhas_y = [87 + 47 * i for i in range(quantidade)]
+
+    cinza = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
+    cinza = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8)).apply(cinza)
+
+    # Coordenadas relativas à área delimitada pelos quatro marcadores.
+    centros_x = [516, 612, 708, 804]
     letras = ["A", "B", "C", "D"]
     resultado = {}
 
     for indice in range(quantidade):
-        centro_y = primeiro_y + (indice * passo_y)
+        centro_y = float(linhas_y[indice])
         preenchimentos = [
-            _taxa_escura_melhor_circulo(cinza, x, centro_y, raio=14, busca=11)
+            _taxa_escura_melhor_circulo(
+                cinza, x, centro_y, raio=15, busca=3
+            )
             for x in centros_x
         ]
         ordem = np.argsort(preenchimentos)[::-1]
-        maior = preenchimentos[int(ordem[0])]
-        segundo = preenchimentos[int(ordem[1])]
+        maior = float(preenchimentos[int(ordem[0])])
+        segundo = float(preenchimentos[int(ordem[1])])
 
-        # Limiares deliberadamente conservadores: dúvida vai para revisão,
-        # nunca é descartada nem transformada silenciosamente em resposta.
-        marcadas_indices = [i for i, v in enumerate(preenchimentos) if v >= 0.28]
-        if maior < 0.20:
+        # Bolha sólida em scans reais costuma ficar muito acima de 0.55; a
+        # bolha vazia, mesmo com o contorno, fica em torno de 0.10-0.25.
+        marcadas_solidas = [i for i, v in enumerate(preenchimentos) if v >= 0.55]
+
+        if len(marcadas_solidas) >= 2:
+            situacao, resposta = "dupla_marcacao", ""
+            marcadas = [letras[i] for i in marcadas_solidas]
+        elif len(marcadas_solidas) == 1:
+            indice_marcada = marcadas_solidas[0]
+            # Uma marca sólida prevalece sobre contornos/ruído das demais.
+            if maior - segundo >= 0.18 or maior >= 0.78:
+                situacao = "respondida"
+                resposta = letras[indice_marcada]
+                marcadas = [resposta]
+            else:
+                situacao, resposta = "dupla_marcacao", ""
+                marcadas = [
+                    letras[int(ordem[0])], letras[int(ordem[1])]
+                ]
+        elif maior < 0.28:
             situacao, resposta, marcadas = "em_branco", "", []
-        elif len(marcadas_indices) >= 2 and segundo >= 0.25:
-            situacao, resposta = "dupla_marcacao", ""
-            marcadas = [letras[i] for i in marcadas_indices]
-        elif (maior - segundo) < 0.09:
-            situacao, resposta = "dupla_marcacao", ""
-            marcadas = [letras[int(ordem[0])], letras[int(ordem[1])]]
         else:
-            situacao = "respondida"
-            resposta = letras[int(ordem[0])]
-            marcadas = [resposta]
+            # X, preenchimento parcial ou rasura: revisão humana. O sistema não
+            # atribui automaticamente uma resposta que possa alterar a nota.
+            situacao, resposta = "dupla_marcacao", ""
+            marcadas = [letras[int(ordem[0])]]
+            if segundo >= 0.28:
+                marcadas.append(letras[int(ordem[1])])
 
         resultado[indice + 1] = {
             "resposta": resposta,
             "situacao": situacao,
             "marcadas": marcadas,
-            "preenchimentos": [round(v, 4) for v in preenchimentos],
+            "preenchimentos": [round(float(v), 4) for v in preenchimentos],
+            "confianca": round(max(0.0, maior - segundo), 4),
         }
+
     return resultado
 
 
@@ -20942,10 +21160,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             aplicacao["quantidade_modelos"] or 1
                         )
 
-                        # O QR é usado somente para conseguir montar a leitura
-                        # provisória. Se a bolha do modelo estiver vazia, o
-                        # professor obrigatoriamente escolherá o modelo na revisão.
-                        modelo_calculo = modelo_visual or modelo_qr
+                        # O QR é a fonte de verdade do modelo, pois foi gerado
+                        # especificamente para este aluno/cartão. A leitura visual
+                        # serve apenas para sinalizar divergência para revisão.
+                        modelo_calculo = modelo_qr
+                        modelo_divergente = bool(
+                            modelo_visual is not None
+                            and modelo_visual != modelo_qr
+                        )
                         tipo_folha = dados_qr.get(
                             "FOLHA", "OBJETIVAS"
                         ).upper()
@@ -21167,9 +21389,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             situacao = dado.get(
                                 "situacao", "em_branco"
                             )
-                            correta = (
-                                questao["correta"] or ""
-                            ).strip().upper()
+                            correta = _normalizar_letra_gabarito(
+                                questao.get("correta")
+                            )
                             anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
 
                             if anulada:
@@ -21248,9 +21470,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                                 acertou
                             ))
 
-                        modelo_pendente = modelo_visual is None
+                        modelo_pendente = False
                         precisa_revisao = bool(
-                            modelo_pendente or ambiguas or brancas
+                            modelo_divergente or ambiguas or brancas
                         )
                         status_importacao = (
                             "Revisão necessária"
@@ -21262,8 +21484,10 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             f"{brancas} em branco",
                             f"{ambiguas} com dupla marcação"
                         ]
-                        if modelo_pendente:
-                            partes_mensagem.append("modelo não marcado")
+                        if modelo_divergente:
+                            partes_mensagem.append(
+                                f"modelo visual {modelo_visual} diverge do QR {modelo_qr}"
+                            )
                         partes_mensagem.append(
                             f"nota objetiva {nota_objetiva:.2f}/"
                             f"{valor_total_objetivas:.2f}"
@@ -21317,7 +21541,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         """, (
                             aplicacao_id,
                             aluno_id,
-                            modelo_visual,
+                            modelo_calculo,
                             nome_exibicao,
                             caminho,
                             status_importacao,
@@ -21645,7 +21869,7 @@ def salvar_revisao_cartao(aplicacao_id, importacao_id):
                 situacao = "em_branco"
                 resposta = ""
 
-            correta = (questao["correta"] or "").strip().upper()
+            correta = _normalizar_letra_gabarito(questao.get("correta"))
 
             if anulada:
                 situacao = "anulada"

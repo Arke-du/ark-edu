@@ -1,0 +1,22 @@
+ARK EDUS - Correção de precisão na importação/correção de cartões
+Data: 09/08/2026
+
+Principais ajustes:
+1. A área de respostas passa a ser retificada pelos quatro quadrados pretos de referência.
+   Isso corrige inclinação, perspectiva, redimensionamento e pequenas deformações de scans/fotos.
+2. As bolhas são lidas após a retificação, medindo principalmente a área interna do círculo.
+   Assim, letras, bordas e linhas próximas não geram falsas duplas marcações.
+3. Marcações sólidas e inequívocas são corrigidas automaticamente.
+   X, rasura, preenchimento parcial e duas marcações são enviados para revisão humana.
+4. O modelo contido no QR Code é a fonte de verdade do gabarito do aluno.
+   A bolha visual do modelo passa a ser apenas uma conferência; divergência vai para revisão e não troca o gabarito silenciosamente.
+5. O gabarito é normalizado para aceitar A, (A), Alternativa A etc. antes da comparação.
+6. Mantida a exibição da imagem original do cartão na tela de revisão.
+7. Mantido suporte a PDF com PyMuPDF.
+
+Teste de referência executado com o PDF escaneado fornecido:
+- página 2: C, C, B, C, D reconhecidas automaticamente;
+- página 3: A, questão 2 incerta/em branco, B, C, D;
+- marcações em X/rasura são encaminhadas para revisão, conforme segurança de correção.
+
+Este pacote não inclui banco .db/SQLite.
