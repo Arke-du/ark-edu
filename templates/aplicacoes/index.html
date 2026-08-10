@@ -1202,12 +1202,19 @@ function fecharLayoutAplicacao(){
     if(overlay) overlay.hidden=true;
 }
 function baixarModeloComLayout(){
-    if(!apModeloUrl) return;
-    const colunas=document.querySelector('input[name="apLayoutColumns"]:checked')?.value || '1';
-    const separador=apModeloUrl.includes('?')?'&':'?';
+    if(!apModeloUrl){
+        alert('Não foi possível localizar o modelo da prova. Atualize a página e tente novamente.');
+        return;
+    }
+    const selecionado=document.querySelector('input[name="apLayoutColumns"]:checked');
+    const colunas=selecionado ? selecionado.value : '1';
+    const separador=apModeloUrl.includes('?') ? '&' : '?';
     const url=apModeloUrl+separador+'colunas='+encodeURIComponent(colunas)+'&imprimir=1';
+
+    // Navega na mesma aba. Isso evita bloqueio de pop-up dos navegadores,
+    // que fazia o botão "Continuar para PDF" parecer não funcionar.
     fecharLayoutAplicacao();
-    window.open(url,'_blank','noopener');
+    window.location.assign(url);
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape') fecharLayoutAplicacao();});
 document.getElementById('apLayoutOverlay')?.addEventListener('click',e=>{if(e.target.id==='apLayoutOverlay') fecharLayoutAplicacao();});
