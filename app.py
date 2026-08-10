@@ -8786,7 +8786,10 @@ def editar_questao(questao_id):
             """, (nova_questao_id, prova_id, questao_id))
 
         banco.commit()
-        flash("Cópia da questão criada com sucesso. A original foi preservada.", "sucesso")
+        if prova_id:
+            flash("Questão corrigida com sucesso nesta avaliação. A versão original do banco foi preservada.", "sucesso")
+        else:
+            flash("Nova versão da questão criada com sucesso. A original foi preservada.", "sucesso")
         return redirect(f"/provas/{prova_id}/montar" if prova_id else "/questoes")
 
     except sqlite3.Error as erro:

@@ -1,0 +1,28 @@
+ARK EDUS - AJUSTES DE IMPRESSAO E EDICAO DE QUESTOES - 10/08/2026
+
+1. IMPRESSAO COM MELHOR APROVEITAMENTO DA PAGINA
+- Corrigida a regra que empurrava a questao inteira para a pagina seguinte e deixava grandes areas em branco.
+- Margens de impressao reduzidas de forma segura, mantendo a moldura.
+- Espacamentos entre questoes, enunciados e alternativas compactados.
+- Imagens continuam protegidas contra cortes inadequados.
+- Alternativas individuais continuam juntas, mas o conjunto de alternativas pode continuar na pagina seguinte quando necessario.
+
+2. NOVA OPCAO DE 2 COLUNAS
+- Na visualizacao da prova foi adicionado o botao "Imprimir / layout".
+- O professor pode escolher 1 coluna ou 2 colunas.
+- Tambem pode ativar/desativar o modo compacto e mostrar/ocultar as instrucoes.
+- O cabecalho e as instrucoes permanecem em largura total; somente as questoes passam para duas colunas.
+
+3. EDICAO DE QUESTAO DISCURSIVA
+- Corrigido erro de JavaScript no formulario de edicao que impedia o funcionamento correto dos campos dinamicos e o envio do enunciado.
+- Ao selecionar "Discursiva", agora aparecem corretamente: resposta esperada, criterios de correcao e quantidade de linhas.
+- Ao editar uma questao a partir de uma prova, a prova passa a usar a versao corrigida, preservando a original no banco.
+- Textos e imagens do enunciado continuam sendo salvos na versao corrigida.
+
+ARQUIVOS PRINCIPAIS ALTERADOS:
+- app.py
+- templates/editar_questao.html
+- templates/visualizar_prova.html
+
+BANCO DE DADOS:
+- Nenhum platform.db foi incluido ou alterado neste pacote.
