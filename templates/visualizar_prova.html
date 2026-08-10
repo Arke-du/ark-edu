@@ -2059,7 +2059,46 @@ img {
     body.print-two-columns .statement figure img,
     body.print-two-columns .statement > img { max-height: 44mm !important; }
     body.print-two-columns .linhas-resposta-discursiva { break-inside: auto !important; page-break-inside: auto !important; }
+
+    /* ARK EDUS 10/08/2026 — máxima economia de papel sem encolher imagens discursivas */
+    body.print-compact .question-body { padding: 0 !important; }
+    body.print-compact .question-card { padding: 0 !important; }
+    body.print-compact .statement figure { margin: .8mm auto 1mm !important; }
+    body.print-compact .statement figure,
+    body.print-compact .question-image-area { break-inside: avoid !important; page-break-inside: avoid !important; }
+
+    /* Imagem de questão discursiva precisa continuar legível/grande.
+       O ganho de papel vem dos espaços, margens e linhas — não de reduzir a figura. */
+    body.print-compact .question-card-discursiva .question-image,
+    body.print-compact .question-card-discursiva .statement figure img,
+    body.print-compact .question-card-discursiva .statement > img {
+        width: auto !important;
+        max-width: 100% !important;
+        max-height: 82mm !important;
+        object-fit: contain !important;
+    }
+    body.print-compact .question-card-discursiva .question-image-area {
+        max-width: 150mm !important;
+        margin: .8mm auto 1mm !important;
+    }
+    body.print-compact .question-card-discursiva .linhas-resposta-discursiva {
+        gap: 1.2mm !important;
+        margin-top: 1mm !important;
+    }
+    body.print-compact .question-card-discursiva .linha-resposta-discursiva { height: 5.2mm !important; }
+
+    /* Em duas colunas, usa toda a largura da coluna sem deixar a figura minúscula. */
+    body.print-two-columns .question-card-discursiva .question-image,
+    body.print-two-columns .question-card-discursiva .statement figure img,
+    body.print-two-columns .question-card-discursiva .statement > img {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: 72mm !important;
+    }
+    body.print-two-columns .question-card-discursiva .question-image-area { max-width: 100% !important; }
 }
+
 </style>
 
 </head>
@@ -2557,7 +2596,7 @@ img {
 
                 <article
                     id="questao-{{ questao['prova_questao_id'] }}"
-                    class="question-card{% if questao['anulada'] %} question-card-annulled{% endif %}"
+                    class="question-card{% if tipo == 'discursiva' %} question-card-discursiva{% endif %}{% if questao['anulada'] %} question-card-annulled{% endif %}"
                 >
 
                     <div class="question-header">
