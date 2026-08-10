@@ -522,6 +522,14 @@
     }
 }
 
+.cd-sem-imagem{padding:34px 24px;text-align:center;color:#64748b;font-size:14px;line-height:1.5}
+.cd-sem-imagem strong{display:block;color:#334155;margin-bottom:5px}
+.cd-conceitos{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:7px}
+.cd-conceito-btn{border:1px solid #cfd8e5;border-radius:10px;background:#fff;padding:11px 9px;font:inherit;font-size:12px;font-weight:850;cursor:pointer;transition:.15s}
+.cd-conceito-btn:hover{border-color:#8fb1df;background:#f8fbff}
+.cd-conceito-btn.ativo{border-color:var(--azul);background:var(--azul-claro);color:var(--azul-escuro);box-shadow:0 0 0 2px rgba(18,59,130,.08)}
+.cd-modo-aviso{margin:0 0 12px;padding:10px 12px;border:1px solid #d7e4f3;border-radius:10px;background:#f6f9fd;color:#475569;font-size:12px;line-height:1.45}
+
 </style>
 {% endblock %}
 
@@ -535,6 +543,7 @@
             </a>
             <h1>Correção de discursivas</h1>
             <p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }} · {{ aplicacao.disciplina }}</p>
+            <p style="margin-top:4px;font-size:13px"><strong>Modo:</strong> {{ 'avaliação pedagógica sem nota' if avaliacao_sem_nota else 'avaliação com pontuação' }} · É possível corrigir com ou sem importação do cartão.</p>
         </div>
 
         <div class="cd-resumo">
@@ -551,8 +560,8 @@
                 <strong id="totalCorrigidas">{{ resumo.corrigidas }}</strong>
             </div>
             <div class="cd-resumo-card">
-                <small>Valor discursivas</small>
-                <strong>{{ '%.2f'|format(resumo.valor_total or 0)|replace('.', ',') }}</strong>
+                <small>{{ 'Critério' if avaliacao_sem_nota else 'Valor discursivas' }}</small>
+                <strong style="font-size:{{ '14px' if avaliacao_sem_nota else '22px' }}">{{ 'C / P / E' if avaliacao_sem_nota else ('%.2f'|format(resumo.valor_total or 0)|replace('.', ',')) }}</strong>
             </div>
         </div>
     </header>
@@ -575,8 +584,13 @@
                         <th>Aluno</th>
                         <th>Matrícula</th>
                         <th>Questão</th>
+                        {% if avaliacao_sem_nota %}
+                        <th>Critério</th>
+                        <th>Resultado</th>
+                        {% else %}
                         <th>Valor</th>
                         <th>Pontuação</th>
+                        {% endif %}
                         <th>Situação</th>
                     </tr>
                 </thead>
@@ -590,6 +604,15 @@
                         <td><strong>{{ resposta.aluno_nome }}</strong></td>
                         <td>{{ resposta.aluno_matricula or '—' }}</td>
                         <td>Questão {{ resposta.numero_exibicao }}</td>
+                        {% if avaliacao_sem_nota %}
+                        <td>Pedagógico</td>
+                        <td class="cd-celula-nota">
+                            {% if resposta.conceito == 'correta' %}Totalmente certa
+                            {% elif resposta.conceito == 'parcial' %}Parcialmente certa
+                            {% elif resposta.conceito == 'errada' %}Errada
+                            {% else %}—{% endif %}
+                        </td>
+                        {% else %}
                         <td>{{ '%.2f'|format(resposta.peso or 0)|replace('.', ',') }}</td>
                         <td class="cd-celula-nota">
                             {% if resposta.nota is not none %}
@@ -598,6 +621,7 @@
                                 —
                             {% endif %}
                         </td>
+                        {% endif %}
                         <td>
                             <span class="cd-status {{ 'cd-status-corrigida' if resposta.corrigida else 'cd-status-pendente' }}">
                                 {{ 'Corrigida' if resposta.corrigida else 'Pendente' }}
@@ -617,6 +641,10 @@
                 </div>
                 <div class="cd-imagem">
                     <img id="imagemResposta" alt="Resposta discursiva digitalizada">
+                    <div class="cd-sem-imagem" id="semImagemResposta" style="display:none">
+                        <strong>Correção manual sem cartão importado</strong>
+                        Consulte a resposta do estudante na prova física e registre a correção ao lado. Se o cartão for importado depois, a imagem poderá ser vinculada sem apagar esta correção.
+                    </div>
                 </div>
             </section>
 
@@ -647,6 +675,17 @@
                     <div class="cd-bloco-conteudo" id="criteriosCorrecao"></div>
                 </div>
 
+                {% if avaliacao_sem_nota %}
+                <div class="cd-modo-aviso">Esta avaliação foi cadastrada <strong>sem nota</strong>. Marque a qualidade da resposta; nenhuma pontuação numérica será criada.</div>
+                <div class="cd-campo">
+                    <label>Avaliação da resposta</label>
+                    <div class="cd-conceitos" id="conceitosResposta">
+                        <button type="button" class="cd-conceito-btn" data-conceito="correta">✓ Totalmente certa</button>
+                        <button type="button" class="cd-conceito-btn" data-conceito="parcial">◐ Parcialmente certa</button>
+                        <button type="button" class="cd-conceito-btn" data-conceito="errada">✕ Errada</button>
+                    </div>
+                </div>
+                {% else %}
                 <div class="cd-valor">
                     <span>Valor da questão</span>
                     <strong id="pesoQuestao"></strong>
@@ -655,16 +694,11 @@
                 <div class="cd-campo">
                     <label for="notaResposta">Pontuação atribuída</label>
                     <div class="cd-nota-wrap">
-                        <input
-                            id="notaResposta"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            inputmode="decimal"
-                        >
+                        <input id="notaResposta" type="number" min="0" step="0.01" inputmode="decimal">
                         <span id="limiteNota"></span>
                     </div>
                 </div>
+                {% endif %}
 
                 <div class="cd-campo">
                     <label for="comentarioResposta">Comentário do professor</label>
@@ -674,20 +708,13 @@
                     ></textarea>
                 </div>
 
+                {% if not avaliacao_sem_nota %}
                 <div class="cd-resultado">
-                    <div>
-                        <small>Objetivas</small>
-                        <strong id="notaObjetivaAluno">—</strong>
-                    </div>
-                    <div>
-                        <small>Discursivas</small>
-                        <strong id="notaDiscursivaAluno">—</strong>
-                    </div>
-                    <div>
-                        <small>Nota final</small>
-                        <strong id="notaFinalAluno">—</strong>
-                    </div>
+                    <div><small>Objetivas</small><strong id="notaObjetivaAluno">—</strong></div>
+                    <div><small>Discursivas</small><strong id="notaDiscursivaAluno">—</strong></div>
+                    <div><small>Nota final</small><strong id="notaFinalAluno">—</strong></div>
                 </div>
+                {% endif %}
 
                 <div class="cd-acoes">
                     <button type="button" class="cd-btn" id="anteriorBtn">
@@ -708,8 +735,8 @@
     </section>
     {% else %}
     <section class="cd-painel cd-vazio">
-        <h2>Nenhuma folha discursiva importada</h2>
-        <p>Importe as folhas pela tela de cartões para iniciar a correção.</p>
+        <h2>Nenhuma questão discursiva disponível</h2>
+        <p>Esta aplicação não possui estudantes presentes com questões discursivas vinculadas.</p>
     </section>
     {% endif %}
 </main>
@@ -724,6 +751,10 @@ let indiceAtual = 0;
 const linhas = [...document.querySelectorAll(".cd-linha")];
 const buscaResposta = document.getElementById("buscaResposta");
 const imagemResposta = document.getElementById("imagemResposta");
+const semImagemResposta = document.getElementById("semImagemResposta");
+const avaliacaoSemNota = {{ 'true' if avaliacao_sem_nota else 'false' }};
+const botoesConceito = [...document.querySelectorAll(".cd-conceito-btn")];
+let conceitoSelecionado = "";
 const legendaDocumento = document.getElementById("legendaDocumento");
 const statusAtual = document.getElementById("statusAtual");
 const alunoAtual = document.getElementById("alunoAtual");
@@ -881,18 +912,25 @@ function renderizar(){
 
     imagemResposta.src = r.imagem_url || "";
     imagemResposta.style.display = r.imagem_url ? "inline-block" : "none";
+    semImagemResposta.style.display = r.imagem_url ? "none" : "block";
 
-    const peso = Number(r.peso || 0);
-    pesoQuestao.textContent = `${formatarNota(peso)} pontos`;
-    limiteNota.textContent = `máx. ${formatarNota(peso)}`;
-    notaResposta.max = peso.toFixed(2);
-    notaResposta.value =
-        r.nota === null || r.nota === undefined ? "" : Number(r.nota).toFixed(2);
+    if(avaliacaoSemNota){
+        conceitoSelecionado = r.conceito || "";
+        botoesConceito.forEach(btn => {
+            btn.classList.toggle("ativo", btn.dataset.conceito === conceitoSelecionado);
+        });
+    }else{
+        const peso = Number(r.peso || 0);
+        pesoQuestao.textContent = `${formatarNota(peso)} pontos`;
+        limiteNota.textContent = `máx. ${formatarNota(peso)}`;
+        notaResposta.max = peso.toFixed(2);
+        notaResposta.value =
+            r.nota === null || r.nota === undefined ? "" : Number(r.nota).toFixed(2);
+        notaObjetivaAluno.textContent = formatarNota(r.nota_objetiva);
+        notaDiscursivaAluno.textContent = formatarNota(r.nota_discursiva_aluno);
+        notaFinalAluno.textContent = formatarNota(r.nota_final);
+    }
     comentarioResposta.value = r.comentario || "";
-
-    notaObjetivaAluno.textContent = formatarNota(r.nota_objetiva);
-    notaDiscursivaAluno.textContent = formatarNota(r.nota_discursiva_aluno);
-    notaFinalAluno.textContent = formatarNota(r.nota_final);
 
     anteriorBtn.disabled = indiceAtual === 0;
     proximoBtn.disabled = indiceAtual === respostas.length - 1;
@@ -900,23 +938,26 @@ function renderizar(){
 
 async function salvar(){
     const r = respostas[indiceAtual];
-    const valorTexto = String(notaResposta.value || "").replace(",", ".").trim();
-    const nota = Number(valorTexto);
-    const peso = Number(r.peso || 0);
-
-    if(valorTexto === "" || Number.isNaN(nota)){
-        mostrarNotificacao("Informe uma pontuação válida.", "error");
-        notaResposta.focus();
-        return;
-    }
-
-    if(nota < 0 || nota > peso){
-        mostrarNotificacao(
-            `A pontuação deve estar entre 0 e ${formatarNota(peso)}.`,
-            "error"
-        );
-        notaResposta.focus();
-        return;
+    let nota = null;
+    if(avaliacaoSemNota){
+        if(!conceitoSelecionado){
+            mostrarNotificacao("Selecione totalmente certa, parcialmente certa ou errada.", "error");
+            return;
+        }
+    }else{
+        const valorTexto = String(notaResposta.value || "").replace(",", ".").trim();
+        nota = Number(valorTexto);
+        const peso = Number(r.peso || 0);
+        if(valorTexto === "" || Number.isNaN(nota)){
+            mostrarNotificacao("Informe uma pontuação válida.", "error");
+            notaResposta.focus();
+            return;
+        }
+        if(nota < 0 || nota > peso){
+            mostrarNotificacao(`A pontuação deve estar entre 0 e ${formatarNota(peso)}.`, "error");
+            notaResposta.focus();
+            return;
+        }
     }
 
     salvarBtn.disabled = true;
@@ -930,6 +971,7 @@ async function salvar(){
                 headers:{"Content-Type":"application/json"},
                 body:JSON.stringify({
                     nota:nota,
+                    conceito:conceitoSelecionado,
                     comentario:comentarioResposta.value
                 })
             }
@@ -943,6 +985,7 @@ async function salvar(){
 
         const jaCorrigida = Boolean(r.corrigida);
         r.nota = dados.nota;
+        r.conceito = dados.conceito;
         r.comentario = comentarioResposta.value;
         r.corrigida = 1;
         r.nota_objetiva = dados.nota_objetiva;
@@ -950,8 +993,9 @@ async function salvar(){
         r.nota_final = dados.nota_final;
 
         const linha = linhas[indiceAtual];
-        linha.querySelector(".cd-celula-nota").textContent =
-            formatarNota(dados.nota);
+        linha.querySelector(".cd-celula-nota").textContent = avaliacaoSemNota
+            ? ({correta:"Totalmente certa", parcial:"Parcialmente certa", errada:"Errada"}[dados.conceito] || "—")
+            : formatarNota(dados.nota);
 
         const selo = linha.querySelector(".cd-status");
         selo.textContent = "Corrigida";
@@ -998,15 +1042,22 @@ buscaResposta.addEventListener("input", () => {
     });
 });
 
-notaResposta.addEventListener("input", () => {
-    const peso = Number(respostas[indiceAtual].peso || 0);
-    if(Number(notaResposta.value) > peso){
-        notaResposta.setCustomValidity(
-            `A pontuação máxima é ${formatarNota(peso)}.`
-        );
-    }else{
-        notaResposta.setCustomValidity("");
-    }
+if(notaResposta){
+    notaResposta.addEventListener("input", () => {
+        const peso = Number(respostas[indiceAtual].peso || 0);
+        if(Number(notaResposta.value) > peso){
+            notaResposta.setCustomValidity(`A pontuação máxima é ${formatarNota(peso)}.`);
+        }else{
+            notaResposta.setCustomValidity("");
+        }
+    });
+}
+
+botoesConceito.forEach(btn => {
+    btn.addEventListener("click", () => {
+        conceitoSelecionado = btn.dataset.conceito;
+        botoesConceito.forEach(outro => outro.classList.toggle("ativo", outro === btn));
+    });
 });
 
 anteriorBtn.addEventListener("click", () => {

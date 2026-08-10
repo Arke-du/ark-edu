@@ -12648,6 +12648,8 @@ def resultados(prova_id):
         if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False, permitir_finalizada=True):
             return redirect("/acesso_negado")
 
+        avaliacao_sem_nota = int(prova["tem_nota"] or 0) != 1
+
         _recalcular_notas_aplicacoes_por_peso(cursor, prova_id=prova_id)
         banco.commit()
 
@@ -12847,7 +12849,10 @@ def resultados(prova_id):
         cursor.execute("""
             SELECT rda.questao_id, COUNT(*) total,
                    SUM(CASE WHEN rda.corrigida = 1 THEN 1 ELSE 0 END) corrigidas,
-                   AVG(CASE WHEN rda.corrigida = 1 THEN rda.nota END) media
+                   AVG(CASE WHEN rda.corrigida = 1 THEN rda.nota END) media,
+                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'correta' THEN 1 ELSE 0 END) totalmente_certas,
+                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'parcial' THEN 1 ELSE 0 END) parcialmente_certas,
+                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'errada' THEN 1 ELSE 0 END) erradas
             FROM respostas_discursivas_aplicacao rda
             JOIN aplicacoes ap ON ap.id = rda.aplicacao_id
             WHERE ap.prova_id = ?
@@ -12861,8 +12866,16 @@ def resultados(prova_id):
                 st = disc_stats.get(q["questao_id"], {})
                 total = int(st.get("total") or 0)
                 corrigidas_q = int(st.get("corrigidas") or 0)
-                discursivas.append({**q, "total_respostas": total, "corrigidas": corrigidas_q,
-                                    "pendentes": max(total-corrigidas_q,0), "media_discursiva": round(float(st.get("media") or 0),2)})
+                discursivas.append({
+                    **q,
+                    "total_respostas": total,
+                    "corrigidas": corrigidas_q,
+                    "pendentes": max(total-corrigidas_q, 0),
+                    "media_discursiva": round(float(st.get("media") or 0), 2),
+                    "totalmente_certas": int(st.get("totalmente_certas") or 0),
+                    "parcialmente_certas": int(st.get("parcialmente_certas") or 0),
+                    "erradas_discursivas": int(st.get("erradas") or 0),
+                })
 
         # =========================================================
         # MAPA DE RESPOSTAS
@@ -13004,6 +13017,7 @@ def resultados(prova_id):
                 rd.aluno_id,
                 rd.numero_exibicao,
                 rd.nota,
+                rd.conceito,
                 rd.corrigida,
                 ROUND(COALESCE(pq.peso, 0), 2) AS peso,
                 COALESCE(pq.anulada, 0) AS anulada
@@ -13157,6 +13171,25 @@ def resultados(prova_id):
                         status = "pendente"
                         valor = "—"
                         titulo = "Correção discursiva pendente"
+                    elif avaliacao_sem_nota:
+                        conceito = str(resposta.get("conceito") or "").strip().lower()
+                        if conceito == "correta":
+                            status = "correta"
+                            valor = "C"
+                            titulo = "Resposta discursiva totalmente certa"
+                            total_acertos_mapa += 1
+                        elif conceito == "parcial":
+                            status = "parcial"
+                            valor = "P"
+                            titulo = "Resposta discursiva parcialmente certa"
+                        elif conceito == "errada":
+                            status = "errada"
+                            valor = "E"
+                            titulo = "Resposta discursiva errada"
+                        else:
+                            status = "pendente"
+                            valor = "—"
+                            titulo = "Classificação pedagógica não registrada"
                     elif (
                         peso_discursiva > 0
                         and nota_discursiva >= peso_discursiva - 0.001
@@ -13227,6 +13260,7 @@ def resultados(prova_id):
             aprovados=aprovados, reprovados=reprovados, taxa_aprovacao=taxa_aprovacao,
             percentual_medio=percentual_medio, relatorio_questoes=relatorio_questoes,
             habilidades=habilidades, descritores=descritores, discursivas=discursivas,
+            avaliacao_sem_nota=avaliacao_sem_nota,
             anuladas=anuladas, questao_mais_facil=questao_mais_facil,
             questao_mais_dificil=questao_mais_dificil,
             mapa_colunas=mapa_colunas,
@@ -20179,6 +20213,15 @@ def _garantir_tabelas_aplicacoes():
     garantir_coluna_aplicacao_aluno("nota_discursiva", "REAL")
     garantir_coluna_aplicacao_aluno("nota_final", "REAL")
 
+    # Classificação pedagógica das discursivas em avaliações sem nota.
+    cursor.execute("PRAGMA table_info(respostas_discursivas_aplicacao)")
+    colunas_rd = {linha[1] for linha in cursor.fetchall()}
+    if "conceito" not in colunas_rd:
+        cursor.execute(
+            "ALTER TABLE respostas_discursivas_aplicacao "
+            "ADD COLUMN conceito TEXT"
+        )
+
     # Garante compatibilidade com provas antigas. Uma questão anulada recebe
     # crédito automático para todos os alunos e nunca exige revisão do cartão.
     cursor.execute("PRAGMA table_info(prova_questoes)")
@@ -22412,9 +22455,55 @@ def excluir_aplicacao(aplicacao_id):
     finally:
         banco.close()
 
+def _garantir_discursivas_para_correcao_manual(cursor, aplicacao_id, prova_id):
+    """Cria apenas os registros faltantes para correção manual.
+
+    Não altera QR Codes, cartões já gerados, modelos, respostas objetivas ou
+    imagens já importadas. É seguro para aplicações criadas antes deste recurso.
+    """
+    cursor.execute("""
+        SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
+        FROM aplicacao_alunos aa
+        WHERE aa.aplicacao_id = ?
+          AND LOWER(TRIM(COALESCE(aa.status, ''))) NOT IN ('ausente', 'faltou')
+        ORDER BY aa.id
+    """, (aplicacao_id,))
+    alunos = cursor.fetchall()
+
+    for aluno in alunos:
+        modelo = max(1, int(aluno["modelo"] or 1))
+        questoes_modelo = _questoes_modelo_aplicacao(
+            cursor, aplicacao_id, modelo
+        )
+        for numero, questao in enumerate(questoes_modelo, 1):
+            if not _tipo_discursivo_aplicacao(questao.get("tipo_questao")):
+                continue
+            cursor.execute("""
+                INSERT OR IGNORE INTO respostas_discursivas_aplicacao
+                    (aplicacao_id, aluno_id, questao_id, numero_exibicao)
+                VALUES (?, ?, ?, ?)
+            """, (
+                aplicacao_id, aluno["aluno_id"], questao["id"], numero
+            ))
+
+    # Atualiza somente a pendência das discursivas; não toca na correção objetiva.
+    cursor.execute("""
+        UPDATE aplicacao_alunos
+        SET discursiva_pendente = CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM respostas_discursivas_aplicacao rd
+                WHERE rd.aplicacao_id = aplicacao_alunos.aplicacao_id
+                  AND rd.aluno_id = aplicacao_alunos.aluno_id
+                  AND COALESCE(rd.corrigida, 0) = 0
+            ) THEN 1 ELSE 0 END
+        WHERE aplicacao_id = ?
+    """, (aplicacao_id,))
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/discursivas")
 def corrigir_discursivas_aplicacao(aplicacao_id):
-    """Exibe as respostas discursivas digitalizadas para correção."""
+    """Exibe discursivas para correção com ou sem cartão importado."""
     _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -22427,6 +22516,7 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
                 p.nome AS prova_nome,
                 p.disciplina,
                 COALESCE(p.peso_total, 10) AS peso_total,
+                CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
                 t.nome AS turma_nome
             FROM aplicacoes a
             INNER JOIN provas p ON p.id = a.prova_id
@@ -22447,6 +22537,13 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
         ):
             return _redirecionar_acesso_negado_prova()
 
+        # Permite lançar a correção discursiva mesmo sem importar cartão.
+        # INSERT OR IGNORE preserva integralmente tudo que já foi importado.
+        _garantir_discursivas_para_correcao_manual(
+            cursor, aplicacao_id, aplicacao["prova_id"]
+        )
+        banco.commit()
+
         cursor.execute("""
             SELECT
                 rd.id,
@@ -22455,6 +22552,7 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
                 rd.numero_exibicao,
                 rd.imagem_resposta,
                 rd.nota,
+                rd.conceito,
                 rd.comentario,
                 rd.corrigida,
                 al.nome AS aluno_nome,
@@ -22470,7 +22568,6 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
               ON pq.prova_id = ?
              AND pq.questao_id = rd.questao_id
             WHERE rd.aplicacao_id = ?
-              AND TRIM(COALESCE(rd.imagem_resposta, '')) <> ''
             ORDER BY
                 al.nome COLLATE NOCASE,
                 rd.numero_exibicao
@@ -22531,7 +22628,8 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
                 "corrigidas": corrigidas,
                 "pendentes": pendentes,
                 "valor_total": valor_total_discursivas
-            }
+            },
+            avaliacao_sem_nota=(int(aplicacao["tem_nota"] or 0) != 1)
         )
 
     finally:
@@ -22552,21 +22650,19 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
     try:
         dados = request.get_json(silent=True) or request.form
         nota_texto = str(dados.get("nota", "")).replace(",", ".").strip()
+        conceito = str(dados.get("conceito", "")).strip().lower()
         comentario = str(dados.get("comentario", "")).strip()
-
-        try:
-            nota = round(float(nota_texto), 2)
-        except (TypeError, ValueError):
-            return jsonify({"erro": "Informe uma pontuação válida."}), 400
 
         cursor.execute("""
             SELECT
                 rd.aluno_id,
                 rd.questao_id,
                 a.prova_id,
+                CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
                 ROUND(COALESCE(pq.peso, 0), 2) AS peso
             FROM respostas_discursivas_aplicacao rd
             INNER JOIN aplicacoes a ON a.id = rd.aplicacao_id
+            INNER JOIN provas p ON p.id = a.prova_id
             INNER JOIN prova_questoes pq
               ON pq.prova_id = a.prova_id
              AND pq.questao_id = rd.questao_id
@@ -22589,27 +22685,47 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
             }), 403
 
         peso_questao = round(float(resposta["peso"] or 0), 2)
+        tem_nota = int(resposta["tem_nota"] or 0) == 1
 
-        if peso_questao <= 0:
-            return jsonify({
-                "erro": (
-                    "Esta questão não possui peso válido na prova. "
-                    "Configure os pesos antes de corrigir."
-                )
-            }), 400
+        if tem_nota:
+            try:
+                nota = round(float(nota_texto), 2)
+            except (TypeError, ValueError):
+                return jsonify({"erro": "Informe uma pontuação válida."}), 400
 
-        if nota < 0 or nota > peso_questao:
-            return jsonify({
-                "erro": (
-                    f"A pontuação deve estar entre 0 e "
-                    f"{peso_questao:.2f} pontos."
-                )
-            }), 400
+            if peso_questao <= 0:
+                return jsonify({
+                    "erro": (
+                        "Esta questão não possui peso válido na prova. "
+                        "Configure os pesos antes de corrigir."
+                    )
+                }), 400
+
+            if nota < 0 or nota > peso_questao:
+                return jsonify({
+                    "erro": (
+                        f"A pontuação deve estar entre 0 e "
+                        f"{peso_questao:.2f} pontos."
+                    )
+                }), 400
+            conceito_salvo = (
+                "correta" if nota >= peso_questao - 0.001
+                else "parcial" if nota > 0
+                else "errada"
+            )
+        else:
+            if conceito not in {"correta", "parcial", "errada"}:
+                return jsonify({
+                    "erro": "Selecione: totalmente certa, parcialmente certa ou errada."
+                }), 400
+            nota = None
+            conceito_salvo = conceito
 
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
             UPDATE respostas_discursivas_aplicacao
             SET nota = ?,
+                conceito = ?,
                 comentario = ?,
                 corrigida = 1,
                 corrigido_por = ?,
@@ -22618,6 +22734,7 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
               AND aplicacao_id = ?
         """, (
             nota,
+            conceito_salvo,
             comentario,
             session.get("usuario_id"),
             agora,
@@ -22645,7 +22762,6 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
              AND pq.questao_id = rd.questao_id
             WHERE rd.aplicacao_id = ?
               AND rd.aluno_id = ?
-              AND TRIM(COALESCE(rd.imagem_resposta, '')) <> ''
         """, (aplicacao_id, aluno_id))
         consolidado = cursor.fetchone()
 
@@ -22676,14 +22792,18 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
             else None
         )
 
-        # As questões já possuem pesos próprios. Portanto, a nota final é
-        # a soma da parte objetiva com a soma das pontuações discursivas.
-        if nota_objetiva is not None:
-            nota_final = round(nota_objetiva + nota_discursiva, 2)
-        elif corrigidas > 0:
-            nota_final = nota_discursiva
+        # Avaliações sem nota registram somente o conceito pedagógico.
+        if tem_nota:
+            if nota_objetiva is not None:
+                nota_final = round(nota_objetiva + nota_discursiva, 2)
+            elif corrigidas > 0:
+                nota_final = nota_discursiva
+            else:
+                nota_final = None
+            nota_discursiva_banco = nota_discursiva
         else:
             nota_final = None
+            nota_discursiva_banco = None
 
         cursor.execute("""
             UPDATE aplicacao_alunos
@@ -22698,7 +22818,7 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
             WHERE aplicacao_id = ?
               AND aluno_id = ?
         """, (
-            nota_discursiva,
+            nota_discursiva_banco,
             nota_final,
             0 if concluiu else 1,
             1 if concluiu else 0,
@@ -22714,10 +22834,12 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
         return jsonify({
             "sucesso": True,
             "nota": nota,
+            "conceito": conceito_salvo,
+            "tem_nota": tem_nota,
             "peso": peso_questao,
-            "nota_objetiva": nota_objetiva,
-            "nota_discursiva": nota_discursiva,
-            "valor_discursivas": valor_discursivas,
+            "nota_objetiva": nota_objetiva if tem_nota else None,
+            "nota_discursiva": nota_discursiva if tem_nota else None,
+            "valor_discursivas": valor_discursivas if tem_nota else None,
             "nota_final": nota_final,
             "aluno_concluido": concluiu,
             "mensagem": "Correção salva com sucesso."
