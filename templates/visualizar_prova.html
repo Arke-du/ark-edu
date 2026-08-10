@@ -2009,101 +2009,11 @@ img {
 }
 
 
-/* Layout de impressão - economia de papel */
-.print-layout-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}
-.print-layout-card{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid var(--arke-border);border-radius:14px;background:#f8fafc;cursor:pointer}
-.print-layout-card:has(input:checked){border-color:#2563eb;background:#eff6ff}
-.print-layout-card input{width:18px;height:18px;margin-top:2px}.print-layout-card span{display:grid;gap:4px}.print-layout-card strong{font-size:14px}.print-layout-card small{color:var(--arke-muted);font-size:12px;line-height:1.35}
-.print-settings-note{margin:16px 0 0;padding:12px 14px;border-radius:12px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.45}
-@media (max-width:640px){.print-layout-options{grid-template-columns:1fr}}
-
-@media print {
-    @page { size: A4 portrait; margin: 8mm 8mm 8mm; }
-    /* O cartão inteiro não é mais empurrado para a próxima página. Esse era o principal motivo dos vazios grandes. */
-    body.print-compact .question-card,
-    body.print-compact .questions-section,
-    body.print-compact .alternatives {
-        page-break-inside: auto !important;
-        break-inside: auto !important;
-    }
-    body.print-compact .question-card { margin-bottom: 2mm !important; }
-    body.print-compact .question-header { margin-bottom: .6mm !important; page-break-after: avoid !important; break-after: avoid !important; }
-    body.print-compact .statement { margin-bottom: 1mm !important; line-height: 1.22 !important; }
-    body.print-compact .statement p { margin-top: 0 !important; margin-bottom: 1mm !important; }
-    body.print-compact .alternatives { gap: .7mm !important; margin-top: 1mm !important; }
-    body.print-compact .alternative { page-break-inside: avoid !important; break-inside: avoid !important; }
-    body.print-compact .question-image-area { margin-top: 1mm !important; margin-bottom: 1.5mm !important; }
-    body.print-compact .question-image,
-    body.print-compact .statement figure img,
-    body.print-compact .statement > img { max-height: 58mm !important; }
-    body.print-compact .instructions-section { margin: 1.5mm 0 2mm !important; }
-    body.print-compact .instructions-box { padding: 1.8mm 2.4mm !important; }
-    body.print-compact .instructions-box ol { line-height: 1.12 !important; }
-    body.print-compact .instructions-box li { margin: .3mm 0 !important; }
-    body.print-compact .print-exam-header { margin-bottom: 2mm !important; padding-top: 2.8mm !important; padding-bottom: 2.4mm !important; }
-    body.print-compact .linhas-resposta-discursiva { margin-top: 1.5mm !important; }
-    body.print-compact .linha-resposta-discursiva { height: 7mm !important; }
-
-    /* Duas colunas somente no corpo das questões; cabeçalho e instruções permanecem em largura total. */
-    body.print-two-columns .questions-section {
-        column-count: 2 !important;
-        column-gap: 8mm !important;
-        column-fill: auto !important;
-    }
-    body.print-two-columns .question-card { width: 100% !important; }
-    body.print-two-columns .statement,
-    body.print-two-columns .alternative-text { font-size: 10.5pt !important; line-height: 1.2 !important; text-align: left !important; }
-    body.print-two-columns .question-title { font-size: 10.8pt !important; }
-    body.print-two-columns .alternative-letter { font-size: 10pt !important; }
-    body.print-two-columns .question-image,
-    body.print-two-columns .statement figure img,
-    body.print-two-columns .statement > img { max-height: 44mm !important; }
-    body.print-two-columns .linhas-resposta-discursiva { break-inside: auto !important; page-break-inside: auto !important; }
-
-    /* ARK EDUS 10/08/2026 — máxima economia de papel sem encolher imagens discursivas */
-    body.print-compact .question-body { padding: 0 !important; }
-    body.print-compact .question-card { padding: 0 !important; }
-    body.print-compact .statement figure { margin: .8mm auto 1mm !important; }
-    body.print-compact .statement figure,
-    body.print-compact .question-image-area { break-inside: avoid !important; page-break-inside: avoid !important; }
-
-    /* Imagem de questão discursiva precisa continuar legível/grande.
-       O ganho de papel vem dos espaços, margens e linhas — não de reduzir a figura. */
-    body.print-compact .question-card-discursiva .question-image,
-    body.print-compact .question-card-discursiva .statement figure img,
-    body.print-compact .question-card-discursiva .statement > img {
-        width: auto !important;
-        max-width: 100% !important;
-        max-height: 82mm !important;
-        object-fit: contain !important;
-    }
-    body.print-compact .question-card-discursiva .question-image-area {
-        max-width: 150mm !important;
-        margin: .8mm auto 1mm !important;
-    }
-    body.print-compact .question-card-discursiva .linhas-resposta-discursiva {
-        gap: 1.2mm !important;
-        margin-top: 1mm !important;
-    }
-    body.print-compact .question-card-discursiva .linha-resposta-discursiva { height: 5.2mm !important; }
-
-    /* Em duas colunas, usa toda a largura da coluna sem deixar a figura minúscula. */
-    body.print-two-columns .question-card-discursiva .question-image,
-    body.print-two-columns .question-card-discursiva .statement figure img,
-    body.print-two-columns .question-card-discursiva .statement > img {
-        width: 100% !important;
-        max-width: 100% !important;
-        height: auto !important;
-        max-height: 72mm !important;
-    }
-    body.print-two-columns .question-card-discursiva .question-image-area { max-width: 100% !important; }
-}
-
 </style>
 
 </head>
 
-<body class="print-compact">
+<body>
 
 <!-- =====================================================
      BARRA SUPERIOR
@@ -2171,44 +2081,13 @@ img {
             Ver gabarito
         </button>
 
-        <button
-            type="button"
-            class="btn btn-primary"
-            onclick="abrirConfiguracaoImpressao()"
-            title="Escolher layout e imprimir"
-        >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-            </svg>
-            Imprimir / layout
-        </button>
+
     </div>
 
 </div>
 
 </header>
 
-<div class="print-settings-overlay no-print" id="printSettingsOverlay" hidden>
-    <div class="print-settings-modal" role="dialog" aria-modal="true" aria-labelledby="printSettingsTitle">
-        <div class="print-settings-header">
-            <div><strong id="printSettingsTitle">Layout da avaliação</strong><span>Escolha como aproveitar melhor o espaço da folha antes de imprimir ou salvar em PDF.</span></div>
-            <button type="button" class="print-settings-close" onclick="fecharConfiguracaoImpressao()" aria-label="Fechar">×</button>
-        </div>
-        <div class="print-settings-body">
-            <div class="print-layout-options">
-                <label class="print-layout-card"><input type="radio" name="printColumns" value="1" checked><span><strong>1 coluna</strong><small>Melhor para questões com imagens grandes e textos longos.</small></span></label>
-                <label class="print-layout-card"><input type="radio" name="printColumns" value="2"><span><strong>2 colunas</strong><small>Economiza papel em questões curtas e objetivas.</small></span></label>
-            </div>
-            <label class="print-simple-option"><input id="printCompact" type="checkbox" checked> Aproveitar o máximo de espaço da página</label>
-            <label class="print-simple-option"><input id="printInstructions" type="checkbox" checked> Mostrar instruções da avaliação</label>
-            <p class="print-settings-note">O modo compacto permite que uma questão continue na área restante da página, evitando grandes espaços em branco. Imagens e alternativas individuais continuam protegidas contra cortes inadequados.</p>
-        </div>
-        <div class="print-settings-footer">
-            <button type="button" class="btn btn-secondary" onclick="fecharConfiguracaoImpressao()">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="imprimirComConfiguracao()">Imprimir / salvar PDF</button>
-        </div>
-    </div>
-</div>
 
 <!-- =====================================================
      CONTEÚDO PRINCIPAL
@@ -2863,33 +2742,6 @@ function confirmarAlteracaoQuestao(form, numero, estaAnulada) {
 }
 
 
-function abrirConfiguracaoImpressao() {
-    const overlay = document.getElementById('printSettingsOverlay');
-    if (overlay) overlay.hidden = false;
-}
-
-function fecharConfiguracaoImpressao() {
-    const overlay = document.getElementById('printSettingsOverlay');
-    if (overlay) overlay.hidden = true;
-}
-
-function imprimirComConfiguracao() {
-    const colunas = document.querySelector('input[name="printColumns"]:checked')?.value || '1';
-    const compacto = document.getElementById('printCompact')?.checked !== false;
-    const instrucoes = document.getElementById('printInstructions')?.checked !== false;
-    document.body.classList.toggle('print-two-columns', colunas === '2');
-    document.body.classList.toggle('print-compact', compacto);
-    document.body.classList.toggle('hide-print-instructions', !instrucoes);
-    fecharConfiguracaoImpressao();
-    requestAnimationFrame(() => window.print());
-}
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') fecharConfiguracaoImpressao();
-});
-document.getElementById('printSettingsOverlay')?.addEventListener('click', (event) => {
-    if (event.target.id === 'printSettingsOverlay') fecharConfiguracaoImpressao();
-});
 </script>
 
 </body>

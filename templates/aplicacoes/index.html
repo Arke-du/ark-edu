@@ -1,6 +1,23 @@
 {% extends "layout/base.html" %}
 
-{% block titulo %}Aplicações | ARK EDUS{% endblock %}
+{% block titulo %}Aplicações | ARK EDUS
+<style>
+/* Escolha de layout somente dentro de Aplicações */
+.ap-layout-overlay{position:fixed;inset:0;z-index:4000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.ap-layout-overlay[hidden]{display:none}
+.ap-layout-modal{width:min(560px,100%);background:#fff;border-radius:18px;box-shadow:0 24px 80px rgba(15,23,42,.28);overflow:hidden}
+.ap-layout-head{padding:20px 22px 14px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:18px}
+.ap-layout-head strong{display:block;font-size:18px;color:#0f172a}.ap-layout-head span{display:block;margin-top:4px;font-size:13px;color:#64748b;line-height:1.4}
+.ap-layout-close{border:0;background:transparent;font-size:25px;line-height:1;color:#64748b;cursor:pointer}
+.ap-layout-body{padding:18px 22px}.ap-layout-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ap-layout-option{display:flex;gap:10px;align-items:flex-start;padding:15px;border:1px solid #dbe3ef;border-radius:14px;background:#f8fafc;cursor:pointer}
+.ap-layout-option:has(input:checked){border-color:#2563eb;background:#eff6ff}.ap-layout-option input{margin-top:2px;width:18px;height:18px}
+.ap-layout-option strong{display:block;font-size:14px;color:#0f172a}.ap-layout-option small{display:block;margin-top:4px;font-size:12px;line-height:1.35;color:#64748b}
+.ap-layout-note{margin:14px 0 0;padding:11px 12px;border-radius:11px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.4}
+.ap-layout-footer{padding:14px 22px 20px;display:flex;justify-content:flex-end;gap:10px}
+@media(max-width:620px){.ap-layout-options{grid-template-columns:1fr}}
+</style>
+{% endblock %}
 
 {% block estilos %}
 <style>
@@ -850,13 +867,9 @@
                                 1,
                                 (aplicacao.quantidade_modelos or 1) + 1
                             ) %}
-                            <a class="ap-btn ap-btn-model"
-                               href="{{ url_for(
-                                   'imprimir_modelo_aplicacao',
-                                   aplicacao_id=aplicacao.id,
-                                   modelo=modelo
-                               ) }}"
-                               target="_blank">
+                            <button class="ap-btn ap-btn-model"
+                                    type="button"
+                                    onclick="abrirLayoutAplicacao('{{ url_for('imprimir_modelo_aplicacao', aplicacao_id=aplicacao.id, modelo=modelo) }}', 'Modelo {{ modelo }}')">
 
                                 <svg class="ap-btn-icon"
                                      viewBox="0 0 24 24"
@@ -865,10 +878,12 @@
                                      stroke-width="2">
                                     <path d="M6 2H14L18 6V22H6Z"></path>
                                     <path d="M14 2V6H18"></path>
+                                    <path d="M12 10V17"></path>
+                                    <path d="M9 14L12 17L15 14"></path>
                                 </svg>
 
-                                Modelo {{ modelo }}
-                            </a>
+                                Baixar modelo {{ modelo }}
+                            </button>
                             {% endfor %}
                         </div>
 
@@ -1145,4 +1160,57 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 });
 </script>
+
+<div class="ap-layout-overlay" id="apLayoutOverlay" hidden>
+    <div class="ap-layout-modal" role="dialog" aria-modal="true" aria-labelledby="apLayoutTitle">
+        <div class="ap-layout-head">
+            <div><strong id="apLayoutTitle">Como deseja baixar a prova?</strong><span id="apLayoutModel">Escolha o layout deste modelo. A opção vale somente para esta impressão.</span></div>
+            <button type="button" class="ap-layout-close" onclick="fecharLayoutAplicacao()" aria-label="Fechar">×</button>
+        </div>
+        <div class="ap-layout-body">
+            <div class="ap-layout-options">
+                <label class="ap-layout-option">
+                    <input type="radio" name="apLayoutColumns" value="1" checked>
+                    <span><strong>1 coluna</strong><small>Mais espaço horizontal para imagens, textos e questões discursivas.</small></span>
+                </label>
+                <label class="ap-layout-option">
+                    <input type="radio" name="apLayoutColumns" value="2">
+                    <span><strong>2 colunas</strong><small>Usa melhor a folha em questões curtas e reduz a quantidade de páginas.</small></span>
+                </label>
+            </div>
+            <p class="ap-layout-note">Nos dois modos, o ARK EDUS compacta cabeçalho, margens e espaços entre questões e continua a questão em pontos seguros quando necessário, evitando grandes áreas em branco.</p>
+        </div>
+        <div class="ap-layout-footer">
+            <button type="button" class="ap-btn" onclick="fecharLayoutAplicacao()">Cancelar</button>
+            <button type="button" class="ap-btn ap-btn-primary" onclick="baixarModeloComLayout()">Continuar para PDF</button>
+        </div>
+    </div>
+</div>
+<script>
+let apModeloUrl='';
+function abrirLayoutAplicacao(url, modelo){
+    apModeloUrl=url;
+    const overlay=document.getElementById('apLayoutOverlay');
+    const label=document.getElementById('apLayoutModel');
+    if(label) label.textContent='Escolha o layout para '+modelo+'. A opção vale somente para esta impressão.';
+    const one=document.querySelector('input[name="apLayoutColumns"][value="1"]');
+    if(one) one.checked=true;
+    if(overlay) overlay.hidden=false;
+}
+function fecharLayoutAplicacao(){
+    const overlay=document.getElementById('apLayoutOverlay');
+    if(overlay) overlay.hidden=true;
+}
+function baixarModeloComLayout(){
+    if(!apModeloUrl) return;
+    const colunas=document.querySelector('input[name="apLayoutColumns"]:checked')?.value || '1';
+    const separador=apModeloUrl.includes('?')?'&':'?';
+    const url=apModeloUrl+separador+'colunas='+encodeURIComponent(colunas)+'&imprimir=1';
+    fecharLayoutAplicacao();
+    window.open(url,'_blank','noopener');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape') fecharLayoutAplicacao();});
+document.getElementById('apLayoutOverlay')?.addEventListener('click',e=>{if(e.target.id==='apLayoutOverlay') fecharLayoutAplicacao();});
+</script>
+
 {% endblock %}

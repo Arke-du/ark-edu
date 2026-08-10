@@ -1,0 +1,23 @@
+ARK EDUS — CORREÇÃO DO LAYOUT DE IMPRESSÃO NAS APLICAÇÕES
+Data: 10/08/2026
+
+ALTERADO
+1. Removida a função "Imprimir / layout" da tela Visualização da avaliação.
+2. A escolha 1 coluna / 2 colunas agora fica somente em APLICAÇÕES.
+3. Em Aplicações, ao clicar em "Baixar modelo", abre uma pergunta:
+   - 1 coluna: melhor para imagens e discursivas;
+   - 2 colunas: maior economia de papel.
+4. Depois da escolha, o modelo da aplicação abre já com o layout selecionado
+   e chama a impressão/salvar em PDF.
+5. Cabeçalho, instruções, margens e espaçamentos foram compactados.
+6. A paginação usa o espaço restante da coluna/página e, quando necessário,
+   divide a questão apenas em pontos seguros (parágrafos/figuras, alternativas
+   e linhas de resposta), reduzindo áreas brancas.
+7. Questões discursivas mantêm imagens maiores; em duas colunas a imagem usa
+   toda a largura útil da coluna.
+8. A moldura dupla permanece dentro da folha A4, com recuo uniforme em todas
+   as páginas.
+
+SEGURANÇA
+- Nenhum platform.db foi incluído neste pacote.
+- A alteração não exige migração do banco de dados.

@@ -20808,7 +20808,21 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
             return _redirecionar_acesso_negado_prova()
 
         questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
-        return render_template("aplicacoes/modelo_prova.html", aplicacao=aplicacao, questoes=questoes, modelo=modelo)
+
+        # O layout da folha pertence à APLICAÇÃO, não à tela administrativa
+        # da prova. A escolha é feita somente quando o usuário baixa/imprime
+        # um modelo criado dentro de Aplicações.
+        layout_colunas = 2 if request.args.get("colunas") == "2" else 1
+        auto_imprimir = request.args.get("imprimir") == "1"
+
+        return render_template(
+            "aplicacoes/modelo_prova.html",
+            aplicacao=aplicacao,
+            questoes=questoes,
+            modelo=modelo,
+            layout_colunas=layout_colunas,
+            auto_imprimir=auto_imprimir
+        )
     finally:
         banco.close()
 

@@ -8,118 +8,105 @@
 :root{
   --paper-w:210mm;
   --paper-h:297mm;
-  --frame-outset:6mm;
-  --frame-gap:2.2mm;
-  --content-inset:15mm;
+  --frame-outset:5.5mm;
+  --frame-gap:1.8mm;
+  --content-inset:10.2mm;
+  --column-gap:5.2mm;
+  --columns:{{ layout_colunas|default(1) }};
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.32}
-.toolbar{position:sticky;top:0;z-index:1000;padding:12px;text-align:center;background:#fff;border-bottom:1px solid #ddd}
+body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.24}
+.toolbar{position:sticky;top:0;z-index:1000;display:flex;justify-content:center;align-items:center;gap:12px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
+.toolbar .layout-info{font-size:13px;color:#475569}
 .print{border:0;border-radius:10px;padding:10px 18px;background:#123f88;color:#fff;font-weight:700;cursor:pointer}
-
-/* Cada .sheet é UMA folha A4 real. Isso evita que o navegador “invente” margens
-   diferentes nas páginas 2, 3 etc. */
 .pages{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0 30px}
-.sheet{
-  position:relative;
-  width:var(--paper-w);
-  height:var(--paper-h);
-  background:#fff;
-  box-shadow:0 4px 20px rgba(0,0,0,.12);
-  overflow:hidden;
-  flex:none;
-}
-.sheet::before,
-.sheet::after{
-  content:"";
-  position:absolute;
-  pointer-events:none;
-  z-index:20;
-}
-.sheet::before{
-  inset:var(--frame-outset);
-  border:1.5px solid #111;
-}
-.sheet::after{
-  inset:calc(var(--frame-outset) + var(--frame-gap));
-  border:.8px solid #111;
-}
-.sheet-content{
-  position:absolute;
-  top:var(--content-inset);
-  right:var(--content-inset);
-  bottom:var(--content-inset);
-  left:var(--content-inset);
-  overflow:hidden;
-  z-index:1;
-}
+.sheet{position:relative;width:var(--paper-w);height:var(--paper-h);background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);overflow:hidden;flex:none}
+.sheet::before,.sheet::after{content:"";position:absolute;pointer-events:none;z-index:20}
+.sheet::before{inset:var(--frame-outset);border:1.35px solid #111}
+.sheet::after{inset:calc(var(--frame-outset) + var(--frame-gap));border:.7px solid #111}
+.sheet-content{position:absolute;top:var(--content-inset);right:var(--content-inset);bottom:var(--content-inset);left:var(--content-inset);z-index:1;display:flex;flex-direction:column;overflow:hidden}
+.page-fixed{flex:0 0 auto}
+.question-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:var(--column-gap);overflow:hidden}
+.question-column{min-width:0;min-height:0;overflow:hidden}
+.exam-source{position:absolute;left:-100000px;top:0;width:calc(var(--paper-w) - (2 * var(--content-inset)));visibility:hidden;pointer-events:none}
 
-/* Fonte oculta usada apenas para a paginação automática por JavaScript. */
-.exam-source{
-  position:absolute;
-  left:-100000px;
-  top:0;
-  width:calc(var(--paper-w) - (2 * var(--content-inset)));
-  visibility:hidden;
-  pointer-events:none;
-}
-
-.exam-header{border:1px solid #94a3b8;border-radius:3.2mm;padding:4.2mm 5mm 3.8mm;margin-bottom:4.5mm;background:#fff}
-.header-main{display:grid;grid-template-columns:31mm minmax(0,1fr);gap:5mm;align-items:stretch}
-.logo-box{min-height:29mm;display:flex;align-items:center;justify-content:center;border-right:1px solid #d8dee8;padding:2mm 4.5mm 2mm 0;position:relative}
-.logo-box img{display:block;max-width:25mm;max-height:24mm;object-fit:contain}
-.logo-placeholder{font-weight:700;text-align:center;color:#64748b;font-size:8pt;line-height:1.2}
+/* Cabeçalho compacto e harmônico: ocupa menos altura sem apertar os dados. */
+.exam-header{border:1px solid #a8b3c3;border-radius:2.5mm;padding:2.6mm 3.3mm 2.5mm;margin-bottom:2.4mm;background:#fff}
+.header-main{display:grid;grid-template-columns:24mm minmax(0,1fr);gap:3.3mm;align-items:stretch}
+.logo-box{min-height:21mm;display:flex;align-items:center;justify-content:center;border-right:1px solid #d8dee8;padding:1mm 3mm 1mm 0;position:relative}
+.logo-box img{display:block;max-width:20mm;max-height:19mm;object-fit:contain}
+.logo-placeholder{font-weight:700;text-align:center;color:#64748b;font-size:7.2pt;line-height:1.15}
 .school-block{min-width:0;display:flex;flex-direction:column;justify-content:center}
-.school-name{margin:0 0 2.5mm;font-size:14.2pt;line-height:1.08;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:.01em;color:#0f172a}
-.meta-grid{display:grid;grid-template-columns:.78fr 1.16fr 1.02fr 1.18fr .82fr;border-top:1px solid #cbd5e1;border-bottom:1px solid #e2e8f0;text-align:left}
-.meta-item{min-height:15mm;padding:2.2mm 2.5mm;border-right:1px solid #e2e8f0;font-size:8.8pt;line-height:1.18;display:flex;flex-direction:column;justify-content:flex-start;overflow-wrap:break-word;word-break:normal}
+.school-name{margin:0 0 1.4mm;font-size:12.4pt;line-height:1.06;font-weight:800;text-align:center;text-transform:uppercase;color:#0f172a}
+.meta-grid{display:grid;grid-template-columns:.75fr 1.15fr 1fr 1.16fr .76fr;border-top:1px solid #cbd5e1;border-bottom:1px solid #e2e8f0}
+.meta-item{min-height:10.8mm;padding:1.35mm 1.6mm;border-right:1px solid #e2e8f0;font-size:7.7pt;line-height:1.12;display:flex;flex-direction:column;overflow-wrap:break-word}
 .meta-item:last-child{border-right:0}
-.meta-label{display:block;margin-bottom:1.2mm;font-size:7.3pt;line-height:1.05;font-weight:800;text-transform:uppercase;letter-spacing:.025em;color:#475569}
-.student-row{display:grid;grid-template-columns:minmax(0,1fr) 40mm;gap:7mm;margin-top:3.7mm;align-items:end}
+.meta-label{display:block;margin-bottom:.6mm;font-size:6.4pt;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:#475569}
+.student-row{display:grid;grid-template-columns:minmax(0,1fr) 34mm;gap:5mm;margin-top:2mm;align-items:end}
 .student-row.sem-nota{grid-template-columns:minmax(0,1fr)}
-.line-field{display:flex;gap:3mm;align-items:flex-end;font-weight:700;font-size:9.8pt;color:#111827}
-.line{height:5mm;flex:1;border-bottom:1px solid #334155}
-.exam-title{margin-top:3mm;padding:2.5mm 3mm 0;border-top:1px solid #d8dee8;text-align:center;font-size:12pt;line-height:1.15;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:#0f172a}
-.instructions{margin-bottom:5mm;padding:3.2mm 4mm;border:1px solid #cbd5e1;border-left:2.2px solid #475569;border-radius:2.5mm;background:#fff}
-.instructions-title{margin:0 0 1mm;font-size:10.7pt;font-weight:800;color:#111827}
-.instructions ol{margin:0;padding-left:6mm;font-size:10.2pt}
-.instructions li{margin:.6mm 0}
-.question{margin:0 0 3.5mm}
-.question-title{margin:0 0 1.5mm;font-size:11.5pt;font-weight:800;color:#0f172a}
-.statement{margin:0 0 2mm;text-align:justify;font-size:11pt;line-height:1.24}.statement p{margin:0 0 1.3mm}.statement figure{box-sizing:border-box;max-width:100%!important;margin:1.8mm auto!important;padding:0!important;border:0!important;overflow:visible!important}.statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;max-height:58mm;object-fit:contain}.question-image{display:block;max-width:132mm;max-height:58mm;margin:2mm auto;object-fit:contain}.alt-image{display:block;max-width:105mm;max-height:38mm;margin:1mm 0;object-fit:contain}
-.alternatives{display:grid;gap:.8mm}
-.alternative{display:flex;align-items:flex-start;gap:2mm;min-height:5.5mm;break-inside:avoid;page-break-inside:avoid}
-.alt-letter{display:inline-block;flex:0 0 auto;min-width:8mm;padding-top:.2mm;font-size:10.5pt;font-weight:700;line-height:1.2}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
-.alt-text{padding-top:.1mm;white-space:pre-line;font-size:11pt;line-height:1.22}
-.discursive-space{margin-top:3mm}
-.discursive-line{height:8mm;border-bottom:1px solid #94a3b8}
+.line-field{display:flex;gap:2mm;align-items:flex-end;font-weight:700;font-size:8.8pt;color:#111827}
+.line{height:3.8mm;flex:1;border-bottom:1px solid #334155}
+.exam-title{margin-top:1.7mm;padding:1.5mm 2mm 0;border-top:1px solid #d8dee8;text-align:center;font-size:10.5pt;line-height:1.12;font-weight:800;text-transform:uppercase;letter-spacing:.01em;color:#0f172a}
+.instructions{margin-bottom:2.4mm;padding:1.8mm 2.5mm;border:1px solid #cbd5e1;border-left:2px solid #475569;border-radius:1.8mm;background:#fff}
+.instructions-title{margin:0 0 .7mm;font-size:8.9pt;font-weight:800;color:#111827}
+.instructions ol{margin:0;padding-left:4.5mm;font-size:8.1pt;line-height:1.15;display:grid;grid-template-columns:1fr 1fr;column-gap:5mm}
+.instructions li{margin:.3mm 0}
+
+/* Questões: economia vem de margens e paginação inteligente, não de esmagar conteúdo. */
+.question{margin:0 0 2.1mm;padding:0;min-width:0}
+.question.question-part{margin-bottom:1.5mm}
+.question-title{margin:0 0 .85mm;font-size:10.5pt;line-height:1.12;font-weight:800;color:#0f172a}
+.question-title.continuation{font-size:9.3pt;color:#334155}
+.statement{margin:0 0 1mm;text-align:left;font-size:10.2pt;line-height:1.18;min-width:0}
+.statement p{margin:0 0 .7mm}
+.statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
+.statement figure img,.statement>img{display:block;max-width:100%!important;width:auto;height:auto!important;max-height:62mm;object-fit:contain;margin:0 auto}
+.question-image{display:block;width:auto;max-width:100%;max-height:62mm;margin:.8mm auto 1mm;object-fit:contain}
+.alt-image{display:block;max-width:100%;max-height:34mm;margin:.5mm 0;object-fit:contain}
+.alternatives{display:grid;gap:.35mm;margin:0}
+.alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
+.alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-size:9.5pt;font-weight:700;line-height:1.15}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
+.alt-text{padding-top:0;white-space:pre-line;font-size:9.8pt;line-height:1.16;min-width:0}
+.discursive-space{margin-top:.8mm}
+.discursive-line{height:5.2mm;border-bottom:1px solid #94a3b8}
 .model-tag{font-weight:800}
+
+/* Imagens das discursivas permanecem grandes. Em 1 coluna podem chegar a 145 mm;
+   em 2 colunas usam toda a largura útil da coluna. */
+.discursive-question .question-image,
+.discursive-question .statement figure img,
+.discursive-question .statement>img{width:min(100%,145mm)!important;max-width:100%!important;max-height:78mm!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
+
+body.layout-2 .statement{font-size:9.4pt;line-height:1.15}
+body.layout-2 .question-title{font-size:9.7pt}
+body.layout-2 .alt-text{font-size:9.2pt;line-height:1.13}
+body.layout-2 .alt-letter{font-size:9pt;min-width:5.7mm}
+body.layout-2 .question{margin-bottom:1.5mm}
+body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-height:48mm}
+body.layout-2 .discursive-question .question-image,
+body.layout-2 .discursive-question .statement figure img,
+body.layout-2 .discursive-question .statement>img{width:100%!important;max-height:60mm!important}
+body.layout-2 .discursive-line{height:4.8mm}
 
 @page{size:A4 portrait;margin:0}
 @media print{
   html,body{width:210mm!important;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .toolbar,.exam-source{display:none!important}
   .pages{display:block!important;padding:0!important;margin:0!important}
-  .sheet{
-    width:210mm!important;
-    height:297mm!important;
-    margin:0!important;
-    padding:0!important;
-    box-shadow:none!important;
-    break-after:page;
-    page-break-after:always;
-  }
+  .sheet{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;box-shadow:none!important;break-after:page;page-break-after:always}
   .sheet:last-child{break-after:auto;page-break-after:auto}
 }
 </style>
 </head>
-<body>
-<div class="toolbar"><button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button></div>
+<body class="layout-{{ layout_colunas|default(1) }}">
+<div class="toolbar">
+  <span class="layout-info">Layout selecionado: <strong>{{ layout_colunas|default(1) }} coluna{% if layout_colunas|default(1)|int == 2 %}s{% endif %}</strong></span>
+  <button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
+</div>
 
 {% set ufs = {'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA','Ceará':'CE','Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO','Maranhão':'MA','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG','Pará':'PA','Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI','Rio de Janeiro':'RJ','Rio Grande do Norte':'RN','Rio Grande do Sul':'RS','Rondônia':'RO','Roraima':'RR','Santa Catarina':'SC','São Paulo':'SP','Sergipe':'SE','Tocantins':'TO'} %}
 
-<!-- Fonte original. O JavaScript abaixo copia esses blocos para folhas A4 reais. -->
 <div id="examSource" class="exam-source">
   <header class="exam-header" data-block="header">
     <div class="header-main">
@@ -144,9 +131,7 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
     </div>
     <div class="student-row{% if (aplicacao.tem_nota|default(0)|int) != 1 %} sem-nota{% endif %}">
       <div class="line-field">Estudante:<span class="line"></span></div>
-      {% if (aplicacao.tem_nota|default(0)|int) == 1 %}
-      <div class="line-field">Nota:<span class="line"></span></div>
-      {% endif %}
+      {% if (aplicacao.tem_nota|default(0)|int) == 1 %}<div class="line-field">Nota:<span class="line"></span></div>{% endif %}
     </div>
     <div class="exam-title">{{ aplicacao.prova_nome }} — <span class="model-tag">Modelo {{ modelo }}</span></div>
   </header>
@@ -154,30 +139,25 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
   <section class="instructions" data-block="instructions">
     <h2 class="instructions-title">ⓘ INSTRUÇÕES PARA REALIZAR A AVALIAÇÃO</h2>
     <ol>
-      <li>Verifique se sua prova está completa, observando a quantidade de questões e páginas.</li>
-      <li>Leia com calma e atenção todas as questões antes de registrar suas respostas.</li>
-      <li>Marque as respostas no cartão-resposta utilizando caneta azul ou preta.</li>
-      <li>Preencha corretamente seu nome, turma e demais informações solicitadas.</li>
-      <li>Revise suas respostas antes de entregar a avaliação.</li>
+      <li>Verifique se sua prova está completa.</li>
+      <li>Leia com calma e atenção todas as questões.</li>
+      <li>Marque as respostas com caneta azul ou preta.</li>
+      <li>Preencha corretamente seu nome e turma.</li>
+      <li>Revise suas respostas antes de entregar.</li>
     </ol>
   </section>
 
+  <div id="questionsSource">
   {% for q in questoes %}
-  <section class="question" data-block="question">
+  {% set discursiva = q.tipo_questao in ['discursiva','dissertativa','resposta_aberta','resposta aberta'] %}
+  <section class="question{% if discursiva %} discursive-question{% endif %}" data-block="question" data-number="{{ loop.index }}">
     <h2 class="question-title">Questão {{ '%02d'|format(loop.index) }}</h2>
     <div class="statement">{% if q.enunciado_html %}{{ q.enunciado_html|embutir_imagens_html|safe }}{% else %}{{ q.enunciado }}{% endif %}</div>
-
-    {% if q.imagem %}
-      <img class="question-image" src="{{ q.imagem|imagem_data_uri }}" alt="Imagem da questão {{ loop.index }}">
-    {% endif %}
-
-    {% if q.tipo_questao not in ['discursiva','dissertativa','resposta_aberta','resposta aberta'] %}
+    {% if q.imagem %}<img class="question-image" src="{{ q.imagem|imagem_data_uri }}" alt="Imagem da questão {{ loop.index }}">{% endif %}
+    {% if not discursiva %}
       <div class="alternatives">
         {% for alternativa in q.alternativas %}
-        <div class="alternative">
-          <span class="alt-letter">{{ alternativa.letra }}</span>
-          <span class="alt-text">{% if alternativa.texto %}{{ alternativa.texto }}{% endif %}{% if alternativa.imagem %}<img class="alt-image" src="{{ alternativa.imagem|imagem_data_uri }}" alt="Imagem da alternativa {{ alternativa.letra }}">{% endif %}</span>
-        </div>
+        <div class="alternative"><span class="alt-letter">{{ alternativa.letra }}</span><span class="alt-text">{% if alternativa.texto %}{{ alternativa.texto }}{% endif %}{% if alternativa.imagem %}<img class="alt-image" src="{{ alternativa.imagem|imagem_data_uri }}" alt="Imagem da alternativa {{ alternativa.letra }}">{% endif %}</span></div>
         {% endfor %}
       </div>
     {% else %}
@@ -188,6 +168,7 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
     {% endif %}
   </section>
   {% endfor %}
+  </div>
 </div>
 
 <div id="pages" class="pages" aria-label="Pré-visualização da avaliação"></div>
@@ -195,92 +176,180 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
 <script>
 (function(){
   const source = document.getElementById('examSource');
+  const questionsSource = document.getElementById('questionsSource');
   const pages = document.getElementById('pages');
+  const columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
+  const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
+  let slots = [];
+  let slotIndex = 0;
 
-  function newSheet(){
+  function createSheet(firstPage){
     const sheet = document.createElement('section');
     sheet.className = 'sheet';
     const content = document.createElement('div');
     content.className = 'sheet-content';
     sheet.appendChild(content);
+
+    if(firstPage){
+      const fixed = document.createElement('div');
+      fixed.className = 'page-fixed';
+      const header = source.querySelector('[data-block="header"]');
+      const instructions = source.querySelector('[data-block="instructions"]');
+      if(header) fixed.appendChild(header.cloneNode(true));
+      if(instructions) fixed.appendChild(instructions.cloneNode(true));
+      content.appendChild(fixed);
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'question-grid';
+    const newSlots = [];
+    for(let i=0;i<columns;i++){
+      const col = document.createElement('div');
+      col.className = 'question-column';
+      grid.appendChild(col);
+      newSlots.push(col);
+    }
+    content.appendChild(grid);
     pages.appendChild(sheet);
-    return content;
+    slots.push(...newSlots);
   }
 
-  function fits(content){
-    return content.scrollHeight <= content.clientHeight + 1;
+  function currentSlot(){ return slots[slotIndex]; }
+  function fits(el){ return el.scrollHeight <= el.clientHeight + 1; }
+  function advanceSlot(){
+    slotIndex++;
+    if(slotIndex >= slots.length) createSheet(false);
+    return currentSlot();
+  }
+  function slotHasContent(slot){ return !!slot && slot.children.length > 0; }
+
+  function makePart(question, continuation){
+    const part = document.createElement('section');
+    part.className = question.className + ' question-part';
+    const title = question.querySelector(':scope > .question-title');
+    if(title){
+      const t = title.cloneNode(true);
+      if(continuation){ t.classList.add('continuation'); t.textContent += ' — continuação'; }
+      part.appendChild(t);
+    }
+    return part;
+  }
+
+  function splitPieces(question){
+    const pieces=[];
+    const statement=question.querySelector(':scope > .statement');
+    if(statement){
+      const children=Array.from(statement.childNodes).filter(n => !(n.nodeType===3 && !n.textContent.trim()));
+      if(children.length>1 || (children.length===1 && children[0].nodeType===1)){
+        children.forEach(node => {
+          const wrap=document.createElement('div'); wrap.className='statement'; wrap.appendChild(node.cloneNode(true)); pieces.push(wrap);
+        });
+      } else { pieces.push(statement.cloneNode(true)); }
+    }
+    const qimg=question.querySelector(':scope > .question-image');
+    if(qimg) pieces.push(qimg.cloneNode(true));
+    const alternatives=question.querySelector(':scope > .alternatives');
+    if(alternatives){
+      alternatives.querySelectorAll(':scope > .alternative').forEach(alt => {
+        const wrap=document.createElement('div'); wrap.className='alternatives'; wrap.appendChild(alt.cloneNode(true)); pieces.push(wrap);
+      });
+    }
+    const disc=question.querySelector(':scope > .discursive-space');
+    if(disc){
+      disc.querySelectorAll(':scope > .discursive-line').forEach(line => {
+        const wrap=document.createElement('div'); wrap.className='discursive-space'; wrap.appendChild(line.cloneNode(true)); pieces.push(wrap);
+      });
+    }
+    return pieces;
+  }
+
+  function placeQuestion(question){
+    let slot=currentSlot();
+    let whole=question.cloneNode(true);
+    slot.appendChild(whole);
+    if(fits(slot)) return;
+    slot.removeChild(whole);
+
+    /* Primeiro tenta a próxima coluna/página inteira. Se também não couber,
+       divide apenas em pontos seguros: parágrafos/figuras, alternativas e linhas. */
+    if(slotHasContent(slot)){
+      const next=advanceSlot();
+      whole=question.cloneNode(true);
+      next.appendChild(whole);
+      if(fits(next)) return;
+      next.removeChild(whole);
+      slot=next;
+    }
+
+    const pieces=splitPieces(question);
+    let part=makePart(question,false);
+    slot.appendChild(part);
+    let continuation=false;
+
+    for(const piece of pieces){
+      part.appendChild(piece);
+      if(fits(slot)) continue;
+
+      part.removeChild(piece);
+      /* Se sobrou só o título, remove para não deixar título órfão. */
+      if(part.children.length <= 1){
+        slot.removeChild(part);
+      }
+      slot=advanceSlot();
+      continuation=true;
+      part=makePart(question,continuation);
+      slot.appendChild(part);
+      part.appendChild(piece);
+
+      /* Elemento único excepcionalmente alto: reduz somente até caber, sem
+         diminuir abaixo de uma leitura confortável. */
+      if(!fits(slot)){
+        const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
+        if(img){ img.style.maxHeight = columns===2 ? '48mm' : '70mm'; img.style.maxWidth='100%'; }
+      }
+    }
   }
 
   function paginate(){
-    if(!source || !pages) return;
-    pages.innerHTML = '';
-    const blocks = Array.from(source.children);
-    let content = newSheet();
+    pages.innerHTML=''; slots=[]; slotIndex=0;
+    createSheet(true);
+    const questions=Array.from(questionsSource.querySelectorAll(':scope > .question'));
+    questions.forEach(placeQuestion);
 
-    blocks.forEach((block, index) => {
-      const clone = block.cloneNode(true);
-      content.appendChild(clone);
-
-      if(!fits(content)){
-        content.removeChild(clone);
-        content = newSheet();
-        content.appendChild(clone);
-
-        /* Questão excepcionalmente maior que a página: mantém inteira na folha,
-           sem sobrepor a borda. */
-        if(!fits(content) && clone.classList.contains('question')){
-          clone.style.fontSize = '11pt';
-          clone.style.lineHeight = '1.25';
-        }
+    /* Remove colunas/páginas finais realmente vazias. */
+    Array.from(pages.querySelectorAll('.sheet')).reverse().forEach((sheet, idx) => {
+      if(idx===0){
+        const cols=Array.from(sheet.querySelectorAll('.question-column'));
+        if(cols.every(c => !c.children.length) && pages.children.length>1) sheet.remove();
       }
     });
-
-    /* evita folha final vazia */
-    const allSheets = Array.from(pages.querySelectorAll('.sheet'));
-    if(allSheets.length > 1){
-      const lastContent = allSheets[allSheets.length-1].querySelector('.sheet-content');
-      if(lastContent && !lastContent.children.length) allSheets[allSheets.length-1].remove();
-    }
   }
 
   let timer;
-  function repaginate(){
-    clearTimeout(timer);
-    timer = setTimeout(paginate, 40);
+  function repaginate(){ clearTimeout(timer); timer=setTimeout(paginate,60); }
+  function afterReady(){
+    paginate();
+    if(autoPrint){ setTimeout(() => window.print(), 280); }
   }
-
-  function aguardarImagensERepaginar(){
-    const imagens = Array.from(source.querySelectorAll('img'));
-    if(!imagens.length){ paginate(); return; }
-    let pendentes = 0;
-    imagens.forEach(img => {
+  function waitImages(){
+    const imgs=Array.from(source.querySelectorAll('img'));
+    let pending=imgs.filter(i=>!i.complete).length;
+    if(!pending){ afterReady(); return; }
+    imgs.forEach(img=>{
       if(!img.complete){
-        pendentes++;
-        const terminou = () => {
-          pendentes--;
-          if(pendentes <= 0) paginate();
-        };
-        img.addEventListener('load', terminou, {once:true});
-        img.addEventListener('error', terminou, {once:true});
+        const done=()=>{ pending--; if(pending<=0) afterReady(); };
+        img.addEventListener('load',done,{once:true}); img.addEventListener('error',done,{once:true});
       }
     });
     paginate();
-    if(pendentes === 0) requestAnimationFrame(paginate);
   }
-
-  window.addEventListener('load', function(){
-    aguardarImagensERepaginar();
-    if(document.fonts && document.fonts.ready){
-      document.fonts.ready.then(aguardarImagensERepaginar);
-    }
+  window.addEventListener('load',()=>{
+    if(document.fonts && document.fonts.ready){ document.fonts.ready.then(waitImages); }
+    else waitImages();
   });
-  /* Imagens inseridas no enunciado/alternativas podem terminar de carregar depois
-     da primeira medição. Sempre repagina quando isso acontecer. */
-  source.addEventListener('load', function(e){
-    if(e.target && e.target.tagName === 'IMG') repaginate();
-  }, true);
-  window.addEventListener('resize', repaginate);
-  window.addEventListener('beforeprint', aguardarImagensERepaginar);
+  source.addEventListener('load',e=>{ if(e.target?.tagName==='IMG') repaginate(); },true);
+  window.addEventListener('resize',repaginate);
+  window.addEventListener('beforeprint',paginate);
 })();
 </script>
 </body>
