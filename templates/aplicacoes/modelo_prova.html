@@ -249,6 +249,10 @@ body.layout-2 .discursive-line{height:4.8mm;min-height:4.8mm}
       img.style.setProperty('max-width','100%','important');
     });
     root.querySelectorAll('p,div').forEach(el=>{
+      /* NUNCA remover as linhas de resposta. Elas são divs vazias de propósito.
+         A rotina antiga de limpeza interpretava essas divs como lixo do editor e
+         apagava todas antes da paginação, por isso as discursivas saíam sem pauta. */
+      if(el.classList && (el.classList.contains('discursive-line') || el.classList.contains('discursive-space'))){ return; }
       const hasVisual=el.querySelector('img,table,svg,canvas');
       if(!hasVisual && !el.textContent.trim()){ el.remove(); return; }
       if(!hasVisual){

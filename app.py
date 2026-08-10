@@ -7137,7 +7137,7 @@ def cadastrar_questao():
             criterios_correcao, habilidade, habilidade_bncc, unidade_tematica,
             objeto_conhecimento, sistema_matriz, matriz_referencia, descritor_saeb,
             taxonomia_bloom, dificuldade, fonte, ano_fonte, tags,
-            tempo_estimado, linhas_resposta if tipo_questao == "discursiva" else None,
+            tempo_estimado, linhas_resposta if tipo_questao in {"discursiva", "resposta_curta", "numerica"} else None,
             observacoes, escola_questao_id, session.get("usuario_id"),
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ))
@@ -8767,7 +8767,7 @@ def editar_questao(questao_id):
             questao["taxonomia_bloom"], dificuldade,
             questao["fonte"], questao["ano_fonte"], questao["tags"],
             questao["tempo_estimado"],
-            linhas_resposta if tipo_questao == "discursiva" else None,
+            linhas_resposta if tipo_questao in {"discursiva", "resposta_curta", "numerica"} else None,
             questao["observacoes"], escola_copia_id,
             session.get("usuario_id"), agora, agora
         ))
