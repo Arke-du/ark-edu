@@ -29,6 +29,9 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
 .page-fixed{flex:0 0 auto}
 .question-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:var(--column-gap);overflow:hidden}
 .question-column{min-width:0;min-height:0;overflow:hidden}
+body.layout-2 .question-column:nth-child(2){border-left:1px solid #94a3b8;padding-left:calc(var(--column-gap)/2)}
+body.layout-2 .question-column:nth-child(1){padding-right:calc(var(--column-gap)/2)}
+body.layout-2 .question-grid{gap:0}
 .exam-source{position:absolute;left:-100000px;top:0;width:calc(var(--paper-w) - (2 * var(--content-inset)));visibility:hidden;pointer-events:none}
 
 /* Cabeçalho compacto e harmônico: ocupa menos altura sem apertar os dados. */
@@ -290,54 +293,34 @@ body.layout-2 .discursive-line{height:4.8mm}
   }
 
   function placeQuestion(question){
+    /* No modo econômico, a questão pode continuar na coluna seguinte. Isso
+       elimina os grandes vazios causados por mover a questão inteira. */
     let slot=currentSlot();
-    let whole=normalizeRichContent(question.cloneNode(true));
-    slot.appendChild(whole);
-    if(fits(slot)) return;
-    slot.removeChild(whole);
-
-    /* Primeiro tenta a próxima coluna/página inteira. Se também não couber,
-       divide apenas em pontos seguros: parágrafos/figuras, alternativas e linhas. */
-    if(slotHasContent(slot)){
-      const next=advanceSlot();
-      whole=normalizeRichContent(question.cloneNode(true));
-      next.appendChild(whole);
-      if(fits(next)) return;
-      next.removeChild(whole);
-      slot=next;
-    }
-
     const pieces=splitPieces(question);
     let part=makePart(question,false);
     slot.appendChild(part);
-    let continuation=false;
+
+    /* Se nem o título cabe no espaço restante, segue para a próxima coluna. */
+    if(!fits(slot)){
+      slot.removeChild(part);
+      slot=advanceSlot();
+      part=makePart(question,false);
+      slot.appendChild(part);
+    }
 
     for(const piece of pieces){
       part.appendChild(piece);
       if(fits(slot)) continue;
-
       part.removeChild(piece);
-      /* Evita página/coluna com apenas título + uma linha de texto quando a
-         imagem principal cabe junto no próximo espaço. */
-      const usedRatio = slot.scrollHeight ? (part.scrollHeight / slot.clientHeight) : 1;
-      const pieceHasVisual = !!piece.querySelector?.('img,table,svg,canvas') || piece.matches?.('img,figure,table');
-      let carryPrefix = pieceHasVisual && usedRatio < 0.18 && part.children.length > 1;
-      let carryNodes = [];
-      if(carryPrefix){
-        carryNodes = Array.from(part.children).slice(1).map(n=>n.cloneNode(true));
-        slot.removeChild(part);
-      } else if(part.children.length <= 1){
-        slot.removeChild(part);
-      }
+
+      /* Continua sem repetir "Questão XX" e sem desenhar separadores extras. */
       slot=advanceSlot();
-      continuation=!carryPrefix;
-      part=makePart(question,continuation);
+      part=document.createElement('section');
+      part.className=question.className + ' question-part question-continuation';
       slot.appendChild(part);
-      carryNodes.forEach(n=>part.appendChild(n));
       part.appendChild(piece);
 
-      /* Elemento único excepcionalmente alto: reduz somente até caber, sem
-         diminuir abaixo de uma leitura confortável. */
+      /* Conteúdo visual maior que uma coluna: limita somente ao espaço físico. */
       if(!fits(slot)){
         const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
         if(img){ img.style.maxWidth='100%'; img.style.height='auto'; }

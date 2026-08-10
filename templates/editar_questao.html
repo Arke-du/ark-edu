@@ -1,83 +1,679 @@
 {% extends "layout/base.html" %}
-{% block titulo %}Editar cópia da questão | ARK EDUS{% endblock %}
+
+{% block titulo %}Editar questão | ARK EDUS{% endblock %}
+
 {% block estilos %}
 <style>
-.editar-pagina{--azul:#17468f;--azul2:#2563eb;--borda:#dbe4f0;--texto:#0f172a;--suave:#64748b;display:grid;gap:18px}
-.editar-voltar{display:inline-flex;width:fit-content;color:var(--azul);font-size:14px;font-weight:800;text-decoration:none}
-.editar-topo h1{margin:0;color:var(--azul);font-size:clamp(28px,3vw,36px);font-weight:900}.editar-topo p{margin:7px 0 0;color:var(--suave)}
-.editar-card{overflow:hidden;border:1px solid var(--borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
-.editar-cabecalho{padding:19px 24px;border-bottom:1px solid var(--borda)}.editar-cabecalho h2{margin:0;font-size:18px}
-.editar-form{padding:24px}.editar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.largo{grid-column:1/-1}
-.grupo{display:grid;gap:7px}.grupo label,.titulo{color:#334155;font-size:12px;font-weight:850}.ajuda{color:#94a3b8;font-size:11px}
-.grupo input,.grupo select,.grupo textarea{width:100%;border:1px solid var(--borda);border-radius:12px;background:#fff;font:inherit;font-size:13px;outline:none}
-.grupo input,.grupo select{min-height:46px;padding:0 13px}.grupo textarea{min-height:130px;padding:14px;resize:vertical}
-.tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0}.tipo-opcao span{display:flex;min-height:52px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--borda);border-radius:12px;background:#f8fafc;font-size:12px;font-weight:800;text-align:center;cursor:pointer}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--azul)}
-.alternativas{display:grid;gap:11px}.alternativa{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center;padding:12px;border:1px solid #e4eaf2;border-radius:13px;background:#f8fafc}.letra{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eaf2ff;color:var(--azul);font-weight:900}.correta{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800}.correta input{width:18px;height:18px;min-height:auto}
-.upload-imagem{display:grid;gap:8px;padding:14px;border:1px dashed #93a4bc;border-radius:12px;background:#f8fafc}.preview-img{display:block;max-width:360px;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid var(--borda);background:#fff}.alt-conteudo{display:grid;gap:8px}.alt-conteudo input[type=file]{padding:8px;min-height:auto}.remover-img{display:flex;align-items:center;gap:7px;font-size:11px;color:#64748b}.remover-img input{width:16px;height:16px;min-height:auto}.oculto{display:none!important}.rodape{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--borda);background:#f8fafc}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer}.secundario{border:1px solid var(--borda);background:#fff;color:var(--azul)}.principal{border:1px solid var(--azul);background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff}
-.editor-shell{overflow:hidden;border:1px solid var(--borda);border-radius:14px;background:#fff}.editor-toolbar{display:flex;gap:6px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--borda);background:#f8fafc}.editor-btn{min-width:36px;height:34px;border:1px solid var(--borda);border-radius:8px;background:#fff;cursor:pointer;font-weight:800}.editor-area{min-height:240px;padding:20px;outline:none;line-height:1.7}.editor-area figure{position:relative;box-sizing:border-box;width:min(100%,680px);min-width:160px;max-width:100%;min-height:90px;margin:16px auto;padding:8px;border:1px solid #dbe4f0;border-radius:12px;resize:both;overflow:hidden;cursor:grab}.editor-area figure.selecionada{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.editor-area figure img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}.editor-drop-line{height:3px;background:#2563eb;margin:4px 0}.grupo input[readonly]{background:#f8fafc;color:#475569}.bncc-busca-wrap{position:relative}.bncc-sugestoes{position:absolute;z-index:60;top:calc(100% + 6px);left:0;right:0;display:none;max-height:300px;overflow:auto;border:1px solid #cbd5e1;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.16)}.bncc-sugestoes.ativo{display:block}.bncc-sugestao{width:100%;display:block;padding:11px 13px;border:0;border-bottom:1px solid #eef2f7;background:#fff;color:#0f172a;text-align:left;cursor:pointer}.bncc-sugestao:last-child{border-bottom:0}.bncc-sugestao:hover,.bncc-sugestao:focus{background:#eff6ff;outline:none}.bncc-sugestao strong{display:block;color:#17468f;font-size:12px}.bncc-sugestao span{display:block;margin-top:3px;color:#475569;font-size:11px;line-height:1.35}.bncc-vazio{padding:12px;color:#64748b;font-size:12px}
-.ark-modal-fundo{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.ark-modal-fundo.ativo{display:flex}.ark-modal{width:min(440px,100%);overflow:hidden;border:1px solid #dbe4f0;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25)}.ark-modal-topo{display:flex;align-items:center;gap:12px;padding:20px 22px 14px}.ark-modal-icone{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:#fff7ed;color:#ea580c;font-size:23px}.ark-modal h3{margin:0;color:#0f2f66;font-size:18px}.ark-modal p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5}.ark-modal-acoes{display:flex;justify-content:flex-end;padding:14px 22px 20px}.ark-modal-ok{min-height:42px;padding:0 18px;border:0;border-radius:11px;background:linear-gradient(135deg,#17468f,#2563eb);color:#fff;font:inherit;font-size:13px;font-weight:850;cursor:pointer}
-@media(max-width:800px){.editar-grid,.tipo-grid{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa{grid-template-columns:38px minmax(0,1fr)}.correta{grid-column:2}.rodape{display:grid}.btn{width:100%}}
+.questoes-pagina{
+    --ark-azul:#17468f;
+    --ark-azul-2:#2563eb;
+    --ark-borda:#dbe4f0;
+    --ark-texto:#0f172a;
+    --ark-suave:#64748b;
+    display:grid;
+    gap:18px;
+}
+.questoes-voltar{display:inline-flex;align-items:center;gap:8px;width:fit-content;color:var(--ark-azul);font-size:14px;font-weight:800;text-decoration:none}
+.questoes-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.questoes-topo h1{margin:0;color:var(--ark-azul);font-size:clamp(28px,3vw,36px);font-weight:900;letter-spacing:-.02em}
+.questoes-topo p{margin:8px 0 0;color:var(--ark-suave);font-size:14px}
+.modo-rapido{display:flex;align-items:center;gap:8px;border:1px solid #bfdbfe;border-radius:999px;background:#eff6ff;padding:8px 12px;color:var(--ark-azul);font-size:12px;font-weight:850}
+.questoes-card{overflow:hidden;border:1px solid var(--ark-borda);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(15,23,42,.06)}
+.card-informacoes{overflow:visible;position:relative;z-index:20}.card-informacoes .questoes-card-cabecalho{border-radius:20px 20px 0 0}.card-informacoes .questoes-formulario{border-radius:0 0 20px 20px}
+.questoes-card-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 24px;border-bottom:1px solid var(--ark-borda)}
+.questoes-card-cabecalho h2{margin:0;color:var(--ark-texto);font-size:18px}.questoes-card-cabecalho p{margin:5px 0 0;color:var(--ark-suave);font-size:12px}
+.numero-etapa{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:11px;background:#eaf2ff;color:var(--ark-azul);font-weight:900}
+.cabecalho-titulo{display:flex;align-items:center;gap:12px}
+.questoes-formulario{padding:24px}.questoes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}.largo{grid-column:1/-1}
+.linha-classificacao{display:grid;grid-template-columns:minmax(220px,.72fr) minmax(320px,1.28fr);gap:18px;grid-column:1/-1;align-items:start}
+.questoes-grupo{display:grid;gap:7px}.questoes-grupo>label,.titulo-campo{color:#334155;font-size:12px;font-weight:850}
+.questoes-grupo input,.questoes-grupo select,.questoes-grupo textarea{width:100%;border:1px solid var(--ark-borda);border-radius:12px;background:#fff;color:var(--ark-texto);font:inherit;font-size:13px;outline:none;transition:.2s}
+.questoes-grupo input,.questoes-grupo select{min-height:46px;padding:0 13px}.questoes-grupo textarea{min-height:135px;padding:14px;resize:vertical;line-height:1.55}
+.questoes-grupo input:focus,.questoes-grupo select:focus,.questoes-grupo textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.bncc-select{appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center!important;padding-right:46px!important;cursor:pointer}.bncc-select:disabled{background-color:#f8fafc!important;color:#94a3b8;cursor:not-allowed}.bncc-select option{color:#0f172a;background:#fff}.bncc-status{min-height:16px}.bncc-status.erro{color:#dc2626}.bncc-status.sucesso{color:#64748b}.bncc-busca-wrap{position:relative}.bncc-sugestoes{position:absolute;z-index:60;top:calc(100% + 6px);left:0;right:0;display:none;max-height:300px;overflow:auto;border:1px solid #cbd5e1;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.16)}.bncc-sugestoes.ativo{display:block}.bncc-sugestao{width:100%;display:block;padding:11px 13px;border:0;border-bottom:1px solid #eef2f7;background:#fff;color:#0f172a;text-align:left;cursor:pointer}.bncc-sugestao:last-child{border-bottom:0}.bncc-sugestao:hover,.bncc-sugestao:focus{background:#eff6ff;outline:none}.bncc-sugestao strong{display:block;color:#17468f;font-size:12px}.bncc-sugestao span{display:block;margin-top:3px;color:#475569;font-size:11px;line-height:1.35}.bncc-vazio{padding:12px;color:#64748b;font-size:12px}
+.oculto{display:none!important}.ajuda{color:#94a3b8;font-size:11px;line-height:1.45}
+.tipo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tipo-opcao{position:relative}.tipo-opcao input{position:absolute;opacity:0;pointer-events:none}.tipo-opcao span{display:flex;min-height:54px;align-items:center;justify-content:center;padding:10px;border:1px solid var(--ark-borda);border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;font-weight:800;text-align:center;cursor:pointer;transition:.2s}.tipo-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--ark-azul);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.editor-shell{overflow:hidden;border:1px solid var(--ark-borda);border-radius:14px;background:#fff;transition:.2s}.editor-shell:focus-within{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.editor-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:8px 10px;border-bottom:1px solid #e5edf7;background:linear-gradient(180deg,#fff,#f8fafc)}
+.editor-separador{width:1px;height:24px;margin:0 3px;background:#dbe4f0}
+.editor-btn{position:relative;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#475569;cursor:pointer;transition:.18s}
+.editor-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}.editor-btn strong{font-size:15px}.editor-btn em{font-family:Georgia,serif;font-size:16px}
+.editor-btn:hover,.editor-btn:focus-visible{border-color:#bfdbfe;background:#eff6ff;color:var(--ark-azul);outline:none}.editor-btn:active{transform:translateY(1px)}
+.editor-area{min-height:240px;padding:20px;border:0;background:#fff;color:var(--ark-texto);font-size:14px;line-height:1.7;outline:none}.editor-area:empty:before{content:attr(data-placeholder);color:#94a3b8}.editor-area p{margin:0 0 10px}.editor-area ul,.editor-area ol{padding-left:24px}
+.editor-area figure{position:relative;box-sizing:border-box;width:min(100%,680px);min-width:160px;max-width:100%;height:auto;min-height:90px;margin:16px auto;padding:10px;border:1px solid #dbe4f0;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.06);cursor:grab;resize:both;overflow:hidden;user-select:none;touch-action:none}.editor-area figure:hover{border-color:#93c5fd}.editor-area figure.selecionada{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14)}.editor-area figure.arrastando{opacity:.45;cursor:grabbing}.editor-area figure img{display:block;width:100%;height:100%;max-width:none;max-height:none;margin:auto;border-radius:9px;object-fit:contain;pointer-events:none}.editor-area figure:after{content:"";position:absolute;right:3px;bottom:3px;width:13px;height:13px;border-right:2px solid #2563eb;border-bottom:2px solid #2563eb;border-radius:0 0 4px 0;opacity:0;pointer-events:none}.editor-area figure.selecionada:after{opacity:1}.editor-drop-line{height:3px!important;min-height:3px!important;margin:4px 0!important;padding:0!important;border:0!important;border-radius:999px!important;background:#2563eb!important;box-shadow:0 0 0 2px rgba(37,99,235,.12)!important}
+.editor-ajuda{display:flex;align-items:center;gap:6px}.editor-ajuda svg{width:14px;height:14px;stroke:#94a3b8;fill:none;stroke-width:2}
+.alternativas-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.btn-adicionar{border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:var(--ark-azul);padding:9px 12px;font-size:12px;font-weight:850;cursor:pointer}
+.alternativas-lista{display:grid;gap:10px}.alternativa-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border:1px solid #e4eaf2;border-radius:15px;background:#f8fafc}.alternativa-letra{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#eaf2ff;color:var(--ark-azul);font-size:14px;font-weight:900}.alternativa-conteudo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.alternativa-texto{min-height:42px!important}.alternativa-acoes{display:flex;align-items:center;gap:7px}.marcar-correta{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 10px;border:1px solid #dbe4f0;border-radius:10px;background:#fff;color:#475569;font-size:11px;font-weight:800;cursor:pointer}.marcar-correta input{width:17px;height:17px;min-height:auto;padding:0;box-shadow:none}.remover-alternativa{display:grid;place-items:center;width:38px;height:38px;border:1px solid #fecaca;border-radius:10px;background:#fff;color:#dc2626;font-size:18px;cursor:pointer}.upload-alternativa{position:relative;display:grid;place-items:center;width:40px;height:40px;border:1px solid #dbe4f0;border-radius:10px;background:#fff;color:#64748b;cursor:pointer;transition:.18s}.upload-alternativa:hover{border-color:#93c5fd;background:#eff6ff;color:var(--ark-azul)}.upload-alternativa svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.upload-alternativa input{position:absolute;inset:0;opacity:0;cursor:pointer}.preview-wrap{display:none;grid-column:1/-1;align-items:center;gap:8px;padding:8px;border:1px dashed #bfdbfe;border-radius:10px;background:#fff}.preview-wrap.ativo{display:flex}.preview-alternativa{max-width:120px;max-height:80px;border-radius:8px;object-fit:contain}.remover-imagem-alt{border:0;background:transparent;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer}
+.vf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vf-opcao{position:relative}.vf-opcao input{position:absolute;opacity:0}.vf-opcao span{display:flex;align-items:center;justify-content:center;min-height:58px;border:1px solid var(--ark-borda);border-radius:13px;background:#f8fafc;color:#475569;font-size:13px;font-weight:850;cursor:pointer}.vf-opcao input:checked+span{border-color:#60a5fa;background:#eff6ff;color:var(--ark-azul)}
+.classificacao-resumo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;cursor:pointer;list-style:none}.classificacao-resumo::-webkit-details-marker{display:none}.classificacao-resumo strong{color:var(--ark-texto);font-size:14px}.classificacao-resumo span{color:var(--ark-suave);font-size:12px}.classificacao-seta{color:var(--ark-azul);font-weight:900;transition:.2s}.classificacao[open] .classificacao-seta{transform:rotate(180deg)}
+.classificacao-conteudo{border-top:1px solid var(--ark-borda);padding:22px 24px;background:#fbfdff}.subsecao{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:3px;color:var(--ark-azul);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.subsecao:after{content:"";height:1px;flex:1;background:#e5edf7}
+.manter-box{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #bfdbfe;border-radius:14px;background:#f8fbff}.manter-box input{width:18px;height:18px;margin-top:1px}.manter-box strong{display:block;color:#1e3a8a;font-size:12px}.manter-box small{display:block;margin-top:3px;color:#64748b;font-size:11px}
+.questoes-rodape{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 24px 23px;border-top:1px solid var(--ark-borda)}.acoes-direita{display:flex;gap:10px}.questoes-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer}.secundario{border:1px solid var(--ark-borda);background:#fff;color:var(--ark-azul)}.principal{border:1px solid var(--ark-azul);background:linear-gradient(135deg,var(--ark-azul),var(--ark-azul-2));color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.2)}
+
+.ark-modal-fundo{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.ark-modal-fundo.ativo{display:flex}.ark-modal{width:min(440px,100%);overflow:hidden;border:1px solid #dbe4f0;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25);animation:arkModalEntrada .18s ease-out}.ark-modal-topo{display:flex;align-items:center;gap:12px;padding:20px 22px 14px}.ark-modal-icone{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:#fff7ed;color:#ea580c;font-size:23px}.ark-modal h3{margin:0;color:#0f2f66;font-size:18px}.ark-modal p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5}.ark-modal-acoes{display:flex;justify-content:flex-end;padding:14px 22px 20px}.ark-modal-ok{min-height:42px;padding:0 18px;border:0;border-radius:11px;background:linear-gradient(135deg,#17468f,#2563eb);color:#fff;font:inherit;font-size:13px;font-weight:850;cursor:pointer;box-shadow:0 8px 18px rgba(37,99,235,.2)}@keyframes arkModalEntrada{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:850px){.questoes-grid,.tipo-grid,.linha-classificacao{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa-item{grid-template-columns:38px minmax(0,1fr)}.alternativa-acoes{grid-column:2}.questoes-rodape,.acoes-direita{display:grid;width:100%}.questoes-btn{width:100%}}
 </style>
 {% endblock %}
-{% block conteudo %}
-<div class="editar-pagina">
-<a class="editar-voltar" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">← Voltar</a>
-<header class="editar-topo"><h1>Editar questão</h1><p>{% if prova_id %}Corrija o enunciado, o tipo e os campos da questão. Ao salvar, esta avaliação passará a usar a versão corrigida, sem alterar a questão original do banco.{% else %}Uma nova versão será criada com suas alterações e a questão original permanecerá preservada.{% endif %}</p></header>
-<form id="formEditarQuestao" method="POST" action="/questoes/{{ questao['id'] }}/editar" enctype="multipart/form-data">
-{% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
-<section class="editar-card">
-<div class="editar-cabecalho"><h2>Informações da nova cópia</h2></div>
-<div class="editar-form"><div class="editar-grid">
-<div class="grupo"><label>Componente curricular</label><select id="disciplinaQuestao" name="disciplina" required>{% for c in componentes %}<option value="{{ c }}" {% if questao['disciplina']==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
-<div class="grupo"><label>Etapa de ensino</label><select id="etapaEnsino" name="etapa_ensino"><option value="">Selecione</option>{% for e in ['Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio'] %}<option value="{{ e }}" {% if questao['etapa_ensino']==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
-<div class="grupo"><label>Ano/Série</label><select id="anoSerie" name="ano_serie" data-valor="{{ questao['ano_serie'] or '' }}"><option value="">Selecione a etapa</option></select></div>
-<div class="grupo"><label>Assunto</label><input name="assunto" value="{{ questao['assunto'] or '' }}" required></div>
-<div class="grupo"><label>Dificuldade</label><select name="dificuldade">{% for d in ['Fácil','Média','Difícil'] %}<option value="{{ d }}" {% if questao['dificuldade']==d %}selected{% endif %}>{{ d }}</option>{% endfor %}</select></div>
-<div class="grupo largo"><span class="titulo">Tipo da questão</span><div class="tipo-grid">
-{% for valor,rotulo in [('multipla_escolha','Múltipla escolha'),('multiplas_respostas','Múltiplas respostas'),('verdadeiro_falso','Verdadeiro ou falso'),('discursiva','Discursiva'),('resposta_curta','Resposta curta'),('numerica','Numérica')] %}<label class="tipo-opcao"><input type="radio" name="tipo_questao" value="{{ valor }}" {% if questao['tipo_questao']==valor %}checked{% endif %}><span>{{ rotulo }}</span></label>{% endfor %}
-</div></div>
-<div class="grupo largo"><label>Enunciado</label><div class="editor-shell"><div class="editor-toolbar"><button type="button" class="editor-btn" data-cmd="bold">B</button><button type="button" class="editor-btn" data-cmd="italic"><em>I</em></button><button type="button" class="editor-btn" data-cmd="underline"><u>U</u></button><button type="button" class="editor-btn" data-cmd="justifyLeft">←</button><button type="button" class="editor-btn" data-cmd="justifyCenter">↔</button><button type="button" class="editor-btn" data-cmd="justifyRight">→</button><button type="button" class="editor-btn" id="inserirImagem">🖼 Imagem</button><input id="arquivoImagem" type="file" accept="image/png,image/jpeg,image/webp" hidden></div><div id="editorEnunciado" class="editor-area" contenteditable="true">{% if questao['enunciado_html'] %}{{ questao['enunciado_html']|normalizar_html_uploads|safe }}{% else %}<p>{{ questao['enunciado'] }}</p>{% endif %}{% if questao['imagem'] %}<figure style="width:min(100%,680px);height:auto"><img src="{{ upload_url(questao['imagem']) }}" alt="Imagem do enunciado"></figure>{% endif %}</div></div><input type="hidden" id="enunciadoTexto" name="enunciado"><input type="hidden" id="enunciadoHtml" name="enunciado_html"><span class="ajuda">Insira a imagem diretamente no enunciado. Você pode movê-la, redimensioná-la e usar os botões de alinhamento.</span></div>
-<div class="grupo largo" id="blocoAlternativas"><span class="titulo">Alternativas</span><div class="alternativas">
-{% for i in range(4) %}{% set alt=alternativas[i] if i < alternativas|length else none %}{% set letra=['A','B','C','D'][i] %}<div class="alternativa"><span class="letra">{{ letra }}</span><div class="alt-conteudo"><input name="alternativas[]" value="{{ alt['texto'] if alt else '' }}" placeholder="Digite a alternativa"><input type="hidden" name="imagens_atuais[]" value="{{ alt['imagem'] if alt and alt.get('imagem') else '' }}">{% if alt and alt.get('imagem') %}<img class="preview-img" src="{{ upload_url(alt['imagem']) }}" alt="Imagem atual da alternativa"><label class="remover-img"><input type="checkbox" name="remover_imagens[]" value="{{ i }}"> Remover imagem</label>{% endif %}<input type="file" name="imagens_alternativas[]" accept="image/png,image/jpeg,image/webp"></div><label class="correta"><input type="{% if questao['tipo_questao']=='multiplas_respostas' %}checkbox{% else %}radio{% endif %}" name="corretas[]" value="{{ i }}" {% if letra in respostas %}checked{% endif %}>Correta</label></div>{% endfor %}
-</div></div>
-<div class="grupo largo oculto" id="blocoVF"><span class="titulo">Resposta correta</span><div class="tipo-grid"><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="V" {% if 'V' in respostas %}checked{% endif %}><span>Verdadeiro</span></label><label class="tipo-opcao"><input type="radio" name="resposta_vf" value="F" {% if 'F' in respostas %}checked{% endif %}><span>Falso</span></label></div></div>
-<div class="grupo largo oculto" id="blocoResposta"><label>Resposta esperada</label><textarea name="resposta_esperada">{{ questao['resposta_esperada'] or '' }}</textarea></div>
-<div class="grupo largo oculto" id="blocoCriterios"><label>Critérios de correção</label><textarea name="criterios_correcao">{{ questao['criterios_correcao'] or '' }}</textarea></div>
-<div class="grupo oculto" id="blocoLinhas"><label>Quantidade de linhas</label><input type="number" name="linhas_resposta" min="1" max="30" value="{{ questao['linhas_resposta'] or 5 }}"></div>
 
-<div class="grupo largo"><h3 style="margin:8px 0 0;color:#17468f">Classificação BNCC</h3></div>
-<div class="grupo largo"><label>Habilidade BNCC</label><div class="bncc-busca-wrap"><input id="habilidadeBncc" name="habilidade_bncc" autocomplete="off" value="{{ questao['habilidade_bncc'] or '' }}" placeholder="Digite o código (ex.: EF05LP06) ou parte da descrição"><div id="listaHabilidadesBncc" class="bncc-sugestoes" role="listbox" aria-label="Sugestões de habilidades BNCC"></div></div><span class="ajuda" id="ajudaUnidadeBncc">Digite o código ou parte da descrição e clique em uma habilidade.</span></div>
-<div class="grupo"><label>Objeto do conhecimento</label><input id="objetoConhecimento" name="objeto_conhecimento" value="{{ questao['objeto_conhecimento'] or '' }}" readonly></div>
-<div class="grupo"><label>Unidade temática / prática de linguagem</label><input id="unidadeTematica" name="unidade_tematica" value="{{ questao['unidade_tematica'] or '' }}" readonly></div>
-<div class="grupo largo"><h3 style="margin:8px 0 0;color:#17468f">Outras matrizes</h3></div>
-<div class="grupo"><label>Matriz de avaliação</label><select id="sistemaMatriz" name="sistema_matriz" data-valor-inicial="{{ questao['sistema_matriz'] or '' }}"><option value="">Não vincular</option><option value="SAETO" {% if questao['sistema_matriz']=='SAETO' %}selected{% endif %}>SAETO</option><option value="SAEB" {% if questao['sistema_matriz']=='SAEB' %}selected{% endif %}>SAEB</option></select></div>
-<div class="grupo"><label>Matriz de referência</label><select id="matrizReferencia" name="matriz_referencia" data-valor-inicial="{{ questao['matriz_referencia'] or '' }}" disabled><option value="">Selecione primeiro a matriz de avaliação</option></select></div>
-<div class="grupo largo"><label>Descritor</label><select id="descritorSaeb" name="descritor_saeb" data-valor-inicial="{{ questao['descritor_saeb'] or '' }}" disabled><option value="">Selecione primeiro a matriz de referência</option></select><span class="ajuda" id="ajudaMatriz">Selecione a matriz de avaliação, o componente, a etapa e o ano/série.</span></div>
-</div></div>
-<div class="rodape"><a class="btn secundario" href="{% if prova_id %}/provas/{{ prova_id }}/montar{% else %}/questoes{% endif %}">Cancelar</a><button class="btn principal" type="submit">{% if prova_id %}Salvar correção na avaliação{% else %}Salvar nova versão{% endif %}</button></div>
-</section></form></div>
-<div class="ark-modal-fundo" id="modalValidacao" role="dialog" aria-modal="true" aria-labelledby="modalValidacaoTitulo"><div class="ark-modal"><div class="ark-modal-topo"><div class="ark-modal-icone">!</div><div><h3 id="modalValidacaoTitulo">Falta uma informação</h3><p id="modalValidacaoTexto"></p></div></div><div class="ark-modal-acoes"><button type="button" class="ark-modal-ok" id="modalValidacaoOk">Entendi</button></div></div></div>
+{% block conteudo %}
+<div class="questoes-pagina">
+    {% if prova_id %}
+    <a href="/provas/{{ prova_id }}/montar" class="questoes-voltar">← Voltar para a avaliação</a>
+    {% else %}
+    <a href="/questoes" class="questoes-voltar">← Voltar ao Banco de Questões</a>
+    {% endif %}
+    <header class="questoes-topo">
+        <div>
+            <h1>Editar questão</h1>
+            <p>{% if prova_id %}A questão será salva no banco e adicionada automaticamente à avaliação.{% else %}Altere a questão usando os mesmos campos e recursos do cadastro.{% endif %}</p>
+        </div>
+        <div class="modo-rapido">Modo rápido ativado</div>
+    </header>
+
+    <form method="POST" action="/questoes/{{ questao['id'] }}/editar" enctype="multipart/form-data" id="formQuestao">
+        {% if prova_id %}<input type="hidden" name="prova_id" value="{{ prova_id }}">{% endif %}
+        <section class="questoes-card card-informacoes">
+            <div class="questoes-card-cabecalho">
+                <div class="cabecalho-titulo"><span class="numero-etapa">1</span><div><h2>Informações básicas</h2><p>Somente os dados necessários para organizar a questão.</p></div></div>
+            </div>
+            <div class="questoes-formulario">
+                <div class="questoes-grid">
+                    <div class="questoes-grupo">
+                        <label for="disciplinaQuestao">Componente curricular</label>
+                        <select id="disciplinaQuestao" name="disciplina" required>
+                            <option value="">Selecione</option>
+                            {% for componente in componentes %}<option value="{{ componente }}" {% if valores_anteriores and valores_anteriores.get('disciplina') == componente %}selected{% endif %}>{{ componente }}</option>{% endfor %}
+                            {% if not componentes %}<option>Língua Portuguesa</option><option>Matemática</option><option>Ciências</option><option>História</option><option>Geografia</option><option>Inglês</option>{% endif %}
+                        </select>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="etapaEnsino">Etapa de ensino</label>
+                        <select id="etapaEnsino" name="etapa_ensino">
+                            <option value="">Selecione</option>
+                            {% for item in ['Educação Infantil','Ensino Fundamental - Anos Iniciais','Ensino Fundamental - Anos Finais','Ensino Médio','EJA'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('etapa_ensino') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="anoSerie">Ano/Série</label>
+                        <select id="anoSerie" name="ano_serie" data-valor="{{ valores_anteriores.get('ano_serie','') if valores_anteriores else '' }}" required>
+                            <option value="">Selecione primeiro a etapa</option>
+                        </select>
+                    </div>
+                    <div class="questoes-grupo"><label for="dificuldadeQuestao">Dificuldade</label><select id="dificuldadeQuestao" name="dificuldade" required><option value="">Selecione</option>{% for item in ['Fácil','Média','Difícil'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('dificuldade') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+                    <div class="questoes-grupo"><label for="taxonomiaBloom">Taxonomia de Bloom <span class="ajuda">(opcional)</span></label><select id="taxonomiaBloom" name="taxonomia_bloom"><option value="">Não informar</option>{% for item in ['Lembrar','Compreender','Aplicar','Analisar','Avaliar','Criar'] %}<option value="{{ item }}" {% if valores_anteriores and valores_anteriores.get('taxonomia_bloom') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="questoes-card">
+            <div class="questoes-card-cabecalho"><div class="cabecalho-titulo"><span class="numero-etapa">2</span><div><h2>Questão</h2><p>Escolha o formato e informe o enunciado.</p></div></div></div>
+            <div class="questoes-formulario"><div class="questoes-grid">
+                <div class="questoes-grupo largo"><span class="titulo-campo">Tipo da questão</span><div class="tipo-grid">
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="multipla_escolha" checked><span>Múltipla escolha</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="multiplas_respostas"><span>Múltiplas respostas</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="verdadeiro_falso"><span>Verdadeiro ou falso</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="resposta_curta"><span>Resposta curta</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="numerica"><span>Resposta numérica</span></label>
+                    <label class="tipo-opcao"><input type="radio" name="tipo_questao" value="discursiva"><span>Discursiva</span></label>
+                </div></div>
+<div class="questoes-grupo largo">
+                    <label>Enunciado</label>
+                    <div class="editor-shell">
+                        <div class="editor-toolbar" id="barraEditor" role="toolbar" aria-label="Formatação do enunciado">
+                            <button type="button" class="editor-btn" data-comando="bold" title="Negrito" aria-label="Negrito"><strong>B</strong></button>
+                            <button type="button" class="editor-btn" data-comando="italic" title="Itálico" aria-label="Itálico"><em>I</em></button>
+                            <button type="button" class="editor-btn" data-comando="underline" title="Sublinhado" aria-label="Sublinhado"><strong style="text-decoration:underline">U</strong></button>
+                            <span class="editor-separador"></span>
+                            <button type="button" class="editor-btn" data-comando="insertUnorderedList" title="Lista com marcadores" aria-label="Lista com marcadores"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></button>
+                            <button type="button" class="editor-btn" data-comando="insertOrderedList" title="Lista numerada" aria-label="Lista numerada"><svg viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10M4 5h1v3M4 11h2l-2 3h2M4 17h2v3H4"/></svg></button>
+                            <span class="editor-separador"></span>
+                            <button type="button" class="editor-btn" data-comando="justifyLeft" title="Alinhar à esquerda" aria-label="Alinhar à esquerda"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 10h10M4 14h16M4 18h12"/></svg></button>
+                            <button type="button" class="editor-btn" data-comando="justifyCenter" title="Centralizar" aria-label="Centralizar"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 10h10M4 14h16M6 18h12"/></svg></button>
+                            <button type="button" class="editor-btn" data-comando="justifyRight" title="Alinhar à direita" aria-label="Alinhar à direita"><svg viewBox="0 0 24 24"><path d="M4 6h16M10 10h10M4 14h16M8 18h12"/></svg></button>
+                            <span class="editor-separador"></span>
+                            <button type="button" class="editor-btn" id="inserirImagemEnunciado" title="Inserir imagem" aria-label="Inserir imagem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.5-4.5 3.5 3 2.5-2.5 5.5 5"/></svg></button>
+                            <input id="arquivoImagemEnunciado" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                        </div>
+                        <div id="editorEnunciado" class="editor-area" contenteditable="true" data-placeholder="Digite ou cole a questão completa aqui. O sistema separa as alternativas automaticamente."></div>
+                    </div>
+                    <input type="hidden" id="enunciadoQuestao" name="enunciado">
+                    <input type="hidden" id="enunciadoHtml" name="enunciado_html">
+                    <span class="ajuda editor-ajuda"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Ao colar uma questão completa, enunciado, alternativas e gabarito serão organizados automaticamente. Clique e arraste a imagem para movê-la; use o canto inferior direito para aumentar ou diminuir.</span>
+
+                </div>
+                <div class="questoes-grupo largo" id="blocoAlternativas"><div class="alternativas-cabecalho"><div><span class="titulo-campo">Alternativas</span><div class="ajuda">Cada alternativa pode conter texto, imagem ou ambos.</div></div><button type="button" class="btn-adicionar" id="adicionarAlternativa">+ Adicionar alternativa</button></div><div class="alternativas-lista" id="listaAlternativas"></div></div>
+                <div class="questoes-grupo largo oculto" id="blocoVerdadeiroFalso"><span class="titulo-campo">Resposta correta</span><div class="vf-grid"><label class="vf-opcao"><input type="radio" name="resposta_vf" value="V"><span>Verdadeiro</span></label><label class="vf-opcao"><input type="radio" name="resposta_vf" value="F"><span>Falso</span></label></div></div>
+                <div class="questoes-grupo largo oculto" id="blocoRespostaEsperada"><label for="respostaEsperada">Resposta esperada</label><textarea id="respostaEsperada" name="resposta_esperada" placeholder="Informe a resposta correta ou uma resposta de referência."></textarea></div>
+
+                <div class="questoes-grupo largo oculto" id="blocoLinhasResposta">
+                    <label for="linhasResposta">Quantidade de linhas para resposta</label>
+                    <input
+                        id="linhasResposta"
+                        type="number"
+                        name="linhas_resposta"
+                        min="1"
+                        max="30"
+                        value="5"
+                    >
+                    <span class="ajuda">Defina de 1 a 30 linhas. Esse campo aparece somente na questão discursiva.</span>
+                </div>
+                <div class="questoes-grupo largo oculto" id="blocoCriterios"><label for="criteriosCorrecao">Critérios de correção <span class="ajuda">(opcional)</span></label><textarea id="criteriosCorrecao" name="criterios_correcao" placeholder="Descreva os critérios considerados na correção."></textarea></div>
+            </div></div>
+        </section>
+
+        <section class="questoes-card classificacao">
+            <details class="classificacao" {% if valores_anteriores and valores_anteriores.get('abrir_avancado') %}open{% endif %}>
+                <summary class="classificacao-resumo"><div><strong>Classificação pedagógica avançada</strong><br><span>BNCC, SAETO, SAEB, fonte, tags e outros detalhes opcionais.</span></div><span class="classificacao-seta">⌄</span></summary>
+                <div class="classificacao-conteudo"><div class="questoes-grid">
+                    <div class="subsecao">BNCC</div>
+                    <div class="questoes-grupo largo">
+                        <label for="habilidadeBncc">Habilidade BNCC</label>
+                        <div class="bncc-busca-wrap">
+                            <input id="habilidadeBncc" name="habilidade_bncc" autocomplete="off" value="{{ valores_anteriores.get('habilidade_bncc','') if valores_anteriores else '' }}" placeholder="Digite o código (ex.: EF05LP06) ou parte da descrição">
+                            <div id="listaHabilidadesBncc" class="bncc-sugestoes" role="listbox" aria-label="Sugestões de habilidades BNCC"></div>
+                        </div>
+                        <span class="ajuda bncc-status" id="ajudaUnidadeBncc">Digite ou selecione uma habilidade; unidade temática e objeto serão preenchidos automaticamente.</span>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="objetoConhecimento">Objeto do conhecimento</label>
+                        <input id="objetoConhecimento" name="objeto_conhecimento" value="{{ valores_anteriores.get('objeto_conhecimento','') if valores_anteriores else '' }}" placeholder="Preenchido pela habilidade" readonly>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="unidadeTematica">Unidade temática / prática de linguagem</label>
+                        <input id="unidadeTematica" name="unidade_tematica" value="{{ valores_anteriores.get('unidade_tematica','') if valores_anteriores else '' }}" placeholder="Preenchida pela habilidade" readonly>
+                    </div>
+                    <div class="subsecao">Outras matrizes</div>
+                    <div class="questoes-grupo">
+                        <label for="sistemaMatriz">Matriz de avaliação</label>
+                        <select id="sistemaMatriz" name="sistema_matriz" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('sistema_matriz','') if valores_anteriores else '' }}">
+                            <option value="">Não vincular</option>
+                            <option value="SAETO" {% if valores_anteriores and valores_anteriores.get('sistema_matriz') == 'SAETO' %}selected{% endif %}>SAETO</option>
+                            <option value="SAEB" {% if valores_anteriores and valores_anteriores.get('sistema_matriz') == 'SAEB' %}selected{% endif %}>SAEB</option>
+                        </select>
+                        <span class="ajuda">Disponíveis: SAETO 2025 e SAEB.</span>
+                    </div>
+                    <div class="questoes-grupo">
+                        <label for="matrizReferencia">Matriz de referência</label>
+                        <select id="matrizReferencia" name="matriz_referencia" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('matriz_referencia','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Selecione primeiro a matriz de avaliação</option>
+                        </select>
+                    </div>
+                    <div class="questoes-grupo largo">
+                        <label for="descritorSaeb">Descritor</label>
+                        <select id="descritorSaeb" name="descritor_saeb" class="bncc-select" data-valor-inicial="{{ valores_anteriores.get('descritor_saeb','') if valores_anteriores else '' }}" disabled>
+                            <option value="">Selecione primeiro a matriz de referência</option>
+                        </select>
+                        <span class="ajuda bncc-status" id="ajudaMatriz">Selecione a matriz de avaliação, o componente, a etapa e o ano/série.</span>
+                    </div>
+                    <div class="subsecao">Informações complementares</div>
+                    <div class="questoes-grupo"><label for="fonteQuestao">Fonte</label><input id="fonteQuestao" name="fonte" value="{{ valores_anteriores.get('fonte','') if valores_anteriores else '' }}" placeholder="Ex.: Autoral, SAEB, ENEM"></div>
+                    <div class="questoes-grupo"><label for="anoFonte">Ano da fonte</label><input id="anoFonte" type="number" min="1900" max="2100" name="ano_fonte" value="{{ valores_anteriores.get('ano_fonte','') if valores_anteriores else '' }}" placeholder="2026"></div>
+                    <div class="questoes-grupo"><label for="tempoEstimado">Tempo estimado</label><input id="tempoEstimado" type="number" min="1" max="180" name="tempo_estimado" value="{{ valores_anteriores.get('tempo_estimado','') if valores_anteriores else '' }}" placeholder="Minutos"></div>
+                    <div class="questoes-grupo"><label for="tagsQuestao">Tags</label><input id="tagsQuestao" name="tags" value="{{ valores_anteriores.get('tags','') if valores_anteriores else '' }}" placeholder="história, regencial, oitavo ano"></div>
+                    <div class="questoes-grupo largo"><label for="observacoesQuestao">Observações do professor</label><textarea id="observacoesQuestao" name="observacoes" placeholder="Orientações internas sobre a questão."></textarea></div>
+                </div></div>
+            </details>
+        </section>
+
+        <section class="questoes-card">
+            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Depois de salvar, componente, etapa, ano/série e classificação serão mantidos.</small></span></label></div>
+            <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Cadastrar questão</button></div></div>
+        </section>
+    </form>
+</div>
+<div class="ark-modal-fundo" id="modalValidacao" role="dialog" aria-modal="true" aria-labelledby="modalValidacaoTitulo">
+    <div class="ark-modal">
+        <div class="ark-modal-topo">
+            <div class="ark-modal-icone">!</div>
+            <div><h3 id="modalValidacaoTitulo">Falta uma informação</h3><p id="modalValidacaoTexto"></p></div>
+        </div>
+        <div class="ark-modal-acoes"><button type="button" class="ark-modal-ok" id="modalValidacaoOk">Entendi</button></div>
+    </div>
+</div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded",function(){
-const form=document.getElementById('formEditarQuestao'), editor=document.getElementById('editorEnunciado'), html=document.getElementById('enunciadoHtml'), texto=document.getElementById('enunciadoTexto'), arquivo=document.getElementById('arquivoImagem');
-const modal=document.getElementById('modalValidacao'), modalTexto=document.getElementById('modalValidacaoTexto'), modalOk=document.getElementById('modalValidacaoOk'); let focoModal=null;
-function avisoArk(msg,foco=null){focoModal=foco;modalTexto.textContent=msg;modal.classList.add('ativo');modalOk.focus()} function fechar(){modal.classList.remove('ativo');if(focoModal){setTimeout(()=>focoModal.focus(),30);focoModal=null}} modalOk.addEventListener('click',fechar);modal.addEventListener('click',e=>{if(e.target===modal)fechar()});
-const tipos=document.querySelectorAll('input[name="tipo_questao"]'),a=document.getElementById("blocoAlternativas"),vf=document.getElementById("blocoVF"),r=document.getElementById("blocoResposta"),c=document.getElementById("blocoCriterios"),l=document.getElementById("blocoLinhas");
-function atualizar(){const t=document.querySelector('input[name="tipo_questao"]:checked')?.value||'multipla_escolha',obj=['multipla_escolha','multiplas_respostas'].includes(t),disc=t==='discursiva';a.classList.toggle('oculto',!obj);vf.classList.toggle('oculto',t!=='verdadeiro_falso');r.classList.toggle('oculto',!['discursiva','resposta_curta','numerica'].includes(t));c.classList.toggle('oculto',!disc);l.classList.toggle('oculto',!disc);document.querySelectorAll('input[name="corretas[]"]').forEach(x=>x.type=t==='multiplas_respostas'?'checkbox':'radio')} tipos.forEach(x=>x.addEventListener('change',atualizar));atualizar();
-const etapa=document.getElementById('etapaEnsino'),ano=document.getElementById('anoSerie'); const series={"Ensino Fundamental - Anos Iniciais":["1º ano","2º ano","3º ano","4º ano","5º ano"],"Ensino Fundamental - Anos Finais":["6º ano","7º ano","8º ano","9º ano"],"Ensino Médio":["1ª série","2ª série","3ª série"]}; function montar(){const atual=ano.dataset.valor||ano.value;ano.innerHTML='<option value="">Selecione</option>';(series[etapa.value]||[]).forEach(v=>{let o=new Option(v,v);o.selected=v===atual;ano.add(o)});ano.dataset.valor=''} etapa.addEventListener('change',montar);montar();
-function preparar(fig){if(fig.dataset.ok)return;fig.dataset.ok='1';fig.contentEditable='false';fig.draggable=true;fig.addEventListener('click',e=>{e.stopPropagation();editor.querySelectorAll('figure').forEach(f=>f.classList.remove('selecionada'));fig.classList.add('selecionada')});fig.addEventListener('dragstart',()=>fig.classList.add('arrastando'));fig.addEventListener('dragend',()=>fig.classList.remove('arrastando'))} editor.querySelectorAll('figure').forEach(preparar); new MutationObserver(()=>editor.querySelectorAll('figure').forEach(preparar)).observe(editor,{childList:true,subtree:true});
-async function otimizarImagemEditor(f){if(!f)return null;if(f.size>20*1024*1024)throw new Error('A imagem original deve ter no máximo 20 MB.');const d=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});const im=await new Promise((ok,no)=>{const x=new Image();x.onload=()=>ok(x);x.onerror=no;x.src=d});const m=1600,e=Math.min(1,m/Math.max(im.naturalWidth||1,im.naturalHeight||1)),w=Math.max(1,Math.round(im.naturalWidth*e)),h=Math.max(1,Math.round(im.naturalHeight*e)),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{alpha:false});x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);return c.toDataURL('image/jpeg',.78)}
-document.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const f=editor.querySelector('figure.selecionada'),cmd=b.dataset.cmd;if(f&&['justifyLeft','justifyCenter','justifyRight'].includes(cmd)){f.style.marginLeft=cmd==='justifyRight'?'auto':(cmd==='justifyCenter'?'auto':'0');f.style.marginRight=cmd==='justifyLeft'?'auto':(cmd==='justifyCenter'?'auto':'0');return;}editor.focus();document.execCommand(cmd,false,null)})); document.getElementById('inserirImagem').addEventListener('click',()=>arquivo.click()); arquivo.addEventListener('change',async()=>{const f=arquivo.files[0];if(!f)return;try{const d=await otimizarImagemEditor(f);editor.focus();document.execCommand('insertHTML',false,`<figure style="width:min(100%,680px);height:auto"><img src="${d}" alt="Imagem do enunciado"></figure><p><br></p>`)}catch(e){avisoArk(e.message||'Não foi possível inserir a imagem.')}arquivo.value=''});
-editor.addEventListener('paste',e=>{const itens=[...(e.clipboardData?.items||[])],imgs=itens.filter(x=>x.kind==='file'&&x.type.startsWith('image/'));if(!imgs.length)return;e.preventDefault();imgs.forEach(async item=>{const f=item.getAsFile();if(!f)return;try{const d=await otimizarImagemEditor(f);editor.focus();document.execCommand('insertHTML',false,`<figure style="width:min(100%,680px);height:auto"><img src="${d}" alt="Imagem do enunciado"></figure><p><br></p>`)}catch(err){avisoArk(err.message||'Não foi possível inserir a imagem.')}})});
-editor.addEventListener('dragover',e=>{const f=editor.querySelector('figure.arrastando');if(!f)return;e.preventDefault();const y=e.clientY;const ref=[...editor.children].find(el=>el!==f && y<el.getBoundingClientRect().top+el.getBoundingClientRect().height/2);ref?editor.insertBefore(f,ref):editor.appendChild(f)});editor.addEventListener('drop',e=>e.preventDefault());
-const disciplina=document.getElementById('disciplinaQuestao'),hab=document.getElementById('habilidadeBncc'),lista=document.getElementById('listaHabilidadesBncc'),unidade=document.getElementById('unidadeTematica'),objeto=document.getElementById('objetoConhecimento'),ajuda=document.getElementById('ajudaUnidadeBncc');let resultados=[],ctrl=null,timer=null;
-function selecionarBncc(h){if(!h)return;hab.value=h.codigo||h.valor||'';objeto.value=h.objeto_conhecimento||'';unidade.value=h.unidade_tematica||'';ajuda.textContent=`${h.codigo}: habilidade selecionada. Classificação preenchida automaticamente.`;lista.classList.remove('ativo')}
-function desenharBncc(itens){lista.innerHTML='';resultados=itens||[];if(!resultados.length){lista.innerHTML='<div class="bncc-vazio">Nenhuma habilidade encontrada. Confira o código ou tente parte da descrição.</div>';lista.classList.add('ativo');return}resultados.forEach((h,idx)=>{const b=document.createElement('button');b.type='button';b.className='bncc-sugestao';const c=document.createElement('strong');c.textContent=h.codigo||'';const d=document.createElement('span');d.textContent=h.descricao||'';b.append(c,d);b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>selecionarBncc(h));lista.appendChild(b)});lista.classList.add('ativo')}
-async function pesquisar(forcarLista=false){const termo=hab.value.trim();if(termo.length<2&&!forcarLista){lista.classList.remove('ativo');ajuda.textContent='Digite pelo menos 2 caracteres do código ou da descrição, ou clique no campo para ver a lista.';return}if(ctrl)ctrl.abort();ctrl=new AbortController();ajuda.textContent='Pesquisando habilidade BNCC...';const q=new URLSearchParams({q:termo,componente:disciplina.value,etapa:etapa.value,ano_serie:ano.value});try{const resp=await fetch('/api/bncc/buscar?'+q,{signal:ctrl.signal,headers:{'Accept':'application/json'}});const d=await resp.json();if(!resp.ok)throw new Error(d.erro||'Falha na pesquisa');desenharBncc(d.habilidades||[]);ajuda.textContent=(d.habilidades||[]).length?`${d.habilidades.length} habilidade(s) encontrada(s). Clique em uma opção abaixo.`:'Nenhuma habilidade encontrada.';const exata=(d.habilidades||[]).find(h=>String(h.codigo||'').toUpperCase()===termo.toUpperCase());if(exata)selecionarBncc(exata)}catch(e){if(e.name!=='AbortError'){lista.classList.remove('ativo');ajuda.textContent='Não foi possível carregar as habilidades agora. Tente novamente.'}}}
-hab.addEventListener('input',()=>{objeto.value='';unidade.value='';clearTimeout(timer);timer=setTimeout(pesquisar,220)});hab.addEventListener('focus',()=>{if(resultados.length)lista.classList.add('ativo');else pesquisar(true)});hab.addEventListener('click',()=>{if(!resultados.length)pesquisar(true);else lista.classList.add('ativo')});document.addEventListener('click',e=>{if(!e.target.closest('.bncc-busca-wrap'))lista.classList.remove('ativo')});[disciplina,etapa,ano].forEach(x=>x.addEventListener('change',()=>{if(hab.value.trim().length>=2)pesquisar()}));
-form.addEventListener('submit',e=>{const clone=editor.cloneNode(true);clone.querySelectorAll('figure').forEach(f=>{f.classList.remove('selecionada','arrastando');f.removeAttribute('draggable');f.removeAttribute('contenteditable');f.removeAttribute('data-ok')});html.value=clone.innerHTML.trim();texto.value=editor.innerText.replace(/\n{3,}/g,'\n\n').trim();const t=document.querySelector('input[name="tipo_questao"]:checked')?.value;if(!texto.value&&!clone.querySelector('img')){e.preventDefault();return avisoArk('Digite o enunciado da questão antes de salvar.',editor)}if(t==='multipla_escolha'&&!document.querySelector('input[name="corretas[]"]:checked')){e.preventDefault();return avisoArk('Selecione a alternativa correta antes de salvar. O que você já preencheu foi mantido.',document.querySelector('.correta input'))}if(t==='multiplas_respostas'&&!document.querySelector('input[name="corretas[]"]:checked')){e.preventDefault();return avisoArk('Marque pelo menos uma alternativa correta antes de salvar. O que você já preencheu foi mantido.',document.querySelector('.correta input'))}if(t==='verdadeiro_falso'&&!document.querySelector('input[name="resposta_vf"]:checked')){e.preventDefault();return avisoArk('Selecione Verdadeiro ou Falso antes de salvar. O que você já preencheu foi mantido.',document.querySelector('input[name="resposta_vf"]'))}});
+document.addEventListener("DOMContentLoaded", () => {
+    const lista = document.getElementById("listaAlternativas");
+    const botaoAdicionar = document.getElementById("adicionarAlternativa");
+    const blocoAlternativas = document.getElementById("blocoAlternativas");
+    const blocoVF = document.getElementById("blocoVerdadeiroFalso");
+    const blocoResposta = document.getElementById("blocoRespostaEsperada");
+    const blocoCriterios = document.getElementById("blocoCriterios");
+    const blocoLinhasResposta = document.getElementById("blocoLinhasResposta");
+    const disciplina = document.getElementById("disciplinaQuestao");
+    const editor = document.getElementById("editorEnunciado");
+    const enunciadoTexto = document.getElementById("enunciadoQuestao");
+    const enunciadoHtml = document.getElementById("enunciadoHtml");
+    const arquivoImagemEnunciado = document.getElementById("arquivoImagemEnunciado");
+    const etapa = document.getElementById("etapaEnsino");
+    const anoSerie = document.getElementById("anoSerie");
+    const modalValidacao = document.getElementById("modalValidacao");
+    const modalValidacaoTexto = document.getElementById("modalValidacaoTexto");
+    const modalValidacaoOk = document.getElementById("modalValidacaoOk");
+    let focoDepoisModal = null;
+    function avisoArk(mensagem, foco=null){
+        focoDepoisModal = foco;
+        modalValidacaoTexto.textContent = mensagem;
+        modalValidacao.classList.add("ativo");
+        modalValidacaoOk.focus();
+    }
+    function fecharAvisoArk(){
+        modalValidacao.classList.remove("ativo");
+        if(focoDepoisModal){ setTimeout(()=>focoDepoisModal.focus(),30); focoDepoisModal=null; }
+    }
+    modalValidacaoOk.addEventListener("click", fecharAvisoArk);
+    modalValidacao.addEventListener("click", e=>{ if(e.target===modalValidacao) fecharAvisoArk(); });
+
+    const seriesPorEtapa = {
+        "Educação Infantil":["Berçário","Maternal I","Maternal II","Pré I","Pré II"],
+        "Ensino Fundamental - Anos Iniciais":["1º ano","2º ano","3º ano","4º ano","5º ano"],
+        "Ensino Fundamental - Anos Finais":["6º ano","7º ano","8º ano","9º ano"],
+        "Ensino Médio":["1ª série","2ª série","3ª série"],
+        "EJA":["1º segmento","2º segmento","Ensino Médio"]
+    };
+
+
+    function normalizarTexto(valor){
+        return String(valor || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/º|ª/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+    }
+
+    function serieEquivalente(a, b){
+        const na = normalizarTexto(a);
+        const nb = normalizarTexto(b);
+        if(!na || !nb) return false;
+        if(na === nb) return true;
+        const numeroA = na.match(/\d+/);
+        const numeroB = nb.match(/\d+/);
+        return numeroA && numeroB && numeroA[0] === numeroB[0];
+    }
+
+    function atualizarSeries(){
+        const atual = anoSerie.dataset.valor || anoSerie.value;
+        const itens = seriesPorEtapa[etapa.value] || [];
+        anoSerie.innerHTML = '<option value="">Selecione</option>';
+        itens.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item;
+            option.textContent = item;
+            if(serieEquivalente(item, atual)) option.selected = true;
+            anoSerie.appendChild(option);
+        });
+        anoSerie.dataset.valor = "";
+    }
+
+    function letra(indice){ return String.fromCharCode(65 + indice); }
+    function atualizarAlternativas(){
+        [...lista.querySelectorAll(".alternativa-item")].forEach((item, indice) => {
+            item.querySelector(".alternativa-letra").textContent = letra(indice);
+            const correta = item.querySelector(".input-correta");
+            correta.value = String(indice);
+            correta.type = document.querySelector('input[name="tipo_questao"]:checked').value === "multiplas_respostas" ? "checkbox" : "radio";
+        });
+    }
+    window.criarAlternativaEdicao = function criarAlternativa(textoInicial="") {
+        const indice = lista.children.length;
+        const item = document.createElement("div");
+        item.className = "alternativa-item";
+        item.innerHTML = `<span class="alternativa-letra">${letra(indice)}</span><div class="alternativa-conteudo"><input class="alternativa-texto" type="text" name="alternativas[]" placeholder="Digite a alternativa" value=""><label class="upload-alternativa" title="Adicionar imagem" aria-label="Adicionar imagem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 4.5-4.5 3.5 3 2.5-2.5 5.5 5"/></svg><input type="file" name="imagens_alternativas[]" accept="image/png,image/jpeg,image/webp"></label><div class="preview-wrap"><img class="preview-alternativa" alt="Pré-visualização"><button type="button" class="remover-imagem-alt">Remover imagem</button></div></div><div class="alternativa-acoes"><label class="marcar-correta"><input class="input-correta" type="radio" name="corretas[]" value="${indice}"> Correta</label><button type="button" class="remover-alternativa" title="Remover">×</button></div>`;
+        item.querySelector(".alternativa-texto").value = textoInicial;
+        const arquivo = item.querySelector('input[type="file"]');
+        const previewWrap = item.querySelector(".preview-wrap");
+        const preview = item.querySelector(".preview-alternativa");
+        arquivo.addEventListener("change", () => {
+            const selecionado = arquivo.files[0];
+            if(selecionado){
+                preview.src = URL.createObjectURL(selecionado);
+                previewWrap.classList.add("ativo");
+            } else {
+                preview.removeAttribute("src");
+                previewWrap.classList.remove("ativo");
+            }
+        });
+        item.querySelector(".remover-imagem-alt").addEventListener("click", () => {
+            arquivo.value = "";
+            preview.removeAttribute("src");
+            previewWrap.classList.remove("ativo");
+        });
+        item.querySelector(".remover-alternativa").addEventListener("click", () => {
+            if(lista.children.length <= 2) return alert("A questão precisa ter pelo menos duas alternativas.");
+            item.remove();
+            atualizarAlternativas();
+        });
+        lista.appendChild(item);
+        atualizarAlternativas();
+        return item;
+    }
+
+    function inserirHtmlNoCursor(htmlInserido){
+        editor.focus();
+        document.execCommand("insertHTML", false, htmlInserido);
+    }
+
+    let figuraSelecionada = null;
+
+    function limparSelecaoFigura(){
+        editor.querySelectorAll("figure").forEach(figura => figura.classList.remove("selecionada"));
+        figuraSelecionada = null;
+    }
+
+    function prepararFigura(figura){
+        if(!figura || figura.dataset.preparada === "1") return;
+
+        figura.dataset.preparada = "1";
+        figura.contentEditable = "false";
+        figura.draggable = true;
+        figura.setAttribute("tabindex", "0");
+        figura.setAttribute("aria-label", "Imagem do enunciado. Arraste para mover e use o canto inferior direito para redimensionar.");
+
+        figura.addEventListener("click", evento => {
+            evento.stopPropagation();
+            limparSelecaoFigura();
+            figura.classList.add("selecionada");
+            figuraSelecionada = figura;
+            figura.focus({preventScroll:true});
+        });
+
+        figura.addEventListener("dragstart", evento => {
+            figura.classList.add("arrastando");
+            figuraSelecionada = figura;
+            evento.dataTransfer.effectAllowed = "move";
+            evento.dataTransfer.setData("text/plain", figura.id || "imagem-enunciado");
+        });
+
+        figura.addEventListener("dragend", () => {
+            figura.classList.remove("arrastando");
+            editor.querySelectorAll(".editor-drop-line").forEach(linha => linha.remove());
+        });
+    }
+
+    async function arquivoImagemOtimizado(arquivo){
+        if(!arquivo) return null;
+        if(arquivo.size > 20 * 1024 * 1024) throw new Error("A imagem original deve ter no máximo 20 MB.");
+        const dataUrl = await new Promise((resolve, reject) => {
+            const leitor = new FileReader();
+            leitor.onload = () => resolve(leitor.result);
+            leitor.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+            leitor.readAsDataURL(arquivo);
+        });
+        const img = await new Promise((resolve, reject) => {
+            const imagem = new Image();
+            imagem.onload = () => resolve(imagem);
+            imagem.onerror = () => reject(new Error("Imagem inválida."));
+            imagem.src = dataUrl;
+        });
+        const maxDim = 1600;
+        const escala = Math.min(1, maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const largura = Math.max(1, Math.round(img.naturalWidth * escala));
+        const altura = Math.max(1, Math.round(img.naturalHeight * escala));
+        const canvas = document.createElement("canvas");
+        canvas.width = largura; canvas.height = altura;
+        const ctx = canvas.getContext("2d", {alpha:false});
+        ctx.fillStyle = "#fff"; ctx.fillRect(0,0,largura,altura);
+        ctx.drawImage(img,0,0,largura,altura);
+        return canvas.toDataURL("image/jpeg", 0.78);
+    }
+
+    async function inserirImagemNoEditor(arquivo){
+        if(!arquivo) return;
+        try{
+            const otimizada = await arquivoImagemOtimizado(arquivo);
+            const id = `figura-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            inserirHtmlNoCursor(`<figure id="${id}" style="width:min(100%,680px);height:auto"><img src="${otimizada}" alt="Imagem do enunciado"></figure><p><br></p>`);
+            const figura = document.getElementById(id);
+            if(figura) prepararFigura(figura);
+        }catch(erro){
+            avisoArk(erro.message || "Não foi possível inserir a imagem.", editor);
+        }
+    }
+
+    function analisarQuestaoColada(bruto){
+        const texto = String(bruto || "").replace(/\r/g, "").trim();
+        if(!texto) return null;
+        const linhas = texto.split("\n");
+        const alternativas = [];
+        const enunciadoLinhas = [];
+        let atual = null;
+        let gabarito = "";
+        const regexAlternativa = /^\s*(?:alternativa\s+)?([A-Ha-h])\s*[\)\.\-:]\s*(.*)$/i;
+        const regexGabarito = /^\s*(?:gabarito|resposta|alternativa correta|resposta correta)\s*[:\-]?\s*(?:alternativa\s*)?([A-Ha-h])\s*[\)\.]?\s*$/i;
+        linhas.forEach(linha => {
+            const gab = linha.match(regexGabarito);
+            if(gab){ gabarito = gab[1].toUpperCase(); atual = null; return; }
+            const alt = linha.match(regexAlternativa);
+            if(alt){
+                atual = {letra: alt[1].toUpperCase(), texto: alt[2].trim()};
+                alternativas.push(atual);
+            }else if(atual && linha.trim()){
+                atual.texto += (atual.texto ? " " : "") + linha.trim();
+            }else if(!atual){
+                enunciadoLinhas.push(linha);
+            }
+        });
+        return alternativas.length >= 2 ? {enunciado: enunciadoLinhas.join("\n").trim(), alternativas, gabarito} : null;
+    }
+
+    function preencherQuestaoOrganizada(resultado){
+        editor.innerHTML = "";
+        resultado.enunciado.split(/\n{2,}/).filter(paragrafo => paragrafo.trim()).forEach(paragrafo => {
+            const p = document.createElement("p");
+            p.textContent = paragrafo.replace(/\n/g, " ").trim();
+            editor.appendChild(p);
+        });
+        lista.innerHTML = "";
+        resultado.alternativas.forEach(itemAlt => {
+            const item = criarAlternativa(itemAlt.texto);
+            if(resultado.gabarito && itemAlt.letra === resultado.gabarito){
+                item.querySelector(".input-correta").checked = true;
+            }
+        });
+        atualizarTipo();
+    }
+
+    function atualizarTipo(){
+        const tipo = document.querySelector('input[name="tipo_questao"]:checked').value;
+        blocoAlternativas.classList.toggle("oculto", !["multipla_escolha","multiplas_respostas"].includes(tipo));
+        blocoVF.classList.toggle("oculto", tipo !== "verdadeiro_falso");
+        blocoResposta.classList.toggle("oculto", !["resposta_curta","numerica","discursiva"].includes(tipo));
+        blocoCriterios.classList.toggle("oculto", tipo !== "discursiva");
+        blocoLinhasResposta.classList.toggle("oculto", tipo !== "discursiva");
+        document.getElementById("respostaEsperada").required = ["resposta_curta","numerica"].includes(tipo);
+        atualizarAlternativas();
+    }
+    document.querySelectorAll(".editor-btn[data-comando]").forEach(botao => {
+        botao.addEventListener("click", () => {
+            const cmd=botao.dataset.comando;
+            if(figuraSelecionada && ["justifyLeft","justifyCenter","justifyRight"].includes(cmd)){
+                figuraSelecionada.style.marginLeft = cmd==="justifyRight" ? "auto" : (cmd==="justifyCenter" ? "auto" : "0");
+                figuraSelecionada.style.marginRight = cmd==="justifyLeft" ? "auto" : (cmd==="justifyCenter" ? "auto" : "0");
+                return;
+            }
+            editor.focus(); document.execCommand(cmd, false, null);
+        });
+    });
+    document.getElementById("inserirImagemEnunciado").addEventListener("click", () => arquivoImagemEnunciado.click());
+    arquivoImagemEnunciado.addEventListener("change", () => { inserirImagemNoEditor(arquivoImagemEnunciado.files[0]); arquivoImagemEnunciado.value = ""; });
+
+    const observadorFiguras = new MutationObserver(() => {
+        editor.querySelectorAll("figure").forEach(prepararFigura);
+    });
+    observadorFiguras.observe(editor, {childList:true, subtree:true});
+    editor.querySelectorAll("figure").forEach(prepararFigura);
+    editor.addEventListener("paste", evento => {
+        const itens = [...(evento.clipboardData?.items || [])];
+        const imagens = itens.filter(item => item.kind === "file" && item.type.startsWith("image/"));
+        const texto = evento.clipboardData?.getData("text/plain") || "";
+        const organizada = analisarQuestaoColada(texto);
+
+        if(organizada){
+            evento.preventDefault();
+            preencherQuestaoOrganizada(organizada);
+            imagens.forEach(item => inserirImagemNoEditor(item.getAsFile()));
+            return;
+        }
+
+        if(imagens.length){
+            evento.preventDefault();
+            imagens.forEach(item => inserirImagemNoEditor(item.getAsFile()));
+            if(texto.trim()) document.execCommand("insertText", false, texto);
+            return;
+        }
+
+        if(texto){
+            evento.preventDefault();
+            document.execCommand("insertText", false, texto);
+        }
+    });
+    editor.addEventListener("click", evento => {
+        if(!evento.target.closest("figure")) limparSelecaoFigura();
+    });
+
+    editor.addEventListener("keydown", evento => {
+        if(!figuraSelecionada) return;
+
+        if(evento.key === "Delete" || evento.key === "Backspace"){
+            evento.preventDefault();
+            figuraSelecionada.remove();
+            figuraSelecionada = null;
+        }
+    });
+
+    editor.addEventListener("dragover", evento => {
+        const arrastando = editor.querySelector("figure.arrastando");
+        if(!arrastando) return;
+
+        evento.preventDefault();
+        evento.dataTransfer.dropEffect = "move";
+
+        editor.querySelectorAll(".editor-drop-line").forEach(linha => linha.remove());
+
+        const blocos = [...editor.children].filter(elemento =>
+            elemento !== arrastando && !elemento.classList.contains("editor-drop-line")
+        );
+
+        let referencia = null;
+        for(const bloco of blocos){
+            const caixa = bloco.getBoundingClientRect();
+            if(evento.clientY < caixa.top + caixa.height / 2){
+                referencia = bloco;
+                break;
+            }
+        }
+
+        const linha = document.createElement("div");
+        linha.className = "editor-drop-line";
+        linha.contentEditable = "false";
+
+        if(referencia){
+            editor.insertBefore(linha, referencia);
+        }else{
+            editor.appendChild(linha);
+        }
+    });
+
+    editor.addEventListener("drop", evento => {
+        const arrastando = editor.querySelector("figure.arrastando");
+        const linha = editor.querySelector(".editor-drop-line");
+        if(!arrastando) return;
+
+        evento.preventDefault();
+
+        if(linha){
+            editor.insertBefore(arrastando, linha);
+            linha.remove();
+        }
+
+        arrastando.classList.remove("arrastando");
+        limparSelecaoFigura();
+        arrastando.classList.add("selecionada");
+        figuraSelecionada = arrastando;
+    });
+    etapa.addEventListener("change", atualizarSeries);
+    document.querySelectorAll('input[name="tipo_questao"]').forEach(input => input.addEventListener("change", atualizarTipo));
+    botaoAdicionar.addEventListener("click", criarAlternativa);
+
+    document.getElementById("formQuestao").addEventListener("submit", evento => {
+        const clone = editor.cloneNode(true);
+        clone.querySelectorAll("figure").forEach(fig => { fig.classList.remove("selecionada", "arrastando"); fig.removeAttribute("draggable"); fig.removeAttribute("contenteditable"); });
+        enunciadoHtml.value = clone.innerHTML.trim();
+        enunciadoTexto.value = editor.innerText.replace(/\n{3,}/g, "\n\n").trim();
+        if(!enunciadoTexto.value && !clone.querySelector("img")){
+            evento.preventDefault();
+            editor.focus();
+            return avisoArk("Digite o enunciado da questão antes de cadastrar.", editor);
+        }
+        const tipo=document.querySelector('input[name="tipo_questao"]:checked')?.value;
+        if(tipo==="multipla_escolha" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return avisoArk("Selecione a alternativa correta antes de salvar a questão. O que você já preencheu foi mantido.", document.querySelector('.marcar-correta input'));}
+        if(tipo==="multiplas_respostas" && !document.querySelector('input[name="corretas[]"]:checked')){evento.preventDefault(); return avisoArk("Marque pelo menos uma alternativa correta antes de salvar a questão. O que você já preencheu foi mantido.", document.querySelector('.marcar-correta input'));}
+        if(tipo==="verdadeiro_falso" && !document.querySelector('input[name="resposta_vf"]:checked')){evento.preventDefault(); return avisoArk("Selecione Verdadeiro ou Falso antes de salvar a questão. O que você já preencheu foi mantido.", document.querySelector('input[name="resposta_vf"]'));}
+    });
+
+    atualizarSeries();
+    {% if not alternativas %}for(let i=0;i<4;i++) criarAlternativa();{% endif %}
+    atualizarTipo();
+    setTimeout(() => editor.focus(), 80);
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const disciplina=document.getElementById("disciplinaQuestao"), etapa=document.getElementById("etapaEnsino"), ano=document.getElementById("anoSerie");
+    const habilidade=document.getElementById("habilidadeBncc"), lista=document.getElementById("listaHabilidadesBncc"), unidade=document.getElementById("unidadeTematica"), objeto=document.getElementById("objetoConhecimento"), ajuda=document.getElementById("ajudaUnidadeBncc");
+    if(!habilidade || !lista) return;
+    let resultados=[], controle=null, timer=null;
+
+    function selecionar(h){
+        if(!h) return;
+        habilidade.value=h.codigo || h.valor || "";
+        objeto.value=h.objeto_conhecimento||"";
+        unidade.value=h.unidade_tematica||"";
+        ajuda.className="ajuda bncc-status sucesso";
+        ajuda.textContent=`${h.codigo}: habilidade selecionada. Objeto do conhecimento e unidade temática foram preenchidos automaticamente.`;
+        lista.classList.remove("ativo");
+    }
+    function desenhar(itens){
+        lista.innerHTML=""; resultados=itens||[];
+        if(!resultados.length){
+            lista.innerHTML='<div class="bncc-vazio">Nenhuma habilidade encontrada. Confira o código ou tente uma palavra da descrição.</div>';
+            lista.classList.add("ativo"); return;
+        }
+        resultados.forEach((h,idx)=>{
+            const b=document.createElement("button"); b.type="button"; b.className="bncc-sugestao"; b.dataset.indice=String(idx);
+            const codigo=document.createElement("strong"); codigo.textContent=h.codigo||"";
+            const desc=document.createElement("span"); desc.textContent=h.descricao||"";
+            b.append(codigo,desc); b.addEventListener("mousedown",e=>e.preventDefault()); b.addEventListener("click",()=>selecionar(h)); lista.appendChild(b);
+        });
+        lista.classList.add("ativo");
+    }
+    async function pesquisar(forcarLista=false){
+        const termo=habilidade.value.trim();
+        if(termo.length<2 && !forcarLista){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status"; ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição, ou clique no campo para ver a lista."; return; }
+        if(controle) controle.abort(); controle=new AbortController();
+        ajuda.className="ajuda bncc-status"; ajuda.textContent="Pesquisando habilidade BNCC...";
+        const q=new URLSearchParams({q:termo,componente:disciplina?.value||"",etapa:etapa?.value||"",ano_serie:ano?.value||""});
+        try{
+            const r=await fetch('/api/bncc/buscar?'+q,{signal:controle.signal,headers:{'Accept':'application/json'}});
+            const d=await r.json(); if(!r.ok) throw new Error(d.erro||"Falha na pesquisa");
+            desenhar(d.habilidades||[]);
+            if((d.habilidades||[]).length) ajuda.textContent=`${d.habilidades.length} habilidade(s) encontrada(s). Clique em uma opção abaixo.`;
+            else {ajuda.className="ajuda bncc-status erro"; ajuda.textContent="Nenhuma habilidade encontrada para essa busca.";}
+            const exata=(d.habilidades||[]).find(h=>String(h.codigo||"").toUpperCase()===termo.toUpperCase());
+            if(exata) selecionar(exata);
+        }catch(e){
+            if(e.name!=="AbortError"){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status erro"; ajuda.textContent="Não foi possível pesquisar as habilidades BNCC. Atualize a página e tente novamente."; }
+        }
+    }
+    habilidade.addEventListener("input",()=>{ objeto.value=""; unidade.value=""; clearTimeout(timer); timer=setTimeout(pesquisar,220); });
+    habilidade.addEventListener("focus",()=>{ if(resultados.length) lista.classList.add("ativo"); else pesquisar(true); });
+    habilidade.addEventListener("click",()=>{ if(!resultados.length) pesquisar(true); else lista.classList.add("ativo"); });
+    document.addEventListener("click",e=>{ if(!e.target.closest('.bncc-busca-wrap')) lista.classList.remove("ativo"); });
+    [disciplina,etapa,ano].filter(Boolean).forEach(el=>el.addEventListener("change",()=>{ if(habilidade.value.trim().length>=2) pesquisar(); }));
 });
 </script>
 
@@ -181,6 +777,27 @@ document.addEventListener("DOMContentLoaded", () => {
     matriz.addEventListener("change", () => carregarDescritores(false));
     if (iniciais.sistema) sistema.value = iniciais.sistema;
     carregarMatrizes(true);
+});
+
+// Dados iniciais da edição: mesma interface da criação, já preenchida.
+document.addEventListener("DOMContentLoaded", () => {
+  const dados={{ valores_anteriores|tojson }};
+  const alternativas={{ alternativas|tojson }};
+  const respostas={{ respostas|tojson }};
+  const tipo=dados.tipo_questao || 'multipla_escolha';
+  const radio=document.querySelector(`input[name="tipo_questao"][value="${tipo}"]`);
+  if(radio){ radio.checked=true; radio.dispatchEvent(new Event('change')); }
+  const editor=document.getElementById('editorEnunciado');
+  if(editor) editor.innerHTML=dados.enunciado_html || dados.enunciado || '';
+  const re=document.getElementById('respostaEsperada'); if(re) re.value=dados.resposta_esperada || '';
+  const cr=document.getElementById('criteriosCorrecao'); if(cr) cr.value=dados.criterios_correcao || '';
+  const lr=document.getElementById('linhasResposta'); if(lr && dados.linhas_resposta!=null) lr.value=dados.linhas_resposta;
+  const vf=document.querySelector(`input[name="resposta_vf"][value="${dados.correta||''}"]`); if(vf) vf.checked=true;
+  const lista=document.getElementById('listaAlternativas');
+  if(lista && alternativas.length){
+    lista.innerHTML='';
+    alternativas.forEach((alt,i)=>{ if(typeof window.criarAlternativaEdicao==='function'){ const item=window.criarAlternativaEdicao(alt.texto||''); const idx=lista.children.length-1; const check=item.querySelector('.input-correta'); if(check && respostas.map(String).includes(String(alt.letra||idx)) || check && respostas.map(String).includes(String(idx))) check.checked=true; const atual=document.createElement('input'); atual.type='hidden'; atual.name='imagens_atuais[]'; atual.value=alt.imagem||''; item.appendChild(atual); if(alt.imagem){ const pw=item.querySelector('.preview-wrap'), pi=item.querySelector('.preview-alternativa'); pi.src=alt.imagem; pw.classList.add('ativo'); } } });
+  }
 });
 </script>
 {% endblock %}
