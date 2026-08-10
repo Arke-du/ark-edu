@@ -20450,8 +20450,17 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
 
 
 def _tipo_discursivo_aplicacao(tipo):
+    """Reconhece todos os tipos de questão que precisam de área de resposta escrita.
+
+    Mantém o mesmo critério usado na criação/edição e na impressão da prova.
+    """
     valor = (tipo or "").strip().lower().replace("-", "_")
-    return valor in {"discursiva", "dissertativa", "resposta_aberta", "resposta aberta"}
+    return valor in {
+        "discursiva", "dissertativa",
+        "resposta_aberta", "resposta aberta",
+        "resposta_curta", "resposta curta",
+        "numerica", "numérica",
+    }
 
 
 

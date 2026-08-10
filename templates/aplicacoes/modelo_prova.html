@@ -153,7 +153,8 @@ body.layout-2 .discursive-line{height:4.8mm}
 
   <div id="questionsSource">
   {% for q in questoes %}
-  {% set discursiva = q.tipo_questao in ['discursiva','dissertativa','resposta_aberta','resposta aberta','resposta_curta','resposta curta','numerica','numérica'] %}
+  {% set tipo_normalizado = (q.tipo_questao or '')|trim|lower|replace('-', '_') %}
+  {% set discursiva = tipo_normalizado in ['discursiva','dissertativa','resposta_aberta','resposta aberta','resposta_curta','resposta curta','numerica','numérica'] %}
   <section class="question{% if discursiva %} discursive-question{% endif %}" data-block="question" data-number="{{ loop.index }}">
     <h2 class="question-title">Questão {{ '%02d'|format(loop.index) }}</h2>
     <div class="statement">{% if q.enunciado_html %}{{ q.enunciado_html|embutir_imagens_html|safe }}{% else %}{{ q.enunciado }}{% endif %}</div>
