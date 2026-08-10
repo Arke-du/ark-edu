@@ -12852,7 +12852,8 @@ def resultados(prova_id):
                    AVG(CASE WHEN rda.corrigida = 1 THEN rda.nota END) media,
                    SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'correta' THEN 1 ELSE 0 END) totalmente_certas,
                    SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'parcial' THEN 1 ELSE 0 END) parcialmente_certas,
-                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'errada' THEN 1 ELSE 0 END) erradas
+                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'errada' THEN 1 ELSE 0 END) erradas,
+                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'em_branco' THEN 1 ELSE 0 END) em_branco
             FROM respostas_discursivas_aplicacao rda
             JOIN aplicacoes ap ON ap.id = rda.aplicacao_id
             WHERE ap.prova_id = ?
@@ -12875,6 +12876,7 @@ def resultados(prova_id):
                     "totalmente_certas": int(st.get("totalmente_certas") or 0),
                     "parcialmente_certas": int(st.get("parcialmente_certas") or 0),
                     "erradas_discursivas": int(st.get("erradas") or 0),
+                    "em_branco_discursivas": int(st.get("em_branco") or 0),
                 })
 
         # =========================================================
@@ -13175,17 +13177,21 @@ def resultados(prova_id):
                         conceito = str(resposta.get("conceito") or "").strip().lower()
                         if conceito == "correta":
                             status = "correta"
-                            valor = "C"
+                            valor = "TC"
                             titulo = "Resposta discursiva totalmente certa"
                             total_acertos_mapa += 1
                         elif conceito == "parcial":
                             status = "parcial"
-                            valor = "P"
+                            valor = "PC"
                             titulo = "Resposta discursiva parcialmente certa"
                         elif conceito == "errada":
                             status = "errada"
-                            valor = "E"
+                            valor = "EE"
                             titulo = "Resposta discursiva errada"
+                        elif conceito == "em_branco":
+                            status = "em_branco"
+                            valor = "EB"
+                            titulo = "Resposta discursiva em branco"
                         else:
                             status = "pendente"
                             valor = "—"
@@ -13195,7 +13201,7 @@ def resultados(prova_id):
                         and nota_discursiva >= peso_discursiva - 0.001
                     ):
                         status = "correta"
-                        valor = "C"
+                        valor = "TC"
                         titulo = (
                             "Resposta discursiva totalmente correta "
                             f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
@@ -13203,14 +13209,14 @@ def resultados(prova_id):
                         total_acertos_mapa += 1
                     elif nota_discursiva > 0:
                         status = "parcial"
-                        valor = "P"
+                        valor = "PC"
                         titulo = (
                             "Resposta discursiva parcialmente correta "
                             f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
                         )
                     else:
                         status = "errada"
-                        valor = "E"
+                        valor = "EE"
                         titulo = (
                             "Resposta discursiva incorreta "
                             f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
@@ -22227,7 +22233,9 @@ def alterar_ausencia_aplicacao(aplicacao_id, aluno_id):
                     objetiva_corrigida = 0,
                     acertos_objetivos = 0,
                     total_objetivas = 0,
-                    nota_objetiva = NULL
+                    nota_objetiva = NULL,
+                    discursiva_pendente = 0,
+                    nota_final = NULL
                 WHERE aplicacao_id = ? AND aluno_id = ?
             """, (aplicacao_id, aluno_id))
             mensagem = "Aluno marcado como ausente."
@@ -22238,7 +22246,14 @@ def alterar_ausencia_aplicacao(aplicacao_id, aluno_id):
                     objetiva_corrigida = 0,
                     acertos_objetivos = 0,
                     total_objetivas = 0,
-                    nota_objetiva = NULL
+                    nota_objetiva = NULL,
+                    discursiva_pendente = CASE
+                        WHEN EXISTS (
+                            SELECT 1 FROM respostas_discursivas_aplicacao rd
+                            WHERE rd.aplicacao_id = aplicacao_alunos.aplicacao_id
+                              AND rd.aluno_id = aplicacao_alunos.aluno_id
+                              AND COALESCE(rd.corrigida, 0) = 0
+                        ) THEN 1 ELSE 0 END
                 WHERE aplicacao_id = ? AND aluno_id = ?
             """, (aplicacao_id, aluno_id))
             mensagem = "Ausência desfeita. O aluno voltou para pendentes."
@@ -22465,7 +22480,6 @@ def _garantir_discursivas_para_correcao_manual(cursor, aplicacao_id, prova_id):
         SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
         FROM aplicacao_alunos aa
         WHERE aa.aplicacao_id = ?
-          AND LOWER(TRIM(COALESCE(aa.status, ''))) NOT IN ('ausente', 'faltou')
         ORDER BY aa.id
     """, (aplicacao_id,))
     alunos = cursor.fetchall()
@@ -22490,6 +22504,7 @@ def _garantir_discursivas_para_correcao_manual(cursor, aplicacao_id, prova_id):
     cursor.execute("""
         UPDATE aplicacao_alunos
         SET discursiva_pendente = CASE
+            WHEN LOWER(TRIM(COALESCE(status, ''))) IN ('ausente', 'faltou') THEN 0
             WHEN EXISTS (
                 SELECT 1
                 FROM respostas_discursivas_aplicacao rd
@@ -22555,6 +22570,8 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
                 rd.conceito,
                 rd.comentario,
                 rd.corrigida,
+                COALESCE(aa.status, '') AS aluno_status_aplicacao,
+                CASE WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 1 ELSE 0 END AS aluno_ausente,
                 al.nome AS aluno_nome,
                 COALESCE(al.matricula, '') AS aluno_matricula,
                 q.enunciado,
@@ -22563,6 +22580,9 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
                 ROUND(COALESCE(pq.peso, 0), 2) AS peso
             FROM respostas_discursivas_aplicacao rd
             INNER JOIN alunos al ON al.id = rd.aluno_id
+            INNER JOIN aplicacao_alunos aa
+              ON aa.aplicacao_id = rd.aplicacao_id
+             AND aa.aluno_id = rd.aluno_id
             INNER JOIN questoes q ON q.id = rd.questao_id
             INNER JOIN prova_questoes pq
               ON pq.prova_id = ?
@@ -22612,8 +22632,11 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
             if resposta.get("nota") is not None:
                 resposta["nota"] = round(float(resposta["nota"]), 2)
 
-        total = len(respostas)
-        corrigidas = sum(1 for item in respostas if item["corrigida"])
+        respostas_presentes = [
+            item for item in respostas if not int(item.get("aluno_ausente") or 0)
+        ]
+        total = len(respostas_presentes)
+        corrigidas = sum(1 for item in respostas_presentes if item["corrigida"])
         pendentes = total - corrigidas
         valor_total_discursivas = round(
             sum(float(item.get("peso") or 0) for item in respostas), 2
@@ -22657,11 +22680,15 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
             SELECT
                 rd.aluno_id,
                 rd.questao_id,
+                COALESCE(aa.status, '') AS aluno_status_aplicacao,
                 a.prova_id,
                 CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
                 ROUND(COALESCE(pq.peso, 0), 2) AS peso
             FROM respostas_discursivas_aplicacao rd
             INNER JOIN aplicacoes a ON a.id = rd.aplicacao_id
+            INNER JOIN aplicacao_alunos aa
+              ON aa.aplicacao_id = rd.aplicacao_id
+             AND aa.aluno_id = rd.aluno_id
             INNER JOIN provas p ON p.id = a.prova_id
             INNER JOIN prova_questoes pq
               ON pq.prova_id = a.prova_id
@@ -22686,6 +22713,11 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
 
         peso_questao = round(float(resposta["peso"] or 0), 2)
         tem_nota = int(resposta["tem_nota"] or 0) == 1
+
+        if str(resposta["aluno_status_aplicacao"] or "").strip().lower() in {"ausente", "faltou"}:
+            return jsonify({
+                "erro": "Este aluno está marcado como ausente nesta aplicação."
+            }), 409
 
         if tem_nota:
             try:
@@ -22714,9 +22746,9 @@ def salvar_correcao_discursiva(aplicacao_id, resposta_id):
                 else "errada"
             )
         else:
-            if conceito not in {"correta", "parcial", "errada"}:
+            if conceito not in {"correta", "parcial", "errada", "em_branco"}:
                 return jsonify({
-                    "erro": "Selecione: totalmente certa, parcialmente certa ou errada."
+                    "erro": "Selecione: totalmente certa, parcialmente certa, errada ou em branco."
                 }), 400
             nota = None
             conceito_salvo = conceito

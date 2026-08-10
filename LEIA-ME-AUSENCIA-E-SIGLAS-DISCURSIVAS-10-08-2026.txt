@@ -1,0 +1,28 @@
+ARK EDUS — AUSÊNCIA SINCRONIZADA + SIGLAS DAS DISCURSIVAS
+Data: 10/08/2026
+
+ALTERAÇÕES
+1. Ao marcar um aluno como AUSENTE na aplicação:
+   - a discursiva passa automaticamente para situação AUSENTE;
+   - deixa de contar como pendente;
+   - a correção fica bloqueada enquanto o aluno estiver ausente;
+   - notas/correções discursivas já existentes não são apagadas;
+   - no relatório o aluno continua tratado como ausente, sem ser contado como erro.
+
+2. Ao desfazer a ausência:
+   - o aluno volta ao fluxo normal;
+   - correções discursivas já salvas são preservadas;
+   - somente questões discursivas ainda não corrigidas voltam como pendentes.
+
+3. Avaliações SEM NOTA agora possuem quatro classificações:
+   - TC = Totalmente certa
+   - PC = Parcialmente certa
+   - EE = Errada
+   - EB = Em branco
+
+4. O relatório de resultados usa as siglas TC, PC, EE e EB no mapa de respostas e no resumo das discursivas.
+
+COMPATIBILIDADE
+- Não altera QR Codes, códigos de prova, modelos ou cartões já gerados.
+- Não altera o layout dos cartões A4/A5 já impressos.
+- Não inclui plataforma.db.

@@ -524,10 +524,14 @@
 
 .cd-sem-imagem{padding:34px 24px;text-align:center;color:#64748b;font-size:14px;line-height:1.5}
 .cd-sem-imagem strong{display:block;color:#334155;margin-bottom:5px}
-.cd-conceitos{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:7px}
+.cd-conceitos{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:7px}
 .cd-conceito-btn{border:1px solid #cfd8e5;border-radius:10px;background:#fff;padding:11px 9px;font:inherit;font-size:12px;font-weight:850;cursor:pointer;transition:.15s}
 .cd-conceito-btn:hover{border-color:#8fb1df;background:#f8fbff}
 .cd-conceito-btn.ativo{border-color:var(--azul);background:var(--azul-claro);color:var(--azul-escuro);box-shadow:0 0 0 2px rgba(18,59,130,.08)}
+.cd-status-ausente{background:#fef3f2;color:#b42318;border-color:#fecdca}
+.cd-linha-ausente{background:#fffafa}
+.cd-linha-ausente td{opacity:.78}
+
 .cd-modo-aviso{margin:0 0 12px;padding:10px 12px;border:1px solid #d7e4f3;border-radius:10px;background:#f6f9fd;color:#475569;font-size:12px;line-height:1.45}
 
 </style>
@@ -561,7 +565,7 @@
             </div>
             <div class="cd-resumo-card">
                 <small>{{ 'Critério' if avaliacao_sem_nota else 'Valor discursivas' }}</small>
-                <strong style="font-size:{{ '14px' if avaliacao_sem_nota else '22px' }}">{{ 'C / P / E' if avaliacao_sem_nota else ('%.2f'|format(resumo.valor_total or 0)|replace('.', ',')) }}</strong>
+                <strong style="font-size:{{ '14px' if avaliacao_sem_nota else '22px' }}">{{ 'TC / PC / EE / EB' if avaliacao_sem_nota else ('%.2f'|format(resumo.valor_total or 0)|replace('.', ',')) }}</strong>
             </div>
         </div>
     </header>
@@ -597,7 +601,7 @@
                 <tbody>
                     {% for resposta in respostas %}
                     <tr
-                        class="cd-linha {{ 'ativa' if loop.first else '' }}"
+                        class="cd-linha {{ 'ativa' if loop.first else '' }} {{ 'cd-linha-ausente' if resposta.aluno_ausente else '' }}"
                         data-index="{{ loop.index0 }}"
                         data-busca="{{ resposta.aluno_nome|lower }} questão {{ resposta.numero_exibicao }}"
                     >
@@ -607,9 +611,11 @@
                         {% if avaliacao_sem_nota %}
                         <td>Pedagógico</td>
                         <td class="cd-celula-nota">
-                            {% if resposta.conceito == 'correta' %}Totalmente certa
-                            {% elif resposta.conceito == 'parcial' %}Parcialmente certa
-                            {% elif resposta.conceito == 'errada' %}Errada
+                            {% if resposta.aluno_ausente %}Ausente
+                            {% elif resposta.conceito == 'correta' %}TC · Totalmente certa
+                            {% elif resposta.conceito == 'parcial' %}PC · Parcialmente certa
+                            {% elif resposta.conceito == 'errada' %}EE · Errada
+                            {% elif resposta.conceito == 'em_branco' %}EB · Em branco
                             {% else %}—{% endif %}
                         </td>
                         {% else %}
@@ -623,8 +629,8 @@
                         </td>
                         {% endif %}
                         <td>
-                            <span class="cd-status {{ 'cd-status-corrigida' if resposta.corrigida else 'cd-status-pendente' }}">
-                                {{ 'Corrigida' if resposta.corrigida else 'Pendente' }}
+                            <span class="cd-status {{ 'cd-status-ausente' if resposta.aluno_ausente else ('cd-status-corrigida' if resposta.corrigida else 'cd-status-pendente') }}">
+                                {{ 'Ausente' if resposta.aluno_ausente else ('Corrigida' if resposta.corrigida else 'Pendente') }}
                             </span>
                         </td>
                     </tr>
@@ -683,6 +689,7 @@
                         <button type="button" class="cd-conceito-btn" data-conceito="correta">✓ Totalmente certa</button>
                         <button type="button" class="cd-conceito-btn" data-conceito="parcial">◐ Parcialmente certa</button>
                         <button type="button" class="cd-conceito-btn" data-conceito="errada">✕ Errada</button>
+                        <button type="button" class="cd-conceito-btn" data-conceito="em_branco">□ Em branco</button>
                     </div>
                 </div>
                 {% else %}
@@ -889,10 +896,11 @@ function renderizar(){
     legendaDocumento.textContent =
         `${r.aluno_nome} · Questão ${r.numero_exibicao}`;
 
-    statusAtual.textContent = r.corrigida ? "Corrigida" : "Pendente";
-    statusAtual.className =
-        "cd-status " +
-        (r.corrigida ? "cd-status-corrigida" : "cd-status-pendente");
+    const alunoAusente = Boolean(Number(r.aluno_ausente || 0));
+    statusAtual.textContent = alunoAusente ? "Ausente" : (r.corrigida ? "Corrigida" : "Pendente");
+    statusAtual.className = "cd-status " + (alunoAusente
+        ? "cd-status-ausente"
+        : (r.corrigida ? "cd-status-corrigida" : "cd-status-pendente"));
 
     enunciadoQuestao.innerHTML = r.enunciado || "Enunciado não informado.";
 
@@ -932,16 +940,29 @@ function renderizar(){
     }
     comentarioResposta.value = r.comentario || "";
 
+    comentarioResposta.disabled = alunoAusente;
+    salvarBtn.disabled = alunoAusente;
+    salvarBtn.textContent = alunoAusente ? "Aluno ausente" : "Salvar correção";
+    if(avaliacaoSemNota){
+        botoesConceito.forEach(btn => btn.disabled = alunoAusente);
+    }else if(notaResposta){
+        notaResposta.disabled = alunoAusente;
+    }
+
     anteriorBtn.disabled = indiceAtual === 0;
     proximoBtn.disabled = indiceAtual === respostas.length - 1;
 }
 
 async function salvar(){
     const r = respostas[indiceAtual];
+    if(Boolean(Number(r.aluno_ausente || 0))){
+        mostrarNotificacao("Este aluno está marcado como ausente. A discursiva não precisa ser corrigida.", "error");
+        return;
+    }
     let nota = null;
     if(avaliacaoSemNota){
         if(!conceitoSelecionado){
-            mostrarNotificacao("Selecione totalmente certa, parcialmente certa ou errada.", "error");
+            mostrarNotificacao("Selecione totalmente certa, parcialmente certa, errada ou em branco.", "error");
             return;
         }
     }else{
@@ -994,7 +1015,7 @@ async function salvar(){
 
         const linha = linhas[indiceAtual];
         linha.querySelector(".cd-celula-nota").textContent = avaliacaoSemNota
-            ? ({correta:"Totalmente certa", parcial:"Parcialmente certa", errada:"Errada"}[dados.conceito] || "—")
+            ? ({correta:"TC · Totalmente certa", parcial:"PC · Parcialmente certa", errada:"EE · Errada", em_branco:"EB · Em branco"}[dados.conceito] || "—")
             : formatarNota(dados.nota);
 
         const selo = linha.querySelector(".cd-status");
@@ -1021,8 +1042,10 @@ async function salvar(){
     }catch(erro){
         mostrarNotificacao(erro.message, "error");
     }finally{
-        salvarBtn.disabled = false;
-        salvarBtn.textContent = "Salvar correção";
+        const atual = respostas[indiceAtual];
+        const ausenteAgora = Boolean(Number(atual.aluno_ausente || 0));
+        salvarBtn.disabled = ausenteAgora;
+        salvarBtn.textContent = ausenteAgora ? "Aluno ausente" : "Salvar correção";
     }
 }
 
