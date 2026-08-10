@@ -6449,12 +6449,18 @@ def _mapear_bncc_dev_item(item):
         item.get("unidade_tematica") or item.get("unidadeTematica") or
         item.get("pratica_linguagem") or item.get("praticaLinguagem") or
         nomes.get("unidadeTematica") or nomes.get("praticaLinguagem") or
-        nomes.get("praticaDeLinguagem") or nomes.get("campoAtuacao") or ""
+        nomes.get("praticaDeLinguagem") or nomes.get("campoAtuacao") or
+        nomes.get("camposAtuacao") or ""
     )
+    if isinstance(unidade, list):
+        unidade = " • ".join(str(x).strip() for x in unidade if str(x).strip())
+    elif isinstance(unidade, dict):
+        unidade = unidade.get("nome") or unidade.get("texto") or unidade.get("descricao") or ""
 
     objetos = (
         item.get("objetosConhecimento") or item.get("objetos_conhecimento") or
-        item.get("objeto_conhecimento") or item.get("objetoConhecimento") or []
+        item.get("objeto_conhecimento") or item.get("objetoConhecimento") or
+        item.get("objetos") or []
     )
     if isinstance(objetos, dict):
         objetos = [objetos]
@@ -6485,46 +6491,67 @@ def _mapear_bncc_dev_item(item):
     }
 
 
+def _extrair_lista_bncc_remota(dados):
+    """Aceita os formatos atuais e anteriores da API bncc.dev."""
+    if isinstance(dados, list):
+        return dados
+    if not isinstance(dados, dict):
+        return []
+    for chave in ("resultados", "itens", "items", "dados", "habilidades", "results"):
+        valor = dados.get(chave)
+        if isinstance(valor, list):
+            return valor
+        if isinstance(valor, dict):
+            for sub in ("resultados", "itens", "items", "dados", "habilidades"):
+                if isinstance(valor.get(sub), list):
+                    return valor[sub]
+    # Algumas respostas de lookup são o próprio registro.
+    return [dados] if dados.get("codigo") else []
+
+
 def _buscar_bncc_remota(termo, limite=30):
-    """Consulta bncc.dev quando o catálogo local ainda não foi importado no banco persistente."""
+    """Fallback online: a tela continua funcionando mesmo sem catálogo BNCC no SQLite."""
     termo = str(termo or "").strip()
     if len(termo) < 2:
         return []
+    cab = {"Accept": "application/json", "User-Agent": "ARK-EDUS/1.0"}
     try:
         codigo = re.sub(r"[^A-Za-z0-9]", "", termo).upper()
         if re.fullmatch(r"(?:EF|EM)[A-Z0-9]{5,}", codigo):
-            resposta = requests.get(
-                f"https://api.bncc.dev/v1/aprendizagens/{codigo}", timeout=5
-            )
+            resposta = requests.get(f"https://api.bncc.dev/v1/aprendizagens/{codigo}", headers=cab, timeout=8)
             if resposta.ok:
                 normalizado = _mapear_bncc_dev_item(resposta.json())
-                return [normalizado] if normalizado else []
+                if normalizado:
+                    return [normalizado]
 
-        resposta = requests.get(
-            "https://api.bncc.dev/v1/busca",
-            params={"q": termo}, timeout=5
-        )
-        if not resposta.ok:
-            return []
-        dados = resposta.json()
-        if isinstance(dados, dict):
-            itens = (
-                dados.get("resultados") or dados.get("itens") or dados.get("items") or
-                dados.get("dados") or dados.get("habilidades") or []
-            )
-        else:
-            itens = dados
-        resultado = []
-        for item in itens if isinstance(itens, list) else []:
-            normalizado = _mapear_bncc_dev_item(item)
-            if normalizado:
-                resultado.append(normalizado)
-            if len(resultado) >= limite:
-                break
-        return resultado
-    except Exception as erro:
+        # Busca textual oficial.
+        resposta = requests.get("https://api.bncc.dev/v1/busca", params={"q": termo}, headers=cab, timeout=8)
+        if resposta.ok:
+            saida=[]
+            for item in _extrair_lista_bncc_remota(resposta.json()):
+                normalizado=_mapear_bncc_dev_item(item)
+                if normalizado and normalizado["codigo"] not in {x["codigo"] for x in saida}:
+                    saida.append(normalizado)
+                    if len(saida) >= limite:
+                        break
+            if saida:
+                return saida
+
+        # Fallback extra para códigos/parciais caso a busca textual mude de formato.
+        resposta = requests.get("https://api.bncc.dev/v1/habilidades", params={"q": termo, "limite": limite}, headers=cab, timeout=8)
+        if resposta.ok:
+            saida=[]
+            chave=termo.casefold()
+            for item in _extrair_lista_bncc_remota(resposta.json()):
+                normalizado=_mapear_bncc_dev_item(item)
+                if normalizado and chave in (normalizado["codigo"]+" "+normalizado["descricao"]).casefold():
+                    saida.append(normalizado)
+                    if len(saida) >= limite:
+                        break
+            return saida
+    except (requests.RequestException, ValueError, TypeError) as erro:
         print("AVISO BNCC REMOTA:", erro)
-        return []
+    return []
 
 
 @app.route("/api/bncc/buscar")

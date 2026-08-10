@@ -626,7 +626,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     async function pesquisar(){
         const termo=habilidade.value.trim();
-        if(termo.length<2){ lista.classList.remove("ativo"); ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição."; return; }
+        if(termo.length<2){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status"; ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição."; return; }
         if(controle) controle.abort(); controle=new AbortController();
         ajuda.className="ajuda bncc-status"; ajuda.textContent="Pesquisando habilidade BNCC...";
         const q=new URLSearchParams({q:termo,componente:disciplina?.value||"",etapa:etapa?.value||"",ano_serie:ano?.value||""});
@@ -639,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const exata=(d.habilidades||[]).find(h=>String(h.codigo||"").toUpperCase()===termo.toUpperCase());
             if(exata) selecionar(exata);
         }catch(e){
-            if(e.name!=="AbortError"){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status erro"; ajuda.textContent="Não foi possível pesquisar as habilidades agora. Tente novamente."; }
+            if(e.name!=="AbortError"){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status erro"; ajuda.textContent="Não foi possível pesquisar as habilidades BNCC. Atualize a página e tente novamente."; }
         }
     }
     habilidade.addEventListener("input",()=>{ objeto.value=""; unidade.value=""; clearTimeout(timer); timer=setTimeout(pesquisar,220); });
