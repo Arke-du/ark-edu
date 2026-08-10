@@ -185,7 +185,7 @@ app.config.update(
     MAIL_DEFAULT_SENDER=os.environ.get("MAIL_DEFAULT_SENDER")
     or os.environ.get("MAIL_USERNAME"),
     UPLOAD_FOLDER=UPLOAD_FOLDER,
-    MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+    MAX_CONTENT_LENGTH=50 * 1024 * 1024,
     SESSION_COOKIE_PATH="/",
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -194,6 +194,17 @@ app.config.update(
 )
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+@app.errorhandler(413)
+def requisicao_grande_demais(_erro):
+    mensagem = "O conteúdo enviado ficou muito grande. Reduza o tamanho das imagens ou tente novamente."
+    if request.accept_mimetypes.best == "application/json" or request.path.startswith("/api/"):
+        return jsonify({"erro": mensagem}), 413
+    try:
+        flash(mensagem, "erro")
+        return redirect(request.referrer or url_for("questoes"))
+    except Exception:
+        return mensagem, 413
 
 def _nome_upload(valor):
     """Normaliza referências antigas e novas sem alterar o valor salvo no banco."""
@@ -6563,9 +6574,6 @@ def api_bncc_buscar():
     etapa = (request.args.get("etapa") or "").strip()
     componente = (request.args.get("componente") or "").strip()
     ano_serie = (request.args.get("ano_serie") or "").strip()
-    if len(termo) < 2:
-        return jsonify({"habilidades": []})
-
     def normalizar_busca(valor):
         txt = unicodedata.normalize("NFD", str(valor or "").casefold())
         return "".join(c for c in txt if unicodedata.category(c) != "Mn")
@@ -6573,6 +6581,36 @@ def api_bncc_buscar():
     chave = normalizar_busca(termo)
     habilidades = []
     vistos = set()
+
+    # Ao apenas clicar/focar no campo, sem digitar, já devolve uma lista
+    # contextual de habilidades. Isso transforma o campo em um seletor pesquisável.
+    if len(termo) < 2:
+        try:
+            if etapa and componente:
+                dados = consultar_bncc(DB_PATH, etapa=etapa, componente=componente, ano_serie=ano_serie)
+                habilidades = list(dados.get("habilidades", []))[:40]
+            if not habilidades:
+                banco_bncc = sqlite3.connect(DB_PATH)
+                banco_bncc.row_factory = sqlite3.Row
+                linhas = banco_bncc.execute("""
+                    SELECT etapa_ensino, ano_serie, area_conhecimento, componente,
+                           unidade_tematica, objeto_conhecimento, codigo, descricao
+                    FROM bncc_habilidades
+                    WHERE ativo = 1
+                    ORDER BY codigo COLLATE NOCASE
+                    LIMIT 40
+                """).fetchall()
+                banco_bncc.close()
+                habilidades = [{
+                    "codigo": r["codigo"],
+                    "descricao": r["descricao"],
+                    "valor": f"{r['codigo']} — {r['descricao']}",
+                    "unidade_tematica": r["unidade_tematica"] or "",
+                    "objeto_conhecimento": r["objeto_conhecimento"] or "",
+                } for r in linhas]
+        except sqlite3.Error as erro:
+            print("ERRO AO LISTAR BNCC NO FOCO:", erro)
+        return jsonify({"habilidades": habilidades[:40]})
 
     # 1) Pesquisa ampla no catálogo local. Não exige que etapa/componente estejam
     # perfeitamente iguais ao cadastro, evitando o caso em que o professor digita

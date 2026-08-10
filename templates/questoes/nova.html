@@ -624,9 +624,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         lista.classList.add("ativo");
     }
-    async function pesquisar(){
+    async function pesquisar(forcarLista=false){
         const termo=habilidade.value.trim();
-        if(termo.length<2){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status"; ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição."; return; }
+        if(termo.length<2 && !forcarLista){ lista.classList.remove("ativo"); ajuda.className="ajuda bncc-status"; ajuda.textContent="Digite pelo menos 2 caracteres do código ou da descrição, ou clique no campo para ver a lista."; return; }
         if(controle) controle.abort(); controle=new AbortController();
         ajuda.className="ajuda bncc-status"; ajuda.textContent="Pesquisando habilidade BNCC...";
         const q=new URLSearchParams({q:termo,componente:disciplina?.value||"",etapa:etapa?.value||"",ano_serie:ano?.value||""});
@@ -643,7 +643,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     habilidade.addEventListener("input",()=>{ objeto.value=""; unidade.value=""; clearTimeout(timer); timer=setTimeout(pesquisar,220); });
-    habilidade.addEventListener("focus",()=>{ if(resultados.length) lista.classList.add("ativo"); else if(habilidade.value.trim().length>=2) pesquisar(); });
+    habilidade.addEventListener("focus",()=>{ if(resultados.length) lista.classList.add("ativo"); else pesquisar(true); });
+    habilidade.addEventListener("click",()=>{ if(!resultados.length) pesquisar(true); else lista.classList.add("ativo"); });
     document.addEventListener("click",e=>{ if(!e.target.closest('.bncc-busca-wrap')) lista.classList.remove("ativo"); });
     [disciplina,etapa,ano].filter(Boolean).forEach(el=>el.addEventListener("change",()=>{ if(habilidade.value.trim().length>=2) pesquisar(); }));
 });
