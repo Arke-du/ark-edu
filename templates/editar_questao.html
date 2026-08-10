@@ -782,6 +782,15 @@ document.addEventListener("DOMContentLoaded", () => {
 // Dados iniciais da edição: mesma interface da criação, já preenchida.
 document.addEventListener("DOMContentLoaded", () => {
   const dados={{ valores_anteriores|tojson }};
+  const etapaEdicao=document.getElementById("etapaEnsino");
+  const anoEdicao=document.getElementById("anoSerie");
+  if(etapaEdicao && dados.etapa_ensino) etapaEdicao.value=dados.etapa_ensino;
+  if(anoEdicao && dados.ano_serie) anoEdicao.dataset.valor=dados.ano_serie;
+  // Na edição, etapa/ano já vêm do banco; preserva esses valores antes de qualquer atualização dinâmica.
+  const etapaEdicao=document.getElementById("etapaEnsino");
+  const anoEdicao=document.getElementById("anoSerie");
+  if(etapaEdicao && dados.etapa_ensino) etapaEdicao.value=dados.etapa_ensino;
+  if(anoEdicao && dados.ano_serie) anoEdicao.dataset.valor=dados.ano_serie;
   const alternativas={{ alternativas|tojson }};
   const respostas={{ respostas|tojson }};
   const tipo=dados.tipo_questao || 'multipla_escolha';

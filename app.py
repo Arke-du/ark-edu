@@ -8565,7 +8565,7 @@ def editar_questao(questao_id):
             )
 
         disciplina = (request.form.get("disciplina") or "").strip()
-        assunto = (request.form.get("assunto") or "").strip()
+        assunto = (request.form.get("assunto") or questao["assunto"] or "").strip()
         dificuldade = (request.form.get("dificuldade") or "").strip()
         tipo_questao = (request.form.get("tipo_questao") or "multipla_escolha").strip()
         enunciado = (request.form.get("enunciado") or "").strip()
@@ -8589,8 +8589,8 @@ def editar_questao(questao_id):
             linhas_resposta = 5
         linhas_resposta = max(1, min(linhas_resposta, 30))
 
-        if not disciplina or not assunto or not dificuldade or not enunciado:
-            flash("Preencha componente, assunto, dificuldade e enunciado.", "erro")
+        if not disciplina or not dificuldade or not enunciado:
+            flash("Preencha componente, dificuldade e enunciado.", "erro")
             return redirect(
                 f"/questoes/{questao_id}/editar"
                 + (f"?prova_id={prova_id}" if prova_id else "")
