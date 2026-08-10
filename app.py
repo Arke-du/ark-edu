@@ -12172,7 +12172,7 @@ def _detectar_quatro_marcadores_cartao(imagem):
     largura_inf = np.linalg.norm(ordenados[2] - ordenados[3])
     altura_esq = np.linalg.norm(ordenados[3] - ordenados[0])
     altura_dir = np.linalg.norm(ordenados[2] - ordenados[1])
-    if min(largura_sup, largura_inf, altura_esq, altura_dir) < 150:
+    if min(largura_sup, largura_inf, altura_esq, altura_dir) < max(70, largura * 0.08):
         return None
 
     return ordenados
@@ -21006,11 +21006,11 @@ def _decodificar_qr_cartao(caminho_imagem):
             [sys.executable, worker, caminho_imagem],
             capture_output=True,
             text=True,
-            timeout=12,
+            timeout=18,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        app.logger.warning("Leitura de QR excedeu 12s: %s", caminho_imagem)
+        app.logger.warning("Leitura de QR excedeu 18s: %s", caminho_imagem)
         return None
     except Exception:
         app.logger.exception("Falha ao iniciar leitor isolado de QR")
@@ -21048,7 +21048,7 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
 
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            matriz = fitz.Matrix(1.25, 1.25)
+            matriz = fitz.Matrix(2.0, 2.0)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
             nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
             caminho = os.path.join(pasta_destino, nome)

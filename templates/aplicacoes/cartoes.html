@@ -17,6 +17,24 @@
     margin:7mm;
 }
 
+/* A4 é o padrão. O botão A5 aplica escala física controlada sem alterar
+   a geometria relativa usada pelo leitor óptico. */
+body.print-a5 .pagina{
+    transform-origin:top left;
+}
+@media print{
+    body.print-a5 .pagina{
+        width:134mm;
+        min-height:196mm;
+        padding:4.8mm;
+        margin:0 auto;
+        zoom:.7071;
+    }
+    body.print-a5 .qr-area img{width:27mm;height:27mm}
+    body.print-a5 .marca,
+    body.print-a5 .disc-marca{width:7mm;height:7mm}
+}
+
 *{box-sizing:border-box}
 
 html,body{
@@ -42,6 +60,10 @@ html,body{
     cursor:pointer;
     box-shadow:0 8px 22px rgba(0,0,0,.18);
 }
+
+.print-formatos{display:flex;gap:8px;background:transparent;box-shadow:none;padding:0}
+.print-formatos button{border:0;border-radius:10px;padding:11px 16px;background:#123f88;color:#fff;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.18)}
+@media print{.print-formatos{display:none!important}}
 
 .pagina{
     position:relative;
@@ -793,7 +815,10 @@ html,body{
 </head>
 
 <body>
-<button class="print" type="button" onclick="window.print()">Salvar em PDF</button>
+<div class="print print-formatos">
+  <button type="button" onclick="imprimirCartoes('a4')">Imprimir A4</button>
+  <button type="button" onclick="imprimirCartoes('a5')">Imprimir A5</button>
+</div>
 
 {% if not cartoes %}
 <section class="pagina pagina-vazia">
@@ -1037,5 +1062,11 @@ html,body{
 {% endif %}
 
 {% endfor %}
+<script>
+function imprimirCartoes(formato){
+  document.body.classList.toggle('print-a5', formato === 'a5');
+  window.print();
+}
+</script>
 </body>
 </html>
