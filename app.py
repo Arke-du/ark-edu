@@ -20991,111 +20991,41 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Lê o QR do cartão com caminho rápido e fallback robusto.
+    """Decodifica o QR em processo isolado, com limite rígido de tempo.
 
-    A maioria dos cartões ARK EDUS chega já orientada e com o QR no topo
-    direito. Tentamos primeiro poucas versões baratas; só executamos rotações,
-    ampliações e limiarizações extras quando o caminho rápido falha. Isso reduz
-    muito o tempo de importação em lote sem sacrificar cartões difíceis.
+    OpenCV pode consumir CPU por muito tempo em fotografias A4 desfocadas.
+    Rodar o detector em subprocesso impede que uma imagem difícil derrube o
+    worker do Gunicorn e evita o 502 do Render.
     """
-    imagem = cv2.imread(caminho_imagem)
-    if imagem is None:
+    import subprocess
+    import sys
+
+    worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr_worker.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, worker, caminho_imagem],
+            capture_output=True,
+            text=True,
+            timeout=12,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        app.logger.warning("Leitura de QR excedeu 12s: %s", caminho_imagem)
+        return None
+    except Exception:
+        app.logger.exception("Falha ao iniciar leitor isolado de QR")
         return None
 
-    detector = cv2.QRCodeDetector()
-
-    def tentar(candidata):
-        if candidata is None or candidata.size == 0:
-            return None
-        try:
-            texto, _, _ = detector.detectAndDecode(candidata)
-            if texto and texto.strip():
-                return texto.strip()
-        except cv2.error:
-            pass
-        try:
-            resultado = detector.detectAndDecodeMulti(candidata)
-            if len(resultado) == 4:
-                sucesso, textos, _, _ = resultado
-                if sucesso and textos:
-                    for texto in textos:
-                        if texto and texto.strip():
-                            return texto.strip()
-        except (cv2.error, AttributeError, TypeError, ValueError):
-            pass
+    saida = (proc.stdout or "").strip().splitlines()
+    if not saida:
         return None
-
-    altura, largura = imagem.shape[:2]
-    recorte = imagem[
-        0:max(1, int(altura * 0.34)),
-        max(0, int(largura * 0.55)):largura
-    ]
-
-    # Caminho rápido: QR no topo direito, sem rotação.
-    for base in (recorte, imagem):
-        if base is None or base.size == 0:
-            continue
-        for escala in (1.0, 1.5):
-            candidata = base if escala == 1.0 else cv2.resize(
-                base, None, fx=escala, fy=escala,
-                interpolation=cv2.INTER_CUBIC
-            )
-            texto = tentar(candidata)
-            if texto:
-                return texto
-            cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY) \
-                if len(candidata.shape) == 3 else candidata
-            texto = tentar(cinza)
-            if texto:
-                return texto
-            _, otsu = cv2.threshold(
-                cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-            )
-            texto = tentar(otsu)
-            if texto:
-                return texto
-
-    # Fallback: cartões inclinados, girados ou com contraste ruim.
-    for regiao in (recorte, imagem):
-        if regiao is None or regiao.size == 0:
-            continue
-        for angulo in (0, 90, 270, 180):
-            if angulo == 0:
-                rotacionada = regiao
-            elif angulo == 90:
-                rotacionada = cv2.rotate(regiao, cv2.ROTATE_90_CLOCKWISE)
-            elif angulo == 180:
-                rotacionada = cv2.rotate(regiao, cv2.ROTATE_180)
-            else:
-                rotacionada = cv2.rotate(regiao, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
-            for escala in (1.0, 2.0, 3.0):
-                candidata = rotacionada if escala == 1.0 else cv2.resize(
-                    rotacionada, None, fx=escala, fy=escala,
-                    interpolation=cv2.INTER_CUBIC
-                )
-                texto = tentar(candidata)
-                if texto:
-                    return texto
-                cinza = cv2.cvtColor(candidata, cv2.COLOR_BGR2GRAY) \
-                    if len(candidata.shape) == 3 else candidata
-                clahe = cv2.createCLAHE(
-                    clipLimit=2.0, tileGridSize=(8, 8)
-                ).apply(cinza)
-                for versao in (cinza, clahe):
-                    texto = tentar(versao)
-                    if texto:
-                        return texto
-                    _, otsu = cv2.threshold(
-                        versao, 0, 255,
-                        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-                    )
-                    texto = tentar(otsu)
-                    if texto:
-                        return texto
-
-    return None
-
+    try:
+        dados = json.loads(saida[-1])
+    except Exception:
+        app.logger.warning("Saída inválida do leitor de QR: %r", proc.stdout)
+        return None
+    texto = str(dados.get("text") or "").strip()
+    return texto or None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
     """Converte cada página de um PDF em PNG usando PyMuPDF.
