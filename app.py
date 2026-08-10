@@ -21118,7 +21118,7 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
 
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            matriz = fitz.Matrix(1.6, 1.6)
+            matriz = fitz.Matrix(1.25, 1.25)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
             nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
             caminho = os.path.join(pasta_destino, nome)
@@ -21242,34 +21242,10 @@ def importar_cartoes_aplicacao(aplicacao_id):
                 # várias páginas. O banco continua sendo atualizado em série,
                 # mas a etapa de visão computacional mais cara aproveita os
                 # núcleos disponíveis do servidor.
+                # Processa QR sequencialmente. Em instâncias pequenas do Render,
+                # múltiplos OpenCV/QRCodeDetector simultâneos elevam muito a RAM
+                # e podem fazer o worker ser encerrado (502 Bad Gateway).
                 qr_precalculados = {}
-                if len(paginas) > 1:
-                    try:
-                        from concurrent.futures import ThreadPoolExecutor
-                        max_workers = min(
-                            3, len(paginas), max(1, os.cpu_count() or 1)
-                        )
-                        with ThreadPoolExecutor(
-                            max_workers=max_workers
-                        ) as executor:
-                            futuros = {
-                                executor.submit(
-                                    _decodificar_qr_cartao, caminho_pg
-                                ): caminho_pg
-                                for caminho_pg, _ in paginas
-                            }
-                            for futuro, caminho_pg in [
-                                (fut, cam) for fut, cam in futuros.items()
-                            ]:
-                                try:
-                                    qr_precalculados[caminho_pg] = futuro.result()
-                                except Exception:
-                                    qr_precalculados[caminho_pg] = None
-                    except Exception as erro_qr_lote:
-                        print(
-                            "Pré-leitura paralela de QR indisponível: ",
-                            erro_qr_lote
-                        )
 
                 for caminho, numero_pagina in paginas:
                     cursor.execute("SAVEPOINT importar_pagina")
