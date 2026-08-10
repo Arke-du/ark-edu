@@ -394,17 +394,44 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function inserirImagemNoEditor(arquivo){
+    async function arquivoImagemOtimizado(arquivo){
+        if(!arquivo) return null;
+        if(arquivo.size > 20 * 1024 * 1024) throw new Error("A imagem original deve ter no máximo 20 MB.");
+        const dataUrl = await new Promise((resolve, reject) => {
+            const leitor = new FileReader();
+            leitor.onload = () => resolve(leitor.result);
+            leitor.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+            leitor.readAsDataURL(arquivo);
+        });
+        const img = await new Promise((resolve, reject) => {
+            const imagem = new Image();
+            imagem.onload = () => resolve(imagem);
+            imagem.onerror = () => reject(new Error("Imagem inválida."));
+            imagem.src = dataUrl;
+        });
+        const maxDim = 1600;
+        const escala = Math.min(1, maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const largura = Math.max(1, Math.round(img.naturalWidth * escala));
+        const altura = Math.max(1, Math.round(img.naturalHeight * escala));
+        const canvas = document.createElement("canvas");
+        canvas.width = largura; canvas.height = altura;
+        const ctx = canvas.getContext("2d", {alpha:false});
+        ctx.fillStyle = "#fff"; ctx.fillRect(0,0,largura,altura);
+        ctx.drawImage(img,0,0,largura,altura);
+        return canvas.toDataURL("image/jpeg", 0.78);
+    }
+
+    async function inserirImagemNoEditor(arquivo){
         if(!arquivo) return;
-        if(arquivo.size > 8 * 1024 * 1024) return alert("A imagem deve ter no máximo 8 MB.");
-        const leitor = new FileReader();
-        leitor.onload = () => {
-            const id = `figura-${Date.now()}`;
-            inserirHtmlNoCursor(`<figure id="${id}" style="width:min(100%,680px);height:auto"><img src="${leitor.result}" alt="Imagem do enunciado"></figure><p><br></p>`);
+        try{
+            const otimizada = await arquivoImagemOtimizado(arquivo);
+            const id = `figura-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            inserirHtmlNoCursor(`<figure id="${id}" style="width:min(100%,680px);height:auto"><img src="${otimizada}" alt="Imagem do enunciado"></figure><p><br></p>`);
             const figura = document.getElementById(id);
             if(figura) prepararFigura(figura);
-        };
-        leitor.readAsDataURL(arquivo);
+        }catch(erro){
+            avisoArk(erro.message || "Não foi possível inserir a imagem.", editor);
+        }
     }
 
     function analisarQuestaoColada(bruto){

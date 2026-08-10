@@ -1,0 +1,7 @@
+ARK EDUS - CORREÇÃO DE IMAGENS / ERRO 413
+
+- Imagens inseridas ou coladas no editor são redimensionadas no navegador para no máximo 1600 px.
+- Conversão para JPEG com compressão antes de transformar em Base64.
+- Evita formulários gigantes e o erro 413 ao cadastrar questões com várias imagens.
+- Mantida a lista de habilidades BNCC ao clicar no campo.
+- Banco de dados não incluído neste pacote.
