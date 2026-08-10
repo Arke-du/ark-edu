@@ -16,7 +16,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.24}
+body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3}
 .toolbar{position:sticky;top:0;z-index:1000;display:flex;justify-content:center;align-items:center;gap:12px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
 .toolbar .layout-info{font-size:13px;color:#475569}
 .print{border:0;border-radius:10px;padding:10px 18px;background:#123f88;color:#fff;font-weight:700;cursor:pointer}
@@ -56,9 +56,9 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
 /* Questões: economia vem de margens e paginação inteligente, não de esmagar conteúdo. */
 .question{margin:0 0 1.65mm;padding:0;min-width:0}
 .question.question-part{margin-bottom:1.5mm}
-.question-title{margin:0 0 .65mm;font-size:10.5pt;line-height:1.12;font-weight:800;color:#0f172a}
-.question-title.continuation{font-size:9.3pt;color:#334155}
-.statement{margin:0 0 .75mm;text-align:left;font-size:10.2pt;line-height:1.18;min-width:0}
+.question-title{margin:0 0 .65mm;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.25;font-weight:800;color:#0f172a}
+.question-title.continuation{font-size:12pt;color:#334155}
+.statement{margin:0 0 .75mm;text-align:left;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3;min-width:0}
 .statement p{margin:0 0 .45mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
@@ -66,32 +66,27 @@ body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;fon
 .statement p:empty,.statement div:empty{display:none!important}
 .statement br+br{display:none}
 .statement table{max-width:100%!important;height:auto!important;border-collapse:collapse}
-.statement figure img,.statement>img{display:block;max-width:100%!important;width:auto;height:auto!important;max-height:62mm;object-fit:contain;margin:0 auto}
-.question-image{display:block;width:auto;max-width:100%;max-height:62mm;margin:.8mm auto 1mm;object-fit:contain}
-.alt-image{display:block;max-width:100%;max-height:34mm;margin:.5mm 0;object-fit:contain}
+.statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;object-fit:contain;margin:.8mm auto}
+.question-image{display:block;width:auto;max-width:100%;height:auto;margin:.8mm auto 1mm;object-fit:contain}
+.alt-image{display:block;max-width:100%;height:auto;margin:.5mm 0;object-fit:contain}
 .alternatives{display:grid;gap:.35mm;margin:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
-.alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-size:9.5pt;font-weight:700;line-height:1.15}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
-.alt-text{padding-top:0;white-space:pre-line;font-size:9.8pt;line-height:1.16;min-width:0}
+.alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:12pt;font-weight:700;line-height:1.3}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
+.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3;min-width:0}
 .discursive-space{margin-top:.8mm}
 .discursive-line{height:5.2mm;border-bottom:1px solid #94a3b8}
 .model-tag{font-weight:800}
 
-/* Imagens das discursivas permanecem grandes. Em 1 coluna podem chegar a 145 mm;
-   em 2 colunas usam toda a largura útil da coluna. */
+/* O tamanho definido no cadastro/editor é preservado. A impressão só limita a imagem
+   à largura física disponível, sem ampliá-la automaticamente e sem deformá-la. */
 .discursive-question .question-image,
 .discursive-question .statement figure img,
-.discursive-question .statement>img{width:min(100%,145mm)!important;max-width:100%!important;max-height:78mm!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
+.discursive-question .statement>img{max-width:100%!important;height:auto!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
 
-body.layout-2 .statement{font-size:9.5pt;line-height:1.14}
-body.layout-2 .question-title{font-size:9.7pt}
-body.layout-2 .alt-text{font-size:9.2pt;line-height:1.13}
-body.layout-2 .alt-letter{font-size:9pt;min-width:5.7mm}
+body.layout-2 .statement,body.layout-2 .question-title,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3}
+body.layout-2 .alt-letter{min-width:6.5mm}
 body.layout-2 .question{margin-bottom:1.25mm}
-body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-height:52mm}
-body.layout-2 .discursive-question .question-image,
-body.layout-2 .discursive-question .statement figure img,
-body.layout-2 .discursive-question .statement>img{width:100%!important;max-height:60mm!important}
+body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-width:100%!important;height:auto!important}
 body.layout-2 .discursive-line{height:4.8mm}
 
 @page{size:A4 portrait;margin:0}
@@ -345,7 +340,7 @@ body.layout-2 .discursive-line{height:4.8mm}
          diminuir abaixo de uma leitura confortável. */
       if(!fits(slot)){
         const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
-        if(img){ img.style.maxHeight = columns===2 ? '48mm' : '70mm'; img.style.maxWidth='100%'; }
+        if(img){ img.style.maxWidth='100%'; img.style.height='auto'; }
       }
     }
   }
