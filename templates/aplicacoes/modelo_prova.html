@@ -57,12 +57,12 @@ body.layout-2 .question-grid{gap:0}
 .instructions li{margin:.3mm 0}
 
 /* Questões: economia vem de margens e paginação inteligente, não de esmagar conteúdo. */
-.question{margin:0 0 2.25mm;padding:0;min-width:0}
-.question.question-part{margin-bottom:2.05mm}
+.question{margin:0 0 3.15mm;padding:0;min-width:0}
+.question.question-part{margin-bottom:2.85mm}
 .question-title{margin:0 0 .65mm;font-family:Arial,Helvetica,sans-serif;font-size:11.45pt;line-height:1.22;font-weight:800;color:#0f172a}
 .question-title.continuation{font-size:12pt;color:#334155}
-.statement{margin:0 0 .75mm;text-align:justify;text-justify:inter-word;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;line-height:1.26;min-width:0}
-.statement p,.statement div,.statement span{ text-align:justify!important; text-justify:inter-word }
+.statement{margin:0 0 .75mm;text-align:left;text-justify:auto;font-family:Arial,Helvetica,sans-serif;font-size:11.05pt;line-height:1.26;min-width:0}
+.statement p,.statement div,.statement span{ text-align:left!important; text-justify:auto!important }
 .statement p{margin:0 0 .45mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
@@ -76,8 +76,8 @@ body.layout-2 .question-grid{gap:0}
 .alternatives{display:grid;gap:.35mm;margin:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
 .alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;font-weight:700;line-height:1.26}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
-.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;line-height:1.26;min-width:0;text-align:justify;text-justify:inter-word}
-.alt-text p,.alt-text div,.alt-text span{ text-align:justify!important; text-justify:inter-word }
+.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:11.05pt;line-height:1.26;min-width:0;text-align:left;text-justify:auto}
+.alt-text p,.alt-text div,.alt-text span{ text-align:left!important; text-justify:auto!important }
 .discursive-space{margin-top:.8mm;width:100%}
 .discursive-space + .discursive-space{margin-top:0}
 .discursive-line{display:block;width:100%;height:7mm;min-height:7mm;border-bottom:1px solid #334155!important;break-inside:avoid;page-break-inside:avoid}
@@ -89,10 +89,10 @@ body.layout-2 .question-grid{gap:0}
 .discursive-question .statement figure img,
 .discursive-question .statement>img{max-width:100%!important;height:auto!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
 
-body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.65pt;line-height:1.23}
+body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.45pt;line-height:1.24;text-align:left;text-justify:auto}
 body.layout-2 .question-title{font-family:Arial,Helvetica,sans-serif;font-size:10.95pt;line-height:1.2}
 body.layout-2 .alt-letter{min-width:6.5mm}
-body.layout-2 .question{margin-bottom:1.9mm}
+body.layout-2 .question{margin-bottom:2.7mm}
 body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-width:100%!important;max-height:66mm!important;height:auto!important;object-fit:contain!important}
 body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
 
@@ -334,11 +334,19 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
     /* Reserva editorial mínima: título + primeiro conteúdo devem permanecer juntos.
        Se o primeiro pedaço não cabe com o título, começa a questão no próximo espaço. */
     if(pieces.length){
-      const probe=pieces[0].cloneNode(true);
-      part.appendChild(probe);
+      /* Mantém um começo editorialmente útil junto ao título. Além do primeiro
+         pedaço, prende também a imagem seguinte quando o comando inicial é curto
+         (ex.: “Leia.” / “Observe a campanha abaixo:”). Isso evita título/comando
+         no rodapé e imagem sozinha na página ou coluna seguinte. */
+      const probes=[];
+      probes.push(pieces[0].cloneNode(true));
+      const firstText=(pieces[0].textContent||'').trim();
+      const secondHasVisual=pieces[1] && !!(pieces[1].matches?.('img,figure') || pieces[1].querySelector?.('img,figure'));
+      if(firstText.length <= 90 && secondHasVisual) probes.push(pieces[1].cloneNode(true));
+      probes.forEach(x=>part.appendChild(x));
       const firstFits=fits(slot);
-      part.removeChild(probe);
-      if(!firstFits && slotHasContent(slot) && part.previousElementSibling){
+      probes.forEach(x=>x.remove());
+      if(!firstFits && slotHasContent(slot)){
         slot.removeChild(part);
         slot=advanceSlot();
         part=makePart(question,false);
@@ -360,8 +368,8 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
       part.classList.remove('smart-compact');
 
       slot=advanceSlot();
-      part=document.createElement('section');
-      part.className=question.className + ' question-part question-continuation';
+      part=makePart(question,true);
+      part.classList.add('question-continuation');
       slot.appendChild(part);
       part.appendChild(piece);
 
