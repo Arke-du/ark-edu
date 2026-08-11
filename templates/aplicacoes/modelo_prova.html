@@ -76,6 +76,8 @@ body.layout-2 .question-grid{gap:0}
 .statement table{max-width:100%!important;height:auto!important;border-collapse:collapse}
 .statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;object-fit:contain;margin:.8mm auto}
 .question-image{display:block;width:auto;max-width:100%;max-height:92mm;height:auto;margin:.8mm auto 1mm;object-fit:contain}
+/* Imagens principais não podem sair minúsculas no PDF só porque o arquivo original tem poucos pixels.
+   O JS abaixo aplica uma largura mínima legível de acordo com a proporção da figura. */
 .alt-image{display:block;max-width:100%;height:auto;margin:.5mm 0;object-fit:contain}
 .alternatives{display:grid;gap:.35mm;margin:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
@@ -344,37 +346,53 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
 
   function remainingPx(slot){ return Math.max(0, slot.clientHeight-slot.scrollHeight); }
 
+  function imageTargetRatio(img){
+    const naturalW=Number(img.naturalWidth||0);
+    const naturalH=Number(img.naturalHeight||0);
+    const ratio=(naturalW>0 && naturalH>0) ? naturalW/naturalH : 1;
+    // Em duas colunas a figura precisa usar quase toda a largura disponível.
+    if(columns===2){
+      if(ratio>=1.65) return .98;   // tabelas, gráficos e plantas horizontais
+      if(ratio>=1.05) return .92;   // diagramas quase quadrados/horizontais
+      if(ratio>=.78) return .82;    // quadradas
+      return .66;                   // retratos/cartazes
+    }
+    // Em uma coluna, dá prioridade à legibilidade sem transformar todo desenho em pôster.
+    if(ratio>=1.65) return .74;
+    if(ratio>=1.05) return .64;
+    if(ratio>=.78) return .52;
+    return .40;
+  }
+
+  function ensureReadableImageSize(piece, slot){
+    const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
+    if(!img) return false;
+    const slotW=Math.max(1,slot.clientWidth);
+    const targetW=Math.min(slotW, slotW*imageTargetRatio(img));
+    const currentW=img.getBoundingClientRect().width || 0;
+    img.style.setProperty('max-width','100%','important');
+    img.style.setProperty('height','auto','important');
+    img.style.setProperty('object-fit','contain','important');
+
+    // Aumenta somente se a figura estiver claramente abaixo do tamanho mínimo de leitura.
+    // Isso corrige plantas, gráficos, tabelas e sólidos que apareciam grandes no cadastro
+    // mas eram impressos usando o tamanho natural pequeno do arquivo.
+    if(currentW===0 || currentW < targetW*.90){
+      img.style.setProperty('width',`${targetW}px`,'important');
+    }
+    return true;
+  }
+
   function setAdaptiveImageLimit(piece, slot){
     const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
     if(!img) return false;
+    ensureReadableImageSize(piece,slot);
     const remain=Math.max(95, remainingPx(slot));
     const maxMm=columns===2 ? 61 : 86;
     const pxPerMm=96/25.4;
     const dynamicPx=Math.max(columns===2 ? 115 : 145, Math.min(maxMm*pxPerMm, remain-12));
     img.style.setProperty('max-width','100%','important');
     img.style.setProperty('max-height',`${dynamicPx}px`,'important');
-
-    /* Imagens pequenas (diagramas, plantas, mapas etc.) não devem ficar minúsculas
-       só porque o arquivo original foi inserido com largura reduzida no editor.
-       Amplia de forma proporcional até um tamanho de leitura confortável, sempre
-       respeitando a coluna, a altura disponível e a proporção original. */
-    const naturalW=Number(img.naturalWidth||0);
-    const naturalH=Number(img.naturalHeight||0);
-    const ratio=(naturalW>0 && naturalH>0) ? naturalW/naturalH : 1;
-    const slotW=Math.max(1,slot.clientWidth);
-    const currentW=img.getBoundingClientRect().width || naturalW || 0;
-    let targetRatio;
-    if(columns===2){
-      targetRatio = ratio < .82 ? .58 : (ratio > 1.45 ? .94 : .84);
-    }else{
-      targetRatio = ratio < .82 ? .46 : (ratio > 1.45 ? .68 : .58);
-    }
-    const targetW=Math.min(slotW, slotW*targetRatio);
-    if(currentW>0 && currentW < targetW*.88){
-      img.style.setProperty('width',`${targetW}px`,'important');
-    }else{
-      img.style.setProperty('width','auto','important');
-    }
     img.style.setProperty('height','auto','important');
     img.style.setProperty('object-fit','contain','important');
     return true;
@@ -432,6 +450,10 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
     for(let i=0;i<pieces.length;i++){
       const piece=pieces[i];
       part.appendChild(piece);
+      // Sempre garante um tamanho mínimo legível ANTES de decidir se o bloco cabe.
+      // Antes, a ampliação só acontecia quando a questão estourava a página; por isso
+      // imagens pequenas que já 'cabiam' permaneciam minúsculas no PDF.
+      ensureReadableImageSize(piece,slot);
       if(fits(slot)) continue;
 
       /* 1) Se for imagem, tenta redimensionar de forma proporcional ao espaço disponível. */
