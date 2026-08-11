@@ -1,0 +1,15 @@
+ARK EDUS — DIAGRAMAÇÃO ADAPTATIVA DE AVALIAÇÕES
+
+Melhorias desta versão:
+- Paginação inteligente sem desperdiçar grandes espaços em branco.
+- Espaçamento visual padronizado entre questões, sem deixá-las grudadas.
+- Fonte discretamente menor e com redução adicional apenas quando faltam poucos milímetros.
+- Compressão em estágios: primeiro margens/espaços; depois tipografia mínima; por último quebra.
+- Questões classificadas por conteúdo (imagem, texto longo, discursiva) para receber espaçamento adequado.
+- Título de questão não fica órfão no rodapé; exige um início mínimo útil junto dele.
+- Comandos curtos com imagem tentam permanecer junto da imagem.
+- Imagens são redimensionadas proporcionalmente ao espaço disponível, com limites diferentes em 1 e 2 colunas.
+- Textos e alternativas permanecem alinhados à esquerda para evitar buracos de justificação em colunas estreitas.
+- Continuação de questão recebe indicação visual discreta.
+- Linhas discursivas continuam com espaçamento confortável para escrita.
+- Banco de dados não incluído no pacote.
