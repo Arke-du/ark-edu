@@ -353,7 +353,28 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
     const dynamicPx=Math.max(columns===2 ? 115 : 145, Math.min(maxMm*pxPerMm, remain-12));
     img.style.setProperty('max-width','100%','important');
     img.style.setProperty('max-height',`${dynamicPx}px`,'important');
-    img.style.setProperty('width','auto','important');
+
+    /* Imagens pequenas (diagramas, plantas, mapas etc.) não devem ficar minúsculas
+       só porque o arquivo original foi inserido com largura reduzida no editor.
+       Amplia de forma proporcional até um tamanho de leitura confortável, sempre
+       respeitando a coluna, a altura disponível e a proporção original. */
+    const naturalW=Number(img.naturalWidth||0);
+    const naturalH=Number(img.naturalHeight||0);
+    const ratio=(naturalW>0 && naturalH>0) ? naturalW/naturalH : 1;
+    const slotW=Math.max(1,slot.clientWidth);
+    const currentW=img.getBoundingClientRect().width || naturalW || 0;
+    let targetRatio;
+    if(columns===2){
+      targetRatio = ratio < .82 ? .58 : (ratio > 1.45 ? .94 : .84);
+    }else{
+      targetRatio = ratio < .82 ? .46 : (ratio > 1.45 ? .68 : .58);
+    }
+    const targetW=Math.min(slotW, slotW*targetRatio);
+    if(currentW>0 && currentW < targetW*.88){
+      img.style.setProperty('width',`${targetW}px`,'important');
+    }else{
+      img.style.setProperty('width','auto','important');
+    }
     img.style.setProperty('height','auto','important');
     img.style.setProperty('object-fit','contain','important');
     return true;
