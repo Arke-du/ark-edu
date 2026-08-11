@@ -1,0 +1,13 @@
+ARK EDUS — PAGINAÇÃO INTELIGENTE E MELHOR APROVEITAMENTO DA PROVA
+10/08/2026
+
+Alterações em templates/aplicacoes/modelo_prova.html:
+- Fonte discretamente reduzida, mantendo legibilidade.
+- Espaço visual maior e padronizado entre questões.
+- Questões podem continuar na página/coluna seguinte para evitar grandes áreas em branco.
+- Proteção contra título de questão órfão no fim da página/coluna.
+- Compactação discreta somente quando faltam poucos milímetros para encaixar conteúdo.
+- Imagens responsivas e limitadas proporcionalmente ao espaço disponível.
+- Ajustes específicos para layout de 1 e 2 colunas.
+- Linhas discursivas continuam com espaçamento confortável.
+- Nenhum arquivo de banco de dados foi incluído/alterado.

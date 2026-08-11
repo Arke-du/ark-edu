@@ -16,7 +16,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3}
+body{background:#ececec;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:11.35pt;line-height:1.27}
 .toolbar{position:sticky;top:0;z-index:1000;display:flex;justify-content:center;align-items:center;gap:12px;padding:10px 12px;background:#fff;border-bottom:1px solid #ddd}
 .toolbar .layout-info{font-size:13px;color:#475569}
 .print{border:0;border-radius:10px;padding:10px 18px;background:#123f88;color:#fff;font-weight:700;cursor:pointer}
@@ -57,11 +57,11 @@ body.layout-2 .question-grid{gap:0}
 .instructions li{margin:.3mm 0}
 
 /* Questões: economia vem de margens e paginação inteligente, não de esmagar conteúdo. */
-.question{margin:0 0 1.65mm;padding:0;min-width:0}
-.question.question-part{margin-bottom:1.5mm}
-.question-title{margin:0 0 .65mm;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.25;font-weight:800;color:#0f172a}
+.question{margin:0 0 2.25mm;padding:0;min-width:0}
+.question.question-part{margin-bottom:2.05mm}
+.question-title{margin:0 0 .65mm;font-family:Arial,Helvetica,sans-serif;font-size:11.45pt;line-height:1.22;font-weight:800;color:#0f172a}
 .question-title.continuation{font-size:12pt;color:#334155}
-.statement{margin:0 0 .75mm;text-align:justify;text-justify:inter-word;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3;min-width:0}
+.statement{margin:0 0 .75mm;text-align:justify;text-justify:inter-word;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;line-height:1.26;min-width:0}
 .statement p,.statement div,.statement span{ text-align:justify!important; text-justify:inter-word }
 .statement p{margin:0 0 .45mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
@@ -71,12 +71,12 @@ body.layout-2 .question-grid{gap:0}
 .statement br+br{display:none}
 .statement table{max-width:100%!important;height:auto!important;border-collapse:collapse}
 .statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;object-fit:contain;margin:.8mm auto}
-.question-image{display:block;width:auto;max-width:100%;height:auto;margin:.8mm auto 1mm;object-fit:contain}
+.question-image{display:block;width:auto;max-width:100%;max-height:92mm;height:auto;margin:.8mm auto 1mm;object-fit:contain}
 .alt-image{display:block;max-width:100%;height:auto;margin:.5mm 0;object-fit:contain}
 .alternatives{display:grid;gap:.35mm;margin:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
-.alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:12pt;font-weight:700;line-height:1.3}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
-.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3;min-width:0;text-align:justify;text-justify:inter-word}
+.alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;font-weight:700;line-height:1.26}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
+.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;line-height:1.26;min-width:0;text-align:justify;text-justify:inter-word}
 .alt-text p,.alt-text div,.alt-text span{ text-align:justify!important; text-justify:inter-word }
 .discursive-space{margin-top:.8mm;width:100%}
 .discursive-space + .discursive-space{margin-top:0}
@@ -89,11 +89,19 @@ body.layout-2 .question-grid{gap:0}
 .discursive-question .statement figure img,
 .discursive-question .statement>img{max-width:100%!important;height:auto!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
 
-body.layout-2 .statement,body.layout-2 .question-title,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.3}
+body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.65pt;line-height:1.23}
+body.layout-2 .question-title{font-family:Arial,Helvetica,sans-serif;font-size:10.95pt;line-height:1.2}
 body.layout-2 .alt-letter{min-width:6.5mm}
-body.layout-2 .question{margin-bottom:1.25mm}
-body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-width:100%!important;height:auto!important}
+body.layout-2 .question{margin-bottom:1.9mm}
+body.layout-2 .question-image,body.layout-2 .statement figure img,body.layout-2 .statement>img{max-width:100%!important;max-height:66mm!important;height:auto!important;object-fit:contain!important}
 body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
+
+/* Compactação discreta: usada apenas quando faltam poucos milímetros para fechar um bloco. */
+.question.smart-compact{margin-bottom:1.35mm}
+.question.smart-compact .question-title{margin-bottom:.4mm}
+.question.smart-compact .statement{margin-bottom:.45mm;line-height:1.22}
+.question.smart-compact .alternatives{gap:.18mm}
+.question.smart-compact .alternative{min-height:3.8mm}
 
 @page{size:A4 portrait;margin:0}
 @media print{
@@ -306,14 +314,16 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
   }
 
   function placeQuestion(question){
-    /* No modo econômico, a questão pode continuar na coluna seguinte. Isso
-       elimina os grandes vazios causados por mover a questão inteira. */
+    /* Paginação editorial:
+       - aproveita o espaço restante da página/coluna;
+       - permite continuação quando necessário;
+       - nunca deixa apenas o título/comando mínimo órfão no rodapé;
+       - evita mandar uma única alternativa sozinha quando uma compactação leve resolve. */
     let slot=currentSlot();
     const pieces=splitPieces(question);
     let part=makePart(question,false);
     slot.appendChild(part);
 
-    /* Se nem o título cabe no espaço restante, segue para a próxima coluna. */
     if(!fits(slot)){
       slot.removeChild(part);
       slot=advanceSlot();
@@ -321,23 +331,54 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
       slot.appendChild(part);
     }
 
-    for(const piece of pieces){
+    /* Reserva editorial mínima: título + primeiro conteúdo devem permanecer juntos.
+       Se o primeiro pedaço não cabe com o título, começa a questão no próximo espaço. */
+    if(pieces.length){
+      const probe=pieces[0].cloneNode(true);
+      part.appendChild(probe);
+      const firstFits=fits(slot);
+      part.removeChild(probe);
+      if(!firstFits && slotHasContent(slot) && part.previousElementSibling){
+        slot.removeChild(part);
+        slot=advanceSlot();
+        part=makePart(question,false);
+        slot.appendChild(part);
+      }
+    }
+
+    for(let i=0;i<pieces.length;i++){
+      const piece=pieces[i];
       part.appendChild(piece);
       if(fits(slot)) continue;
       part.removeChild(piece);
 
-      /* Continua sem repetir "Questão XX" e sem desenhar separadores extras. */
+      /* Se faltou muito pouco, compacta só esta questão antes de quebrar. */
+      part.classList.add('smart-compact');
+      part.appendChild(piece);
+      if(fits(slot)) continue;
+      part.removeChild(piece);
+      part.classList.remove('smart-compact');
+
       slot=advanceSlot();
       part=document.createElement('section');
       part.className=question.className + ' question-part question-continuation';
       slot.appendChild(part);
       part.appendChild(piece);
 
-      /* Conteúdo visual maior que uma coluna: limita somente ao espaço físico. */
+      /* Imagem grande: reduz proporcionalmente ao espaço físico da coluna. */
       if(!fits(slot)){
         const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
-        if(img){ img.style.maxWidth='100%'; img.style.height='auto'; }
+        if(img){
+          img.style.setProperty('max-width','100%','important');
+          img.style.setProperty('max-height', columns===2 ? '62mm' : '88mm','important');
+          img.style.setProperty('width','auto','important');
+          img.style.setProperty('height','auto','important');
+          img.style.setProperty('object-fit','contain','important');
+        }
       }
+
+      /* Uma alternativa não fica isolada por escolha do paginador: se houver alternativas
+         seguintes, elas continuam naturalmente juntas no novo espaço sempre que couberem. */
     }
   }
 
