@@ -216,8 +216,8 @@
         </section>
 
         <section class="questoes-card">
-            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Depois de salvar, componente, etapa, ano/série e classificação serão mantidos.</small></span></label></div>
-            <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Cadastrar questão</button></div></div>
+            <div class="questoes-formulario"><label class="manter-box"><input type="checkbox" name="manter_classificacao" value="1" {% if valores_anteriores %}checked{% endif %}><span><strong>Continuar cadastrando questões deste conteúdo</strong><small>Ao salvar, componente, etapa, ano/série e classificação serão preservados.</small></span></label></div>
+            <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Salvar alterações</button></div></div>
         </section>
     </form>
 </div>
@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
             correta.type = document.querySelector('input[name="tipo_questao"]:checked').value === "multiplas_respostas" ? "checkbox" : "radio";
         });
     }
-    window.criarAlternativaEdicao = function criarAlternativa(textoInicial="") {
+    function criarAlternativa(textoInicial="") {
         const indice = lista.children.length;
         const item = document.createElement("div");
         item.className = "alternativa-item";
@@ -351,6 +351,8 @@ document.addEventListener("DOMContentLoaded", () => {
         atualizarAlternativas();
         return item;
     }
+    // Disponibiliza a mesma função para o bloco que restaura os dados salvos na edição.
+    window.criarAlternativaEdicao = criarAlternativa;
 
     function inserirHtmlNoCursor(htmlInserido){
         editor.focus();
@@ -784,11 +786,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const dados={{ valores_anteriores|tojson }};
   const etapaEdicao=document.getElementById("etapaEnsino");
   const anoEdicao=document.getElementById("anoSerie");
-  if(etapaEdicao && dados.etapa_ensino) etapaEdicao.value=dados.etapa_ensino;
-  if(anoEdicao && dados.ano_serie) anoEdicao.dataset.valor=dados.ano_serie;
-  // Na edição, etapa/ano já vêm do banco; preserva esses valores antes de qualquer atualização dinâmica.
-  const etapaEdicao=document.getElementById("etapaEnsino");
-  const anoEdicao=document.getElementById("anoSerie");
+  // Na edição, etapa/ano já vêm do banco; preserva esses valores sem redeclarar as constantes.
   if(etapaEdicao && dados.etapa_ensino) etapaEdicao.value=dados.etapa_ensino;
   if(anoEdicao && dados.ano_serie) anoEdicao.dataset.valor=dados.ano_serie;
   const alternativas={{ alternativas|tojson }};

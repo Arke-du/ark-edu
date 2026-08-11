@@ -1,0 +1,11 @@
+ARK EDUS — Correção do carregamento ao editar questão
+
+Correções aplicadas sobre o último ZIP (Justificado sem Continuação):
+- Corrigido erro JavaScript que interrompia a inicialização da tela de edição.
+- Ano/Série volta a carregar automaticamente com o valor salvo.
+- Enunciado/HTML da questão volta a ser restaurado no editor.
+- Alternativas, resposta correta e imagens existentes voltam a ser restauradas.
+- Mantidas as melhorias de diagramação adaptativa, textos justificados e remoção de “continuação”.
+- Botão da tela de edição alterado para “Salvar alterações”.
+
+Nenhum arquivo de banco de dados foi incluído no pacote.
