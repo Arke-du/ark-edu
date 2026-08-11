@@ -64,9 +64,9 @@ body.layout-2 .question-grid{gap:0}
 .question.discursive-question{margin-bottom:4mm}
 .question.question-part{margin-bottom:2.85mm}
 .question-title{margin:0 0 .75mm;font-family:Arial,Helvetica,sans-serif;font-size:11.25pt;line-height:1.2;font-weight:800;color:#0f172a;break-after:avoid;page-break-after:avoid}
-.question-title.continuation{font-size:12pt;color:#334155}
-.statement{margin:0 0 .8mm;text-align:left;text-justify:auto;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
-.statement p,.statement div,.statement span{ text-align:left!important; text-justify:auto!important }
+.statement{margin:0 0 .8mm;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:auto;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
+.statement p,.statement div{ text-align:justify!important; text-align-last:left!important; text-justify:inter-word!important; hyphens:auto!important }
+.statement span{ text-align:inherit!important; text-justify:inherit!important }
 .statement p{margin:0 0 .45mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
@@ -80,8 +80,9 @@ body.layout-2 .question-grid{gap:0}
 .alternatives{display:grid;gap:.35mm;margin:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
 .alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;font-weight:700;line-height:1.26}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
-.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;text-align:left;text-justify:auto}
-.alt-text p,.alt-text div,.alt-text span{ text-align:left!important; text-justify:auto!important }
+.alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:auto}
+.alt-text p,.alt-text div{ text-align:justify!important; text-align-last:left!important; text-justify:inter-word!important; hyphens:auto!important }
+.alt-text span{ text-align:inherit!important; text-justify:inherit!important }
 .discursive-space{margin-top:.8mm;width:100%}
 .discursive-space + .discursive-space{margin-top:0}
 .discursive-line{display:block;width:100%;height:7mm;min-height:7mm;border-bottom:1px solid #334155!important;break-inside:avoid;page-break-inside:avoid}
@@ -93,7 +94,8 @@ body.layout-2 .question-grid{gap:0}
 .discursive-question .statement figure img,
 .discursive-question .statement>img{max-width:100%!important;height:auto!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
 
-body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.25pt;line-height:1.22;text-align:left;text-justify:auto}
+body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.25pt;line-height:1.22}
+body.layout-2 .statement,body.layout-2 .alt-text{text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:auto}
 body.layout-2 .question-title{font-family:Arial,Helvetica,sans-serif;font-size:10.95pt;line-height:1.2}
 body.layout-2 .alt-letter{min-width:6.5mm}
 body.layout-2 .question{margin-bottom:3.05mm}
@@ -119,7 +121,6 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
 body.layout-2 .question.micro-compact .question-title{font-size:10.55pt}
 body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-compact .alt-text,body.layout-2 .question.micro-compact .alt-letter{font-size:9.95pt;line-height:1.18}
 .question-continuation{margin-top:0!important}
-.question-continuation .question-title{font-size:9.4pt!important;font-weight:700;color:#64748b;margin-bottom:.55mm}
 
 @page{size:A4 portrait;margin:0}
 @media print{
@@ -295,10 +296,10 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
     const part = document.createElement('section');
     part.className = question.className + ' question-part';
     const title = question.querySelector(':scope > .question-title');
-    if(title){
-      const t = title.cloneNode(true);
-      if(continuation){ t.classList.add('continuation'); t.textContent += ' — continuação'; }
-      part.appendChild(t);
+    // Quando a questão passar para outra coluna/página, o conteúdo continua
+    // diretamente, sem repetir o título e sem exibir a palavra “continuação”.
+    if(title && !continuation){
+      part.appendChild(title.cloneNode(true));
     }
     return part;
   }

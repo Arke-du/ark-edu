@@ -1,0 +1,10 @@
+ARK EDUS — AJUSTE DE IMPRESSÃO
+
+- Removida a indicação “Questão XX — continuação” das quebras de coluna e página.
+- A questão continua diretamente pelo conteúdo restante.
+- Enunciados justificados.
+- Alternativas justificadas.
+- Última linha alinhada à esquerda para evitar espaços artificiais.
+- Hifenização automática ativada quando suportada pelo navegador.
+- Mantidas as regras anteriores de paginação adaptativa, imagens responsivas e linhas discursivas.
+- Banco de dados não incluído no pacote.

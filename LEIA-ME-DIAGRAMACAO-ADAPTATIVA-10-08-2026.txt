@@ -9,7 +9,7 @@ Melhorias desta versão:
 - Título de questão não fica órfão no rodapé; exige um início mínimo útil junto dele.
 - Comandos curtos com imagem tentam permanecer junto da imagem.
 - Imagens são redimensionadas proporcionalmente ao espaço disponível, com limites diferentes em 1 e 2 colunas.
-- Textos e alternativas permanecem alinhados à esquerda para evitar buracos de justificação em colunas estreitas.
-- Continuação de questão recebe indicação visual discreta.
+- Enunciados e alternativas ficam justificados, com a última linha alinhada à esquerda para preservar a leitura.
+- Quando uma questão passa para outra coluna/página, o conteúdo segue diretamente, sem exibir “continuação”.
 - Linhas discursivas continuam com espaçamento confortável para escrita.
 - Banco de dados não incluído no pacote.
