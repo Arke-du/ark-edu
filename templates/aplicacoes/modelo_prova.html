@@ -386,13 +386,12 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   function setAdaptiveImageLimit(piece, slot){
     const img=piece.matches?.('img') ? piece : piece.querySelector?.('img');
     if(!img) return false;
+    // IMPORTANTE: nunca encolher a imagem para preencher o restinho da página.
+    // O comportamento antigo usava o espaço vertical restante como max-height e
+    // transformava gráficos/plantas próximos ao rodapé em miniaturas.
     ensureReadableImageSize(piece,slot);
-    const remain=Math.max(95, remainingPx(slot));
-    const maxMm=columns===2 ? 61 : 86;
-    const pxPerMm=96/25.4;
-    const dynamicPx=Math.max(columns===2 ? 115 : 145, Math.min(maxMm*pxPerMm, remain-12));
     img.style.setProperty('max-width','100%','important');
-    img.style.setProperty('max-height',`${dynamicPx}px`,'important');
+    img.style.setProperty('max-height', columns===2 ? '66mm' : '92mm','important');
     img.style.setProperty('height','auto','important');
     img.style.setProperty('object-fit','contain','important');
     return true;
@@ -433,11 +432,6 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
       const probes=pieces.slice(0,minStart).map(x=>x.cloneNode(true));
       probes.forEach(x=>part.appendChild(x));
       let ok=fits(slot);
-      // Se faltar pouco, reduz primeiro apenas a imagem do probe.
-      if(!ok){
-        probes.forEach(x=>setAdaptiveImageLimit(x,slot));
-        ok=fits(slot);
-      }
       probes.forEach(x=>x.remove());
       if(!ok){
         slot.removeChild(part);
@@ -456,8 +450,10 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
       ensureReadableImageSize(piece,slot);
       if(fits(slot)) continue;
 
-      /* 1) Se for imagem, tenta redimensionar de forma proporcional ao espaço disponível. */
-      if(setAdaptiveImageLimit(piece,slot) && fits(slot)) continue;
+      /* 1) Imagens NÃO são reduzidas para caber no espaço restante.
+         Se o tamanho legível não couber, a paginação leva a imagem para o próximo espaço. */
+      const isImagePiece=!!(piece.matches?.('img,figure') || piece.querySelector?.('img,figure'));
+      if(!isImagePiece) setAdaptiveImageLimit(piece,slot);
 
       /* 2) Compactação só de espaçamentos. */
       part.classList.add('smart-compact');

@@ -1,4 +1,6 @@
-import sqlite3
+git add .
+git commit -m "Corrige definitivamente miniaturizacao das imagens nas provas"
+git pushimport sqlite3
 import unicodedata
 from typing import Any
 
