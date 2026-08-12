@@ -21055,11 +21055,11 @@ def _decodificar_qr_cartao(caminho_imagem):
             [sys.executable, worker, caminho_imagem],
             capture_output=True,
             text=True,
-            timeout=18,
+            timeout=12,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        app.logger.warning("Leitura de QR excedeu 18s: %s", caminho_imagem)
+        app.logger.warning("Leitura de QR excedeu 12s: %s", caminho_imagem)
         return None
     except Exception:
         app.logger.exception("Falha ao iniciar leitor isolado de QR")
@@ -21077,9 +21077,10 @@ def _decodificar_qr_cartao(caminho_imagem):
     return texto or None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
-    """Converte cada página de um PDF em PNG usando PyMuPDF.
+    """Converte o PDF página a página, sem carregar/renderizar o lote inteiro.
 
-    Instale a dependência com: pip install PyMuPDF
+    É um gerador: cada PNG só é criado quando a página vai ser processada.
+    Isso reduz pico de RAM e evita derrubar o worker em PDFs grandes.
     """
     try:
         import fitz
@@ -21089,7 +21090,6 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             "Atualize as dependências e faça novo deploy antes de importar PDFs."
         ) from erro
 
-    caminhos = []
     documento = fitz.open(caminho_pdf)
     try:
         if documento.page_count < 1:
@@ -21097,16 +21097,16 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
 
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            matriz = fitz.Matrix(2.0, 2.0)
-            pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
+            # 1,75x mantém resolução suficiente para QR/bolhas e consome
+            # significativamente menos RAM que 2x em lotes extensos.
+            pixmap = pagina.get_pixmap(matrix=fitz.Matrix(1.75, 1.75), alpha=False)
             nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
             caminho = os.path.join(pasta_destino, nome)
             pixmap.save(caminho)
-            caminhos.append((caminho, indice + 1))
+            del pixmap
+            yield caminho, indice + 1
     finally:
         documento.close()
-
-    return caminhos
 
 
 def _remover_arquivo_silenciosamente(caminho):
@@ -21208,7 +21208,6 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         paginas = _converter_pdf_em_imagens(
                             caminho_temporario, pasta
                         )
-                        _remover_arquivo_silenciosamente(caminho_temporario)
                     else:
                         paginas = [(caminho_temporario, None)]
                 except Exception as erro:
@@ -21406,6 +21405,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             cursor.execute(
                                 "RELEASE SAVEPOINT importar_pagina"
                             )
+                            banco.commit()
                             continue
 
                         if tipo_folha != "OBJETIVAS":
@@ -21718,6 +21718,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         cursor.execute(
                             "RELEASE SAVEPOINT importar_pagina"
                         )
+                        # Persiste cada cartão imediatamente. Se uma página
+                        # posterior falhar, as anteriores não são perdidas.
+                        banco.commit()
 
                     except Exception as erro:
                         cursor.execute(
@@ -21731,11 +21734,27 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             f"{f' PÁGINA {numero_pagina}' if numero_pagina else ''}: "
                             f"{erro}"
                         )
-                        erros_importacao.append(
-                            f"{nome_original}{f' · página {numero_pagina}' if numero_pagina else ''}: {erro}"
-                        )
-                        _remover_arquivo_silenciosamente(caminho)
-                        descartados += 1
+                        nome_exibicao = nome_original
+                        if numero_pagina is not None:
+                            nome_exibicao = f"{nome_original} · página {numero_pagina}"
+                        motivo = str(erro) or "Falha de leitura do cartão."
+                        erros_importacao.append(f"{nome_exibicao}: {motivo}")
+                        # Nunca some com uma página que não foi reconhecida.
+                        # Ela permanece visível para reprocessamento/revisão.
+                        cursor.execute("""
+                            INSERT INTO aplicacao_importacoes
+                            (aplicacao_id, aluno_id, modelo, nome_arquivo,
+                             caminho_arquivo, status, mensagem, qr_texto,
+                             tipo_folha, revisado, revisado_em)
+                            VALUES (?, NULL, NULL, ?, ?,
+                                    'Revisão necessária', ?, NULL,
+                                    'OBJETIVAS', 0, NULL)
+                        """, (aplicacao_id, nome_exibicao, caminho, motivo))
+                        revisoes += 1
+                        banco.commit()
+
+                if extensao == ".pdf":
+                    _remover_arquivo_silenciosamente(caminho_temporario)
 
             _sincronizar_status_aplicacao(cursor, aplicacao_id)
             banco.commit()
