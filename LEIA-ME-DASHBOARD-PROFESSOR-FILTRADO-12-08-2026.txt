@@ -1,0 +1,13 @@
+ARK EDUS — DASHBOARD DO PROFESSOR FILTRADO (12/08/2026)
+
+Correção aplicada sobre o último ZIP enviado pelo ChatGPT.
+
+No perfil Professor / Professor Autônomo, o Dashboard agora calcula:
+- Turmas: somente turmas em que o usuário professor possui vínculo no ano letivo selecionado.
+- Alunos: somente alunos das turmas vinculadas ao professor.
+- Questões: somente questões cadastradas pelo próprio usuário professor.
+- Provas: somente provas vinculadas ao cadastro legado correspondente ao próprio professor.
+
+Perfis administrativos continuam com a visão institucional/global que já existia.
+
+Nenhum banco de dados foi incluído neste ZIP.

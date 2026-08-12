@@ -3008,67 +3008,133 @@ def index():
 
             total_instituicoes = 1
 
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM usuarios
-                WHERE escola_id = ?
-                  AND ativo = 1
-            """, (escola_id,))
-            total_usuarios = cursor.fetchone()["total"]
+            # Professor deve enxergar somente os dados vinculados ao próprio usuário.
+            if usuario_cargo in ("Professor", "Professor Autônomo"):
+                total_usuarios = 1
+                total_professores = 1
 
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM professores
-                WHERE escola_id = ?
-            """, (escola_id,))
-            total_professores = cursor.fetchone()["total"]
-
-            cursor.execute("""
-                SELECT COUNT(*) AS total
-                FROM questoes
-                WHERE escola_id = ?
-            """, (escola_id,))
-            total_questoes = cursor.fetchone()["total"]
-
-            if ano_letivo_id:
                 cursor.execute("""
                     SELECT COUNT(*) AS total
-                    FROM turmas
+                    FROM questoes
                     WHERE escola_id = ?
-                      AND ano_letivo_id = ?
-                """, (escola_id, ano_letivo_id))
-                total_turmas = cursor.fetchone()["total"]
+                      AND criado_por = ?
+                """, (escola_id, usuario_id))
+                total_questoes = cursor.fetchone()["total"]
+
+                if ano_letivo_id:
+                    # Turmas: somente aquelas em que o professor possui vínculo no ano selecionado.
+                    cursor.execute("""
+                        SELECT COUNT(DISTINCT t.id) AS total
+                        FROM turmas AS t
+                        INNER JOIN professor_vinculos AS pv
+                            ON pv.turma_id = t.id
+                        WHERE pv.professor_id = ?
+                          AND t.escola_id = ?
+                          AND t.ano_letivo_id = ?
+                    """, (usuario_id, escola_id, ano_letivo_id))
+                    total_turmas = cursor.fetchone()["total"]
+
+                    # Alunos: somente alunos matriculados nas turmas vinculadas ao professor.
+                    cursor.execute("""
+                        SELECT COUNT(DISTINCT aluno_id) AS total
+                        FROM (
+                            SELECT am.aluno_id AS aluno_id
+                            FROM aluno_matriculas AS am
+                            INNER JOIN professor_vinculos AS pv
+                                ON pv.turma_id = am.turma_id
+                            WHERE pv.professor_id = ?
+                              AND am.escola_id = ?
+                              AND am.ano_letivo_id = ?
+
+                            UNION
+
+                            SELECT a.id AS aluno_id
+                            FROM alunos AS a
+                            INNER JOIN professor_vinculos AS pv
+                                ON pv.turma_id = a.turma_id
+                            WHERE pv.professor_id = ?
+                              AND a.escola_id = ?
+                              AND a.ano_letivo_id = ?
+                        ) AS alunos_professor
+                    """, (
+                        usuario_id, escola_id, ano_letivo_id,
+                        usuario_id, escola_id, ano_letivo_id
+                    ))
+                    total_alunos = cursor.fetchone()["total"]
+
+                    # Provas: somente provas do próprio professor no ano selecionado.
+                    professor_legado_id = _professor_legado_do_usuario(cursor, usuario_id)
+                    if professor_legado_id:
+                        cursor.execute("""
+                            SELECT COUNT(*) AS total
+                            FROM provas
+                            WHERE escola_id = ?
+                              AND ano_letivo_id = ?
+                              AND professor_id = ?
+                        """, (escola_id, ano_letivo_id, professor_legado_id))
+                        total_provas = cursor.fetchone()["total"]
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM usuarios
+                    WHERE escola_id = ?
+                      AND ativo = 1
+                """, (escola_id,))
+                total_usuarios = cursor.fetchone()["total"]
 
                 cursor.execute("""
                     SELECT COUNT(*) AS total
-                    FROM (
-                        SELECT aluno_id
-                        FROM aluno_matriculas
+                    FROM professores
+                    WHERE escola_id = ?
+                """, (escola_id,))
+                total_professores = cursor.fetchone()["total"]
+
+                cursor.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM questoes
+                    WHERE escola_id = ?
+                """, (escola_id,))
+                total_questoes = cursor.fetchone()["total"]
+
+                if ano_letivo_id:
+                    cursor.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM turmas
                         WHERE escola_id = ?
                           AND ano_letivo_id = ?
+                    """, (escola_id, ano_letivo_id))
+                    total_turmas = cursor.fetchone()["total"]
 
-                        UNION
+                    cursor.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM (
+                            SELECT aluno_id
+                            FROM aluno_matriculas
+                            WHERE escola_id = ?
+                              AND ano_letivo_id = ?
 
-                        SELECT id AS aluno_id
-                        FROM alunos
+                            UNION
+
+                            SELECT id AS aluno_id
+                            FROM alunos
+                            WHERE escola_id = ?
+                              AND ano_letivo_id = ?
+                        ) AS alunos_do_ano
+                    """, (
+                        escola_id,
+                        ano_letivo_id,
+                        escola_id,
+                        ano_letivo_id
+                    ))
+                    total_alunos = cursor.fetchone()["total"]
+
+                    cursor.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM provas
                         WHERE escola_id = ?
                           AND ano_letivo_id = ?
-                    ) AS alunos_do_ano
-                """, (
-                    escola_id,
-                    ano_letivo_id,
-                    escola_id,
-                    ano_letivo_id
-                ))
-                total_alunos = cursor.fetchone()["total"]
-
-                cursor.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM provas
-                    WHERE escola_id = ?
-                      AND ano_letivo_id = ?
-                """, (escola_id, ano_letivo_id))
-                total_provas = cursor.fetchone()["total"]
+                    """, (escola_id, ano_letivo_id))
+                    total_provas = cursor.fetchone()["total"]
 
         else:
             nome_instituicao = "Usuário sem instituição vinculada"
