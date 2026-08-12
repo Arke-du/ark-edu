@@ -12111,8 +12111,16 @@ def _taxa_escura_melhor_circulo(cinza, centro_x, centro_y, raio=14, busca=4):
 def _detectar_quatro_marcadores_cartao(imagem):
     """Localiza os quatro quadrados pretos que delimitam a área de respostas.
 
-    Os marcadores foram criados justamente para permitir que scans inclinados,
-    redimensionados ou fotografados sejam retificados antes da leitura das bolhas.
+    Não assume margens simétricas. Scanners alimentadores costumam alternar a
+    posição da folha e deslocar os marcadores direitos para dentro (ex.: ~75% da
+    largura em algumas páginas e ~80% em outras). A versão anterior exigia o
+    marcador direito a partir de 77% da largura; com isso várias páginas válidas
+    perdiam os dois marcadores da direita e caíam no fallback impreciso.
+
+    A estratégia atual separa candidatos por LADO da folha e escolhe o marcador
+    superior/inferior de cada lado pela geometria vertical. Isso tolera deslocamento,
+    pequena rotação, corte de margem e PDFs em que páginas consecutivas têm
+    enquadramentos diferentes.
     """
     if imagem is None or imagem.size == 0:
         return None
@@ -12124,50 +12132,62 @@ def _detectar_quatro_marcadores_cartao(imagem):
         binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
     )
 
-    candidatos = []
+    esquerda = []
+    direita = []
     for contorno in contornos:
         x, y, w, h = cv2.boundingRect(contorno)
         area = cv2.contourArea(contorno)
         if h <= 0 or w <= 0:
             continue
+
         proporcao = w / float(h)
         preenchimento = area / float(w * h)
 
-        # Os quatro marcadores ficam no bloco inferior e próximos das bordas.
-        if y < altura * 0.35:
+        # Marcadores ficam no bloco inferior do cartão. Mantemos tolerância
+        # suficiente para scans recortados/esticados sem aceitar pequenos textos.
+        if y < altura * 0.30:
             continue
-        if not (0.65 <= proporcao <= 1.35):
+        if not (0.60 <= proporcao <= 1.40):
             continue
-        if not (largura * 0.007 <= w <= largura * 0.06):
+        if not (largura * 0.006 <= w <= largura * 0.070):
             continue
-        if preenchimento < 0.68:
+        if preenchimento < 0.60:
             continue
 
         cx = x + (w / 2.0)
         cy = y + (h / 2.0)
-        if cx > largura * 0.23 and cx < largura * 0.77:
-            continue
-        candidatos.append((cx, cy, area))
+        item = (cx, cy, area)
 
-    if len(candidatos) < 4:
+        # Nas digitalizações reais recebidas, o lado esquerdo varia por volta
+        # de 15%-21% e o direito por volta de 75%-81%. Não usamos 77% como corte.
+        if cx <= largura * 0.30:
+            esquerda.append(item)
+        elif cx >= largura * 0.68:
+            direita.append(item)
+
+    if len(esquerda) < 2 or len(direita) < 2:
         return None
 
-    # Mantém os maiores componentes laterais. Em seguida, ordena por geometria:
-    # superior esquerdo, superior direito, inferior direito, inferior esquerdo.
-    maiores = sorted(candidatos, key=lambda item: item[2], reverse=True)[:12]
-    pontos = np.array([[item[0], item[1]] for item in maiores], dtype="float32")
+    # O marcador superior é o candidato lateral mais alto; o inferior, o mais
+    # baixo. Isso evita confundir assinatura/texto escuro com marcador inferior.
+    sup_esq = min(esquerda, key=lambda item: item[1])
+    inf_esq = max(esquerda, key=lambda item: item[1])
+    sup_dir = min(direita, key=lambda item: item[1])
+    inf_dir = max(direita, key=lambda item: item[1])
 
-    soma = pontos.sum(axis=1)
-    diferenca = np.diff(pontos, axis=1).reshape(-1)
-    ordenados = np.zeros((4, 2), dtype="float32")
-    ordenados[0] = pontos[np.argmin(soma)]
-    ordenados[2] = pontos[np.argmax(soma)]
-    ordenados[1] = pontos[np.argmin(diferenca)]
-    ordenados[3] = pontos[np.argmax(diferenca)]
-
-    # Rejeita quadriláteros degenerados e marcadores repetidos.
-    if len({(round(float(x), 1), round(float(y), 1)) for x, y in ordenados}) < 4:
+    # Precisa existir separação vertical real entre os pares superior/inferior.
+    # Se não existir, rejeita em vez de fabricar uma perspectiva incorreta.
+    if (inf_esq[1] - sup_esq[1] < altura * 0.25 or
+            inf_dir[1] - sup_dir[1] < altura * 0.25):
         return None
+
+    ordenados = np.array([
+        [sup_esq[0], sup_esq[1]],
+        [sup_dir[0], sup_dir[1]],
+        [inf_dir[0], inf_dir[1]],
+        [inf_esq[0], inf_esq[1]],
+    ], dtype="float32")
+
     largura_sup = np.linalg.norm(ordenados[1] - ordenados[0])
     largura_inf = np.linalg.norm(ordenados[2] - ordenados[3])
     altura_esq = np.linalg.norm(ordenados[3] - ordenados[0])
@@ -12176,7 +12196,6 @@ def _detectar_quatro_marcadores_cartao(imagem):
         return None
 
     return ordenados
-
 
 def _normalizar_area_respostas_cartao(caminho_imagem):
     """Retifica a área entre os quatro marcadores para coordenadas canônicas."""
@@ -12304,6 +12323,172 @@ def ler_modelo_cartao(caminho_imagem, quantidade_modelos=4):
     return int(ordem[0]) + 1
 
 
+def _ler_respostas_grade_sem_quatro_marcadores(caminho_imagem, quantidade):
+    """Fallback geométrico para cartões parcialmente digitalizados.
+
+    Alguns scanners podem juntar o final de um cartão à mesma página do cartão
+    anterior. Nesse fragmento ainda aparecem a grade A/B/C/D e as marcações, mas
+    não os quatro marcadores nem o QR. Este leitor encontra as dez linhas e as
+    quatro colunas pelas próprias circunferências impressas, sem depender da
+    posição absoluta da folha.
+    """
+    imagem = cv2.imread(caminho_imagem)
+    if imagem is None:
+        return None
+    cinza_original = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
+    altura, largura = cinza_original.shape[:2]
+    if altura < 120 or largura < 200:
+        return None
+
+    _, binaria = cv2.threshold(
+        cinza_original, 180, 255, cv2.THRESH_BINARY_INV
+    )
+    contornos, _ = cv2.findContours(
+        binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    circulos = []
+    min_dim = min(largura, altura)
+    min_tam = max(8, int(min_dim * 0.012))
+    max_tam = max(24, int(min_dim * 0.075))
+    for contorno in contornos:
+        x, y, w, h = cv2.boundingRect(contorno)
+        area = cv2.contourArea(contorno)
+        if h <= 0 or w <= 0:
+            continue
+        proporcao = w / float(h)
+        if not (min_tam <= w <= max_tam and min_tam <= h <= max_tam):
+            continue
+        if not (0.65 <= proporcao <= 1.35):
+            continue
+        if area < 25:
+            continue
+        cx = x + w / 2.0
+        cy = y + h / 2.0
+        # A grade fica na faixa central do cartão/fragmento.
+        if not (largura * 0.20 <= cx <= largura * 0.80):
+            continue
+        circulos.append((cx, cy, w, h))
+
+    if len(circulos) < quantidade * 4:
+        return None
+
+    def agrupar(valores, tolerancia):
+        valores = sorted(float(v) for v in valores)
+        grupos = []
+        for valor in valores:
+            if not grupos or abs(float(np.mean(grupos[-1])) - valor) > tolerancia:
+                grupos.append([valor])
+            else:
+                grupos[-1].append(valor)
+        return grupos
+
+    # Contorno externo e interno da mesma bolha geram duplicatas; agrupamos.
+    tol_x = max(5.0, largura * 0.008)
+    grupos_x = agrupar([c[0] for c in circulos], tol_x)
+    candidatos_x = [
+        float(np.mean(g)) for g in grupos_x if len(g) >= max(3, quantidade // 3)
+    ]
+    if len(candidatos_x) < 4:
+        return None
+
+    # Escolhe quatro colunas aproximadamente equidistantes.
+    candidatos_x.sort()
+    melhor_x = None
+    melhor_erro = None
+    for inicio in range(len(candidatos_x) - 3):
+        xs = candidatos_x[inicio:inicio + 4]
+        passos = np.diff(xs)
+        mediana = float(np.median(passos))
+        if mediana < largura * 0.025 or mediana > largura * 0.12:
+            continue
+        erro = float(np.mean(np.abs(passos - mediana)))
+        if melhor_erro is None or erro < melhor_erro:
+            melhor_erro = erro
+            melhor_x = xs
+    if not melhor_x:
+        return None
+
+    # Só usa círculos próximos das quatro colunas selecionadas para montar linhas.
+    circulos_grade = [
+        c for c in circulos
+        if min(abs(c[0] - x) for x in melhor_x) <= tol_x * 1.5
+    ]
+    tol_y = max(5.0, altura * 0.010)
+    grupos_y = agrupar([c[1] for c in circulos_grade], tol_y)
+    candidatos_y = [float(np.mean(g)) for g in grupos_y if len(g) >= 4]
+    if len(candidatos_y) < quantidade:
+        return None
+
+    candidatos_y.sort()
+    melhor_y = None
+    melhor_erro = None
+    for inicio in range(len(candidatos_y) - quantidade + 1):
+        ys = candidatos_y[inicio:inicio + quantidade]
+        if quantidade > 1:
+            passos = np.diff(ys)
+            mediana = float(np.median(passos))
+            if mediana < altura * 0.02 or mediana > altura * 0.12:
+                continue
+            erro = float(np.mean(np.abs(passos - mediana)))
+        else:
+            erro = 0.0
+        if melhor_erro is None or erro < melhor_erro:
+            melhor_erro = erro
+            melhor_y = ys
+    if not melhor_y:
+        return None
+
+    cinza = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8)).apply(
+        cinza_original
+    )
+    espacamento_x = float(np.median(np.diff(melhor_x)))
+    raio = max(7, int(espacamento_x * 0.18))
+    letras = ["A", "B", "C", "D"]
+    resultado = {}
+
+    for indice, centro_y in enumerate(melhor_y[:quantidade], 1):
+        preenchimentos = [
+            _taxa_escura_melhor_circulo(
+                cinza, centro_x, centro_y, raio=raio, busca=max(2, raio // 5)
+            )
+            for centro_x in melhor_x
+        ]
+        ordem = np.argsort(preenchimentos)[::-1]
+        maior = float(preenchimentos[int(ordem[0])])
+        segundo = float(preenchimentos[int(ordem[1])])
+        marcadas_solidas = [i for i, v in enumerate(preenchimentos) if v >= 0.55]
+
+        if len(marcadas_solidas) >= 2:
+            situacao, resposta = "dupla_marcacao", ""
+            marcadas = [letras[i] for i in marcadas_solidas]
+        elif len(marcadas_solidas) == 1:
+            pos = marcadas_solidas[0]
+            if maior - segundo >= 0.16 or maior >= 0.78:
+                situacao, resposta = "respondida", letras[pos]
+                marcadas = [resposta]
+            else:
+                situacao, resposta = "dupla_marcacao", ""
+                marcadas = [letras[int(ordem[0])], letras[int(ordem[1])]]
+        elif maior < 0.28:
+            situacao, resposta, marcadas = "em_branco", "", []
+        else:
+            situacao, resposta = "dupla_marcacao", ""
+            marcadas = [letras[int(ordem[0])]]
+            if segundo >= 0.28:
+                marcadas.append(letras[int(ordem[1])])
+
+        resultado[indice] = {
+            "resposta": resposta,
+            "situacao": situacao,
+            "marcadas": marcadas,
+            "preenchimentos": [round(float(v), 4) for v in preenchimentos],
+            "confianca": round(max(0.0, maior - segundo), 4),
+        }
+
+    return resultado
+
+
 def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
     """Lê A/B/C/D com correção de perspectiva pelos quatro marcadores.
 
@@ -12323,15 +12508,25 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
 
     retificada = _normalizar_area_respostas_cartao(caminho_imagem)
 
-    # Fallback para cartões muito antigos sem marcadores reconhecíveis.
+    # Fallback real para fragmentos: detecta a própria grade A/B/C/D.
     if retificada is None:
+        leitura_grade = _ler_respostas_grade_sem_quatro_marcadores(
+            caminho_imagem, quantidade
+        )
+        if leitura_grade is not None:
+            return leitura_grade
         imagem = cv2.imread(caminho_imagem)
         if imagem is None:
             raise ValueError("Não foi possível abrir a imagem enviada.")
-        retificada = cv2.resize(imagem, (1200, 900))
-        # Sem os marcadores não existe geometria confiável: usa apenas uma
-        # estimativa de linhas e força casos duvidosos para revisão.
-        linhas_y = [87 + 47 * i for i in range(quantidade)]
+        # Não inventa coordenadas quando nem marcadores nem grade foram
+        # encontrados. Retorna tudo para revisão humana.
+        return {
+            i: {
+                "resposta": "", "situacao": "dupla_marcacao",
+                "marcadas": [], "preenchimentos": [], "confianca": 0.0
+            }
+            for i in range(1, quantidade + 1)
+        }
     else:
         cinza_tmp = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
         linhas_y = _detectar_linhas_bolhas_retificadas(cinza_tmp, quantidade)
@@ -21119,9 +21314,13 @@ def _decodificar_qr_cartao(caminho_imagem):
     return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
-    """Converte cada página de um PDF em PNG usando PyMuPDF.
+    """Converte PDF em imagens lógicas de cartões, não apenas em páginas.
 
-    Instale a dependência com: pip install PyMuPDF
+    Alguns scanners podem gerar uma página anormalmente alta contendo um cartão
+    completo e parte do cartão seguinte. A versão antiga tratava isso como uma
+    única página, então o segundo cartão simplesmente nunca entrava no lote.
+    Agora comparamos cada página à proporção mediana do próprio PDF e dividimos
+    outliers verticais em segmentos na altura típica dos demais cartões.
     """
     try:
         import fitz
@@ -21137,14 +21336,79 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
         if documento.page_count < 1:
             raise ValueError("O PDF não possui páginas.")
 
+        proporcoes = []
+        for indice in range(documento.page_count):
+            ret = documento.load_page(indice).rect
+            if ret.width > 0:
+                proporcoes.append(float(ret.height / ret.width))
+        proporcao_mediana = float(np.median(proporcoes)) if proporcoes else 1.0
+        proporcao_mediana = max(0.65, min(1.80, proporcao_mediana))
+
+        numero_logico = 0
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
             matriz = fitz.Matrix(2.0, 2.0)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
-            nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
-            caminho = os.path.join(pasta_destino, nome)
-            pixmap.save(caminho)
-            caminhos.append((caminho, indice + 1))
+
+            # Renderiza primeiro em arquivo temporário e abre com OpenCV apenas
+            # se a página tiver proporção muito diferente das demais.
+            nome_base = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}"
+            caminho_base = os.path.join(pasta_destino, nome_base + ".png")
+            pixmap.save(caminho_base)
+
+            imagem = cv2.imread(caminho_base)
+            if imagem is None:
+                numero_logico += 1
+                caminhos.append((caminho_base, numero_logico))
+                continue
+
+            altura, largura = imagem.shape[:2]
+            proporcao_atual = altura / float(max(1, largura))
+            altura_cartao_estimada = int(round(largura * proporcao_mediana))
+
+            # Só divide outlier claro do MESMO PDF. Isso evita confundir uma
+            # fotografia A4 normal com duas folhas.
+            dividir = bool(
+                documento.page_count > 1
+                and proporcao_atual > proporcao_mediana * 1.25
+                and altura >= altura_cartao_estimada * 1.25
+                and altura_cartao_estimada >= 300
+            )
+
+            if not dividir:
+                numero_logico += 1
+                caminhos.append((caminho_base, numero_logico))
+                continue
+
+            segmentos = []
+            inicio = 0
+            # Primeiro(s) segmento(s) têm a altura típica das demais páginas.
+            while altura - inicio > altura_cartao_estimada * 1.18:
+                fim = min(altura, inicio + altura_cartao_estimada)
+                segmentos.append(imagem[inicio:fim].copy())
+                inicio = fim
+            if altura - inicio >= max(220, int(altura_cartao_estimada * 0.28)):
+                segmentos.append(imagem[inicio:altura].copy())
+
+            if len(segmentos) <= 1:
+                numero_logico += 1
+                caminhos.append((caminho_base, numero_logico))
+                continue
+
+            _remover_arquivo_silenciosamente(caminho_base)
+            for parte, segmento in enumerate(segmentos, 1):
+                numero_logico += 1
+                nome_segmento = (
+                    f"{nome_base}_parte_{parte:02d}.png"
+                )
+                caminho_segmento = os.path.join(pasta_destino, nome_segmento)
+                cv2.imwrite(caminho_segmento, segmento)
+                caminhos.append((caminho_segmento, numero_logico))
+
+            app.logger.info(
+                "PDF: página física %s dividida em %s cartões/fragmentos lógicos.",
+                indice + 1, len(segmentos)
+            )
     finally:
         documento.close()
 

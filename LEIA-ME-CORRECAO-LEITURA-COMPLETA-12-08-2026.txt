@@ -1,0 +1,28 @@
+ARK EDUS — CORREÇÃO DA LEITURA COMPLETA DOS CARTÕES (12/08/2026)
+
+Diagnóstico feito usando o PDF real BRNB42200DF6B35_001486.pdf.
+
+Problemas encontrados:
+1. O detector antigo só aceitava marcadores direitos a partir de 77% da largura da imagem.
+   Em diversas páginas do scanner, os marcadores direitos aparecem por volta de 75%, então
+   páginas válidas perdiam metade dos marcadores e a leitura das bolhas ficava incompleta.
+2. O PDF possui 29 páginas físicas, mas uma das páginas é anormalmente alta e contém dois
+   cartões/fragmentos lógicos. O importador antigo tratava cada página física como um cartão,
+   fazendo o segundo cartão desaparecer do lote.
+
+Correções:
+- detector dos quatro marcadores passa a separar candidatos por lado da folha e tolera deslocamento;
+- páginas com margens alternadas do alimentador/scanner são retificadas corretamente;
+- PDF passa a detectar páginas verticalmente anômalas comparando com a proporção mediana do próprio arquivo;
+- página física composta pode ser dividida em mais de um cartão lógico;
+- fragmento sem os quatro marcadores usa fallback que encontra a grade A/B/C/D pelas próprias bolhas;
+- ordem lógica dos cartões é preservada para permitir recuperação segura de QR ausente quando a ordem do lote for confirmada;
+- não inventa resposta em marcação realmente ambígua: esses casos seguem para revisão humana.
+
+Teste com o PDF real:
+- 29 páginas físicas;
+- 30 cartões/fragmentos lógicos encontrados após a correção;
+- os quatro marcadores passaram a ser encontrados em todas as páginas completas testadas;
+- o fragmento extra da página composta teve a grade de 10 questões lida pelo fallback geométrico.
+
+Nenhum banco de dados foi incluído neste ZIP.
