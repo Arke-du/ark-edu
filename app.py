@@ -21040,41 +21040,83 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Decodifica o QR em processo isolado, com limite rígido de tempo.
+    """Decodifica o QR do cartão sem abrir subprocessos.
 
-    OpenCV pode consumir CPU por muito tempo em fotografias A4 desfocadas.
-    Rodar o detector em subprocesso impede que uma imagem difícil derrube o
-    worker do Gunicorn e evita o 502 do Render.
+    O fluxo anterior criava um novo processo Python/OpenCV para CADA página.
+    Em PDFs com dezenas de cartões isso acumulava custo de inicialização e o
+    Gunicorn podia encerrar o worker no meio de ``subprocess.communicate()``,
+    causando HTTP 500. Aqui usamos ZXing-C++ diretamente no processo web e
+    apenas em recortes pequenos do canto superior direito, onde o QR é impresso.
+    As tentativas são limitadas e rápidas; página difícil retorna ``None`` e a
+    importação continua/revisão é criada, sem derrubar o lote inteiro.
     """
-    import subprocess
-    import sys
-
-    worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr_worker.py")
     try:
-        proc = subprocess.run(
-            [sys.executable, worker, caminho_imagem],
-            capture_output=True,
-            text=True,
-            timeout=6,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        app.logger.warning("Leitura de QR excedeu 6s: %s", caminho_imagem)
-        return None
+        from PIL import Image, ImageOps, ImageEnhance
+        import numpy as np
+        import zxingcpp
     except Exception:
-        app.logger.exception("Falha ao iniciar leitor isolado de QR")
+        app.logger.exception("Dependências do leitor rápido de QR indisponíveis")
         return None
 
-    saida = (proc.stdout or "").strip().splitlines()
-    if not saida:
-        return None
     try:
-        dados = json.loads(saida[-1])
+        with Image.open(caminho_imagem) as im:
+            im = ImageOps.exif_transpose(im).convert("RGB")
+            w, h = im.size
+
+            # QR dos cartões ARK EDUS: canto superior direito. Os recortes
+            # cobrem pequenas variações de scanner sem processar a folha toda.
+            recortes = [
+                (0.68, 0.015, 0.88, 0.205),
+                (0.70, 0.020, 0.86, 0.185),
+                (0.64, 0.000, 0.92, 0.245),
+            ]
+
+            def ler(img_pil):
+                arr = np.asarray(img_pil)
+                try:
+                    resultados = zxingcpp.read_barcodes(arr)
+                except Exception:
+                    resultados = []
+                for item in resultados or []:
+                    texto = str(getattr(item, "text", "") or "").strip()
+                    if texto:
+                        return texto
+                return None
+
+            for x1r, y1r, x2r, y2r in recortes:
+                crop = im.crop((
+                    max(0, int(w * x1r)), max(0, int(h * y1r)),
+                    min(w, int(w * x2r)), min(h, int(h * y2r)),
+                ))
+                if crop.width < 20 or crop.height < 20:
+                    continue
+
+                # 1) original ampliado; 2) contraste; 3) escala de cinza.
+                # Sem loops extensos de OpenCV e sem subprocessos.
+                base = crop.resize(
+                    (crop.width * 3, crop.height * 3),
+                    Image.Resampling.LANCZOS
+                )
+                candidatos = [
+                    base,
+                    ImageEnhance.Contrast(base).enhance(1.6),
+                    ImageOps.grayscale(base),
+                ]
+                for cand in candidatos:
+                    texto = ler(cand)
+                    if texto:
+                        return texto
+
+                # Scanner eventualmente gira a página. Testamos só rotações
+                # ortogonais do mesmo recorte, ainda com custo pequeno.
+                for angulo in (90, 180, 270):
+                    texto = ler(base.rotate(angulo, expand=True))
+                    if texto:
+                        return texto
+
     except Exception:
-        app.logger.warning("Saída inválida do leitor de QR: %r", proc.stdout)
-        return None
-    texto = str(dados.get("text") or "").strip()
-    return texto or None
+        app.logger.exception("Falha ao decodificar QR do cartão: %s", caminho_imagem)
+    return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
     """Converte cada página de um PDF em PNG usando PyMuPDF.
@@ -21235,9 +21277,11 @@ def importar_cartoes_aplicacao(aplicacao_id):
                 # ser associadas ao aluno correto sem serem descartadas.
                 if len(paginas) > 1 and all(n is not None for _, n in paginas):
                     for caminho_qr, _numero_qr in paginas:
-                        qr_lido = _decodificar_qr_cartao(caminho_qr)
-                        if qr_lido:
-                            qr_precalculados[caminho_qr] = qr_lido
+                        # Cacheia também falhas (string vazia) para nunca ler o
+                        # mesmo QR duas vezes no mesmo lote.
+                        qr_precalculados[caminho_qr] = (
+                            _decodificar_qr_cartao(caminho_qr) or ""
+                        )
 
                     cursor.execute("""
                         SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
@@ -21311,8 +21355,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                     cursor.execute("SAVEPOINT importar_pagina")
 
                     try:
-                        qr_texto = qr_precalculados.get(caminho)
-                        if not qr_texto:
+                        if caminho in qr_precalculados:
+                            qr_texto = qr_precalculados[caminho]
+                        else:
                             qr_texto = _decodificar_qr_cartao(caminho)
                         if not qr_texto:
                             raise ValueError("QR Code não identificado.")
