@@ -111,8 +111,34 @@ def decode(path):
 
     h, w = img.shape[:2]
 
-    # Regiões progressivas do topo direito. Funcionam com A4, A5, foto de
-    # celular e PDF convertido, desde que o cartão ocupe a maior parte da imagem.
+    # 1) Tentativa rápida no recorte EXATO onde o QR é impresso nos cartões
+    # ARK EDUS. Nos PDFs de scanner, um crop muito amplo fazia o OpenCV gastar
+    # vários segundos e, em algumas páginas, nem decodificar um QR perfeitamente
+    # legível. O recorte justo + ampliação resolve isso em centésimos de segundo.
+    recortes_rapidos = [
+        # padrão atual do cartão A4/A5
+        (0.715, 0.025, 0.835, 0.165),
+        # pequenas variações de enquadramento/scan
+        (0.690, 0.015, 0.855, 0.190),
+        (0.735, 0.035, 0.825, 0.155),
+    ]
+    for x1r, y1r, x2r, y2r in recortes_rapidos:
+        x1, x2 = int(w * x1r), int(w * x2r)
+        y1, y2 = int(h * y1r), int(h * y2r)
+        region = img[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+        if region is None or region.size == 0:
+            continue
+        for escala in (3.0, 4.0, 2.0):
+            cand = cv2.resize(
+                region, None, fx=escala, fy=escala,
+                interpolation=cv2.INTER_CUBIC
+            )
+            texto = _decode_zxing(cand) or _decode_pyzbar(cand) or _decode_opencv(cand)
+            if texto:
+                return texto
+
+    # 2) Fallback para fotos fora do enquadramento padrão. Mantemos regiões
+    # progressivas, mas só depois da tentativa rápida acima.
     regions = [
         img[0:max(1, int(h * 0.30)), max(0, int(w * 0.64)):w],
         img[0:max(1, int(h * 0.38)), max(0, int(w * 0.54)):w],
@@ -121,7 +147,6 @@ def decode(path):
 
     for region in regions:
         for cand in _variantes(region):
-            # Primeiro os leitores mais tolerantes, depois OpenCV.
             if cand.ndim == 3:
                 texto = _decode_zxing(cand) or _decode_pyzbar(cand)
                 if texto:

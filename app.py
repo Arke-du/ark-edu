@@ -21055,11 +21055,11 @@ def _decodificar_qr_cartao(caminho_imagem):
             [sys.executable, worker, caminho_imagem],
             capture_output=True,
             text=True,
-            timeout=12,
+            timeout=6,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        app.logger.warning("Leitura de QR excedeu 12s: %s", caminho_imagem)
+        app.logger.warning("Leitura de QR excedeu 6s: %s", caminho_imagem)
         return None
     except Exception:
         app.logger.exception("Falha ao iniciar leitor isolado de QR")
@@ -21077,10 +21077,9 @@ def _decodificar_qr_cartao(caminho_imagem):
     return texto or None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
-    """Converte o PDF página a página, sem carregar/renderizar o lote inteiro.
+    """Converte cada página de um PDF em PNG usando PyMuPDF.
 
-    É um gerador: cada PNG só é criado quando a página vai ser processada.
-    Isso reduz pico de RAM e evita derrubar o worker em PDFs grandes.
+    Instale a dependência com: pip install PyMuPDF
     """
     try:
         import fitz
@@ -21090,6 +21089,7 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             "Atualize as dependências e faça novo deploy antes de importar PDFs."
         ) from erro
 
+    caminhos = []
     documento = fitz.open(caminho_pdf)
     try:
         if documento.page_count < 1:
@@ -21097,16 +21097,16 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
 
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            # 1,75x mantém resolução suficiente para QR/bolhas e consome
-            # significativamente menos RAM que 2x em lotes extensos.
-            pixmap = pagina.get_pixmap(matrix=fitz.Matrix(1.75, 1.75), alpha=False)
+            matriz = fitz.Matrix(2.0, 2.0)
+            pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
             nome = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}.png"
             caminho = os.path.join(pasta_destino, nome)
             pixmap.save(caminho)
-            del pixmap
-            yield caminho, indice + 1
+            caminhos.append((caminho, indice + 1))
     finally:
         documento.close()
+
+    return caminhos
 
 
 def _remover_arquivo_silenciosamente(caminho):
@@ -21208,6 +21208,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         paginas = _converter_pdf_em_imagens(
                             caminho_temporario, pasta
                         )
+                        _remover_arquivo_silenciosamente(caminho_temporario)
                     else:
                         paginas = [(caminho_temporario, None)]
                 except Exception as erro:
@@ -21224,6 +21225,87 @@ def importar_cartoes_aplicacao(aplicacao_id):
                 # múltiplos OpenCV/QRCodeDetector simultâneos elevam muito a RAM
                 # e podem fazer o worker ser encerrado (502 Bad Gateway).
                 qr_precalculados = {}
+
+                # Faz uma pré-leitura única dos QR Codes. Além de evitar que a
+                # mesma página seja decodificada mais de uma vez, isso permite
+                # recuperar com segurança páginas cujo QR ficou borrado no scan.
+                # Quando o PDF inteiro mantém exatamente a ordem alfabética dos
+                # cartões gerados pela própria ARK EDUS, os QRs que foram lidos
+                # servem como prova dessa ordem e as poucas páginas sem QR podem
+                # ser associadas ao aluno correto sem serem descartadas.
+                if len(paginas) > 1 and all(n is not None for _, n in paginas):
+                    for caminho_qr, _numero_qr in paginas:
+                        qr_lido = _decodificar_qr_cartao(caminho_qr)
+                        if qr_lido:
+                            qr_precalculados[caminho_qr] = qr_lido
+
+                    cursor.execute("""
+                        SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
+                        FROM aplicacao_alunos aa
+                        INNER JOIN alunos al ON al.id = aa.aluno_id
+                        WHERE aa.aplicacao_id = ?
+                        ORDER BY al.nome COLLATE NOCASE, al.id
+                    """, (aplicacao_id,))
+                    alunos_ordem = cursor.fetchall()
+
+                    validos_ordem = 0
+                    coincidentes_ordem = 0
+                    folhas_objetivas = True
+                    for caminho_qr, numero_qr in paginas:
+                        texto_qr = qr_precalculados.get(caminho_qr)
+                        if not texto_qr:
+                            continue
+                        dados_teste = {}
+                        for parte_teste in texto_qr.split("|"):
+                            if ":" in parte_teste:
+                                chave_teste, valor_teste = parte_teste.split(":", 1)
+                                dados_teste[chave_teste.strip().upper()] = valor_teste.strip()
+                        try:
+                            if int(dados_teste.get("APLICACAO", 0)) != aplicacao_id:
+                                continue
+                            if str(dados_teste.get("FOLHA", "OBJETIVAS")).upper() != "OBJETIVAS":
+                                folhas_objetivas = False
+                                continue
+                            aluno_lido = int(dados_teste.get("ALUNO", 0))
+                        except (TypeError, ValueError):
+                            continue
+                        validos_ordem += 1
+                        indice_ordem = int(numero_qr) - 1
+                        if 0 <= indice_ordem < len(alunos_ordem):
+                            if int(alunos_ordem[indice_ordem]["aluno_id"]) == aluno_lido:
+                                coincidentes_ordem += 1
+
+                    minimo_confirmacoes = min(5, len(paginas))
+                    ordem_confirmada = bool(
+                        folhas_objetivas
+                        and len(alunos_ordem) == len(paginas)
+                        and validos_ordem >= minimo_confirmacoes
+                        and coincidentes_ordem == validos_ordem
+                    )
+
+                    if ordem_confirmada:
+                        recuperados_ordem = 0
+                        for caminho_qr, numero_qr in paginas:
+                            if qr_precalculados.get(caminho_qr):
+                                continue
+                            indice_ordem = int(numero_qr) - 1
+                            aluno_ordem = alunos_ordem[indice_ordem]
+                            aluno_fallback = int(aluno_ordem["aluno_id"])
+                            modelo_fallback = int(aluno_ordem["modelo"] or 1)
+                            qr_precalculados[caminho_qr] = (
+                                f"CODIGO:{int(aplicacao['prova_id']):06d}|"
+                                f"PROVA:{int(aplicacao['prova_id'])}|"
+                                f"ALUNO:{aluno_fallback}|"
+                                f"APLICACAO:{aplicacao_id}|"
+                                f"MODELO:{modelo_fallback}|"
+                                "FOLHA:OBJETIVAS|VERSAO:1"
+                            )
+                            recuperados_ordem += 1
+                        if recuperados_ordem:
+                            app.logger.info(
+                                "Importação %s: %s página(s) recuperada(s) pela ordem confirmada dos cartões.",
+                                aplicacao_id, recuperados_ordem
+                            )
 
                 for caminho, numero_pagina in paginas:
                     cursor.execute("SAVEPOINT importar_pagina")
@@ -21405,7 +21487,6 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             cursor.execute(
                                 "RELEASE SAVEPOINT importar_pagina"
                             )
-                            banco.commit()
                             continue
 
                         if tipo_folha != "OBJETIVAS":
@@ -21718,8 +21799,10 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         cursor.execute(
                             "RELEASE SAVEPOINT importar_pagina"
                         )
-                        # Persiste cada cartão imediatamente. Se uma página
-                        # posterior falhar, as anteriores não são perdidas.
+                        # Salva CADA cartão imediatamente. Assim, mesmo que um
+                        # PDF grande demore, uma página seguinte falhe ou o
+                        # servidor reinicie, os cartões já corrigidos não voltam
+                        # para Pendente e não são perdidos no lote inteiro.
                         banco.commit()
 
                     except Exception as erro:
@@ -21734,27 +21817,36 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             f"{f' PÁGINA {numero_pagina}' if numero_pagina else ''}: "
                             f"{erro}"
                         )
-                        nome_exibicao = nome_original
+                        erro_texto = str(erro)
+                        erros_importacao.append(
+                            f"{nome_original}{f' · página {numero_pagina}' if numero_pagina else ''}: {erro_texto}"
+                        )
+                        # Nunca apaga silenciosamente uma página que não pôde ser
+                        # lida. Mantém a imagem para auditoria/reprocessamento e
+                        # registra a falha no banco, mesmo sem aluno identificado.
+                        nome_exibicao_erro = nome_original
                         if numero_pagina is not None:
-                            nome_exibicao = f"{nome_original} · página {numero_pagina}"
-                        motivo = str(erro) or "Falha de leitura do cartão."
-                        erros_importacao.append(f"{nome_exibicao}: {motivo}")
-                        # Nunca some com uma página que não foi reconhecida.
-                        # Ela permanece visível para reprocessamento/revisão.
-                        cursor.execute("""
-                            INSERT INTO aplicacao_importacoes
-                            (aplicacao_id, aluno_id, modelo, nome_arquivo,
-                             caminho_arquivo, status, mensagem, qr_texto,
-                             tipo_folha, revisado, revisado_em)
-                            VALUES (?, NULL, NULL, ?, ?,
-                                    'Revisão necessária', ?, NULL,
-                                    'OBJETIVAS', 0, NULL)
-                        """, (aplicacao_id, nome_exibicao, caminho, motivo))
-                        revisoes += 1
-                        banco.commit()
-
-                if extensao == ".pdf":
-                    _remover_arquivo_silenciosamente(caminho_temporario)
+                            nome_exibicao_erro = f"{nome_original} · página {numero_pagina}"
+                        try:
+                            cursor.execute("""
+                                INSERT INTO aplicacao_importacoes
+                                (aplicacao_id, aluno_id, modelo, nome_arquivo,
+                                 caminho_arquivo, status, mensagem, qr_texto,
+                                 tipo_folha, revisado, revisado_em)
+                                VALUES (?, NULL, NULL, ?, ?, 'Erro', ?, NULL,
+                                        'OBJETIVAS', 0, NULL)
+                            """, (
+                                aplicacao_id,
+                                nome_exibicao_erro,
+                                caminho,
+                                erro_texto[:1000]
+                            ))
+                            banco.commit()
+                        except Exception:
+                            app.logger.exception(
+                                "Falha ao registrar página não identificada da importação"
+                            )
+                        descartados += 1
 
             _sincronizar_status_aplicacao(cursor, aplicacao_id)
             banco.commit()
