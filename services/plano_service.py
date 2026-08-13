@@ -27,61 +27,130 @@ def _row_value(row: Any, key: str, default=None):
 
 
 def obter_conta(conectar_banco, usuario_id: int):
+    """Retorna a conta SaaS efetiva do usuário.
+
+    Para usuários institucionais, a assinatura/cortesia da instituição tem
+    precedência sobre uma assinatura individual pendente. Isso evita cobrar ou
+    bloquear professores que já estão cobertos pelo plano da escola.
+    """
     db = conectar_banco()
     db.row_factory = sqlite3.Row
     cur = db.cursor()
-    row = cur.execute(
-        """
-        SELECT
-            u.id AS usuario_id,
-            u.escola_id,
-            COALESCE(u.tipo_conta, 'institucional') AS tipo_conta,
-            COALESCE(u.plano_codigo, e.plano_codigo) AS plano_codigo,
-            COALESCE(u.assinatura_status, 'ativa') AS assinatura_status,
-            c.nome AS cargo,
-            p.nome AS plano_nome,
-            p.valor_mensal,
-            p.limite_turmas,
-            p.limite_alunos,
-            p.limite_provas_mes,
-            COALESCE(p.marca_dagua, 0) AS marca_dagua,
-            COALESCE(p.suporte_prioritario, 0) AS suporte_prioritario,
-            COALESCE(a.isento, 0) AS isento,
-            a.motivo_isencao,
-            a.isencao_inicio,
-            a.isencao_fim,
-            a.inicio_em,
-            a.proxima_cobranca,
-            a.gateway,
-            a.metodo_pagamento,
-            a.renovacao_automatica,
-            a.observacao_cobranca,
-            a.teste_inicio,
-            a.teste_fim
-        FROM usuarios u
-        LEFT JOIN cargos c ON c.id = u.cargo_id
-        LEFT JOIN escolas e ON e.id = u.escola_id
-        LEFT JOIN planos_saas p ON p.codigo = COALESCE(u.plano_codigo, e.plano_codigo)
-        LEFT JOIN assinaturas_saas a ON a.id = (
-            SELECT a2.id
-            FROM assinaturas_saas a2
-            WHERE a2.usuario_id = ?
-               OR (
-                    a2.escola_id = u.escola_id
-                    AND COALESCE(u.tipo_conta, 'institucional') != 'autonomo'
-               )
-            ORDER BY
-                CASE WHEN a2.usuario_id = ? THEN 0 ELSE 1 END,
-                a2.id DESC
+    try:
+        base = cur.execute(
+            """
+            SELECT
+                u.id AS usuario_id,
+                u.escola_id,
+                COALESCE(u.tipo_conta, 'institucional') AS tipo_conta,
+                CASE
+                    WHEN COALESCE(u.tipo_conta, 'institucional') != 'autonomo'
+                        THEN COALESCE(e.plano_codigo, u.plano_codigo)
+                    ELSE COALESCE(u.plano_codigo, e.plano_codigo)
+                END AS plano_codigo,
+                COALESCE(u.assinatura_status, 'ativa') AS assinatura_status,
+                c.nome AS cargo,
+                p.nome AS plano_nome,
+                p.valor_mensal,
+                e.nome_instituicao,
+                p.limite_turmas,
+                p.limite_alunos,
+                p.limite_provas_mes,
+                COALESCE(p.marca_dagua, 0) AS marca_dagua,
+                COALESCE(p.suporte_prioritario, 0) AS suporte_prioritario
+            FROM usuarios u
+            LEFT JOIN cargos c ON c.id = u.cargo_id
+            LEFT JOIN escolas e ON e.id = u.escola_id
+            LEFT JOIN planos_saas p ON p.codigo = CASE
+                WHEN COALESCE(u.tipo_conta, 'institucional') != 'autonomo'
+                    THEN COALESCE(e.plano_codigo, u.plano_codigo)
+                ELSE COALESCE(u.plano_codigo, e.plano_codigo)
+            END
+            WHERE u.id = ?
             LIMIT 1
-        )
-        WHERE u.id = ?
-        LIMIT 1
-        """,
-        (usuario_id, usuario_id, usuario_id),
-    ).fetchone()
-    db.close()
-    return row
+            """,
+            (usuario_id,),
+        ).fetchone()
+        if not base:
+            return None
+
+        conta = dict(base)
+        escola_id = conta.get('escola_id')
+        tipo_conta = (conta.get('tipo_conta') or 'institucional').lower()
+
+        assinatura = cur.execute(
+            """
+            SELECT a.*
+            FROM assinaturas_saas a
+            WHERE a.usuario_id = ?
+               OR (a.escola_id = ? AND ? != 'autonomo')
+            ORDER BY
+                CASE
+                    /* Cortesia institucional vigente: prioridade máxima. */
+                    WHEN a.escola_id = ? AND ? != 'autonomo'
+                         AND COALESCE(a.isento, 0) = 1
+                         AND (a.isencao_inicio IS NULL OR date(a.isencao_inicio) <= date('now','localtime'))
+                         AND (a.isencao_fim IS NULL OR date(a.isencao_fim) >= date('now','localtime')) THEN 0
+                    /* Depois, eventual cortesia individual vigente. */
+                    WHEN a.usuario_id = ?
+                         AND COALESCE(a.isento, 0) = 1
+                         AND (a.isencao_inicio IS NULL OR date(a.isencao_inicio) <= date('now','localtime'))
+                         AND (a.isencao_fim IS NULL OR date(a.isencao_fim) >= date('now','localtime')) THEN 1
+                    /* Plano institucional ativo também cobre o professor. */
+                    WHEN a.escola_id = ? AND ? != 'autonomo'
+                         AND lower(COALESCE(a.status,'')) IN ('ativa','gratuita','trial','isenta') THEN 2
+                    WHEN a.usuario_id = ?
+                         AND lower(COALESCE(a.status,'')) IN ('ativa','gratuita','trial','isenta') THEN 3
+                    /* Se nada estiver ativo, ainda preferimos o registro da escola
+                       para contas institucionais, evitando exibir cobrança autônoma. */
+                    WHEN a.escola_id = ? AND ? != 'autonomo' THEN 4
+                    WHEN a.usuario_id = ? THEN 5
+                    ELSE 6
+                END,
+                a.id DESC
+            LIMIT 1
+            """,
+            (
+                usuario_id, escola_id, tipo_conta,
+                escola_id, tipo_conta, usuario_id,
+                escola_id, tipo_conta, usuario_id,
+                escola_id, tipo_conta, usuario_id,
+            ),
+        ).fetchone()
+
+        defaults = {
+            'assinatura_id': None, 'assinatura_usuario_id': None,
+            'assinatura_escola_id': None, 'isento': 0,
+            'motivo_isencao': None, 'isencao_inicio': None,
+            'isencao_fim': None, 'inicio_em': None, 'proxima_cobranca': None,
+            'gateway': None, 'metodo_pagamento': None,
+            'renovacao_automatica': None, 'observacao_cobranca': None,
+            'teste_inicio': None, 'teste_fim': None,
+        }
+        conta.update(defaults)
+        if assinatura:
+            a = dict(assinatura)
+            conta.update({
+                'assinatura_id': a.get('id'),
+                'assinatura_usuario_id': a.get('usuario_id'),
+                'assinatura_escola_id': a.get('escola_id'),
+                'isento': a.get('isento') or 0,
+                'motivo_isencao': a.get('motivo_isencao'),
+                'isencao_inicio': a.get('isencao_inicio'),
+                'isencao_fim': a.get('isencao_fim'),
+                'inicio_em': a.get('inicio_em'),
+                'proxima_cobranca': a.get('proxima_cobranca'),
+                'gateway': a.get('gateway'),
+                'metodo_pagamento': a.get('metodo_pagamento'),
+                'renovacao_automatica': a.get('renovacao_automatica'),
+                'observacao_cobranca': a.get('observacao_cobranca'),
+                'teste_inicio': a.get('teste_inicio'),
+                'teste_fim': a.get('teste_fim'),
+                'assinatura_status': a.get('status') or conta.get('assinatura_status') or 'ativa',
+            })
+        return conta
+    finally:
+        db.close()
 
 
 def isencao_vigente(conta) -> bool:

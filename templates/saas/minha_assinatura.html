@@ -17,7 +17,8 @@
       <h2>Plano atual</h2>
       <div class="as-row"><span class="as-label">Plano</span><span class="as-value">{{ assinatura.plano_nome or (assinatura.plano_codigo or 'Sem plano')|title }}</span></div>
       <div class="as-row"><span class="as-label">Situação</span><span class="as-value">{% if conta_isenta %}<span class="as-badge as-ok">Cortesia / Isento</span>{% elif conta_em_teste %}<span class="as-badge as-ok">Teste gratuito</span>{% elif (assinatura.status or assinatura.assinatura_status) in ['ativa','gratuita'] %}<span class="as-badge as-ok">{{ (assinatura.status or assinatura.assinatura_status)|title }}</span>{% else %}<span class="as-badge as-warn">{{ (assinatura.status or assinatura.assinatura_status or 'Pendente')|title }}</span>{% endif %}</span></div>
-      <div class="as-row"><span class="as-label">Valor mensal</span><span class="as-value">R$ {{ '%.2f'|format(assinatura.valor_mensal or 0)|replace('.',',') }}</span></div>
+      <div class="as-row"><span class="as-label">Valor mensal</span><span class="as-value">{% if conta_isenta %}R$ 0,00{% else %}R$ {{ '%.2f'|format(assinatura.valor_mensal or 0)|replace('.',',') }}{% endif %}</span></div>
+      {% if conta_isenta and assinatura.nome_instituicao %}<div class="as-row"><span class="as-label">Cobertura</span><span class="as-value">Cortesia institucional · {{ assinatura.nome_instituicao }}</span></div>{% endif %}
       <div class="as-row"><span class="as-label">Início da assinatura</span><span class="as-value">{{ (assinatura.inicio_em or '—')[:10] }}</span></div>
       {% if conta_em_teste %}<div class="as-row"><span class="as-label">Término do teste</span><span class="as-value">{{ (assinatura.teste_fim or '—')[:10] }}</span></div>{% endif %}
       {% if conta_isenta %}<div class="as-row"><span class="as-label">Validade da cortesia</span><span class="as-value">{{ assinatura.isencao_fim or 'Sem vencimento' }}</span></div>{% endif %}

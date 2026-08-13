@@ -539,21 +539,19 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
     def minha_assinatura():
         if not session.get('usuario_id'):
             return redirect(url_for('login'))
+
+        # Usa exatamente a mesma conta efetiva aplicada pelo bloqueio SaaS.
+        # Assim, um professor institucional coberto por cortesia da escola não
+        # volta a enxergar uma assinatura individual pendente nesta página.
         info = assinatura_usuario(session['usuario_id'])
         db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
         try:
-            assinatura = cur.execute("""
-                SELECT a.*, p.nome AS plano_nome, p.valor_mensal
-                FROM assinaturas_saas a
-                LEFT JOIN planos_saas p ON p.codigo=a.plano_codigo
-                WHERE a.usuario_id=? OR (a.escola_id=? AND ?!='autonomo')
-                ORDER BY CASE WHEN a.usuario_id=? THEN 0 ELSE 1 END, a.id DESC LIMIT 1
-            """, (session['usuario_id'], info['escola_id'] if info else None, info['tipo_conta'] if info else None, session['usuario_id'])).fetchone()
             pagamentos = []
-            if assinatura:
+            assinatura_id = info['assinatura_id'] if info else None
+            if assinatura_id:
                 pagamentos = cur.execute("""SELECT * FROM pagamentos_saas
-                    WHERE assinatura_id=? ORDER BY id DESC LIMIT 12""", (assinatura['id'],)).fetchall()
-            return render_template('saas/minha_assinatura.html', assinatura=assinatura or info, pagamentos=pagamentos)
+                    WHERE assinatura_id=? ORDER BY id DESC LIMIT 12""", (assinatura_id,)).fetchall()
+            return render_template('saas/minha_assinatura.html', assinatura=info, pagamentos=pagamentos)
         finally:
             db.close()
 
