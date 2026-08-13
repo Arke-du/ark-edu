@@ -1,0 +1,25 @@
+ARK EDUS — CORREÇÃO DE RELATÓRIOS E IMPRESSÃO — 13/08/2026
+
+1. Corrigido o filtro do professor em /relatorios.
+   A tabela provas.professor_id referencia a tabela legada professores, enquanto
+   a sessão usa usuarios.id. O relatório agora converte corretamente o usuário
+   logado para o professor legado antes de consultar as provas/resultados.
+
+2. Compatibilidade ampliada com resultados antigos.
+   Quando um registro legado possui acertos mas não possui nota preenchida, o
+   relatório calcula a nota proporcionalmente à quantidade de questões da prova.
+
+3. Fluxo de impressão reformulado.
+   - cabeçalho próprio para relatório impresso;
+   - logo ARK EDUS;
+   - instituição, turma, componente e avaliação selecionados;
+   - usuário/professor e data/hora de emissão;
+   - menu, filtros e botões não são impressos;
+   - layout A4;
+   - cards compactados;
+   - tabelas com cabeçalho repetido e proteção contra cortes de linhas;
+   - rodapé institucional.
+
+Arquivos principais alterados:
+- app.py
+- templates/relatorios/index.html

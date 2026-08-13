@@ -786,7 +786,23 @@
     }
 }
 
+
+.rel-print-header,
+.rel-print-footer { display: none; }
+
+@page {
+    size: A4 portrait;
+    margin: 14mm 12mm 16mm;
+}
+
 @media print {
+    html, body {
+        background: #fff !important;
+        font-size: 10pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
     .sidebar,
     .topbar,
     .rel-filtros,
@@ -795,18 +811,77 @@
         display: none !important;
     }
 
-    .main {
-        margin: 0 !important;
+    .rel-print-header {
+        display: block !important;
+        border-bottom: 2px solid #123b82;
+        padding-bottom: 8mm;
+        margin-bottom: 7mm;
     }
 
-    .rel-pagina {
-        padding: 0;
+    .rel-print-brand {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12mm;
     }
 
-    .rel-card,
-    .rel-indicador {
-        break-inside: avoid;
-        box-shadow: none;
+    .rel-print-brand img {
+        width: 42mm;
+        height: auto;
+    }
+
+    .rel-print-brand-text { text-align: right; }
+    .rel-print-brand-text strong {
+        display: block;
+        color: #0b2d5c;
+        font-size: 16pt;
+    }
+    .rel-print-brand-text span { color: #64748b; font-size: 9pt; }
+
+    .rel-print-meta {
+        margin-top: 5mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2mm 8mm;
+        color: #334155;
+        font-size: 9pt;
+    }
+
+    .rel-print-meta b { color: #0f172a; }
+
+    .rel-cabecalho { margin-bottom: 5mm; }
+    .rel-cabecalho .rel-etiqueta,
+    .rel-cabecalho > div > p { display: none !important; }
+    .rel-cabecalho h1 { font-size: 18pt; margin: 0; }
+
+    .rel-indicadores {
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 3mm !important;
+    }
+    .rel-indicador { min-height: 25mm !important; padding: 4mm !important; }
+    .rel-indicador-icone { display: none !important; }
+    .rel-indicador strong { font-size: 17pt !important; }
+
+    .rel-card {
+        border: 1px solid #dbe4ef !important;
+        border-radius: 3mm !important;
+        padding: 5mm !important;
+        margin-bottom: 5mm !important;
+    }
+
+    table { width: 100% !important; font-size: 8.5pt; }
+    thead { display: table-header-group; }
+    tr, .rel-questao-item { break-inside: avoid; page-break-inside: avoid; }
+
+    .rel-print-footer {
+        display: block !important;
+        position: fixed;
+        left: 0; right: 0; bottom: -10mm;
+        border-top: 1px solid #dbe4ef;
+        padding-top: 2mm;
+        color: #64748b;
+        font-size: 8pt;
+        text-align: center;
     }
 }
 
@@ -961,6 +1036,24 @@
 
 <div class="rel-pagina">
 
+    <section class="rel-print-header" aria-hidden="true">
+        <div class="rel-print-brand">
+            <img src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt="ARK EDUS">
+            <div class="rel-print-brand-text">
+                <strong>Relatório de Desempenho</strong>
+                <span>ARK EDUS — Avaliações inteligentes e gestão de resultados</span>
+            </div>
+        </div>
+        <div class="rel-print-meta">
+            <span><b>Instituição:</b> <span id="printInstituicao">—</span></span>
+            <span><b>Turma:</b> <span id="printTurma">Todas as turmas</span></span>
+            <span><b>Componente:</b> <span id="printDisciplina">Todos os componentes</span></span>
+            <span><b>Avaliação:</b> <span id="printProva">Todas as avaliações</span></span>
+            <span><b>Professor/usuário:</b> {{ session.get('usuario_nome', '') }}</span>
+            <span><b>Emitido em:</b> <span id="printData"></span></span>
+        </div>
+    </section>
+
     <section class="rel-cabecalho">
         <div>
             <span class="rel-etiqueta">Visão geral</span>
@@ -972,7 +1065,7 @@
         </div>
 
         <div class="rel-cabecalho-acoes">
-            <button type="button" class="rel-botao rel-botao-secundario" onclick="window.print()">
+            <button type="button" class="rel-botao rel-botao-secundario" onclick="imprimirRelatorio()">
                 <svg viewBox="0 0 24 24">
                     <path d="M6 9V3H18V9"></path>
                     <path d="M6 18H4A2 2 0 0 1 2 16V11A2 2 0 0 1 4 9H20A2 2 0 0 1 22 11V16A2 2 0 0 1 20 18H18"></path>
@@ -1386,5 +1479,33 @@
     </section>
 
 </div>
+
+
+<div class="rel-print-footer">ARK EDUS • Relatório pedagógico gerado pela plataforma</div>
+
+<script>
+function textoSelecionado(nome, padrao) {
+    const campo = document.querySelector(`[name="${nome}"]`);
+    if (!campo || campo.selectedIndex < 0) return padrao;
+    return campo.options[campo.selectedIndex].text.trim() || padrao;
+}
+
+function imprimirRelatorio() {
+    const instituicao = document.querySelector('[name="escola_id"]');
+    const instituicaoTexto = instituicao
+        ? textoSelecionado('escola_id', 'Todas as instituições')
+        : '{{ (escolas[0].nome_instituicao if escolas else "Instituição")|e }}';
+
+    document.getElementById('printInstituicao').textContent = instituicaoTexto;
+    document.getElementById('printTurma').textContent = textoSelecionado('turma_id', 'Todas as turmas');
+    document.getElementById('printDisciplina').textContent = textoSelecionado('disciplina', 'Todos os componentes');
+    document.getElementById('printProva').textContent = textoSelecionado('prova_id', 'Todas as avaliações');
+    document.getElementById('printData').textContent = new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short', timeStyle: 'short'
+    }).format(new Date());
+
+    window.print();
+}
+</script>
 
 {% endblock %}

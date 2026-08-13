@@ -19866,8 +19866,37 @@ def relatorios():
                 parametros.append(ano_letivo_id)
 
             if cargo == "Professor":
-                condicoes.append("p.professor_id = ?")
-                parametros.append(usuario_id)
+                # provas.professor_id ainda referencia a tabela legada
+                # `professores`, enquanto a sessão guarda usuarios.id.
+                # Converter o ID evita o relatório localizar a prova por
+                # coincidência de IDs e perder os resultados do professor.
+                professor_legado_id = _professor_legado_do_usuario(
+                    cursor, usuario_id
+                )
+                banco.commit()
+
+                if professor_legado_id:
+                    condicoes.append("p.professor_id = ?")
+                    parametros.append(professor_legado_id)
+                else:
+                    # Sem correspondência legada, não expõe provas de outro
+                    # professor. O EXISTS usa os vínculos atuais e componente.
+                    condicoes.append("""
+                        EXISTS (
+                            SELECT 1
+                            FROM professor_vinculos AS pv_rel
+                            LEFT JOIN componentes_curriculares AS cc_rel
+                                ON cc_rel.id = pv_rel.componente_id
+                            WHERE pv_rel.professor_id = ?
+                              AND pv_rel.turma_id = p.turma_id
+                              AND (
+                                  cc_rel.id IS NULL
+                                  OR LOWER(TRIM(cc_rel.nome)) =
+                                     LOWER(TRIM(p.disciplina))
+                              )
+                        )
+                    """)
+                    parametros.append(usuario_id)
 
         if turma_filtro:
             condicoes.append("p.turma_id = ?")
@@ -19934,9 +19963,22 @@ def relatorios():
                     rl.prova_id,
                     rl.aluno_id,
                     NULL AS aplicacao_id,
-                    rl.nota
+                    CASE
+                        WHEN rl.nota IS NOT NULL THEN rl.nota
+                        WHEN rl.acertos IS NOT NULL
+                         AND COALESCE(p_leg.quantidade, 0) > 0
+                            THEN ROUND(10.0 * rl.acertos / p_leg.quantidade, 2)
+                        ELSE NULL
+                    END AS nota
                 FROM resultados AS rl
-                WHERE rl.nota IS NOT NULL
+                LEFT JOIN provas AS p_leg ON p_leg.id = rl.prova_id
+                WHERE (
+                    rl.nota IS NOT NULL
+                    OR (
+                        rl.acertos IS NOT NULL
+                        AND COALESCE(p_leg.quantidade, 0) > 0
+                    )
+                )
                   AND NOT EXISTS (
                       SELECT 1
                       FROM aplicacoes AS ap2
