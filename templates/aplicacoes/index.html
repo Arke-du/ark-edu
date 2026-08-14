@@ -924,6 +924,14 @@
                             Importar cartões
                         </a>
 
+                        <a class="ap-btn"
+                           href="{{ url_for('lancar_objetivas_manual', aplicacao_id=aplicacao.id) }}">
+                            <svg class="ap-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 6H20"></path><path d="M4 12H20"></path><path d="M4 18H14"></path><path d="M17 16L20 19L23 15"></path>
+                            </svg>
+                            Lançar objetivas
+                        </a>
+
                         {% if aplicacao.possui_discursivas %}
                         <a class="ap-btn ap-btn-discursive"
                            href="{{ url_for(

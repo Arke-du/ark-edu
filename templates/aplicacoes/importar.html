@@ -1099,6 +1099,10 @@
                 <span id="arquivoLabel">Selecionar arquivos</span>
             </label>
             <button type="submit" class="ic-btn ic-btn-primary">Importar e processar</button>
+            <a class="ic-btn ic-btn-secondary"
+               href="{{ url_for('lancar_objetivas_manual', aplicacao_id=aplicacao.id) }}">
+                Lançar objetivas manualmente
+            </a>
             {% if aplicacao.possui_discursivas %}
             <a class="ic-btn ic-btn-secondary"
                href="{{ url_for('corrigir_discursivas_aplicacao', aplicacao_id=aplicacao.id) }}">

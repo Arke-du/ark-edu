@@ -20914,9 +20914,27 @@ def _sincronizar_status_aplicacao(cursor, aplicacao_id):
           AND LOWER(TRIM(COALESCE(ai.status, ''))) <> 'erro'
     """, (aplicacao_id, aplicacao_id))
     atividade = cursor.fetchone()
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT 1
+            FROM aplicacao_alunos aa
+            WHERE aa.aplicacao_id = ?
+              AND (
+                    COALESCE(aa.objetiva_corrigida, 0) = 1
+                 OR LOWER(TRIM(COALESCE(aa.status, ''))) IN (
+                        'discursivas corrigidas',
+                        'aguardando correção discursiva',
+                        'corrigido'
+                    )
+              )
+        ) AS possui_lancamento_manual
+    """, (aplicacao_id,))
+    lancamento_manual = cursor.fetchone()
+
     iniciou = (
         int(atividade["importacoes"] or 0) > 0
         or int(atividade["possui_ausencia"] or 0) == 1
+        or int(lancamento_manual["possui_lancamento_manual"] or 0) == 1
     )
 
     if not iniciou:
@@ -23218,6 +23236,230 @@ def corrigir_discursivas_aplicacao(aplicacao_id):
             avaliacao_sem_nota=(int(aplicacao["tem_nota"] or 0) != 1)
         )
 
+    finally:
+        banco.close()
+
+
+@app.route("/aplicacoes/<int:aplicacao_id>/objetivas/manual", methods=["GET", "POST"])
+def lancar_objetivas_manual(aplicacao_id):
+    """Permite lançar/editar respostas objetivas sem importar cartão-resposta."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT a.*, p.nome AS prova_nome, p.disciplina,
+                   CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
+                   t.nome AS turma_nome
+            FROM aplicacoes a
+            INNER JOIN provas p ON p.id = a.prova_id
+            INNER JOIN turmas t ON t.id = a.turma_id
+            WHERE a.id = ?
+        """, (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao:
+            flash("Aplicação não encontrada.", "erro")
+            return redirect("/provas")
+
+        if not _pode_gerenciar_prova(
+            cursor, aplicacao["prova_id"], exigir_edicao=True,
+            permitir_finalizada=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        _sincronizar_alunos_aplicacao(cursor, aplicacao_id)
+        banco.commit()
+
+        cursor.execute("""
+            SELECT aa.aluno_id, aa.modelo, aa.status, aa.objetiva_corrigida,
+                   aa.acertos_objetivos, aa.total_objetivas, aa.nota_objetiva,
+                   al.nome, al.matricula
+            FROM aplicacao_alunos aa
+            INNER JOIN alunos al ON al.id = aa.aluno_id
+            WHERE aa.aplicacao_id = ?
+            ORDER BY al.nome COLLATE NOCASE
+        """, (aplicacao_id,))
+        alunos = [dict(x) for x in cursor.fetchall()]
+
+        if request.method == "POST":
+            try:
+                aluno_id = int(request.form.get("aluno_id") or 0)
+                modelo = int(request.form.get("modelo") or 1)
+            except (TypeError, ValueError):
+                aluno_id, modelo = 0, 1
+
+            aluno_app = next((a for a in alunos if int(a["aluno_id"]) == aluno_id), None)
+            if not aluno_app:
+                flash("Aluno inválido para esta aplicação.", "erro")
+                return redirect(url_for("lancar_objetivas_manual", aplicacao_id=aplicacao_id))
+            if str(aluno_app.get("status") or "").strip().lower() in {"ausente", "faltou"}:
+                flash("Este aluno está marcado como ausente. Desfaça a falta antes de lançar respostas.", "erro")
+                return redirect(url_for("lancar_objetivas_manual", aplicacao_id=aplicacao_id, aluno_id=aluno_id))
+
+            quantidade_modelos = max(1, int(aplicacao["quantidade_modelos"] or 1))
+            if modelo < 1 or modelo > quantidade_modelos:
+                flash("Modelo de prova inválido.", "erro")
+                return redirect(url_for("lancar_objetivas_manual", aplicacao_id=aplicacao_id, aluno_id=aluno_id))
+
+            questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
+            cursor.execute("DELETE FROM aplicacao_respostas_objetivas WHERE aplicacao_id = ? AND aluno_id = ?", (aplicacao_id, aluno_id))
+            cursor.execute("DELETE FROM respostas_alunos WHERE prova_id = ? AND aluno_id = ?", (aplicacao["prova_id"], aluno_id))
+
+            acertos = 0
+            total_objetivas = 0
+            total_discursivas = 0
+            nota_objetiva = 0.0
+            valor_total_objetivas = 0.0
+            agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            for numero, questao in enumerate(questoes, 1):
+                if _tipo_discursivo_aplicacao(questao["tipo_questao"]):
+                    total_discursivas += 1
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO respostas_discursivas_aplicacao
+                        (aplicacao_id, aluno_id, questao_id, numero_exibicao)
+                        VALUES (?, ?, ?, ?)
+                    """, (aplicacao_id, aluno_id, questao["id"], numero))
+                    continue
+
+                total_objetivas += 1
+                peso = round(float(questao.get("peso") or 0), 2)
+                valor_total_objetivas = round(valor_total_objetivas + peso, 2)
+                anulada = int(questao["anulada"] or 0) if "anulada" in questao.keys() else 0
+                valor = (request.form.get(f"q_{numero}") or "").strip().upper()
+                if valor in {"A", "B", "C", "D"}:
+                    situacao, resposta = "respondida", valor
+                elif valor == "DUPLA":
+                    situacao, resposta = "dupla_marcacao", ""
+                else:
+                    situacao, resposta = "em_branco", ""
+
+                correta = _normalizar_letra_gabarito(questao.get("correta"))
+                if anulada:
+                    situacao, acertou = "anulada", 1
+                elif situacao == "respondida":
+                    acertou = int(resposta == correta)
+                else:
+                    acertou = 0
+                acertos += acertou
+                if acertou:
+                    nota_objetiva = round(nota_objetiva + peso, 2)
+
+                cursor.execute("""
+                    INSERT INTO aplicacao_respostas_objetivas
+                    (aplicacao_id, aluno_id, numero_questao, questao_id,
+                     modelo, resposta, situacao, resposta_correta,
+                     acertou, origem, atualizado_em, anulada)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)
+                """, (aplicacao_id, aluno_id, numero, questao["id"], modelo,
+                      resposta, situacao, correta, acertou, agora, anulada))
+
+                resposta_legada = (
+                    "__ANULADA__" if anulada else
+                    resposta if situacao == "respondida" else
+                    "__DUPLA__" if situacao == "dupla_marcacao" else "__BRANCO__"
+                )
+                cursor.execute("""
+                    INSERT INTO respostas_alunos
+                    (prova_id, aluno_id, numero_questao, resposta_aluno,
+                     resposta_correta, acertou)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (aplicacao["prova_id"], aluno_id, numero, resposta_legada,
+                      "ANULADA" if anulada else correta, acertou))
+
+            cursor.execute("""
+                SELECT COUNT(*) AS total,
+                       SUM(CASE WHEN corrigida = 1 THEN 1 ELSE 0 END) AS corrigidas,
+                       ROUND(SUM(CASE WHEN corrigida = 1 THEN COALESCE(nota, 0) ELSE 0 END), 2) AS nota_disc
+                FROM respostas_discursivas_aplicacao
+                WHERE aplicacao_id = ? AND aluno_id = ?
+            """, (aplicacao_id, aluno_id))
+            rd = cursor.fetchone()
+            disc_total = int(rd["total"] or 0)
+            disc_corrigidas = int(rd["corrigidas"] or 0)
+            nota_disc = round(float(rd["nota_disc"] or 0), 2)
+            discursiva_pendente = 1 if disc_total > 0 and disc_corrigidas < disc_total else 0
+            nota_final = None
+            if int(aplicacao["tem_nota"] or 0) == 1:
+                nota_final = round(nota_objetiva + nota_disc, 2) if disc_corrigidas else round(nota_objetiva, 2)
+
+            status = "Aguardando correção discursiva" if total_discursivas and discursiva_pendente else "Corrigido"
+            cursor.execute("""
+                UPDATE aplicacao_alunos
+                SET modelo = ?, objetiva_corrigida = 1, discursiva_pendente = ?,
+                    acertos_objetivos = ?, total_objetivas = ?, nota_objetiva = ?,
+                    nota_final = ?, status = ?
+                WHERE aplicacao_id = ? AND aluno_id = ?
+            """, (modelo, discursiva_pendente, acertos, total_objetivas,
+                  round(nota_objetiva, 2), nota_final, status, aplicacao_id, aluno_id))
+
+            _sincronizar_status_aplicacao(cursor, aplicacao_id)
+            banco.commit()
+            flash(
+                f"Respostas objetivas de {aluno_app['nome']} salvas: {acertos}/{total_objetivas} corretas.",
+                "sucesso"
+            )
+            return redirect(url_for("lancar_objetivas_manual", aplicacao_id=aplicacao_id, aluno_id=aluno_id))
+
+        try:
+            aluno_id = int(request.args.get("aluno_id") or 0)
+        except (TypeError, ValueError):
+            aluno_id = 0
+        aluno_selecionado = next((a for a in alunos if int(a["aluno_id"]) == aluno_id), None)
+        if not aluno_selecionado:
+            aluno_selecionado = next((a for a in alunos if str(a.get("status") or "").lower() != "ausente"), alunos[0] if alunos else None)
+
+        modelo = int(aluno_selecionado.get("modelo") or 1) if aluno_selecionado else 1
+        try:
+            modelo_query = int(request.args.get("modelo") or modelo)
+            if 1 <= modelo_query <= max(1, int(aplicacao["quantidade_modelos"] or 1)):
+                modelo = modelo_query
+        except (TypeError, ValueError):
+            pass
+
+        questoes_objetivas = []
+        respostas_atuais = {}
+        if aluno_selecionado:
+            questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
+            for numero, questao in enumerate(questoes, 1):
+                if not _tipo_discursivo_aplicacao(questao["tipo_questao"]):
+                    item = dict(questao)
+                    item["numero"] = numero
+                    questoes_objetivas.append(item)
+            # Só reaproveita marcações já salvas quando o modelo exibido é o
+            # mesmo modelo atualmente vinculado ao aluno. Ao trocar o modelo,
+            # a tela abre em branco para evitar transportar respostas entre
+            # versões diferentes da prova.
+            if int(aluno_selecionado.get("modelo") or 1) == modelo:
+                cursor.execute("""
+                    SELECT numero_questao, resposta, situacao
+                    FROM aplicacao_respostas_objetivas
+                    WHERE aplicacao_id = ? AND aluno_id = ?
+                """, (aplicacao_id, aluno_selecionado["aluno_id"]))
+                for r in cursor.fetchall():
+                    if r["situacao"] == "respondida":
+                        respostas_atuais[int(r["numero_questao"])] = (r["resposta"] or "").upper()
+                    elif r["situacao"] == "dupla_marcacao":
+                        respostas_atuais[int(r["numero_questao"])] = "DUPLA"
+                    else:
+                        respostas_atuais[int(r["numero_questao"])] = "BRANCO"
+
+        return render_template(
+            "aplicacoes/objetivas_manual.html",
+            aplicacao=aplicacao, alunos=alunos,
+            aluno_selecionado=aluno_selecionado,
+            questoes=questoes_objetivas,
+            respostas_atuais=respostas_atuais,
+            modelo=modelo,
+            quantidade_modelos=max(1, int(aplicacao["quantidade_modelos"] or 1))
+        )
+    except Exception as erro:
+        banco.rollback()
+        app.logger.exception("Erro no lançamento manual de objetivas")
+        flash(f"Não foi possível lançar as objetivas: {erro}", "erro")
+        return redirect(url_for("importar_cartoes_aplicacao", aplicacao_id=aplicacao_id))
     finally:
         banco.close()
 

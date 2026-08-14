@@ -1,0 +1,71 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Lançamento Manual de Objetivas | ARK EDUS{% endblock %}
+{% block estilos %}
+<style>
+.om-page{--p:#123b72;--ps:#eef5fc;--b:#dfe6ef;--t:#172033;--m:#667085;--ok:#087a55;max-width:1500px;margin:0 auto;padding:28px;color:var(--t)}
+.om-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.om-back{color:var(--p);text-decoration:none;font-weight:800}.om-head h1{margin:8px 0 5px;font-size:30px;color:var(--p)}.om-head p{margin:0;color:var(--m)}
+.om-actions{display:flex;gap:10px;flex-wrap:wrap}.om-btn{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 16px;border-radius:10px;border:1px solid var(--b);background:#fff;color:var(--p);font-weight:850;text-decoration:none;cursor:pointer}.om-btn.primary{background:var(--p);border-color:var(--p);color:#fff}
+.om-layout{display:grid;grid-template-columns:330px 1fr;gap:20px}.om-card{background:#fff;border:1px solid var(--b);border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.06);overflow:hidden}.om-card-head{padding:18px 20px;border-bottom:1px solid var(--b)}.om-card-head h2{font-size:17px;margin:0;color:var(--p)}.om-card-head p{margin:5px 0 0;color:var(--m);font-size:13px}
+.om-students{max-height:72vh;overflow:auto}.om-student{display:block;padding:14px 18px;border-bottom:1px solid #eef2f6;text-decoration:none;color:inherit}.om-student:hover,.om-student.active{background:var(--ps)}.om-student strong{display:block}.om-student small{display:block;color:var(--m);margin-top:3px}.om-student-status{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:800}.om-student-status.done{background:#eaf8f2;color:var(--ok)}.om-student-status.absent{background:#fff1f2;color:#b42318}
+.om-form-head{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:18px 20px;border-bottom:1px solid var(--b)}.om-form-head h2{margin:0;color:var(--p);font-size:20px}.om-meta{display:flex;align-items:center;gap:10px}.om-meta label{font-weight:800;color:var(--m)}.om-meta select{padding:9px 12px;border:1px solid var(--b);border-radius:9px;background:#fff;font:inherit;font-weight:800}
+.om-note{margin:18px 20px 0;padding:12px 14px;border-radius:11px;background:#f8fbff;border:1px solid #dbe7f5;color:#4b5f7a;font-size:13px}.om-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:20px}.om-q{border:1px solid var(--b);border-radius:14px;padding:14px;background:#fff}.om-qtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.om-qtop strong{color:var(--p);font-size:15px}.om-qtop span{font-size:11px;color:var(--m)}
+.om-options{display:flex;gap:7px;flex-wrap:wrap}.om-opt input{position:absolute;opacity:0;pointer-events:none}.om-opt span{display:grid;place-items:center;min-width:39px;height:39px;padding:0 10px;border:2px solid #d7e0eb;border-radius:999px;background:#fff;color:#40516a;font-weight:900;cursor:pointer;transition:.15s}.om-opt input:checked+span{background:var(--p);border-color:var(--p);color:#fff;box-shadow:0 0 0 3px rgba(18,59,114,.12)}.om-opt.blank span{border-radius:9px;color:#087a55;border-color:#a8d7c7}.om-opt.double span{border-radius:9px;color:#b86408;border-color:#f0c28c}.om-opt.blank input:checked+span{background:#087a55;border-color:#087a55;color:#fff}.om-opt.double input:checked+span{background:#b86408;border-color:#b86408;color:#fff}
+.om-footer{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 20px;border-top:1px solid var(--b);background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}.om-footer span{color:var(--m);font-size:13px}.om-empty{padding:55px 20px;text-align:center;color:var(--m)}
+@media(max-width:1000px){.om-layout{grid-template-columns:1fr}.om-students{max-height:260px}.om-grid{grid-template-columns:1fr}.om-head{flex-direction:column}}
+</style>
+{% endblock %}
+{% block cabecalho %}{% endblock %}
+{% block conteudo %}
+<div class="om-page">
+  <header class="om-head">
+    <div><a class="om-back" href="{{ url_for('importar_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}">← Voltar</a><h1>Lançamento manual das objetivas</h1><p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }} · {{ aplicacao.disciplina }}</p></div>
+    <div class="om-actions"><a class="om-btn" href="{{ url_for('importar_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}">Importar cartões</a>{% if aplicacao.possui_discursivas is defined and aplicacao.possui_discursivas %}<a class="om-btn" href="{{ url_for('corrigir_discursivas_aplicacao', aplicacao_id=aplicacao.id) }}">Discursivas</a>{% endif %}</div>
+  </header>
+  <div class="om-layout">
+    <aside class="om-card">
+      <div class="om-card-head"><h2>Alunos</h2><p>Selecione quem terá as respostas lançadas.</p></div>
+      <div class="om-students">
+        {% for a in alunos %}
+        <a class="om-student {% if aluno_selecionado and a.aluno_id == aluno_selecionado.aluno_id %}active{% endif %}" href="{{ url_for('lancar_objetivas_manual', aplicacao_id=aplicacao.id, aluno_id=a.aluno_id) }}">
+          <strong>{{ a.nome }}</strong><small>{{ a.matricula or 'Sem matrícula' }}</small>
+          {% if (a.status or '')|lower == 'ausente' %}<span class="om-student-status absent">Ausente</span>{% elif a.objetiva_corrigida %}<span class="om-student-status done">✓ Objetivas lançadas · {{ a.acertos_objetivos }}/{{ a.total_objetivas }}</span>{% else %}<span class="om-student-status">Pendente</span>{% endif %}
+        </a>
+        {% else %}<div class="om-empty">Nenhum aluno vinculado.</div>{% endfor %}
+      </div>
+    </aside>
+    <main class="om-card">
+      {% if aluno_selecionado %}
+      <form method="post" id="objetivasForm">
+        <input type="hidden" name="aluno_id" value="{{ aluno_selecionado.aluno_id }}">
+        <div class="om-form-head"><div><h2>{{ aluno_selecionado.nome }}</h2></div><div class="om-meta"><label for="modelo">Modelo</label><select name="modelo" id="modelo" onchange="trocarModelo(this.value)">{% for m in range(1, quantidade_modelos + 1) %}<option value="{{ m }}" {% if m == modelo %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div></div>
+        {% if (aluno_selecionado.status or '')|lower == 'ausente' %}
+          <div class="om-empty"><strong>Aluno marcado como ausente.</strong><br>Desfaça a falta na tela de importação antes de lançar respostas.</div>
+        {% else %}
+          <div class="om-note">Marque exatamente o que consta no cartão/prova do aluno. Você pode usar <b>Em branco</b> e <b>Dupla</b>. O sistema compara automaticamente com o gabarito do modelo selecionado e atualiza os relatórios.</div>
+          <div class="om-grid">
+          {% for q in questoes %}
+            <div class="om-q"><div class="om-qtop"><strong>Questão {{ '%02d'|format(q.numero) }}</strong>{% if q.anulada %}<span>ANULADA</span>{% endif %}</div>
+              <div class="om-options">
+                {% for letra in ['A','B','C','D'] %}<label class="om-opt"><input type="radio" name="q_{{ q.numero }}" value="{{ letra }}" {% if respostas_atuais.get(q.numero) == letra %}checked{% endif %}><span>{{ letra }}</span></label>{% endfor %}
+                <label class="om-opt blank"><input type="radio" name="q_{{ q.numero }}" value="BRANCO" {% if respostas_atuais.get(q.numero, 'BRANCO') == 'BRANCO' %}checked{% endif %}><span>Em branco</span></label>
+                <label class="om-opt double"><input type="radio" name="q_{{ q.numero }}" value="DUPLA" {% if respostas_atuais.get(q.numero) == 'DUPLA' %}checked{% endif %}><span>Dupla</span></label>
+              </div>
+            </div>
+          {% else %}<div class="om-empty">Esta avaliação não possui questões objetivas.</div>{% endfor %}
+          </div>
+          <div class="om-footer"><span>{{ questoes|length }} questão(ões) objetiva(s)</span><button class="om-btn primary" type="submit">Salvar respostas objetivas</button></div>
+        {% endif %}
+      </form>
+      {% else %}<div class="om-empty">Selecione um aluno para começar.</div>{% endif %}
+    </main>
+  </div>
+</div>
+<script>
+function trocarModelo(modelo){
+  const url = new URL(window.location.href);
+  url.searchParams.set('modelo', modelo);
+  {% if aluno_selecionado %}url.searchParams.set('aluno_id','{{ aluno_selecionado.aluno_id }}');{% endif %}
+  window.location.href = url.toString();
+}
+</script>
+{% endblock %}
