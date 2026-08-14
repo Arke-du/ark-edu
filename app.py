@@ -21523,6 +21523,36 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
     return caminhos
 
 
+def _otimizar_imagem_cartao(caminho):
+    """Reduz o uso do disco mantendo resolução suficiente para revisão humana."""
+    if not caminho or not os.path.isfile(caminho):
+        return caminho
+    try:
+        ext = os.path.splitext(caminho)[1].lower()
+        if ext in {".jpg", ".jpeg"} and os.path.getsize(caminho) <= 900_000:
+            return caminho
+        with Image.open(caminho) as imagem:
+            imagem = ImageOps.exif_transpose(imagem).convert("RGB")
+            largura, altura = imagem.size
+            max_lado = 2000
+            if max(largura, altura) > max_lado:
+                escala = max_lado / float(max(largura, altura))
+                imagem = imagem.resize(
+                    (max(1, int(largura * escala)), max(1, int(altura * escala))),
+                    Image.Resampling.LANCZOS,
+                )
+            novo = os.path.splitext(caminho)[0] + ".jpg"
+            temporario = novo + ".tmp"
+            imagem.save(temporario, format="JPEG", quality=82, optimize=True)
+        os.replace(temporario, novo)
+        if os.path.abspath(novo) != os.path.abspath(caminho):
+            _remover_arquivo_silenciosamente(caminho)
+        return novo
+    except Exception:
+        app.logger.exception("Falha ao otimizar imagem de cartão: %s", caminho)
+        return caminho
+
+
 def _remover_arquivo_silenciosamente(caminho):
     try:
         if caminho and os.path.isfile(caminho):
@@ -22182,6 +22212,10 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             aluno_id
                         ))
 
+                        # A leitura já terminou; troca PNG grande por JPEG otimizado
+                        # antes de persistir o caminho para evitar lotar o disco.
+                        caminho = _otimizar_imagem_cartao(caminho)
+
                         nome_exibicao = nome_original
                         if numero_pagina is not None:
                             nome_exibicao = (
@@ -22244,6 +22278,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         nome_exibicao_erro = nome_original
                         if numero_pagina is not None:
                             nome_exibicao_erro = f"{nome_original} · página {numero_pagina}"
+                        caminho = _otimizar_imagem_cartao(caminho)
                         try:
                             cursor.execute("""
                                 INSERT INTO aplicacao_importacoes

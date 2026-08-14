@@ -33,13 +33,16 @@ class BackupManager:
         self.app = app
         self.db_path = Path(db_path).resolve()
         self.upload_folder = Path(upload_folder).resolve() if upload_folder else None
-        self.retention_days = max(1, int(os.environ.get("BACKUP_RETENTION_DAYS", "30")))
+        self.retention_days = max(1, int(os.environ.get("BACKUP_RETENTION_DAYS", "3")))
         self.interval_hours = max(1, int(os.environ.get("BACKUP_INTERVAL_HOURS", "24")))
-        self.include_uploads = os.environ.get("BACKUP_INCLUDE_UPLOADS", "true").lower() == "true"
+        self.include_uploads = os.environ.get("BACKUP_INCLUDE_UPLOADS", "false").lower() == "true"
         self.enabled = os.environ.get("BACKUP_AUTOMATICO", "true").lower() == "true"
         self.encryption_key = os.environ.get("BACKUP_ENCRYPTION_KEY", "").strip()
         self.backup_dir = self._preparar_diretorio_backup()
         self._thread_started = False
+        # Libera espaço antes de qualquer novo backup. Isso é essencial em discos
+        # pequenos do Render: versões antigas incluíam todos os uploads em cada ZIP.
+        self._limpar_backups_por_arquivo()
 
     def _preparar_diretorio_backup(self) -> Path:
         """Seleciona um diretório gravável sem impedir a inicialização da aplicação.
@@ -189,6 +192,23 @@ class BackupManager:
             except OSError:
                 pass
         self._lock_path().unlink(missing_ok=True)
+
+    def _limpar_backups_por_arquivo(self) -> None:
+        """Remove backups antigos diretamente pelo filesystem, mesmo com SQLite cheio."""
+        try:
+            arquivos = sorted(
+                [p for p in self.backup_dir.glob("ark_edus_backup_*") if p.is_file()],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            limite = time.time() - (self.retention_days * 86400)
+            # Mantém no máximo 3 backups. O banco continua sendo a fonte principal;
+            # uploads não são mais duplicados diariamente por padrão.
+            for indice, arquivo in enumerate(arquivos):
+                if indice >= 3 or arquivo.stat().st_mtime < limite:
+                    arquivo.unlink(missing_ok=True)
+        except OSError:
+            self.app.logger.exception("Falha ao liberar backups antigos do disco")
 
     def criar_backup(self, tipo: str = "manual", criado_por: int | None = None) -> dict[str, Any]:
         fd = self._adquirir_lock()

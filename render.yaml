@@ -17,3 +17,8 @@ services:
         value: /var/data/backups
       - key: RENDER_DISK_PATH
         value: /var/data
+
+      - key: BACKUP_INCLUDE_UPLOADS
+        value: "false"
+      - key: BACKUP_RETENTION_DAYS
+        value: "3"
