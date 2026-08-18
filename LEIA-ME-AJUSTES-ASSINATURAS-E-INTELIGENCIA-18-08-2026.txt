@@ -1,0 +1,34 @@
+ARK EDUS — AJUSTES 18/08/2026
+
+1. ASSINATURAS / PADRÃO VISUAL
+- Tela /gestao/assinaturas reorganizada no padrão visual da ARK EDUS.
+- Removida dependência de tabela horizontal muito larga.
+- Assinaturas agora são apresentadas em blocos responsivos com cliente, plano, situação, cobrança, renovação, gateway e ações.
+- Mantidos filtros, alteração de plano, liberação/suspensão de acesso e cancelamento.
+- Cancelamentos agendados pelo assinante ficam identificados no painel do Administrador Geral.
+
+2. CANCELAMENTO PELO ASSINANTE
+- Nova ação em /minha-assinatura para o usuário cancelar sua própria assinatura.
+- A recorrência Asaas é cancelada quando existir vínculo com assinatura do gateway.
+- O acesso é mantido até o fim do período vigente (ou fim dos 7 dias grátis durante o trial).
+- Professor autônomo passa automaticamente para o Plano Gratuito ao chegar à data de encerramento.
+- Os dados pedagógicos não são apagados.
+- Novas colunas são criadas automaticamente pela migração: cancelamento_agendado e acesso_ate.
+
+3. INTELIGÊNCIA PEDAGÓGICA
+- Filtros ampliados: instituição (Administrador Geral), bimestre, turma, componente e avaliação.
+- Corrigido o tratamento da média: avaliações configuradas como "sem nota" não são contabilizadas como nota 0.
+- Novo indicador de percentual geral de acertos.
+- Resultados de aplicações novas e resultados legados são consolidados.
+- Visão Geral ampliada com média, acertos, estudantes avaliados, abaixo de 6 e habilidades críticas.
+- Comparação por turma/componente mostra média quando há nota e percentual de acertos em diagnósticas/sem nota.
+- Mapa de Habilidades agora informa acertos, estudantes, número de questões, avaliações e situação.
+- Botão Detalhes em cada habilidade mostra avaliações relacionadas e estudantes que erraram pelo menos uma questão.
+- Evolução do Estudante mostra notas, percentual de acertos por avaliação e desempenho individual por habilidade.
+- Relatório pedagógico automático permanece editável, copiável e imprimível/PDF.
+
+VALIDAÇÕES REALIZADAS
+- app.py compilado com py_compile.
+- saas_arkedu.py compilado com py_compile.
+- services/plano_service.py compilado com py_compile.
+- Templates alterados validados pelo parser Jinja2.

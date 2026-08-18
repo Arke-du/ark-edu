@@ -105,6 +105,8 @@ def migrar(conectar_banco):
         "teste_inicio": "TEXT",
         "teste_fim": "TEXT",
         "plano_pos_teste": "TEXT DEFAULT 'gratuito'",
+        "cancelamento_agendado": "INTEGER NOT NULL DEFAULT 0",
+        "acesso_ate": "TEXT",
     }.items():
         if col not in _cols(cur, "assinaturas_saas"):
             cur.execute(f"ALTER TABLE assinaturas_saas ADD COLUMN {col} {definition}")
@@ -288,8 +290,47 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
         finally:
             db.close()
 
+    def atualizar_cancelamento_agendado(usuario_id):
+        """Finaliza cancelamentos no vencimento preservando o período já contratado."""
+        if not usuario_id:
+            return
+        db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
+        try:
+            row = cur.execute("""
+                SELECT a.*, COALESCE(u.tipo_conta,'institucional') AS tipo_conta_atual
+                FROM assinaturas_saas a JOIN usuarios u ON u.id=a.usuario_id
+                WHERE a.usuario_id=? AND COALESCE(a.cancelamento_agendado,0)=1
+                ORDER BY a.id DESC LIMIT 1
+            """, (usuario_id,)).fetchone()
+            if not row or not row['acesso_ate']:
+                return
+            try:
+                limite = date.fromisoformat(str(row['acesso_ate'])[:10])
+            except (TypeError, ValueError):
+                limite = date.today()
+            if date.today() < limite:
+                return
+            if row['tipo_conta_atual'] == 'autonomo':
+                cur.execute("""UPDATE assinaturas_saas SET plano_codigo='gratuito',status='gratuita',
+                    gateway='gratuito',gateway_subscription_id=NULL,metodo_pagamento=NULL,
+                    proxima_cobranca=NULL,cancelamento_agendado=0,atualizado_em=CURRENT_TIMESTAMP
+                    WHERE id=?""", (row['id'],))
+                cur.execute("UPDATE usuarios SET plano_codigo='gratuito',assinatura_status='gratuita' WHERE id=?", (row['usuario_id'],))
+                if row['escola_id']:
+                    cur.execute("UPDATE escolas SET plano_codigo='gratuito' WHERE id=?", (row['escola_id'],))
+            else:
+                cur.execute("""UPDATE assinaturas_saas SET status='cancelada',cancelamento_agendado=0,
+                    atualizado_em=CURRENT_TIMESTAMP WHERE id=?""", (row['id'],))
+                cur.execute("UPDATE usuarios SET assinatura_status='cancelada' WHERE escola_id=?", (row['escola_id'],))
+            db.commit()
+        except Exception:
+            db.rollback(); app.logger.exception('Erro ao finalizar cancelamento agendado')
+        finally:
+            db.close()
+
     def assinatura_usuario(usuario_id):
         atualizar_teste_expirado(usuario_id)
+        atualizar_cancelamento_agendado(usuario_id)
         return obter_conta(conectar_banco, usuario_id)
 
     def garantir_workspace_autonomo(usuario_id):
@@ -895,6 +936,60 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             return render_template('saas/minha_assinatura.html', assinatura=info, pagamentos=pagamentos,
                                    dados_cobranca=dados_cobranca,
                                    asaas_configurado=bool(os.environ.get('ASAAS_API_KEY')))
+        finally:
+            db.close()
+
+    @app.route('/minha-assinatura/cancelar', methods=['POST'])
+    def cancelar_minha_assinatura():
+        """Cancela a renovação e mantém acesso até o fim do período vigente."""
+        uid = session.get('usuario_id')
+        if not uid:
+            return redirect(url_for('login'))
+        db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
+        try:
+            a = cur.execute("""SELECT a.*,COALESCE(u.tipo_conta,'institucional') tipo_conta_atual
+                FROM assinaturas_saas a JOIN usuarios u ON u.id=a.usuario_id
+                WHERE a.usuario_id=? ORDER BY a.id DESC LIMIT 1""", (uid,)).fetchone()
+            if not a:
+                flash('Assinatura não encontrada.', 'erro')
+                return redirect(url_for('minha_assinatura'))
+            if int(a['isento'] or 0)==1:
+                flash('Contas com cortesia não possuem cobrança recorrente para cancelar.', 'aviso')
+                return redirect(url_for('minha_assinatura'))
+            if (a['plano_codigo'] or '').lower() == 'gratuito':
+                flash('Você já está no Plano Gratuito.', 'aviso')
+                return redirect(url_for('minha_assinatura'))
+            if int(a['cancelamento_agendado'] or 0)==1:
+                flash('O cancelamento desta assinatura já está agendado.', 'aviso')
+                return redirect(url_for('minha_assinatura'))
+
+            # Durante o teste, o acesso permanece até o fim dos 7 dias. Em uma
+            # assinatura paga, a próxima cobrança representa o fim do período atual.
+            acesso_ate = (str(a['teste_fim'] or '')[:10] if (a['status'] or '').lower()=='trial'
+                          else str(a['proxima_cobranca'] or '')[:10])
+            if not acesso_ate:
+                acesso_ate = date.today().isoformat()
+
+            sub_id=(a['gateway_subscription_id'] or '').strip()
+            if sub_id and (a['gateway'] or '').lower()=='asaas':
+                try:
+                    _asaas_request('DELETE', f'/subscriptions/{sub_id}')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'Não foi possível cancelar a renovação no Asaas: {e}', 'erro')
+                    return redirect(url_for('minha_assinatura'))
+
+            cur.execute("""UPDATE assinaturas_saas SET renovacao_automatica=0,cancelamento_agendado=1,
+                acesso_ate=?,cancelada_em=CURRENT_TIMESTAMP,
+                observacao_cobranca=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                (acesso_ate, f'Cancelamento solicitado pelo assinante. Acesso mantido até {acesso_ate}.', a['id']))
+            db.commit()
+            flash(f'Assinatura cancelada. Seu acesso continua normalmente até {acesso_ate}.', 'sucesso')
+            return redirect(url_for('minha_assinatura'))
+        except Exception as e:
+            db.rollback(); app.logger.exception('Erro no cancelamento pelo assinante')
+            flash(f'Não foi possível cancelar a assinatura: {e}', 'erro')
+            return redirect(url_for('minha_assinatura'))
         finally:
             db.close()
 

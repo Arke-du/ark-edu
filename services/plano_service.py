@@ -126,6 +126,7 @@ def obter_conta(conectar_banco, usuario_id: int):
             'gateway': None, 'metodo_pagamento': None,
             'renovacao_automatica': None, 'observacao_cobranca': None,
             'teste_inicio': None, 'teste_fim': None, 'plano_pos_teste': None,
+            'cancelamento_agendado': 0, 'acesso_ate': None,
         }
         conta.update(defaults)
         if assinatura:
@@ -147,6 +148,8 @@ def obter_conta(conectar_banco, usuario_id: int):
                 'teste_inicio': a.get('teste_inicio'),
                 'teste_fim': a.get('teste_fim'),
                 'plano_pos_teste': a.get('plano_pos_teste'),
+                'cancelamento_agendado': a.get('cancelamento_agendado') or 0,
+                'acesso_ate': a.get('acesso_ate'),
                 'assinatura_status': a.get('status') or conta.get('assinatura_status') or 'ativa',
             })
         return conta
