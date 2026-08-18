@@ -439,7 +439,10 @@
 
             <!-- Anos Letivos -->
 
-            {% if permissao_modulo("Anos Letivos") %}
+            {% if session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ] %}
 
                 <a
                     href="/anos-letivos"
@@ -483,9 +486,15 @@
             {% endif %}
 
 
-            <!-- Alunos -->
+            <!-- Estudantes: acompanhamento disponível para todos os perfis -->
+            <a href="/estudantes" class="{% if request.path.startswith('/estudantes') %}ativo-menu{% endif %}">
+                <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"></circle><path d="M2 21C2 16.5 5.5 14 9 14"></path><circle cx="18" cy="9" r="3"></circle><path d="M14 20c.7-2.7 2.5-4 5-4"></path></svg>
+                <span>Estudantes</span>
+            </a>
 
-            {% if permissao_modulo("Alunos") %}
+            <!-- Alunos: gestão cadastral; não aparece para Professor institucional -->
+
+            {% if permissao_modulo("Alunos") and session.get("usuario_cargo") != "Professor" %}
 
                 <a
                     href="/alunos"
@@ -564,7 +573,7 @@
             {% endif %}
 
             <!-- Inteligência Pedagógica -->
-            {% if permissao_modulo("Inteligência Pedagógica") %}
+            {% if permissao_modulo("Relatórios") %}
                 <a href="/inteligencia-pedagogica" class="{% if request.path.startswith('/inteligencia-pedagogica') %}ativo-menu{% endif %}">
                     <svg viewBox="0 0 24 24"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19V3"></path><path d="M3 21h20"></path></svg>
                     <span>Inteligência Pedagógica</span>

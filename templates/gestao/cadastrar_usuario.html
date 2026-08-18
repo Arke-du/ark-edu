@@ -212,6 +212,47 @@
 
     </div>
 
+    <!-- PERMISSÕES -->
+    <div class="card form-card">
+
+        <h2>Permissões de acesso</h2>
+
+        <p class="ajuda-formulario">
+            Selecione os módulos que este usuário poderá visualizar e utilizar.
+        </p>
+
+        <div class="opcoes-grid etapas-grid">
+
+            {% for modulo in modulos_plataforma %}
+
+                {% if not (
+                    session.get("usuario_cargo") == "Administrador da Instituição"
+                    and modulo == "Instituições"
+                ) %}
+
+                    <label class="opcao-check">
+
+                        <input
+                            type="checkbox"
+                            name="modulos_permitidos"
+                            value="{{ modulo }}"
+                            {% if modulo == "Dashboard" %}
+                                checked
+                            {% endif %}
+                        >
+
+                        <span>{{ modulo }}</span>
+
+                    </label>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
     <!-- AÇÕES -->
     <div class="card form-card form-card-acoes">
 
