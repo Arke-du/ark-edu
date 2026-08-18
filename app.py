@@ -14837,8 +14837,12 @@ def cadastrar_usuario():
                     id,
                     nome
                 FROM cargos
-                WHERE nome != 'Administrador Geral'
-                ORDER BY nome
+                WHERE nome IN ('Coordenador', 'Professor', 'Secretário')
+                ORDER BY CASE nome
+                    WHEN 'Coordenador' THEN 1
+                    WHEN 'Professor' THEN 2
+                    WHEN 'Secretário' THEN 3
+                    ELSE 9 END, nome
             """)
 
         cargos = cursor.fetchall()
@@ -14966,10 +14970,6 @@ def cadastrar_usuario():
                 ""
             ).strip()
 
-            modulos_selecionados = request.form.getlist(
-                "modulos_permitidos"
-            )
-
             turmas_vinculadas = request.form.getlist(
                 "turmas_vinculadas"
             )
@@ -15067,6 +15067,12 @@ def cadastrar_usuario():
 
             nome_cargo = cargo_selecionado["nome"].strip()
 
+            # Hierarquia de cadastros: o administrador da instituição só pode
+            # cadastrar perfis subordinados da própria instituição.
+            if cargo_logado == "Administrador da Instituição" and nome_cargo not in {"Coordenador", "Professor", "Secretário"}:
+                flash("Este perfil não pode ser cadastrado pelo Administrador da Instituição.", "erro")
+                return redirect("/cadastrar_usuario")
+
             # Administrador da Instituição não pode
             # criar Administrador Geral
             if (
@@ -15130,18 +15136,6 @@ def cadastrar_usuario():
                         "erro"
                     )
                     return redirect("/cadastrar_usuario")
-
-            # ==============================
-            # CONTROLE DE PERMISSÕES
-            # ==============================
-
-            if cargo_logado == "Administrador da Instituição":
-
-                modulos_selecionados = [
-                    modulo
-                    for modulo in modulos_selecionados
-                    if modulo != "Instituições"
-                ]
 
             # ==============================
             # VERIFICA E-MAIL DUPLICADO
@@ -15227,42 +15221,6 @@ def cadastrar_usuario():
 
             usuario_id = cursor.lastrowid
 
-            # ==============================
-            # PERMISSÕES INDIVIDUAIS
-            # ==============================
-
-            for modulo in modulos_plataforma:
-
-                pode_acessar = (
-                    1
-                    if modulo in modulos_selecionados
-                    else 0
-                )
-
-                # Administrador Geral recebe acesso completo
-                if nome_cargo == "Administrador Geral":
-                    pode_acessar = 1
-
-                # Usuários de instituição não acessam
-                # o cadastro geral de instituições
-                if (
-                    cargo_logado == "Administrador da Instituição"
-                    and modulo == "Instituições"
-                ):
-                    pode_acessar = 0
-
-                cursor.execute("""
-                    INSERT OR REPLACE INTO usuario_permissoes (
-                        usuario_id,
-                        modulo,
-                        pode_acessar
-                    )
-                    VALUES (?, ?, ?)
-                """, (
-                    usuario_id,
-                    modulo,
-                    pode_acessar
-                ))
 
             # ==============================
             # TURMAS DA COORDENAÇÃO
@@ -15322,8 +15280,7 @@ def cadastrar_usuario():
             cargos=cargos,
             escolas=escolas,
             turmas=turmas,
-            nome_instituicao=nome_instituicao,
-            modulos_plataforma=modulos_plataforma
+            nome_instituicao=nome_instituicao
         )
 
     except sqlite3.IntegrityError as erro:
@@ -15492,8 +15449,12 @@ def editar_usuario(id):
                     id,
                     nome
                 FROM cargos
-                WHERE nome != 'Administrador Geral'
-                ORDER BY nome
+                WHERE nome IN ('Coordenador', 'Professor', 'Secretário')
+                ORDER BY CASE nome
+                    WHEN 'Coordenador' THEN 1
+                    WHEN 'Professor' THEN 2
+                    WHEN 'Secretário' THEN 3
+                    ELSE 9 END, nome
             """)
 
         cargos = cursor.fetchall()
@@ -15548,10 +15509,6 @@ def editar_usuario(id):
                 "cargo_id",
                 ""
             ).strip()
-
-            modulos_selecionados = request.form.getlist(
-                "modulos_permitidos"
-            )
 
             turmas_selecionadas = request.form.getlist(
                 "turmas_vinculadas"
@@ -15648,6 +15605,10 @@ def editar_usuario(id):
 
             nome_cargo = cargo_selecionado["nome"].strip()
 
+            if cargo_logado == "Administrador da Instituição" and nome_cargo not in {"Coordenador", "Professor", "Secretário"}:
+                flash("Este perfil não pode ser atribuído pelo Administrador da Instituição.", "erro")
+                return redirect(f"/editar_usuario/{id}")
+
             if (
                 cargo_logado != "Administrador Geral"
                 and nome_cargo == "Administrador Geral"
@@ -15715,16 +15676,6 @@ def editar_usuario(id):
 
                     return redirect(f"/editar_usuario/{id}")
 
-            # Administrador de instituição não pode
-            # liberar acesso ao módulo Instituições
-            if cargo_logado == "Administrador da Instituição":
-
-                modulos_selecionados = [
-                    modulo
-                    for modulo in modulos_selecionados
-                    if modulo != "Instituições"
-                ]
-
             # ======================================
             # ATUALIZA O USUÁRIO
             # ======================================
@@ -15771,49 +15722,6 @@ def editar_usuario(id):
                     id
                 ))
 
-            # ======================================
-            # ATUALIZA AS PERMISSÕES
-            # ======================================
-
-            cursor.execute("""
-                DELETE FROM usuario_permissoes
-                WHERE usuario_id = ?
-            """, (
-                id,
-            ))
-
-            for modulo in modulos_plataforma:
-
-                pode_acessar = (
-                    1
-                    if modulo in modulos_selecionados
-                    else 0
-                )
-
-                # Administrador Geral recebe acesso completo
-                if nome_cargo == "Administrador Geral":
-                    pode_acessar = 1
-
-                # Usuários administrados pela instituição
-                # nunca recebem o módulo Instituições
-                if (
-                    cargo_logado == "Administrador da Instituição"
-                    and modulo == "Instituições"
-                ):
-                    pode_acessar = 0
-
-                cursor.execute("""
-                    INSERT INTO usuario_permissoes (
-                        usuario_id,
-                        modulo,
-                        pode_acessar
-                    )
-                    VALUES (?, ?, ?)
-                """, (
-                    id,
-                    modulo,
-                    pode_acessar
-                ))
 
             # ======================================
             # ATUALIZA AS TURMAS DA COORDENAÇÃO
@@ -15873,23 +15781,6 @@ def editar_usuario(id):
 
             return redirect("/usuarios")
 
-        # ==========================================
-        # PERMISSÕES JÁ MARCADAS
-        # ==========================================
-
-        cursor.execute("""
-            SELECT modulo
-            FROM usuario_permissoes
-            WHERE usuario_id = ?
-              AND pode_acessar = 1
-        """, (
-            id,
-        ))
-
-        permissoes_marcadas = [
-            linha["modulo"]
-            for linha in cursor.fetchall()
-        ]
 
         # ==========================================
         # TURMAS DISPONÍVEIS
@@ -15953,9 +15844,7 @@ def editar_usuario(id):
             cargos=cargos,
             escolas=escolas,
             turmas=turmas,
-            turmas_marcadas=turmas_marcadas,
-            modulos_plataforma=modulos_plataforma,
-            permissoes_marcadas=permissoes_marcadas
+            turmas_marcadas=turmas_marcadas
         )
 
     except sqlite3.IntegrityError as erro:
@@ -16441,99 +16330,27 @@ def permissoes(cargo_id):
     )
 
 def permissao_modulo(modulo):
+    """Permissões definidas pelo perfil, sem marcações individuais no cadastro.
 
+    O escopo dos dados (instituição/turma/professor) continua sendo aplicado nas
+    rotas. Esta função define apenas quais módulos podem ser abertos/exibidos.
+    """
     if "usuario_id" not in session:
         return False
 
-    usuario_id = session.get("usuario_id")
-    cargo = session.get("usuario_cargo", "").strip()
+    cargo = (session.get("usuario_cargo") or "").strip()
+    aliases = {"Banco de Questões": "Questões", "Inteligência Pedagógica": "Inteligência"}
+    modulo = aliases.get(modulo, modulo)
 
-    # Administrador Geral possui acesso completo
-    if cargo == "Administrador Geral":
-        return True
-
-    # Professor autônomo acessa os módulos pedagógicos do próprio espaço.
-    if cargo == "Professor Autônomo":
-        return modulo in {"Dashboard", "Turmas", "Alunos", "Banco de Questões", "Questões", "Provas", "Relatórios", "Aplicações"}
-
-    # Administrador da Instituição possui acesso completo,
-    # exceto ao gerenciamento geral das instituições
-    if cargo == "Administrador da Instituição":
-        return modulo != "Instituições"
-
-    banco = conectar_banco()
-    banco.row_factory = sqlite3.Row
-    cursor = banco.cursor()
-
-    try:
-
-        # Verifica se o usuário possui permissões individuais cadastradas
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM usuario_permissoes
-            WHERE usuario_id = ?
-        """, (usuario_id,))
-
-        possui_permissoes_individuais = (
-            cursor.fetchone()["total"] > 0
-        )
-
-        # Se existem permissões individuais, elas são definitivas:
-        # marcado = acessa; desmarcado = não acessa.
-        if possui_permissoes_individuais:
-
-            cursor.execute("""
-                SELECT pode_acessar
-                FROM usuario_permissoes
-                WHERE usuario_id = ?
-                  AND modulo = ?
-                LIMIT 1
-            """, (
-                usuario_id,
-                modulo
-            ))
-
-            permissao_individual = cursor.fetchone()
-
-            if permissao_individual is None:
-                return False
-
-            return permissao_individual["pode_acessar"] == 1
-
-        # Só usa as permissões do cargo quando o usuário ainda
-        # não possui nenhuma configuração individual.
-        cursor.execute("""
-            SELECT cargo_id
-            FROM usuarios
-            WHERE id = ?
-            LIMIT 1
-        """, (usuario_id,))
-
-        usuario = cursor.fetchone()
-
-        if usuario is None:
-            return False
-
-        cursor.execute("""
-            SELECT pode_acessar
-            FROM permissoes
-            WHERE cargo_id = ?
-              AND modulo = ?
-            LIMIT 1
-        """, (
-            usuario["cargo_id"],
-            modulo
-        ))
-
-        permissao_cargo = cursor.fetchone()
-
-        if permissao_cargo is None:
-            return False
-
-        return permissao_cargo["pode_acessar"] == 1
-
-    finally:
-        banco.close()
+    matriz = {
+        "Administrador Geral": {"Dashboard", "Instituições", "Assinaturas", "Cortesias", "Usuários", "Anos Letivos", "Turmas", "Alunos", "Questões", "Provas", "Relatórios", "Inteligência"},
+        "Administrador da Instituição": {"Dashboard", "Assinaturas", "Usuários", "Anos Letivos", "Turmas", "Alunos", "Questões", "Provas", "Relatórios", "Inteligência"},
+        "Coordenador": {"Dashboard", "Usuários", "Anos Letivos", "Turmas", "Alunos", "Questões", "Provas", "Relatórios", "Inteligência"},
+        "Professor": {"Dashboard", "Turmas", "Alunos", "Questões", "Provas", "Relatórios", "Inteligência"},
+        "Secretário": {"Dashboard", "Anos Letivos", "Turmas", "Alunos", "Relatórios"},
+        "Professor Autônomo": {"Dashboard", "Assinaturas", "Anos Letivos", "Turmas", "Alunos", "Questões", "Provas", "Relatórios", "Inteligência"},
+    }
+    return modulo in matriz.get(cargo, set())
 
 @app.context_processor
 def inject_permissoes():

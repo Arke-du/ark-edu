@@ -439,10 +439,7 @@
 
             <!-- Anos Letivos -->
 
-            {% if session.get("usuario_cargo") in [
-                "Administrador Geral",
-                "Administrador da Instituição"
-            ] %}
+            {% if permissao_modulo("Anos Letivos") %}
 
                 <a
                     href="/anos-letivos"
@@ -567,7 +564,7 @@
             {% endif %}
 
             <!-- Inteligência Pedagógica -->
-            {% if permissao_modulo("Relatórios") %}
+            {% if permissao_modulo("Inteligência Pedagógica") %}
                 <a href="/inteligencia-pedagogica" class="{% if request.path.startswith('/inteligencia-pedagogica') %}ativo-menu{% endif %}">
                     <svg viewBox="0 0 24 24"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19V3"></path><path d="M3 21h20"></path></svg>
                     <span>Inteligência Pedagógica</span>
