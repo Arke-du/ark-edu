@@ -23855,6 +23855,122 @@ def registrar_incidente_seguranca():
         banco=conectar_banco(); banco.execute("INSERT INTO incidentes_seguranca(titulo,descricao,gravidade,escola_id,criado_por) VALUES(?,?,?,?,?)",(titulo,descricao,gravidade,session.get("escola_id"),session.get("usuario_id"))); banco.commit(); banco.close(); flash("Incidente registrado.","success")
     return redirect(url_for("painel_lgpd"))
 
+
+
+# =========================================================
+# INTELIGÊNCIA PEDAGÓGICA
+# =========================================================
+@app.route("/inteligencia-pedagogica")
+def inteligencia_pedagogica():
+    """Painel analítico que transforma resultados em indicadores pedagógicos."""
+    if not permissao_modulo("Relatórios"):
+        return redirect("/acesso_negado")
+
+    _garantir_tabelas_aplicacoes()
+    contexto = obter_contexto_plataforma()
+    cargo = contexto["cargo"]
+    usuario_id = contexto["usuario_id"]
+    escola_usuario_id = contexto["escola_id"]
+    ano_letivo_id = contexto["ano_letivo_id"]
+
+    turma_id = request.args.get("turma_id", type=int)
+    disciplina = (request.args.get("disciplina") or "").strip()
+    aluno_id = request.args.get("aluno_id", type=int)
+
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    cur = banco.cursor()
+    _recalcular_notas_aplicacoes_por_peso(cur); banco.commit()
+
+    cond = ["1=1"]; pars = []
+    if cargo != "Administrador Geral":
+        if escola_usuario_id:
+            cond.append("COALESCE(p.escola_id,t.escola_id)=?"); pars.append(escola_usuario_id)
+        if ano_letivo_id:
+            cond.append("p.ano_letivo_id=?"); pars.append(ano_letivo_id)
+        if cargo == "Professor":
+            prof_legado = _professor_legado_do_usuario(cur, usuario_id); banco.commit()
+            if prof_legado:
+                cond.append("p.professor_id=?"); pars.append(prof_legado)
+            else:
+                cond.append("EXISTS (SELECT 1 FROM professor_vinculos pv LEFT JOIN componentes_curriculares cc ON cc.id=pv.componente_id WHERE pv.professor_id=? AND pv.turma_id=p.turma_id AND (cc.id IS NULL OR LOWER(TRIM(cc.nome))=LOWER(TRIM(p.disciplina))))")
+                pars.append(usuario_id)
+    if turma_id:
+        cond.append("p.turma_id=?"); pars.append(turma_id)
+    if disciplina:
+        cond.append("LOWER(TRIM(p.disciplina))=LOWER(TRIM(?))"); pars.append(disciplina)
+    where = " AND ".join(cond)
+
+    # Opções dos filtros respeitando exatamente o mesmo escopo de acesso.
+    filtros = cur.execute(f"""SELECT DISTINCT t.id turma_id,t.nome turma_nome,p.disciplina
+        FROM provas p JOIN turmas t ON t.id=p.turma_id WHERE {where}
+        ORDER BY t.nome,p.disciplina""", pars).fetchall()
+
+    # Resultados finais por estudante/avaliação.
+    notas = cur.execute(f"""SELECT aa.aluno_id,a.nome aluno,p.id prova_id,p.nome prova,
+        p.disciplina,t.id turma_id,t.nome turma,
+        COALESCE(p.data_aplicacao,p.data_geracao,ap.criado_em) data_ref,
+        COALESCE(aa.nota_final,CASE WHEN aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0 THEN aa.nota_objetiva END) nota
+        FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+        JOIN provas p ON p.id=ap.prova_id JOIN turmas t ON t.id=p.turma_id JOIN alunos a ON a.id=aa.aluno_id
+        WHERE {where} AND COALESCE(aa.nota_final,CASE WHEN aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0 THEN aa.nota_objetiva END) IS NOT NULL
+        ORDER BY data_ref,p.id""", pars).fetchall()
+
+    # Desempenho objetivo por habilidade. Discursivas entram na evolução da nota,
+    # enquanto o domínio por habilidade usa respostas com acerto objetivo verificável.
+    habs = cur.execute(f"""SELECT COALESCE(NULLIF(TRIM(q.habilidade_bncc),''),NULLIF(TRIM(q.habilidade),''),'Sem habilidade informada') habilidade,
+        COUNT(*) respostas,SUM(CASE WHEN aro.acertou=1 THEN 1 ELSE 0 END) acertos,
+        COUNT(DISTINCT aro.aluno_id) alunos
+        FROM aplicacao_respostas_objetivas aro JOIN aplicacoes ap ON ap.id=aro.aplicacao_id
+        JOIN provas p ON p.id=ap.prova_id JOIN turmas t ON t.id=p.turma_id JOIN questoes q ON q.id=aro.questao_id
+        WHERE {where} GROUP BY habilidade ORDER BY habilidade""", pars).fetchall()
+
+    habilidades=[]
+    for h in habs:
+        pct=round((h["acertos"] or 0)*100/h["respostas"],1) if h["respostas"] else 0
+        nivel = "Dominada" if pct>=80 else "Em desenvolvimento" if pct>=60 else "Atenção" if pct>=40 else "Crítica"
+        habilidades.append(dict(habilidade=h["habilidade"], respostas=h["respostas"], acertos=h["acertos"], alunos=h["alunos"], percentual=pct, nivel=nivel))
+
+    notas_vals=[float(n["nota"]) for n in notas if n["nota"] is not None]
+    media=round(sum(notas_vals)/len(notas_vals),2) if notas_vals else 0
+    alunos_unicos=len({n["aluno_id"] for n in notas})
+    abaixo=len({n["aluno_id"] for n in notas if float(n["nota"]) < 6})
+    criticas=sum(1 for h in habilidades if h["nivel"]=="Crítica")
+
+    # Evolução do aluno selecionado; se nenhum for escolhido, lista estudantes do recorte.
+    alunos_map={n["aluno_id"]: n["aluno"] for n in notas}
+    alunos_opcoes=sorted(alunos_map.items(), key=lambda x:x[1].lower())
+    evolucao=[]; aluno_nome=None
+    if aluno_id and aluno_id in alunos_map:
+        aluno_nome=alunos_map[aluno_id]
+        evolucao=[dict(n) for n in notas if n["aluno_id"]==aluno_id]
+
+    # Comparação entre turmas/componentes para o dashboard.
+    grupos={}
+    for n in notas:
+        k=(n["turma"],n["disciplina"])
+        grupos.setdefault(k,[]).append(float(n["nota"]))
+    comparativos=[{"turma":k[0],"disciplina":k[1],"media":round(sum(v)/len(v),2),"avaliacoes":len(v)} for k,v in grupos.items()]
+    comparativos.sort(key=lambda x:(x["turma"],x["disciplina"]))
+
+    fortes=sorted(habilidades,key=lambda x:x["percentual"],reverse=True)[:3]
+    fracas=sorted(habilidades,key=lambda x:x["percentual"])[:3]
+    if notas_vals:
+        analise=f"O recorte analisado apresenta média geral {media:.1f}, considerando {alunos_unicos} estudante(s). "
+        if fortes and fortes[0]["habilidade"] != 'Sem habilidade informada':
+            analise += "Entre os melhores desempenhos estão " + ", ".join(f'{x["habilidade"]} ({x["percentual"]:.0f}%)' for x in fortes) + ". "
+        if fracas and fracas[0]["habilidade"] != 'Sem habilidade informada':
+            analise += "Recomenda-se retomada prioritária de " + ", ".join(f'{x["habilidade"]} ({x["percentual"]:.0f}%)' for x in fracas) + ". "
+        if abaixo:
+            analise += f"Há {abaixo} estudante(s) com pelo menos um resultado abaixo de 6,0 no recorte; recomenda-se análise individual antes da definição das intervenções."
+    else:
+        analise="Ainda não há resultados corrigidos suficientes para gerar uma análise pedagógica neste recorte."
+
+    banco.close()
+    return render_template("inteligencia_pedagogica.html", filtros=filtros, turma_id=turma_id,
+        disciplina=disciplina, aluno_id=aluno_id, alunos_opcoes=alunos_opcoes, aluno_nome=aluno_nome,
+        evolucao=evolucao, habilidades=habilidades, comparativos=comparativos, media=media,
+        alunos_unicos=alunos_unicos, abaixo=abaixo, criticas=criticas, analise=analise)
+
 backup_manager.iniciar_agendador()
 
 # =========================================================

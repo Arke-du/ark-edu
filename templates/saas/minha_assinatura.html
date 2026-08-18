@@ -51,6 +51,27 @@
     {% endif %}
 
     <form method="post" action="{{ url_for('configurar_forma_pagamento') }}" id="paymentConfigForm" autocomplete="off">
+      <div class="pay-card-fields" style="display:block;margin:0 0 16px;background:#fff">
+        <h3 style="margin:0 0 6px;color:#123b72;font-size:16px">Dados de cobrança</h3>
+        <p class="pay-help" style="margin:0 0 14px">O Asaas exige CPF e telefone para identificar o titular da cobrança. Esses dados ficam protegidos na ARK EDUS.</p>
+        <div class="pay-grid">
+          <div class="pay-field">
+            <label>CPF do titular</label>
+            <input name="billing_cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="off">
+            <small class="pay-help">{% if dados_cobranca and dados_cobranca['cpf'] %}CPF atual: {{ dados_cobranca['cpf'] }}. Deixe em branco para manter.{% else %}Obrigatório para gerar a cobrança.{% endif %}</small>
+          </div>
+          <div class="pay-field">
+            <label>Telefone</label>
+            <input name="billing_phone" inputmode="tel" maxlength="16" value="{{ dados_cobranca['telefone'] if dados_cobranca and dados_cobranca['telefone'] else '' }}" placeholder="(63) 99999-9999" autocomplete="tel">
+          </div>
+          <div class="pay-field full">
+            <label>E-mail de cobrança</label>
+            <input value="{{ dados_cobranca['email'] if dados_cobranca else '' }}" disabled>
+            <small class="pay-help">Para alterar o e-mail principal, use a área do seu perfil.</small>
+          </div>
+        </div>
+      </div>
+
       <div class="pay-methods">
         <label class="pay-option">
           <input type="radio" name="metodo_pagamento" value="pix" {% if metodo_atual == 'pix' %}checked{% endif %}>
@@ -102,6 +123,19 @@
   const box=document.getElementById('subscriptionCardFields');
   if(!form || !box) return;
   const radios=form.querySelectorAll('input[name="metodo_pagamento"]');
+  const cpf=form.querySelector('input[name="billing_cpf"]');
+  const phone=form.querySelector('input[name="billing_phone"]');
+  if(cpf) cpf.addEventListener('input',()=>{
+    let v=cpf.value.replace(/\D/g,'').slice(0,11);
+    v=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+    cpf.value=v;
+  });
+  if(phone) phone.addEventListener('input',()=>{
+    let v=phone.value.replace(/\D/g,'').slice(0,11);
+    if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');
+    else v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');
+    phone.value=v;
+  });
   function toggleCard(){
     const selected=form.querySelector('input[name="metodo_pagamento"]:checked');
     const on=selected && selected.value==='credit_card';

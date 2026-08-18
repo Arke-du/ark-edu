@@ -11,6 +11,7 @@ import re
 import requests
 from flask import flash, redirect, render_template, request, session, url_for, jsonify
 from werkzeug.security import generate_password_hash
+from lgpd_security import descriptografar_cpf, validar_cpf
 from services.plano_service import (
     obter_conta, assinatura_ativa, possui_recurso, motivo_recurso,
     verificar_limite, usa_marca_dagua, isencao_vigente, teste_vigente, dias_restantes_teste
@@ -187,13 +188,12 @@ def _asaas_request(method, path, *, params=None, json_data=None, timeout=60):
 
 
 def _asaas_obter_ou_criar_cliente(usuario_id, nome, email, cpf, telefone, customer_id=None):
-    if customer_id:
-        return customer_id
+    """Cria ou atualiza o cliente Asaas com os dados de cobrança atuais.
+
+    A atualização é importante para contas antigas que chegaram a ser criadas
+    no Asaas sem CPF/CNPJ antes de a cobrança ser configurada.
+    """
     external = f'arkedu-user-{usuario_id}'
-    encontrados = _asaas_request('GET', '/customers', params={'externalReference': external, 'limit': 1})
-    dados = encontrados.get('data') or []
-    if dados:
-        return dados[0]['id']
     payload = {
         'name': nome,
         'email': email,
@@ -203,6 +203,18 @@ def _asaas_obter_ou_criar_cliente(usuario_id, nome, email, cpf, telefone, custom
         'notificationDisabled': False,
     }
     payload = {k:v for k,v in payload.items() if v not in (None, '')}
+
+    if customer_id:
+        _asaas_request('PUT', f'/customers/{customer_id}', json_data=payload)
+        return customer_id
+
+    encontrados = _asaas_request('GET', '/customers', params={'externalReference': external, 'limit': 1})
+    dados = encontrados.get('data') or []
+    if dados:
+        encontrado_id = dados[0]['id']
+        _asaas_request('PUT', f'/customers/{encontrado_id}', json_data=payload)
+        return encontrado_id
+
     return _asaas_request('POST', '/customers', json_data=payload)['id']
 
 
@@ -495,13 +507,25 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             metodo='pix'
         db=conectar_banco(); db.row_factory=sqlite3.Row; cur=db.cursor()
         try:
-            dados=cur.execute("""SELECT u.id,u.nome,u.email,u.cpf,u.telefone,a.*
+            colunas_usuario = _cols(cur, 'usuarios')
+            cpf_crypto_select = 'u.cpf_criptografado' if 'cpf_criptografado' in colunas_usuario else 'NULL'
+            dados=cur.execute(f"""SELECT u.id,u.nome,u.email,u.cpf,u.telefone,
+                {cpf_crypto_select} AS cpf_criptografado,a.*
                 FROM usuarios u JOIN assinaturas_saas a ON a.usuario_id=u.id
                 WHERE u.id=? ORDER BY a.id DESC LIMIT 1""",(uid,)).fetchone()
             if not dados:
                 raise RuntimeError('Assinatura não encontrada para este cadastro.')
+            cpf_salvo = descriptografar_cpf(dados['cpf_criptografado']) if dados['cpf_criptografado'] else None
+            cpf_cobranca = _somente_digitos(cpf_salvo or dados['cpf'])
+            telefone_cobranca = _somente_digitos(dados['telefone'])
+            if not cpf_cobranca or not validar_cpf(cpf_cobranca):
+                flash('Informe um CPF válido no cadastro para configurar o pagamento.', 'erro')
+                return redirect(url_for('checkout_professor'))
+            if not telefone_cobranca:
+                flash('Informe um telefone no cadastro para configurar o pagamento.', 'erro')
+                return redirect(url_for('checkout_professor'))
             vencimento=str(dados['teste_fim'])[:10]
-            customer_id=_asaas_obter_ou_criar_cliente(uid,dados['nome'],dados['email'],dados['cpf'],dados['telefone'],dados['gateway_customer_id'])
+            customer_id=_asaas_obter_ou_criar_cliente(uid,dados['nome'],dados['email'],cpf_cobranca,telefone_cobranca,dados['gateway_customer_id'])
             cartao=None
             if metodo == 'credit_card':
                 cartao={
@@ -515,11 +539,11 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
                     'creditCardHolderInfo': {
                         'name': (request.form.get('holder_name') or dados['nome'] or '').strip(),
                         'email': dados['email'],
-                        'cpfCnpj': _somente_digitos(dados['cpf']),
+                        'cpfCnpj': cpf_cobranca,
                         'postalCode': _somente_digitos(request.form.get('postal_code')),
                         'addressNumber': (request.form.get('address_number') or '').strip(),
-                        'phone': _somente_digitos(dados['telefone']),
-                        'mobilePhone': _somente_digitos(dados['telefone']),
+                        'phone': telefone_cobranca,
+                        'mobilePhone': telefone_cobranca,
                     },
                     'remoteIp': request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip(),
                 }
@@ -864,7 +888,12 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             if assinatura_id:
                 pagamentos = cur.execute("""SELECT * FROM pagamentos_saas
                     WHERE assinatura_id=? ORDER BY id DESC LIMIT 12""", (assinatura_id,)).fetchall()
+            dados_cobranca = cur.execute(
+                'SELECT cpf, telefone, email, nome FROM usuarios WHERE id=? LIMIT 1',
+                (session['usuario_id'],)
+            ).fetchone()
             return render_template('saas/minha_assinatura.html', assinatura=info, pagamentos=pagamentos,
+                                   dados_cobranca=dados_cobranca,
                                    asaas_configurado=bool(os.environ.get('ASAAS_API_KEY')))
         finally:
             db.close()
@@ -888,7 +917,10 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
 
         db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
         try:
-            dados = cur.execute("""SELECT u.id AS usuario_id,u.nome,u.email,u.cpf,u.telefone,a.*
+            colunas_usuario = _cols(cur, 'usuarios')
+            cpf_crypto_select = 'u.cpf_criptografado' if 'cpf_criptografado' in colunas_usuario else 'NULL'
+            dados = cur.execute(f"""SELECT u.id AS usuario_id,u.nome,u.email,u.cpf,u.telefone,
+                {cpf_crypto_select} AS cpf_criptografado,a.*
                 FROM usuarios u JOIN assinaturas_saas a ON a.usuario_id=u.id
                 WHERE u.id=? ORDER BY a.id DESC LIMIT 1""", (uid,)).fetchone()
             if not dados:
@@ -903,9 +935,33 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
                 flash('Escolha o Plano Professor antes de configurar uma forma de pagamento.', 'aviso')
                 return redirect(url_for('pagina_planos'))
 
+            # Dados de cobrança são solicitados apenas quando o assinante
+            # configura o pagamento. Isso mantém o cadastro gratuito simples.
+            cpf_form = _somente_digitos(request.form.get('billing_cpf'))
+            telefone_form = _somente_digitos(request.form.get('billing_phone'))
+            cpf_salvo = descriptografar_cpf(dados['cpf_criptografado']) if dados['cpf_criptografado'] else None
+            cpf_cobranca = cpf_form or _somente_digitos(cpf_salvo)
+            telefone_cobranca = telefone_form or _somente_digitos(dados['telefone'])
+
+            if not cpf_cobranca:
+                flash('Informe o CPF do titular para configurar a cobrança no Asaas.', 'erro')
+                return redirect(url_for('minha_assinatura'))
+            if not validar_cpf(cpf_cobranca):
+                flash('Informe um CPF válido para configurar a cobrança.', 'erro')
+                return redirect(url_for('minha_assinatura'))
+            if not telefone_cobranca:
+                flash('Informe um telefone para os dados de cobrança.', 'erro')
+                return redirect(url_for('minha_assinatura'))
+
+            # Persiste os dados na conta. O gatilho LGPD já existente protege o
+            # CPF no banco (máscara + criptografia) sem armazená-lo em texto puro.
+            if cpf_form or telefone_form:
+                cur.execute('UPDATE usuarios SET cpf=?, telefone=? WHERE id=?',
+                            (cpf_cobranca, telefone_cobranca, uid))
+
             vencimento = (dados['proxima_cobranca'] or str(dados['teste_fim'] or '')[:10] or date.today().isoformat())[:10]
             customer_id = _asaas_obter_ou_criar_cliente(
-                uid, dados['nome'], dados['email'], dados['cpf'], dados['telefone'], dados['gateway_customer_id']
+                uid, dados['nome'], dados['email'], cpf_cobranca, telefone_cobranca, dados['gateway_customer_id']
             )
 
             cartao = None

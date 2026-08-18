@@ -1,0 +1,18 @@
+ARK EDUS — AJUSTE DE DADOS DE COBRANÇA ASAAS
+Data: 18/08/2026
+
+Alterações desta versão:
+- Mantidos os 7 dias grátis do Plano Professor.
+- A tela Minha assinatura passou a solicitar CPF e telefone na área Dados de cobrança.
+- O CPF informado é validado antes de enviar a cobrança ao Asaas.
+- O CPF continua protegido pela estrutura LGPD já existente da ARK EDUS.
+- Clientes Asaas já existentes são atualizados com CPF/telefone antes da criação/alteração da assinatura.
+  Isso corrige contas que foram criadas no Asaas sem CPF e depois receberam o erro:
+  "Para criar esta cobrança é necessário preencher o CPF ou CNPJ do cliente."
+- O checkout inicial do Plano Professor também usa o CPF protegido corretamente.
+- PIX, boleto e cartão continuam com primeira cobrança prevista para o fim do teste gratuito.
+
+IMPORTANTE:
+- Nenhum banco de dados foi incluído neste pacote.
+- Não há rotina de exclusão de alunos, turmas, provas, resultados ou usuários nesta alteração.
+- Continue mantendo plataforma.db fora do Git/Deploy.
