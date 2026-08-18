@@ -6,8 +6,8 @@ REGRAS IMPLEMENTADAS
 
 Professor Autônomo — Gratuito
 - Até 1 turma.
-- Até 50 alunos.
-- Até 2 provas por mês.
+- Até 40 alunos.
+- Até 1 prova por mês.
 - Bloqueio de questões discursivas, respostas abertas e numéricas.
 - Bloqueio da correção de discursivas.
 - Marca d'água ARK EDUS nas provas, cartões e relatórios impressos.

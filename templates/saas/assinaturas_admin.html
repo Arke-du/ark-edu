@@ -1,0 +1,50 @@
+{% extends 'layout/base.html' %}
+{% block title %}Assinaturas — ARK EDUS{% endblock %}
+{% block cabecalho %}<div><h1 style="margin:0;color:#123b72">Assinaturas</h1><p style="margin:4px 0 0;color:#667085">Gerencie planos, acessos, cobranças e renovações.</p></div>{% endblock %}
+{% block conteudo %}
+<style>
+.as-admin{padding:22px}.as-cards{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:14px;margin-bottom:18px}.as-card{background:#fff;border:1px solid #e3eaf4;border-radius:16px;padding:18px;box-shadow:0 8px 26px rgba(18,59,114,.06)}.as-card small{display:block;color:#667085;font-weight:700;margin-bottom:7px}.as-card strong{font-size:25px;color:#123b72}.as-panel{background:#fff;border:1px solid #e3eaf4;border-radius:16px;padding:16px;box-shadow:0 8px 26px rgba(18,59,114,.05)}.as-filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;margin-bottom:16px}.as-filters input,.as-filters select{width:100%;padding:11px 12px;border:1px solid #d6dfeb;border-radius:10px;background:#fff}.as-btn{border:0;border-radius:10px;padding:10px 13px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.as-btn-primary{background:#1f5bd7;color:#fff}.as-btn-soft{background:#eef4ff;color:#174ea6}.as-btn-danger{background:#fff0f0;color:#b42318}.as-table-wrap{overflow:auto}.as-table{width:100%;border-collapse:collapse;min-width:1220px}.as-table th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:#667085;text-align:left;padding:11px;border-bottom:1px solid #e8edf4}.as-table td{padding:12px 11px;border-bottom:1px solid #eef2f7;vertical-align:top}.as-client strong{color:#172033}.as-client small{display:block;color:#667085;margin-top:3px}.as-badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#eef2f6;color:#475467}.as-ok{background:#ecfdf3;color:#027a48}.as-warn{background:#fffaeb;color:#b54708}.as-off{background:#fef3f2;color:#b42318}.as-actions{display:flex;gap:6px;flex-wrap:wrap}.as-actions form{display:inline}.as-plan-form{display:flex;gap:6px;align-items:center;margin-top:7px}.as-plan-form select{padding:7px;border:1px solid #d6dfeb;border-radius:8px;max-width:130px}.as-empty{text-align:center;color:#667085;padding:32px}.as-note{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f8fafc;color:#475467;font-size:13px}@media(max-width:1100px){.as-cards{grid-template-columns:repeat(2,1fr)}.as-filters{grid-template-columns:1fr 1fr}.as-filters .as-search{grid-column:1/-1}}@media(max-width:650px){.as-admin{padding:12px}.as-cards{grid-template-columns:1fr}.as-filters{grid-template-columns:1fr}.as-filters .as-search{grid-column:auto}}
+</style>
+<div class="as-admin">
+  <div class="as-cards">
+    <div class="as-card"><small>Total de assinaturas</small><strong>{{ resumo.total or 0 }}</strong></div>
+    <div class="as-card"><small>Acesso liberado</small><strong>{{ resumo.liberadas or 0 }}</strong></div>
+    <div class="as-card"><small>Pendentes</small><strong>{{ resumo.pendentes or 0 }}</strong></div>
+    <div class="as-card"><small>Canceladas</small><strong>{{ resumo.canceladas or 0 }}</strong></div>
+    <div class="as-card"><small>Receita mensal prevista</small><strong>R$ {{ '%.2f'|format(receita or 0)|replace('.', ',') }}</strong></div>
+  </div>
+
+  <div class="as-panel">
+    <form class="as-filters" method="get">
+      <input class="as-search" name="q" value="{{ filtros.q }}" placeholder="Buscar professor, e-mail ou instituição">
+      <select name="tipo"><option value="">Todos os tipos</option><option value="professor" {% if filtros.tipo=='professor' %}selected{% endif %}>Professor</option><option value="instituicao" {% if filtros.tipo=='instituicao' %}selected{% endif %}>Instituição</option></select>
+      <select name="plano"><option value="">Todos os planos</option>{% for codigo,p in planos.items() %}<option value="{{ codigo }}" {% if filtros.plano==codigo %}selected{% endif %}>{{ p.nome }}</option>{% endfor %}</select>
+      <select name="status"><option value="">Todos os status</option>{% for st in ['trial','ativa','gratuita','isenta','pendente','atrasada','cancelada'] %}<option value="{{ st }}" {% if filtros.status==st %}selected{% endif %}>{{ st|title }}</option>{% endfor %}</select>
+      <button class="as-btn as-btn-primary" type="submit">Filtrar</button>
+    </form>
+
+    <div class="as-table-wrap"><table class="as-table"><thead><tr><th>Cliente</th><th>Plano</th><th>Status</th><th>Teste / próxima cobrança</th><th>Pagamento mais recente</th><th>Gateway</th><th>Renovação</th><th>Ações</th></tr></thead><tbody>
+    {% for a in assinaturas %}
+      {% set st=(a.status or '')|lower %}
+      <tr>
+        <td class="as-client"><strong>{{ a.nome_instituicao if a.escola_id and a.tipo_conta != 'autonomo' else a.usuario_nome }}</strong><small>{{ a.email }}</small><small>{{ 'Professor autônomo' if a.tipo_conta=='autonomo' else 'Instituição' }} · ID #{{ a.id }}</small></td>
+        <td><strong>{{ a.plano_nome or (a.plano_codigo|title) }}</strong><br><small>R$ {{ '%.2f'|format(a.valor_mensal or 0)|replace('.', ',') }}/mês</small>
+          <form class="as-plan-form" method="post"><input type="hidden" name="assinatura_id" value="{{ a.id }}"><input type="hidden" name="acao" value="alterar_plano"><select name="plano_codigo">{% for codigo,p in planos.items() %}{% if (a.tipo_conta=='autonomo' and p.tipo=='professor') or (a.tipo_conta!='autonomo' and p.tipo=='instituicao') %}<option value="{{ codigo }}" {% if a.plano_codigo==codigo %}selected{% endif %}>{{ p.nome }}</option>{% endif %}{% endfor %}</select><button class="as-btn as-btn-soft" type="submit" onclick="return confirm('Alterar o plano desta assinatura?')">Alterar</button></form>
+        </td>
+        <td>{% if st in ['ativa','gratuita','trial','isenta'] %}<span class="as-badge as-ok">{{ st|title }}</span>{% elif st in ['pendente','atrasada','vencida'] %}<span class="as-badge as-warn">{{ st|title }}</span>{% else %}<span class="as-badge as-off">{{ st|title }}</span>{% endif %}{% if a.isento %}<br><span class="as-badge as-ok" style="margin-top:6px">Cortesia</span>{% endif %}</td>
+        <td>{% if st=='trial' and a.teste_fim %}<strong>Teste até {{ a.teste_fim[:10] }}</strong>{% else %}<span>{{ a.proxima_cobranca or '—' }}</span>{% endif %}</td>
+        <td>{% if a.pagamento_status %}<span class="as-badge {% if a.pagamento_status in ['RECEIVED','CONFIRMED','pago'] %}as-ok{% else %}as-warn{% endif %}">{{ a.pagamento_status }}</span><br><small>{{ a.forma_pagamento or '—' }} · venc. {{ a.pagamento_vencimento or '—' }}</small>{% else %}—{% endif %}</td>
+        <td><strong>{{ (a.gateway or 'manual')|upper }}</strong>{% if a.gateway_subscription_id %}<br><small>{{ a.gateway_subscription_id }}</small>{% endif %}</td>
+        <td>{% if a.renovacao_automatica %}<span class="as-badge as-ok">Automática</span>{% else %}<span class="as-badge">Desativada</span>{% endif %}</td>
+        <td><div class="as-actions">
+          {% if st not in ['ativa','gratuita','trial','isenta'] %}<form method="post"><input type="hidden" name="assinatura_id" value="{{ a.id }}"><input type="hidden" name="acao" value="ativar"><button class="as-btn as-btn-soft" type="submit">Ativar acesso</button></form>{% endif %}
+          {% if st in ['ativa','trial','isenta'] %}<form method="post"><input type="hidden" name="assinatura_id" value="{{ a.id }}"><input type="hidden" name="acao" value="suspender"><button class="as-btn as-btn-soft" type="submit" onclick="return confirm('Suspender o acesso desta conta? A cobrança continuará ativa no gateway.')">Suspender</button></form>{% endif %}
+          {% if st!='cancelada' and a.plano_codigo!='gratuito' %}<form method="post"><input type="hidden" name="assinatura_id" value="{{ a.id }}"><input type="hidden" name="acao" value="cancelar"><button class="as-btn as-btn-danger" type="submit" onclick="return confirm('Cancelar esta assinatura e a renovação no Asaas, quando houver?')">Cancelar</button></form>{% endif %}
+        </div></td>
+      </tr>
+    {% else %}<tr><td colspan="8" class="as-empty">Nenhuma assinatura encontrada com os filtros selecionados.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="as-note"><strong>Importante:</strong> “Suspender” bloqueia apenas o acesso na ARK EDUS e mantém a cobrança existente. “Cancelar” também tenta cancelar a recorrência no Asaas quando a assinatura estiver vinculada ao gateway.</div>
+  </div>
+</div>
+{% endblock %}

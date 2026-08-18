@@ -7,8 +7,8 @@ O que foi adicionado
 2. Página pública de planos em /planos
 3. Plano Gratuito:
    - 1 turma
-   - 50 alunos
-   - 2 provas por mês
+   - 40 alunos
+   - 1 prova por mês
    - marca d'água sinalizada no plano
 4. Plano Professor: R$ 39,90/mês
 5. Planos institucionais cadastrados na base:

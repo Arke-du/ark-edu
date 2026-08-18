@@ -7,6 +7,8 @@ from datetime import datetime, date, timedelta, timezone
 import os
 import sqlite3
 import uuid
+import re
+import requests
 from flask import flash, redirect, render_template, request, session, url_for, jsonify
 from werkzeug.security import generate_password_hash
 from services.plano_service import (
@@ -17,7 +19,7 @@ from services.plano_service import (
 PLANOS = {
     "gratuito": {
         "nome": "Gratuito", "valor": 0.0, "tipo": "professor",
-        "limite_turmas": 1, "limite_alunos": 50, "limite_provas_mes": 2,
+        "limite_turmas": 1, "limite_alunos": 40, "limite_provas_mes": 1,
         "marca_dagua": 1, "suporte_prioritario": 0,
     },
     "professor": {
@@ -101,9 +103,17 @@ def migrar(conectar_banco):
         "observacao_cobranca": "TEXT",
         "teste_inicio": "TEXT",
         "teste_fim": "TEXT",
+        "plano_pos_teste": "TEXT DEFAULT 'gratuito'",
     }.items():
         if col not in _cols(cur, "assinaturas_saas"):
             cur.execute(f"ALTER TABLE assinaturas_saas ADD COLUMN {col} {definition}")
+
+    for col, definition in {
+        "invoice_url": "TEXT",
+        "bank_slip_url": "TEXT",
+    }.items():
+        if col not in _cols(cur, "pagamentos_saas"):
+            cur.execute(f"ALTER TABLE pagamentos_saas ADD COLUMN {col} {definition}")
 
     for col, definition in {
         "tipo_conta": "TEXT DEFAULT 'institucional'",
@@ -145,6 +155,78 @@ def migrar(conectar_banco):
     db.commit(); db.close()
 
 
+
+def _somente_digitos(valor):
+    return re.sub(r'\D+', '', valor or '')
+
+
+def _asaas_base_url():
+    custom = (os.environ.get('ASAAS_API_URL') or '').strip().rstrip('/')
+    if custom:
+        return custom
+    ambiente = (os.environ.get('ASAAS_ENV') or 'production').strip().lower()
+    return 'https://api-sandbox.asaas.com/v3' if ambiente == 'sandbox' else 'https://api.asaas.com/v3'
+
+
+def _asaas_request(method, path, *, params=None, json_data=None, timeout=60):
+    api_key = (os.environ.get('ASAAS_API_KEY') or '').strip()
+    if not api_key:
+        raise RuntimeError('ASAAS_API_KEY não configurada.')
+    headers = {'access_token': api_key, 'Content-Type': 'application/json', 'User-Agent': 'ARK-EDUS/1.0'}
+    resp = requests.request(method, f"{_asaas_base_url()}/{path.lstrip('/')}", headers=headers,
+                            params=params, json=json_data, timeout=timeout)
+    try:
+        data = resp.json()
+    except ValueError:
+        data = {}
+    if not resp.ok:
+        erros = data.get('errors') if isinstance(data, dict) else None
+        detalhe = '; '.join(str(e.get('description') or e.get('code') or e) for e in erros) if erros else (resp.text[:300] or f'HTTP {resp.status_code}')
+        raise RuntimeError(f'Asaas recusou a operação: {detalhe}')
+    return data
+
+
+def _asaas_obter_ou_criar_cliente(usuario_id, nome, email, cpf, telefone, customer_id=None):
+    if customer_id:
+        return customer_id
+    external = f'arkedu-user-{usuario_id}'
+    encontrados = _asaas_request('GET', '/customers', params={'externalReference': external, 'limit': 1})
+    dados = encontrados.get('data') or []
+    if dados:
+        return dados[0]['id']
+    payload = {
+        'name': nome,
+        'email': email,
+        'cpfCnpj': _somente_digitos(cpf),
+        'mobilePhone': _somente_digitos(telefone),
+        'externalReference': external,
+        'notificationDisabled': False,
+    }
+    payload = {k:v for k,v in payload.items() if v not in (None, '')}
+    return _asaas_request('POST', '/customers', json_data=payload)['id']
+
+
+def _asaas_criar_assinatura(assinatura_id, customer_id, metodo, vencimento, cartao=None):
+    billing = {'pix':'PIX', 'boleto':'BOLETO', 'credit_card':'CREDIT_CARD'}[metodo]
+    payload = {
+        'customer': customer_id,
+        'billingType': billing,
+        'value': 39.90,
+        'nextDueDate': vencimento,
+        'cycle': 'MONTHLY',
+        'description': 'ARK EDUS - Plano Professor',
+        'externalReference': f'arkedu-assinatura-{assinatura_id}',
+    }
+    if metodo == 'credit_card' and cartao:
+        payload.update(cartao)
+    return _asaas_request('POST', '/subscriptions', json_data=payload, timeout=65)
+
+
+def _asaas_primeiro_pagamento(subscription_id):
+    data = _asaas_request('GET', f'/subscriptions/{subscription_id}/payments', params={'limit': 1})
+    itens = data.get('data') or []
+    return itens[0] if itens else None
+
 def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
     migrar(conectar_banco)
 
@@ -172,14 +254,22 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
                 fim = datetime.now(timezone.utc)
             if datetime.now(timezone.utc) < fim.astimezone(timezone.utc):
                 return
-            cur.execute("""UPDATE assinaturas_saas
-                SET plano_codigo='gratuito', status='gratuita', gateway='gratuito',
-                    metodo_pagamento=NULL, proxima_cobranca=NULL, atualizado_em=CURRENT_TIMESTAMP
-                WHERE id=?""", (row['id'],))
-            cur.execute("""UPDATE usuarios
-                SET plano_codigo='gratuito', assinatura_status='gratuita' WHERE id=?""", (usuario_id,))
-            if row['escola_id']:
-                cur.execute("UPDATE escolas SET plano_codigo='gratuito' WHERE id=?", (row['escola_id'],))
+            destino = cur.execute("SELECT COALESCE(plano_pos_teste,'gratuito') FROM assinaturas_saas WHERE id=?", (row['id'],)).fetchone()[0]
+            if destino == 'professor':
+                cur.execute("""UPDATE assinaturas_saas
+                    SET plano_codigo='professor', status='pendente', gateway=COALESCE(NULLIF(gateway,'trial'),'asaas'),
+                        atualizado_em=CURRENT_TIMESTAMP WHERE id=?""", (row['id'],))
+                cur.execute("UPDATE usuarios SET plano_codigo='professor', assinatura_status='pendente' WHERE id=?", (usuario_id,))
+                if row['escola_id']:
+                    cur.execute("UPDATE escolas SET plano_codigo='professor' WHERE id=?", (row['escola_id'],))
+            else:
+                cur.execute("""UPDATE assinaturas_saas
+                    SET plano_codigo='gratuito', status='gratuita', gateway='gratuito',
+                        metodo_pagamento=NULL, proxima_cobranca=NULL, atualizado_em=CURRENT_TIMESTAMP
+                    WHERE id=?""", (row['id'],))
+                cur.execute("UPDATE usuarios SET plano_codigo='gratuito', assinatura_status='gratuita' WHERE id=?", (usuario_id,))
+                if row['escola_id']:
+                    cur.execute("UPDATE escolas SET plano_codigo='gratuito' WHERE id=?", (row['escola_id'],))
             db.commit()
         except Exception:
             db.rollback(); app.logger.exception('Erro ao encerrar teste gratuito')
@@ -362,10 +452,11 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
                 (nome,email,generate_password_hash(senha),cargo['id'],escola_id,cpf,telefone,'autonomo',plano_trial,'trial'))
             usuario_id=cur.lastrowid
             cur.execute("""INSERT INTO assinaturas_saas
-                (usuario_id,escola_id,plano_codigo,status,gateway,teste_inicio,teste_fim)
-                VALUES(?,?,?,?,?,?,?)""",
+                (usuario_id,escola_id,plano_codigo,status,gateway,teste_inicio,teste_fim,plano_pos_teste,proxima_cobranca)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
                 (usuario_id,escola_id,plano_trial,'trial','trial',
-                 teste_inicio.isoformat(),teste_fim.isoformat()))
+                 teste_inicio.isoformat(),teste_fim.isoformat(),plano,
+                 teste_fim.date().isoformat() if plano == 'professor' else None))
             db.commit()
 
             # O cadastro pode ser aberto enquanto outra conta ainda está
@@ -374,6 +465,9 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             # usuário antigo (por exemplo, Luana). O novo professor deverá
             # autenticar-se normalmente com as credenciais recém-criadas.
             session.clear()
+            if plano == 'professor':
+                session['cadastro_pagamento_usuario_id'] = usuario_id
+                return redirect(url_for('checkout_professor'))
             return redirect(url_for('cadastro_concluido'))
         except Exception as e:
             db.rollback(); app.logger.exception('Erro cadastro autônomo')
@@ -394,45 +488,108 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
     @app.route('/checkout/professor/aguardando', methods=['POST'])
     def checkout_aguardando():
         uid=session.get('cadastro_pagamento_usuario_id')
+        if not uid:
+            return redirect(url_for('cadastro_professor_autonomo', plano='professor'))
         metodo=(request.form.get('metodo_pagamento') or 'pix').strip().lower()
         if metodo not in {'pix','boleto','credit_card'}:
             metodo='pix'
-        if uid:
-            db=conectar_banco(); cur=db.cursor()
-            try:
-                a=cur.execute('SELECT id FROM assinaturas_saas WHERE usuario_id=? ORDER BY id DESC LIMIT 1',(uid,)).fetchone()
-                if a:
-                    cur.execute("UPDATE assinaturas_saas SET metodo_pagamento=?, renovacao_automatica=1, atualizado_em=CURRENT_TIMESTAMP WHERE id=?",(metodo,a[0]))
-                    cur.execute("UPDATE pagamentos_saas SET forma_pagamento=? WHERE assinatura_id=? AND status='pendente'",(metodo,a[0]))
-                    db.commit()
-            finally:
-                db.close()
-        flash('Cadastro realizado. Sua conta será liberada automaticamente após a confirmação do pagamento.','sucesso')
-        session.pop('cadastro_pagamento_usuario_id',None)
-        return redirect(url_for('login'))
+        db=conectar_banco(); db.row_factory=sqlite3.Row; cur=db.cursor()
+        try:
+            dados=cur.execute("""SELECT u.id,u.nome,u.email,u.cpf,u.telefone,a.*
+                FROM usuarios u JOIN assinaturas_saas a ON a.usuario_id=u.id
+                WHERE u.id=? ORDER BY a.id DESC LIMIT 1""",(uid,)).fetchone()
+            if not dados:
+                raise RuntimeError('Assinatura não encontrada para este cadastro.')
+            vencimento=str(dados['teste_fim'])[:10]
+            customer_id=_asaas_obter_ou_criar_cliente(uid,dados['nome'],dados['email'],dados['cpf'],dados['telefone'],dados['gateway_customer_id'])
+            cartao=None
+            if metodo == 'credit_card':
+                cartao={
+                    'creditCard': {
+                        'holderName': (request.form.get('card_holder_name') or '').strip(),
+                        'number': _somente_digitos(request.form.get('card_number')),
+                        'expiryMonth': (request.form.get('card_expiry_month') or '').strip(),
+                        'expiryYear': (request.form.get('card_expiry_year') or '').strip(),
+                        'ccv': _somente_digitos(request.form.get('card_ccv')),
+                    },
+                    'creditCardHolderInfo': {
+                        'name': (request.form.get('holder_name') or dados['nome'] or '').strip(),
+                        'email': dados['email'],
+                        'cpfCnpj': _somente_digitos(dados['cpf']),
+                        'postalCode': _somente_digitos(request.form.get('postal_code')),
+                        'addressNumber': (request.form.get('address_number') or '').strip(),
+                        'phone': _somente_digitos(dados['telefone']),
+                        'mobilePhone': _somente_digitos(dados['telefone']),
+                    },
+                    'remoteIp': request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip(),
+                }
+                obrigatorios=[cartao['creditCard']['holderName'],cartao['creditCard']['number'],cartao['creditCard']['expiryMonth'],cartao['creditCard']['expiryYear'],cartao['creditCard']['ccv'],cartao['creditCardHolderInfo']['cpfCnpj'],cartao['creditCardHolderInfo']['postalCode'],cartao['creditCardHolderInfo']['addressNumber']]
+                if not all(obrigatorios):
+                    flash('Preencha todos os dados do cartão e do endereço do titular.','erro')
+                    return redirect(url_for('checkout_professor'))
+            sub_id=dados['gateway_subscription_id']
+            if not sub_id:
+                sub=_asaas_criar_assinatura(dados['id'],customer_id,metodo,vencimento,cartao)
+                sub_id=sub.get('id')
+            pg=_asaas_primeiro_pagamento(sub_id) if sub_id else None
+            cur.execute("""UPDATE assinaturas_saas SET gateway='asaas',gateway_customer_id=?,gateway_subscription_id=?,
+                metodo_pagamento=?,renovacao_automatica=1,plano_pos_teste='professor',proxima_cobranca=?,
+                observacao_cobranca=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                (customer_id,sub_id,metodo,vencimento,'Primeira cobrança agendada para após os 7 dias grátis.',dados['id']))
+            if pg:
+                cur.execute("""INSERT INTO pagamentos_saas(assinatura_id,gateway,gateway_payment_id,forma_pagamento,valor,status,vencimento,invoice_url,bank_slip_url)
+                    VALUES(?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT DO NOTHING""",(dados['id'],'asaas',pg.get('id'),metodo,float(pg.get('value') or 39.90),str(pg.get('status') or 'PENDING').lower(),pg.get('dueDate') or vencimento,pg.get('invoiceUrl'),pg.get('bankSlipUrl')))
+            db.commit()
+            session.pop('cadastro_pagamento_usuario_id',None)
+            flash('Tudo certo! Seus 7 dias grátis estão ativos. A primeira cobrança do Plano Professor ficou agendada para o fim do teste.','sucesso')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.rollback(); app.logger.exception('Erro ao configurar assinatura Asaas')
+            flash(f'Seu teste gratuito continua ativo, mas não foi possível configurar a cobrança: {e}','erro')
+            return redirect(url_for('checkout_professor'))
+        finally:
+            db.close()
 
     @app.route('/api/asaas/webhook', methods=['POST'])
     def asaas_webhook():
-        token=os.environ.get('ASAAS_WEBHOOK_TOKEN')
-        if token and request.headers.get('asaas-access-token') != token:
+        token=(os.environ.get('ASAAS_WEBHOOK_TOKEN') or '').strip()
+        if not token:
+            app.logger.error('Webhook Asaas chamado sem ASAAS_WEBHOOK_TOKEN configurado')
+            return jsonify({'erro':'webhook não configurado'}),503
+        if request.headers.get('asaas-access-token') != token:
             return jsonify({'erro':'não autorizado'}),401
         data=request.get_json(silent=True) or {}; payment=data.get('payment') or {}
         event=str(data.get('event',''))
         ext=str(payment.get('id','')); customer=str(payment.get('customer',''))
-        if event not in {'PAYMENT_RECEIVED','PAYMENT_CONFIRMED'}:
+        if event not in {'PAYMENT_CREATED','PAYMENT_RECEIVED','PAYMENT_CONFIRMED','PAYMENT_OVERDUE','PAYMENT_DELETED','PAYMENT_REFUNDED'}:
             return jsonify({'ok':True})
         db=conectar_banco(); cur=db.cursor()
         try:
             row=None
+            subscription=str(payment.get('subscription') or '')
             if ext:
                 row=cur.execute("SELECT assinatura_id FROM pagamentos_saas WHERE gateway_payment_id=?",(ext,)).fetchone()
+            if not row and subscription:
+                row=cur.execute("SELECT id FROM assinaturas_saas WHERE gateway_subscription_id=? ORDER BY id DESC LIMIT 1",(subscription,)).fetchone()
             if not row and customer:
                 row=cur.execute("SELECT id FROM assinaturas_saas WHERE gateway_customer_id=? ORDER BY id DESC LIMIT 1",(customer,)).fetchone()
             if row:
                 aid=row[0]
-                cur.execute("UPDATE pagamentos_saas SET status='pago',pago_em=CURRENT_TIMESTAMP,gateway_payment_id=COALESCE(gateway_payment_id,?) WHERE assinatura_id=?",(ext,aid))
-                cur.execute("UPDATE assinaturas_saas SET status='ativa',atualizado_em=CURRENT_TIMESTAMP WHERE id=?",(aid,))
-                cur.execute("UPDATE usuarios SET assinatura_status='ativa' WHERE id=(SELECT usuario_id FROM assinaturas_saas WHERE id=?)",(aid,))
+                forma={'PIX':'pix','BOLETO':'boleto','CREDIT_CARD':'credit_card'}.get(str(payment.get('billingType') or '').upper())
+                status_pg={'PAYMENT_CREATED':'pendente','PAYMENT_RECEIVED':'pago','PAYMENT_CONFIRMED':'pago','PAYMENT_OVERDUE':'vencido','PAYMENT_DELETED':'cancelado','PAYMENT_REFUNDED':'estornado'}.get(event,'pendente')
+                existente=cur.execute("SELECT id FROM pagamentos_saas WHERE gateway_payment_id=?",(ext,)).fetchone() if ext else None
+                if existente:
+                    cur.execute("UPDATE pagamentos_saas SET status=?,forma_pagamento=COALESCE(?,forma_pagamento),vencimento=COALESCE(?,vencimento),pago_em=CASE WHEN ?='pago' THEN COALESCE(pago_em,CURRENT_TIMESTAMP) ELSE pago_em END WHERE id=?",(status_pg,forma,payment.get('dueDate'),status_pg,existente[0]))
+                elif ext:
+                    cur.execute("INSERT INTO pagamentos_saas(assinatura_id,gateway,gateway_payment_id,forma_pagamento,valor,status,vencimento,invoice_url,bank_slip_url,pago_em) VALUES(?,?,?,?,?,?,?,?,?,CASE WHEN ?='pago' THEN CURRENT_TIMESTAMP ELSE NULL END)",(aid,'asaas',ext,forma,float(payment.get('value') or 0),status_pg,payment.get('dueDate'),payment.get('invoiceUrl'),payment.get('bankSlipUrl'),status_pg))
+                if event in {'PAYMENT_RECEIVED','PAYMENT_CONFIRMED'}:
+                    cur.execute("UPDATE assinaturas_saas SET status='ativa',plano_codigo='professor',atualizado_em=CURRENT_TIMESTAMP WHERE id=?",(aid,))
+                    cur.execute("UPDATE usuarios SET plano_codigo='professor',assinatura_status='ativa' WHERE id=(SELECT usuario_id FROM assinaturas_saas WHERE id=?)",(aid,))
+                    cur.execute("UPDATE escolas SET plano_codigo='professor' WHERE id=(SELECT escola_id FROM assinaturas_saas WHERE id=?)",(aid,))
+                elif event == 'PAYMENT_OVERDUE':
+                    cur.execute("UPDATE assinaturas_saas SET status='pendente',atualizado_em=CURRENT_TIMESTAMP WHERE id=? AND status!='trial'",(aid,))
+                    cur.execute("UPDATE usuarios SET assinatura_status='pendente' WHERE id=(SELECT usuario_id FROM assinaturas_saas WHERE id=?) AND assinatura_status!='trial'",(aid,))
                 db.commit()
             return jsonify({'ok':True})
         finally: db.close()
@@ -532,6 +689,162 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
                 WHERE COALESCE(e.workspace_autonomo,0)=0
                 ORDER BY e.nome_instituicao""").fetchall()
             return render_template('saas/cortesias.html', professores=professores, instituicoes=instituicoes, hoje=date.today().isoformat())
+        finally:
+            db.close()
+
+    @app.route('/gestao/assinaturas', methods=['GET', 'POST'])
+    def gestao_assinaturas():
+        """Painel central de assinaturas exclusivo do Administrador Geral."""
+        if session.get('usuario_cargo', '').strip() != 'Administrador Geral':
+            flash('Apenas o Administrador Geral pode administrar assinaturas.', 'erro')
+            return redirect('/dashboard')
+
+        db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
+        try:
+            if request.method == 'POST':
+                assinatura_id = request.form.get('assinatura_id', type=int)
+                acao = (request.form.get('acao') or '').strip().lower()
+                if not assinatura_id:
+                    flash('Assinatura inválida.', 'erro')
+                    return redirect(url_for('gestao_assinaturas'))
+
+                assinatura = cur.execute("""SELECT a.*, COALESCE(u.tipo_conta,'institucional') AS tipo_conta_atual
+                    FROM assinaturas_saas a JOIN usuarios u ON u.id=a.usuario_id WHERE a.id=?""", (assinatura_id,)).fetchone()
+                if not assinatura:
+                    flash('Assinatura não encontrada.', 'erro')
+                    return redirect(url_for('gestao_assinaturas'))
+
+                if acao == 'ativar':
+                    cur.execute("UPDATE assinaturas_saas SET status='ativa', atualizado_em=CURRENT_TIMESTAMP WHERE id=?", (assinatura_id,))
+                    if assinatura['tipo_conta_atual'] == 'autonomo':
+                        cur.execute("UPDATE usuarios SET assinatura_status='ativa' WHERE id=?", (assinatura['usuario_id'],))
+                    else:
+                        cur.execute("UPDATE usuarios SET assinatura_status='ativa' WHERE escola_id=?", (assinatura['escola_id'],))
+                    flash('Acesso da assinatura ativado.', 'sucesso')
+
+                elif acao == 'suspender':
+                    cur.execute("UPDATE assinaturas_saas SET status='pendente', atualizado_em=CURRENT_TIMESTAMP WHERE id=?", (assinatura_id,))
+                    if assinatura['tipo_conta_atual'] == 'autonomo':
+                        cur.execute("UPDATE usuarios SET assinatura_status='pendente' WHERE id=?", (assinatura['usuario_id'],))
+                    else:
+                        cur.execute("UPDATE usuarios SET assinatura_status='pendente' WHERE escola_id=?", (assinatura['escola_id'],))
+                    flash('Acesso suspenso. A cobrança no gateway não foi cancelada.', 'sucesso')
+
+                elif acao == 'cancelar':
+                    gateway_subscription_id = (assinatura['gateway_subscription_id'] or '').strip()
+                    if gateway_subscription_id and (assinatura['gateway'] or '').lower() == 'asaas':
+                        try:
+                            _asaas_request('DELETE', f'/subscriptions/{gateway_subscription_id}')
+                        except Exception as e:
+                            db.rollback()
+                            flash(f'Não foi possível cancelar no Asaas: {e}', 'erro')
+                            return redirect(url_for('gestao_assinaturas'))
+                    cur.execute("""UPDATE assinaturas_saas
+                        SET status='cancelada', renovacao_automatica=0, cancelada_em=CURRENT_TIMESTAMP,
+                            atualizado_em=CURRENT_TIMESTAMP WHERE id=?""", (assinatura_id,))
+                    if assinatura['tipo_conta_atual'] == 'autonomo':
+                        cur.execute("UPDATE usuarios SET assinatura_status='cancelada' WHERE id=?", (assinatura['usuario_id'],))
+                    else:
+                        cur.execute("UPDATE usuarios SET assinatura_status='cancelada' WHERE escola_id=?", (assinatura['escola_id'],))
+                    flash('Assinatura cancelada com sucesso.', 'sucesso')
+
+                elif acao == 'alterar_plano':
+                    novo_plano = (request.form.get('plano_codigo') or '').strip().lower()
+                    if novo_plano not in PLANOS:
+                        flash('Plano inválido.', 'erro')
+                        return redirect(url_for('gestao_assinaturas'))
+                    tipo_esperado = 'professor' if assinatura['tipo_conta_atual'] == 'autonomo' else 'instituicao'
+                    if PLANOS[novo_plano]['tipo'] != tipo_esperado:
+                        flash('Esse plano não é compatível com o tipo da conta.', 'erro')
+                        return redirect(url_for('gestao_assinaturas'))
+
+                    # Ao mover uma assinatura Asaas do Professor para o Gratuito,
+                    # cancela também a recorrência para não continuar cobrando.
+                    if novo_plano == 'gratuito' and (assinatura['gateway'] or '').lower() == 'asaas' and assinatura['gateway_subscription_id']:
+                        try:
+                            _asaas_request('DELETE', f"/subscriptions/{assinatura['gateway_subscription_id']}")
+                        except Exception as e:
+                            db.rollback()
+                            flash(f'Não foi possível cancelar a recorrência no Asaas: {e}', 'erro')
+                            return redirect(url_for('gestao_assinaturas'))
+
+                    novo_status = 'gratuita' if novo_plano == 'gratuito' else 'ativa'
+                    cur.execute("""UPDATE assinaturas_saas
+                        SET plano_codigo=?, status=?, renovacao_automatica=?,
+                            cancelada_em=CASE WHEN ?='gratuito' THEN CURRENT_TIMESTAMP ELSE NULL END,
+                            atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                        (novo_plano, novo_status, 0 if novo_plano == 'gratuito' else 1, novo_plano, assinatura_id))
+                    if assinatura['tipo_conta_atual'] == 'autonomo':
+                        cur.execute('UPDATE usuarios SET plano_codigo=?, assinatura_status=? WHERE id=?',
+                                    (novo_plano, novo_status, assinatura['usuario_id']))
+                        if assinatura['escola_id']:
+                            cur.execute('UPDATE escolas SET plano_codigo=? WHERE id=?', (novo_plano, assinatura['escola_id']))
+                    else:
+                        cur.execute('UPDATE escolas SET plano_codigo=? WHERE id=?', (novo_plano, assinatura['escola_id']))
+                        cur.execute('UPDATE usuarios SET plano_codigo=?, assinatura_status=? WHERE escola_id=?',
+                                    (novo_plano, novo_status, assinatura['escola_id']))
+                    flash('Plano da assinatura atualizado.', 'sucesso')
+                else:
+                    flash('Ação de assinatura inválida.', 'erro')
+                    return redirect(url_for('gestao_assinaturas'))
+
+                db.commit()
+                return redirect(url_for('gestao_assinaturas'))
+
+            q = (request.args.get('q') or '').strip()
+            status = (request.args.get('status') or '').strip().lower()
+            plano = (request.args.get('plano') or '').strip().lower()
+            tipo = (request.args.get('tipo') or '').strip().lower()
+
+            filtros = []
+            params = []
+            if q:
+                filtros.append("(lower(COALESCE(u.nome,'')) LIKE ? OR lower(COALESCE(u.email,'')) LIKE ? OR lower(COALESCE(e.nome_instituicao,'')) LIKE ?)")
+                termo = f"%{q.lower()}%"; params.extend([termo, termo, termo])
+            if status:
+                filtros.append("lower(COALESCE(a.status,'')) = ?"); params.append(status)
+            if plano:
+                filtros.append("lower(COALESCE(a.plano_codigo,'')) = ?"); params.append(plano)
+            if tipo == 'professor':
+                filtros.append("COALESCE(u.tipo_conta,'institucional')='autonomo'")
+            elif tipo == 'instituicao':
+                filtros.append("COALESCE(u.tipo_conta,'institucional')!='autonomo'")
+            where = ('WHERE ' + ' AND '.join(filtros)) if filtros else ''
+
+            assinaturas = cur.execute(f"""
+                SELECT a.*, u.nome AS usuario_nome, u.email, u.tipo_conta,
+                       e.nome_instituicao, p.nome AS plano_nome, p.valor_mensal,
+                       pg.status AS pagamento_status, pg.valor AS pagamento_valor,
+                       pg.vencimento AS pagamento_vencimento, pg.pago_em,
+                       pg.forma_pagamento, pg.invoice_url, pg.bank_slip_url
+                FROM assinaturas_saas a
+                JOIN usuarios u ON u.id=a.usuario_id
+                LEFT JOIN escolas e ON e.id=a.escola_id
+                LEFT JOIN planos_saas p ON p.codigo=a.plano_codigo
+                LEFT JOIN pagamentos_saas pg ON pg.id=(
+                    SELECT pg2.id FROM pagamentos_saas pg2
+                    WHERE pg2.assinatura_id=a.id ORDER BY pg2.id DESC LIMIT 1
+                )
+                {where}
+                ORDER BY a.id DESC
+            """, tuple(params)).fetchall()
+
+            resumo = cur.execute("""
+                SELECT COUNT(*) total,
+                       SUM(CASE WHEN lower(COALESCE(status,'')) IN ('ativa','gratuita','trial','isenta') THEN 1 ELSE 0 END) liberadas,
+                       SUM(CASE WHEN lower(COALESCE(status,'')) IN ('pendente','vencida','atrasada') THEN 1 ELSE 0 END) pendentes,
+                       SUM(CASE WHEN lower(COALESCE(status,''))='cancelada' THEN 1 ELSE 0 END) canceladas
+                FROM assinaturas_saas
+            """).fetchone()
+            receita = cur.execute("""
+                SELECT COALESCE(SUM(p.valor_mensal),0)
+                FROM assinaturas_saas a JOIN planos_saas p ON p.codigo=a.plano_codigo
+                WHERE lower(COALESCE(a.status,'')) IN ('ativa','isenta') AND COALESCE(a.isento,0)=0
+            """).fetchone()[0]
+
+            return render_template('saas/assinaturas_admin.html', assinaturas=assinaturas,
+                                   resumo=resumo, receita=receita, planos=PLANOS,
+                                   filtros={'q':q, 'status':status, 'plano':plano, 'tipo':tipo})
         finally:
             db.close()
 
@@ -638,7 +951,7 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             'minha_assinatura', 'checkout_professor', 'checkout_aguardando',
             'asaas_webhook', 'site_inicio', 'site_recursos', 'site_professores',
             'site_instituicoes', 'site_contato', 'site_sobre', 'site_termos',
-            'site_privacidade', 'gestao_cortesias'
+            'site_privacidade', 'gestao_cortesias', 'gestao_assinaturas'
         }
         if not assinatura_ativa(info) and request.endpoint not in permitidos:
             flash('Sua assinatura não está ativa. Regularize o pagamento para liberar a plataforma.', 'erro')

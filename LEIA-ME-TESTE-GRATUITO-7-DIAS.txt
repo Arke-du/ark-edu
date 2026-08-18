@@ -8,7 +8,7 @@ ALTERAÇÕES DESTA VERSÃO
 4. A página Minha assinatura exibe o período de teste e a data de término.
 5. Ao vencer o teste, a conta muda automaticamente para o Plano Gratuito, desde que não exista cortesia vigente.
 6. Os dados criados durante o teste não são excluídos.
-7. No Plano Gratuito, permanecem os limites de 1 turma, 50 alunos e 2 avaliações por mês.
+7. No Plano Gratuito, permanecem os limites de 1 turma, 40 alunos e 1 avaliação por mês.
 8. A contagem mensal de avaliações foi corrigida para aceitar datas no formato DD/MM/AAAA e ISO.
 9. Os bloqueios continuam sendo feitos no backend antes da criação de turma, aluno ou avaliação.
 

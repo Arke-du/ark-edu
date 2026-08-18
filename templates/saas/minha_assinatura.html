@@ -9,7 +9,7 @@
   {% if conta_em_teste %}
   <div class="as-card" style="margin-bottom:18px;border-color:#b2ddff;background:#eff8ff">
     <h2 style="margin-bottom:8px">Teste gratuito do Plano Professor</h2>
-    <p style="margin:0;color:#344054">Você está usando todas as funcionalidades da plataforma. Restam <strong>{{ dias_teste_restantes }} dia{% if dias_teste_restantes != 1 %}s{% endif %}</strong>. Ao terminar, sua conta passará automaticamente para o Plano Gratuito caso não exista assinatura paga ou cortesia ativa.</p>
+    <p style="margin:0;color:#344054">Você está usando todas as funcionalidades da plataforma. Restam <strong>{{ dias_teste_restantes }} dia{% if dias_teste_restantes != 1 %}s{% endif %}</strong>. {% if assinatura.plano_pos_teste == 'professor' %}Sua primeira cobrança do Plano Professor está prevista para <strong>{{ assinatura.proxima_cobranca or (assinatura.teste_fim or '—')[:10] }}</strong>.{% else %}Ao terminar, sua conta passará automaticamente para o Plano Gratuito.{% endif %}</p>
   </div>
   {% endif %}
   <div class="as-grid">
@@ -26,9 +26,9 @@
     </section>
     <section class="as-card">
       <h2>Cobrança e renovação</h2>
-      <div class="as-row"><span class="as-label">Próxima renovação</span><span class="as-value">{% if conta_isenta or conta_em_teste %}Não se aplica{% else %}{{ assinatura.proxima_cobranca or 'Aguardando definição' }}{% endif %}</span></div>
+      <div class="as-row"><span class="as-label">Próxima renovação</span><span class="as-value">{% if conta_isenta %}Não se aplica{% else %}{{ assinatura.proxima_cobranca or 'Aguardando definição' }}{% endif %}</span></div>
       <div class="as-row"><span class="as-label">Método de pagamento</span><span class="as-value">{% set metodo=assinatura.metodo_pagamento or (pagamentos[0].forma_pagamento if pagamentos else None) %}{{ {'pix':'PIX','boleto':'Boleto bancário','credit_card':'Cartão de crédito','cartao':'Cartão de crédito','manual':'Definido manualmente'}.get(metodo, metodo|title if metodo else 'Não informado') }}</span></div>
-      <div class="as-row"><span class="as-label">Renovação automática</span><span class="as-value">{% if conta_isenta or conta_em_teste %}Não se aplica{% elif assinatura.renovacao_automatica == 0 %}Não{% else %}Sim{% endif %}</span></div>
+      <div class="as-row"><span class="as-label">Renovação automática</span><span class="as-value">{% if conta_isenta %}Não se aplica{% elif assinatura.renovacao_automatica == 0 %}Não{% else %}Sim{% endif %}</span></div>
       <div class="as-row"><span class="as-label">Gateway</span><span class="as-value">{{ (assinatura.gateway or 'Não informado')|upper }}</span></div>
       {% if assinatura.observacao_cobranca %}<div class="as-note"><strong>Observação:</strong> {{ assinatura.observacao_cobranca }}</div>{% endif %}
       {% if conta_isenta %}<div class="as-note">Seu acesso está liberado sem cobrança enquanto a cortesia estiver vigente.</div>{% elif (assinatura.status or assinatura.assinatura_status) not in ['ativa','gratuita','trial'] %}<div class="as-note">A conta será liberada ou mantida após a confirmação do pagamento.</div>{% endif %}
@@ -36,9 +36,9 @@
   </div>
   <section class="as-card" style="margin-top:18px">
     <h2>Histórico de pagamentos</h2>
-    <div class="as-table-wrap"><table class="as-table"><thead><tr><th>Data</th><th>Vencimento</th><th>Forma</th><th>Valor</th><th>Status</th></tr></thead><tbody>
-      {% for pg in pagamentos %}<tr><td>{{ (pg.criado_em or '—')[:10] }}</td><td>{{ pg.vencimento or '—' }}</td><td>{{ {'pix':'PIX','boleto':'Boleto','credit_card':'Cartão','cartao':'Cartão'}.get(pg.forma_pagamento, pg.forma_pagamento|title if pg.forma_pagamento else '—') }}</td><td>R$ {{ '%.2f'|format(pg.valor or 0)|replace('.',',') }}</td><td>{{ (pg.status or 'pendente')|title }}</td></tr>
-      {% else %}<tr><td colspan="5">Nenhuma cobrança registrada até o momento.</td></tr>{% endfor %}
+    <div class="as-table-wrap"><table class="as-table"><thead><tr><th>Data</th><th>Vencimento</th><th>Forma</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead><tbody>
+      {% for pg in pagamentos %}<tr><td>{{ (pg.criado_em or '—')[:10] }}</td><td>{{ pg.vencimento or '—' }}</td><td>{{ {'pix':'PIX','boleto':'Boleto','credit_card':'Cartão','cartao':'Cartão'}.get(pg.forma_pagamento, pg.forma_pagamento|title if pg.forma_pagamento else '—') }}</td><td>R$ {{ '%.2f'|format(pg.valor or 0)|replace('.',',') }}</td><td>{{ (pg.status or 'pendente')|title }}</td><td>{% if pg.invoice_url and pg.status not in ['pago','recebido','confirmed'] %}<a href="{{ pg.invoice_url }}" target="_blank" rel="noopener">Abrir cobrança</a>{% else %}—{% endif %}</td></tr>
+      {% else %}<tr><td colspan="6">Nenhuma cobrança registrada até o momento.</td></tr>{% endfor %}
     </tbody></table></div>
   </section>
 </div>

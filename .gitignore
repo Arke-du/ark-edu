@@ -11,3 +11,4 @@ plataforma.db
 
 # Uploads locais; em produção ficam no Persistent Disk.
 static/uploads/
+plataforma.db
