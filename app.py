@@ -24057,9 +24057,21 @@ def inteligencia_pedagogica():
 
     # Evolução individual: nota e percentual de acertos por avaliação.
     alunos_map={}
-    for n in notas_dict: alunos_map[n['aluno_id']]=n['aluno']
-    for r in respostas_dict: alunos_map[r['aluno_id']]=r['aluno']
-    alunos_opcoes=sorted(alunos_map.items(), key=lambda x:x[1].lower())
+    alunos_meta={}
+    for n in notas_dict:
+        alunos_map[n['aluno_id']]=n['aluno']
+        alunos_meta[n['aluno_id']]={'turma_id':n['turma_id'],'turma':n['turma']}
+    for r in respostas_dict:
+        alunos_map[r['aluno_id']]=r['aluno']
+        alunos_meta[r['aluno_id']]={'turma_id':r['turma_id'],'turma':r['turma']}
+    alunos_opcoes=[(aid,nome,alunos_meta.get(aid,{}).get('turma_id'),alunos_meta.get(aid,{}).get('turma','')) for aid,nome in alunos_map.items()]
+    alunos_opcoes.sort(key=lambda x:(str(x[3]).lower(),x[1].lower()))
+    turmas_opcoes=[]; _turmas_vistas=set()
+    for f in filtros:
+        if f['turma_id'] not in _turmas_vistas:
+            _turmas_vistas.add(f['turma_id'])
+            turmas_opcoes.append((f['turma_id'], f['turma_nome']))
+    turmas_opcoes.sort(key=lambda x:x[1].lower())
     evolucao=[]; aluno_nome=None; aluno_habilidades=[]
     if aluno_id and aluno_id in alunos_map:
         aluno_nome=alunos_map[aluno_id]
@@ -24097,13 +24109,29 @@ def inteligencia_pedagogica():
     else:
         analise="Ainda não há resultados corrigidos suficientes para gerar uma análise pedagógica neste recorte."
 
+    periodo_label = f"{periodo}º bimestre" if periodo in {'1','2','3','4'} else "Todos os bimestres"
+    turma_label = next((nome for tid,nome in turmas_opcoes if tid==turma_id), "Todas as turmas")
+    prova_label = next((f['prova_nome'] for f in filtros if f['prova_id']==prova_id), "Todas as avaliações") if prova_id else "Todas as avaliações"
+    disciplina_label = disciplina or "Todos os componentes"
+    recomendacoes=[]
+    if fracas:
+        recomendacoes.append("Retomar as habilidades com menor percentual de domínio, priorizando atividades guiadas e nova verificação de aprendizagem.")
+    if abaixo:
+        recomendacoes.append(f"Planejar acompanhamento direcionado para os {abaixo} estudante(s) com nota válida mais recente abaixo de 6,0.")
+    if criticas:
+        recomendacoes.append("Reaplicar uma atividade curta após a intervenção para verificar se houve avanço nas habilidades críticas.")
+    if not recomendacoes:
+        recomendacoes.append("Manter o acompanhamento contínuo e ampliar os desafios nas habilidades já consolidadas.")
+
     banco.close()
     return render_template("inteligencia_pedagogica.html", escolas=escolas, escola_id=escola_id,
         cargo=cargo, filtros=filtros, turma_id=turma_id, disciplina=disciplina, prova_id=prova_id,
-        periodo=periodo, aluno_id=aluno_id, alunos_opcoes=alunos_opcoes, aluno_nome=aluno_nome,
+        periodo=periodo, aluno_id=aluno_id, alunos_opcoes=alunos_opcoes, turmas_opcoes=turmas_opcoes, aluno_nome=aluno_nome,
         evolucao=evolucao, aluno_habilidades=aluno_habilidades, habilidades=habilidades,
         comparativos=comparativos, media=media, percentual_acertos=percentual_acertos,
-        alunos_unicos=alunos_unicos, abaixo=abaixo, criticas=criticas, analise=analise)
+        alunos_unicos=alunos_unicos, abaixo=abaixo, criticas=criticas, analise=analise,
+        fortes=fortes, fracas=fracas, recomendacoes=recomendacoes, periodo_label=periodo_label,
+        turma_label=turma_label, prova_label=prova_label, disciplina_label=disciplina_label)
 
 backup_manager.iniciar_agendador()
 
