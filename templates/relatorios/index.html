@@ -797,90 +797,175 @@
 
 @media print {
     html, body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: #fff !important;
-        font-size: 10pt;
+        font-size: 9.5pt;
+        overflow: visible !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
 
+    /* Remove completamente a estrutura do painel para que o relatório use
+       toda a largura útil do A4, sem herdar o espaço reservado à sidebar. */
     .sidebar,
     .topbar,
+    .aviso-ano-consulta,
     .rel-filtros,
+    .rel-cabecalho,
     .rel-cabecalho-acoes,
-    .rel-coluna-acoes {
+    .rel-coluna-acoes,
+    .ark-toast-area,
+    footer {
         display: none !important;
+    }
+
+    .app,
+    .main,
+    .content,
+    .rel-pagina {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        display: block !important;
     }
 
     .rel-print-header {
         display: block !important;
-        border-bottom: 2px solid #123b82;
-        padding-bottom: 8mm;
-        margin-bottom: 7mm;
+        border-bottom: 1.5pt solid #123b82;
+        padding: 0 0 5mm;
+        margin: 0 0 5mm;
+        break-after: avoid;
+        page-break-after: avoid;
     }
 
     .rel-print-brand {
-        display: flex;
+        display: grid;
+        grid-template-columns: 38mm 1fr;
         align-items: center;
-        justify-content: space-between;
-        gap: 12mm;
+        gap: 8mm;
     }
 
     .rel-print-brand img {
-        width: 42mm;
-        height: auto;
+        width: 34mm;
+        max-height: 24mm;
+        object-fit: contain;
     }
 
-    .rel-print-brand-text { text-align: right; }
+    .rel-print-brand-text { text-align: left; }
     .rel-print-brand-text strong {
         display: block;
         color: #0b2d5c;
-        font-size: 16pt;
+        font-size: 18pt;
+        line-height: 1.1;
+        margin-bottom: 1.5mm;
     }
-    .rel-print-brand-text span { color: #64748b; font-size: 9pt; }
+    .rel-print-brand-text span {
+        display: block;
+        color: #64748b;
+        font-size: 8.5pt;
+        line-height: 1.35;
+    }
 
     .rel-print-meta {
-        margin-top: 5mm;
+        margin-top: 4mm;
+        padding: 3.5mm 4mm;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 2mm 8mm;
+        gap: 1.8mm 8mm;
+        border: 1px solid #dbe4ef;
+        border-radius: 2.5mm;
+        background: #f8fafc !important;
         color: #334155;
-        font-size: 9pt;
+        font-size: 8.5pt;
+        line-height: 1.35;
     }
 
     .rel-print-meta b { color: #0f172a; }
 
-    .rel-cabecalho { margin-bottom: 5mm; }
-    .rel-cabecalho .rel-etiqueta,
-    .rel-cabecalho > div > p { display: none !important; }
-    .rel-cabecalho h1 { font-size: 18pt; margin: 0; }
-
     .rel-indicadores {
-        grid-template-columns: repeat(5, 1fr) !important;
-        gap: 3mm !important;
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 2.5mm !important;
+        margin: 0 0 5mm !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
-    .rel-indicador { min-height: 25mm !important; padding: 4mm !important; }
+
+    .rel-indicador {
+        min-width: 0 !important;
+        min-height: 24mm !important;
+        padding: 3.2mm !important;
+        border: 1px solid #dbe4ef !important;
+        border-radius: 2.5mm !important;
+        box-shadow: none !important;
+        background: #fff !important;
+    }
     .rel-indicador-icone { display: none !important; }
-    .rel-indicador strong { font-size: 17pt !important; }
+    .rel-indicador > div > span { font-size: 7.7pt !important; line-height: 1.2 !important; }
+    .rel-indicador strong { font-size: 15pt !important; line-height: 1.1 !important; margin-top: 1mm !important; }
+    .rel-indicador small { font-size: 7pt !important; line-height: 1.25 !important; }
+
+    .rel-grid-principal,
+    .rel-grid-inferior {
+        display: block !important;
+    }
 
     .rel-card {
+        width: 100% !important;
         border: 1px solid #dbe4ef !important;
-        border-radius: 3mm !important;
-        padding: 5mm !important;
-        margin-bottom: 5mm !important;
+        border-radius: 2.5mm !important;
+        box-shadow: none !important;
+        padding: 4mm !important;
+        margin: 0 0 4mm !important;
+        overflow: visible !important;
     }
 
-    table { width: 100% !important; font-size: 8.5pt; }
+    .rel-card-cabecalho {
+        break-after: avoid;
+        page-break-after: avoid;
+        margin-bottom: 3mm !important;
+    }
+    .rel-card-cabecalho h2,
+    .rel-card h2,
+    .rel-card h3 {
+        color: #0b2d5c !important;
+        line-height: 1.2 !important;
+    }
+
+    canvas, svg, img { max-width: 100% !important; }
+
+    table {
+        width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: collapse !important;
+        font-size: 8pt !important;
+    }
     thead { display: table-header-group; }
+    th { white-space: normal !important; }
+    th, td { padding: 2.2mm 2mm !important; }
     tr, .rel-questao-item { break-inside: avoid; page-break-inside: avoid; }
+
+    .rel-questao-item {
+        grid-template-columns: 10mm minmax(0,1fr) auto !important;
+        gap: 2mm !important;
+        padding: 2.5mm 0 !important;
+    }
 
     .rel-print-footer {
         display: block !important;
         position: fixed;
-        left: 0; right: 0; bottom: -10mm;
+        left: 0;
+        right: 0;
+        bottom: -9mm;
         border-top: 1px solid #dbe4ef;
-        padding-top: 2mm;
+        padding-top: 1.5mm;
         color: #64748b;
-        font-size: 8pt;
+        font-size: 7.5pt;
         text-align: center;
     }
 }

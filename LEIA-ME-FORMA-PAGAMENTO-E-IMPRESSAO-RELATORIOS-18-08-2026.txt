@@ -1,0 +1,27 @@
+ARK EDUS — FORMA DE PAGAMENTO + IMPRESSÃO DE RELATÓRIOS
+Data: 18/08/2026
+
+1) MINHA ASSINATURA
+- Adicionada área para o próprio assinante configurar/trocar a forma de pagamento.
+- Opções: PIX, boleto bancário e cartão de crédito.
+- Durante os 7 dias grátis, salvar a forma de pagamento NÃO antecipa a cobrança.
+- A primeira cobrança permanece na data final do trial.
+- Trocas em assinaturas Asaas atualizam também cobranças pendentes quando aplicável.
+- Dados do cartão são enviados ao Asaas e não são salvos no banco da ARK EDUS.
+- Usuário com assinatura pendente continua podendo acessar esta rota para regularizar o pagamento.
+
+2) RELATÓRIOS — IMPRESSÃO
+- Impressão passa a ocupar toda a largura útil do A4, sem reservar espaço da sidebar.
+- Menu, topbar, filtros e rodapé do painel são removidos da impressão.
+- Cabeçalho do relatório reorganizado com logo, título e metadados.
+- Removida a repetição do título geral na impressão.
+- Indicadores, cards, tabelas e itens por questão foram redimensionados para melhor leitura e quebra de página.
+
+3) DADOS
+- Nenhuma rotina de exclusão de alunos, turmas, provas, usuários ou resultados foi adicionada.
+- O ZIP não inclui banco de produção.
+
+Variáveis necessárias no Render para pagamentos reais:
+ASAAS_API_KEY
+ASAAS_WEBHOOK_TOKEN
+ASAAS_ENV=production

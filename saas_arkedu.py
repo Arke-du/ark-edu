@@ -864,7 +864,125 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
             if assinatura_id:
                 pagamentos = cur.execute("""SELECT * FROM pagamentos_saas
                     WHERE assinatura_id=? ORDER BY id DESC LIMIT 12""", (assinatura_id,)).fetchall()
-            return render_template('saas/minha_assinatura.html', assinatura=info, pagamentos=pagamentos)
+            return render_template('saas/minha_assinatura.html', assinatura=info, pagamentos=pagamentos,
+                                   asaas_configurado=bool(os.environ.get('ASAAS_API_KEY')))
+        finally:
+            db.close()
+
+    @app.route('/minha-assinatura/forma-pagamento', methods=['POST'])
+    def configurar_forma_pagamento():
+        """Permite ao assinante escolher ou trocar a forma de pagamento no Asaas.
+
+        Durante o trial a assinatura continua liberada e a cobrança permanece
+        com vencimento no final dos 7 dias. Dados de cartão são enviados ao
+        Asaas e nunca são persistidos no banco da ARK EDUS.
+        """
+        uid = session.get('usuario_id')
+        if not uid:
+            return redirect(url_for('login'))
+
+        metodo = (request.form.get('metodo_pagamento') or '').strip().lower()
+        if metodo not in {'pix', 'boleto', 'credit_card'}:
+            flash('Escolha uma forma de pagamento válida.', 'erro')
+            return redirect(url_for('minha_assinatura'))
+
+        db = conectar_banco(); db.row_factory = sqlite3.Row; cur = db.cursor()
+        try:
+            dados = cur.execute("""SELECT u.id AS usuario_id,u.nome,u.email,u.cpf,u.telefone,a.*
+                FROM usuarios u JOIN assinaturas_saas a ON a.usuario_id=u.id
+                WHERE u.id=? ORDER BY a.id DESC LIMIT 1""", (uid,)).fetchone()
+            if not dados:
+                raise RuntimeError('Assinatura não encontrada.')
+            if int(dados['isento'] or 0) == 1:
+                flash('Esta conta está coberta por cortesia e não precisa configurar cobrança.', 'aviso')
+                return redirect(url_for('minha_assinatura'))
+
+            # A configuração de cobrança está disponível para o Plano Professor
+            # e também durante o trial quando o plano escolhido após o teste é Professor.
+            if (dados['plano_codigo'] or '').lower() != 'professor' and (dados['plano_pos_teste'] or '').lower() != 'professor':
+                flash('Escolha o Plano Professor antes de configurar uma forma de pagamento.', 'aviso')
+                return redirect(url_for('pagina_planos'))
+
+            vencimento = (dados['proxima_cobranca'] or str(dados['teste_fim'] or '')[:10] or date.today().isoformat())[:10]
+            customer_id = _asaas_obter_ou_criar_cliente(
+                uid, dados['nome'], dados['email'], dados['cpf'], dados['telefone'], dados['gateway_customer_id']
+            )
+
+            cartao = None
+            if metodo == 'credit_card':
+                cartao = {
+                    'creditCard': {
+                        'holderName': (request.form.get('card_holder_name') or '').strip(),
+                        'number': _somente_digitos(request.form.get('card_number')),
+                        'expiryMonth': (request.form.get('card_expiry_month') or '').strip(),
+                        'expiryYear': (request.form.get('card_expiry_year') or '').strip(),
+                        'ccv': _somente_digitos(request.form.get('card_ccv')),
+                    },
+                    'creditCardHolderInfo': {
+                        'name': (request.form.get('holder_name') or dados['nome'] or '').strip(),
+                        'email': dados['email'],
+                        'cpfCnpj': _somente_digitos(dados['cpf']),
+                        'postalCode': _somente_digitos(request.form.get('postal_code')),
+                        'addressNumber': (request.form.get('address_number') or '').strip(),
+                        'phone': _somente_digitos(dados['telefone']),
+                        'mobilePhone': _somente_digitos(dados['telefone']),
+                    },
+                    'remoteIp': request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip(),
+                }
+                obrigatorios = [
+                    cartao['creditCard']['holderName'], cartao['creditCard']['number'],
+                    cartao['creditCard']['expiryMonth'], cartao['creditCard']['expiryYear'],
+                    cartao['creditCard']['ccv'], cartao['creditCardHolderInfo']['cpfCnpj'],
+                    cartao['creditCardHolderInfo']['postalCode'], cartao['creditCardHolderInfo']['addressNumber']
+                ]
+                if not all(obrigatorios):
+                    flash('Preencha todos os dados do cartão e do endereço do titular.', 'erro')
+                    return redirect(url_for('minha_assinatura'))
+
+            sub_id = dados['gateway_subscription_id']
+            if not sub_id:
+                sub = _asaas_criar_assinatura(dados['id'], customer_id, metodo, vencimento, cartao)
+                sub_id = sub.get('id')
+            else:
+                billing_type = {'pix': 'PIX', 'boleto': 'BOLETO', 'credit_card': 'CREDIT_CARD'}[metodo]
+                # Atualiza também cobranças pendentes já geradas, para que a
+                # próxima cobrança acompanhe a opção escolhida pelo usuário.
+                _asaas_request('PUT', f'/subscriptions/{sub_id}', json_data={
+                    'billingType': billing_type,
+                    'updatePendingPayments': True,
+                })
+                if metodo == 'credit_card':
+                    # Endpoint próprio do Asaas: troca o cartão sem efetuar
+                    # cobrança imediata e atualiza cobranças pendentes.
+                    _asaas_request('PUT', f'/subscriptions/{sub_id}/creditCard', json_data=cartao)
+
+            pg = _asaas_primeiro_pagamento(sub_id) if sub_id else None
+            cur.execute("""UPDATE assinaturas_saas SET gateway='asaas',gateway_customer_id=?,gateway_subscription_id=?,
+                metodo_pagamento=?,renovacao_automatica=1,plano_pos_teste='professor',proxima_cobranca=?,
+                observacao_cobranca=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                (customer_id, sub_id, metodo, vencimento,
+                 'Forma de pagamento configurada pelo assinante. A cobrança segue o vencimento informado.', dados['id']))
+
+            if pg and pg.get('id'):
+                existente = cur.execute('SELECT id FROM pagamentos_saas WHERE gateway_payment_id=? LIMIT 1', (pg.get('id'),)).fetchone()
+                valores = (metodo, float(pg.get('value') or 39.90), str(pg.get('status') or 'PENDING').lower(),
+                           pg.get('dueDate') or vencimento, pg.get('invoiceUrl'), pg.get('bankSlipUrl'))
+                if existente:
+                    cur.execute("""UPDATE pagamentos_saas SET forma_pagamento=?,valor=?,status=?,vencimento=?,
+                        invoice_url=?,bank_slip_url=? WHERE id=?""", valores + (existente['id'],))
+                else:
+                    cur.execute("""INSERT INTO pagamentos_saas
+                        (assinatura_id,gateway,gateway_payment_id,forma_pagamento,valor,status,vencimento,invoice_url,bank_slip_url)
+                        VALUES(?,?,?,?,?,?,?,?,?)""",
+                        (dados['id'], 'asaas', pg.get('id')) + valores)
+
+            db.commit()
+            flash('Forma de pagamento atualizada com sucesso. Nenhuma cobrança adicional foi feita agora.', 'sucesso')
+            return redirect(url_for('minha_assinatura'))
+        except Exception as e:
+            db.rollback(); app.logger.exception('Erro ao atualizar forma de pagamento no Asaas')
+            flash(f'Não foi possível atualizar a forma de pagamento: {e}', 'erro')
+            return redirect(url_for('minha_assinatura'))
         finally:
             db.close()
 
@@ -948,7 +1066,7 @@ def init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao=None):
         permitidos = {
             'login', 'logout', 'static', 'pagina_planos', 'site_planos',
             'cadastro_professor_autonomo', 'cadastro_concluido',
-            'minha_assinatura', 'checkout_professor', 'checkout_aguardando',
+            'minha_assinatura', 'configurar_forma_pagamento', 'checkout_professor', 'checkout_aguardando',
             'asaas_webhook', 'site_inicio', 'site_recursos', 'site_professores',
             'site_instituicoes', 'site_contato', 'site_sobre', 'site_termos',
             'site_privacidade', 'gestao_cortesias', 'gestao_assinaturas'
