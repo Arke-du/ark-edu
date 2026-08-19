@@ -5231,6 +5231,16 @@ def alunos():
 
 
 # =========================================================
+# JOGOS — CENTRAL DE GAMIFICAÇÃO
+# =========================================================
+@app.route("/jogos")
+def jogos():
+    if "usuario_id" not in session:
+        return redirect("/login")
+    return render_template("jogos.html")
+
+
+# =========================================================
 # ESTUDANTES — CONSULTA E ACOMPANHAMENTO PEDAGÓGICO
 # =========================================================
 @app.route("/estudantes")
