@@ -4958,8 +4958,10 @@ def excluir_turma(turma_id):
 def alunos():
     """Lista alunos e prepara o formulário de matrícula por instituição."""
 
-    if not permissao_modulo("Alunos") or session.get("usuario_cargo") == "Professor":
-        return redirect("/estudantes" if session.get("usuario_cargo") == "Professor" else "/acesso_negado")
+    if session.get("usuario_cargo") == "Professor":
+        return redirect("/turmas")
+    if not permissao_modulo("Alunos"):
+        return redirect("/acesso_negado")
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -5245,53 +5247,11 @@ def jogos():
 # =========================================================
 @app.route("/estudantes")
 def estudantes():
+    # A antiga área independente de Estudantes foi retirada da plataforma.
+    # O acompanhamento de alunos passa a acontecer dentro de Turmas.
     if "usuario_id" not in session:
         return redirect("/login")
-    banco = conectar_banco()
-    banco.row_factory = sqlite3.Row
-    cursor = banco.cursor()
-    contexto = obter_contexto_plataforma()
-    cargo = contexto["cargo"]
-    escola_id = contexto["escola_id"]
-    ano_id = contexto["ano_letivo_id"]
-    ano = contexto["ano"]
-    usuario_id = session.get("usuario_id")
-    turma_filtro = request.args.get("turma_id", type=int)
-    q = (request.args.get("q") or "").strip()
-    try:
-        params, filtros = [], []
-        if cargo == "Administrador Geral":
-            if ano is not None:
-                filtros.append("al.ano = ?"); params.append(ano)
-        else:
-            if escola_id:
-                filtros.append("t.escola_id = ?"); params.append(escola_id)
-            if ano_id:
-                filtros.append("t.ano_letivo_id = ?"); params.append(ano_id)
-        if cargo == "Professor":
-            filtros.append("EXISTS (SELECT 1 FROM professor_vinculos pv WHERE pv.turma_id=t.id AND pv.professor_id=?)")
-            params.append(usuario_id)
-        where = " AND ".join(filtros) if filtros else "1=1"
-        cursor.execute(f"SELECT DISTINCT t.id,t.nome FROM turmas t INNER JOIN anos_letivos al ON al.id=t.ano_letivo_id WHERE {where} ORDER BY t.nome COLLATE NOCASE", params)
-        turmas = cursor.fetchall()
-        af, ap = list(filtros), list(params)
-        if turma_filtro:
-            af.append("t.id = ?"); ap.append(turma_filtro)
-        if q:
-            af.append("a.nome LIKE ?"); ap.append(f"%{q}%")
-        aw = " AND ".join(af) if af else "1=1"
-        sql = f"""SELECT DISTINCT a.id,a.nome,a.matricula,t.id AS turma_id,t.nome AS nome_turma,
-            COALESCE(am.situacao,'Cursando') AS situacao
-            FROM alunos a INNER JOIN turmas t ON t.id=a.turma_id
-            INNER JOIN anos_letivos al ON al.id=t.ano_letivo_id
-            LEFT JOIN aluno_matriculas am ON am.aluno_id=a.id AND am.turma_id=t.id AND am.ano_letivo_id=t.ano_letivo_id
-            WHERE {aw} ORDER BY a.nome COLLATE NOCASE"""
-        cursor.execute(sql, ap)
-        alunos = cursor.fetchall()
-        turma_nome = next((t["nome"] for t in turmas if t["id"] == turma_filtro), None)
-        return render_template("estudantes.html", alunos=alunos, turmas=turmas, turma_id=turma_filtro, q=q, ano=ano, turma_nome=turma_nome)
-    finally:
-        banco.close()
+    return redirect("/turmas")
 
 # =========================================================
 # GERAR NÚMERO DE MATRÍCULA AUTOMATICAMENTE
@@ -6075,8 +6035,14 @@ def cadastrar_aluno():
 @app.route("/alunos/<int:aluno_id>")
 def historico_aluno(aluno_id):
 
-    if not permissao_modulo("Alunos") or session.get("usuario_cargo") == "Professor":
-        return redirect("/estudantes" if session.get("usuario_cargo") == "Professor" else "/acesso_negado")
+    cargo_atual = session.get("usuario_cargo", "").strip()
+    eh_professor = cargo_atual in ("Professor", "Professor Autônomo")
+
+    # Professores podem abrir a mesma visualização de histórico usada pela coordenação,
+    # desde que o estudante pertença a uma turma vinculada a eles. Os demais perfis
+    # continuam obedecendo à permissão normal do módulo Alunos.
+    if not eh_professor and not permissao_modulo("Alunos"):
+        return redirect("/acesso_negado")
 
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -6111,7 +6077,32 @@ def historico_aluno(aluno_id):
             and aluno["escola_id"] != escola_id_usuario
         ):
             flash("Você não possui acesso a este aluno.", "erro")
-            return redirect("/alunos")
+            return redirect("/turmas" if eh_professor else "/alunos")
+
+        if eh_professor:
+            cursor.execute("""
+                SELECT 1
+                FROM professor_vinculos AS pv
+                WHERE pv.professor_id = ?
+                  AND (
+                        pv.turma_id IN (
+                            SELECT am.turma_id
+                            FROM aluno_matriculas AS am
+                            WHERE am.aluno_id = ?
+                        )
+                        OR pv.turma_id IN (
+                            SELECT a.turma_id
+                            FROM alunos AS a
+                            WHERE a.id = ?
+                              AND a.turma_id IS NOT NULL
+                        )
+                  )
+                LIMIT 1
+            """, (session.get("usuario_id"), aluno_id, aluno_id))
+
+            if cursor.fetchone() is None:
+                flash("Você não possui acesso a este aluno.", "erro")
+                return redirect("/turmas")
 
         cursor.execute("""
             SELECT
