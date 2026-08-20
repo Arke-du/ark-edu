@@ -5420,6 +5420,285 @@ def jogos_jogar(codigo):
     banco.close(); return render_template("jogos_jogar.html",atividade=at,config=config)
 
 
+
+# =========================================================
+# CENTRAL PEDAGÓGICA — HABILIDADES, INTERVENÇÕES E EVOLUÇÃO
+# =========================================================
+
+def garantir_tabelas_central_pedagogica(banco=None):
+    proprio = banco is None
+    if proprio:
+        banco = conectar_banco()
+    cur = banco.cursor()
+    cur.executescript("""
+        CREATE TABLE IF NOT EXISTS intervencoes_pedagogicas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            escola_id INTEGER,
+            turma_id INTEGER,
+            habilidade TEXT NOT NULL,
+            titulo TEXT NOT NULL,
+            diagnostico TEXT,
+            objetivo TEXT,
+            estrategia TEXT,
+            atividade_sugerida TEXT,
+            jogo_sugerido TEXT,
+            status TEXT NOT NULL DEFAULT 'Pendente',
+            criado_por INTEGER,
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TEXT,
+            FOREIGN KEY(escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            FOREIGN KEY(turma_id) REFERENCES turmas(id) ON DELETE SET NULL,
+            FOREIGN KEY(criado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_intervencoes_escola ON intervencoes_pedagogicas(escola_id);
+        CREATE INDEX IF NOT EXISTS idx_intervencoes_habilidade ON intervencoes_pedagogicas(habilidade);
+    """)
+    banco.commit()
+    if proprio:
+        banco.close()
+
+
+def _colunas_tabela(cur, tabela):
+    try:
+        return {r[1] for r in cur.execute(f"PRAGMA table_info({tabela})").fetchall()}
+    except Exception:
+        return set()
+
+
+def _habilidade_expr(cur):
+    cols = _colunas_tabela(cur, 'questoes')
+    if 'habilidade_bncc' in cols and 'habilidade' in cols:
+        return "COALESCE(NULLIF(q.habilidade_bncc,''), NULLIF(q.habilidade,''), 'Sem habilidade')"
+    if 'habilidade_bncc' in cols:
+        return "COALESCE(NULLIF(q.habilidade_bncc,''), 'Sem habilidade')"
+    return "COALESCE(NULLIF(q.habilidade,''), 'Sem habilidade')"
+
+
+def _dados_habilidades(banco, escola_id=None, turma_id=None):
+    """Consolida acertos por habilidade usando a ordem das questões da prova."""
+    cur=banco.cursor()
+    h_expr=_habilidade_expr(cur)
+    filtros=[]; args=[]
+    if escola_id:
+        filtros.append('p.escola_id=?'); args.append(escola_id)
+    if turma_id:
+        filtros.append('p.turma_id=?'); args.append(turma_id)
+    where=(' WHERE '+' AND '.join(filtros)) if filtros else ''
+    provas=cur.execute(f"SELECT p.id,p.nome,p.turma_id FROM provas p{where}",args).fetchall()
+    acumulado={}
+    for p in provas:
+        pid=p['id'] if isinstance(p,sqlite3.Row) else p[0]
+        qrows=cur.execute(f"""SELECT pq.questao_id, {h_expr} AS habilidade
+            FROM prova_questoes pq JOIN questoes q ON q.id=pq.questao_id
+            WHERE pq.prova_id=? ORDER BY pq.id""",(pid,)).fetchall()
+        mapa={i+1:(r['habilidade'] if isinstance(r,sqlite3.Row) else r[1]) for i,r in enumerate(qrows)}
+        respostas=cur.execute("SELECT numero_questao,acertou FROM respostas_alunos WHERE prova_id=?",(pid,)).fetchall()
+        for r in respostas:
+            n=r['numero_questao'] if isinstance(r,sqlite3.Row) else r[0]
+            hab=mapa.get(n)
+            if not hab or hab=='Sem habilidade':
+                continue
+            d=acumulado.setdefault(hab,{'habilidade':hab,'acertos':0,'total':0,'provas':set()})
+            d['total']+=1; d['acertos']+=int((r['acertou'] if isinstance(r,sqlite3.Row) else r[1]) or 0); d['provas'].add(pid)
+    saida=[]
+    for d in acumulado.values():
+        d['percentual']=round((d['acertos']/d['total'])*100,1) if d['total'] else 0
+        d['total_provas']=len(d.pop('provas'))
+        d['nivel']='Dominada' if d['percentual']>=80 else ('Em desenvolvimento' if d['percentual']>=60 else 'Prioritária')
+        saida.append(d)
+    return sorted(saida,key=lambda x:(x['percentual'], -x['total']))
+
+
+def _turmas_central(cur, escola_id=None):
+    if escola_id:
+        return cur.execute("SELECT id,nome FROM turmas WHERE escola_id=? ORDER BY nome",(escola_id,)).fetchall()
+    return cur.execute("SELECT id,nome FROM turmas ORDER BY nome").fetchall()
+
+
+@app.route('/central-pedagogica')
+def central_pedagogica():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_central_pedagogica(banco); cur=banco.cursor()
+    escola=session.get('escola_id')
+    habilidades=_dados_habilidades(banco,escola)[:8]
+    total_interv=cur.execute("SELECT COUNT(*) FROM intervencoes_pedagogicas"+(" WHERE escola_id=?" if escola else ''),((escola,) if escola else ())).fetchone()[0]
+    total_alertas=sum(1 for h in habilidades if h['percentual']<60)
+    total_conquistas=0
+    rf=""; args=[]
+    if escola: rf=" WHERE p.escola_id=?"; args=[escola]
+    total_resultados=cur.execute("SELECT COUNT(*) FROM resultados r JOIN provas p ON p.id=r.prova_id"+rf,args).fetchone()[0]
+    total_biblioteca=cur.execute("SELECT COUNT(*) FROM questoes").fetchone()[0]
+    banco.close()
+    return render_template('central_pedagogica.html', habilidades=habilidades,total_interv=total_interv,total_alertas=total_alertas,total_resultados=total_resultados,total_biblioteca=total_biblioteca)
+
+
+@app.route('/habilidades')
+def central_habilidades():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; cur=banco.cursor()
+    escola=session.get('escola_id'); turma_id=request.args.get('turma_id',type=int)
+    habilidades=_dados_habilidades(banco,escola,turma_id)
+    turmas=_turmas_central(cur,escola)
+    resumo={'dominadas':sum(h['percentual']>=80 for h in habilidades),'desenvolvimento':sum(60<=h['percentual']<80 for h in habilidades),'prioritarias':sum(h['percentual']<60 for h in habilidades)}
+    banco.close()
+    return render_template('habilidades.html',habilidades=habilidades,turmas=turmas,turma_id=turma_id,resumo=resumo)
+
+
+@app.route('/intervencoes',methods=['GET','POST'])
+def intervencoes_pedagogicas():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_central_pedagogica(banco); cur=banco.cursor()
+    escola=session.get('escola_id'); turma_id=request.values.get('turma_id',type=int)
+    if request.method=='POST':
+        habilidades=_dados_habilidades(banco,escola,turma_id)
+        criadas=0
+        for h in [x for x in habilidades if x['percentual']<60]:
+            existe=cur.execute("SELECT 1 FROM intervencoes_pedagogicas WHERE habilidade=? AND COALESCE(turma_id,0)=COALESCE(?,0) AND status!='Concluída'"+(" AND escola_id=?" if escola else ''),((h['habilidade'],turma_id,escola) if escola else (h['habilidade'],turma_id))).fetchone()
+            if existe: continue
+            diag=f"Domínio atual de {h['percentual']}% ({h['acertos']} acertos em {h['total']} respostas)."
+            cur.execute("""INSERT INTO intervencoes_pedagogicas(escola_id,turma_id,habilidade,titulo,diagnostico,objetivo,estrategia,atividade_sugerida,jogo_sugerido,criado_por)
+                VALUES(?,?,?,?,?,?,?,?,?,?)""",(escola,turma_id,h['habilidade'],f"Retomada — {h['habilidade']}",diag,"Elevar o domínio da habilidade para pelo menos 70%.","Retomada breve, modelagem pelo professor, prática guiada e verificação final.","Aplicar uma lista curta de 5 a 8 questões focadas na habilidade.","Criar uma atividade de Resposta Rápida ou Conecte.",session.get('usuario_id')))
+            criadas+=1
+        banco.commit(); flash(f'{criadas} plano(s) de intervenção gerado(s) automaticamente.','success')
+        return redirect(url_for('intervencoes_pedagogicas',turma_id=turma_id or ''))
+    filtros=[];args=[]
+    if escola: filtros.append('i.escola_id=?');args.append(escola)
+    if turma_id: filtros.append('i.turma_id=?');args.append(turma_id)
+    where=' WHERE '+' AND '.join(filtros) if filtros else ''
+    lista=cur.execute(f"SELECT i.*,t.nome turma_nome FROM intervencoes_pedagogicas i LEFT JOIN turmas t ON t.id=i.turma_id{where} ORDER BY CASE i.status WHEN 'Pendente' THEN 0 WHEN 'Em andamento' THEN 1 ELSE 2 END,i.id DESC",args).fetchall()
+    turmas=_turmas_central(cur,escola); banco.close()
+    return render_template('intervencoes.html',intervencoes=lista,turmas=turmas,turma_id=turma_id)
+
+
+@app.route('/intervencoes/<int:intervencao_id>/status',methods=['POST'])
+def intervencao_status(intervencao_id):
+    if 'usuario_id' not in session: return redirect('/login')
+    status=request.form.get('status','Pendente')
+    if status not in {'Pendente','Em andamento','Concluída'}: status='Pendente'
+    banco=conectar_banco(); garantir_tabelas_central_pedagogica(banco); cur=banco.cursor(); escola=session.get('escola_id')
+    sql="UPDATE intervencoes_pedagogicas SET status=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?";args=[status,intervencao_id]
+    if escola: sql+=' AND escola_id=?';args.append(escola)
+    cur.execute(sql,args);banco.commit();banco.close();flash('Status atualizado.','success');return redirect(url_for('intervencoes_pedagogicas'))
+
+
+@app.route('/comparativo-avaliacoes')
+def comparativo_avaliacoes():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; cur=banco.cursor(); escola=session.get('escola_id');turma_id=request.args.get('turma_id',type=int)
+    filtros=[];args=[]
+    if escola: filtros.append('p.escola_id=?');args.append(escola)
+    if turma_id: filtros.append('p.turma_id=?');args.append(turma_id)
+    where=' WHERE '+' AND '.join(filtros) if filtros else ''
+    rows=cur.execute(f"""SELECT r.nota,r.aluno_id,a.nome aluno,p.id prova_id,p.nome prova,p.disciplina,p.data_aplicacao,p.turma_id,t.nome turma
+        FROM resultados r JOIN provas p ON p.id=r.prova_id JOIN alunos a ON a.id=r.aluno_id LEFT JOIN turmas t ON t.id=p.turma_id
+        {where} ORDER BY a.nome,p.disciplina,COALESCE(p.data_aplicacao,p.id),p.id""",args).fetchall()
+    grupos={}
+    for r in rows: grupos.setdefault((r['aluno_id'],r['disciplina']),[]).append(r)
+    comparativos=[]
+    for (aid,disc),vals in grupos.items():
+        if len(vals)<2: continue
+        primeira=float(vals[0]['nota'] or 0);ultima=float(vals[-1]['nota'] or 0)
+        comparativos.append({'aluno':vals[-1]['aluno'],'disciplina':disc,'turma':vals[-1]['turma'],'primeira':primeira,'ultima':ultima,'delta':round(ultima-primeira,2),'avaliacoes':len(vals),'ultima_prova':vals[-1]['prova']})
+    comparativos.sort(key=lambda x:x['delta'])
+    turmas=_turmas_central(cur,escola);banco.close()
+    return render_template('comparativo_avaliacoes.html',comparativos=comparativos,turmas=turmas,turma_id=turma_id)
+
+
+@app.route('/alertas-pedagogicos')
+def alertas_pedagogicos():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco();banco.row_factory=sqlite3.Row;cur=banco.cursor();escola=session.get('escola_id');turma_id=request.args.get('turma_id',type=int)
+    filtros=[];args=[]
+    if escola: filtros.append('p.escola_id=?');args.append(escola)
+    if turma_id: filtros.append('p.turma_id=?');args.append(turma_id)
+    where=' WHERE '+' AND '.join(filtros) if filtros else ''
+    rows=cur.execute(f"""SELECT r.nota,a.id aluno_id,a.nome aluno,t.nome turma,p.disciplina,p.nome prova,p.id prova_id
+        FROM resultados r JOIN provas p ON p.id=r.prova_id JOIN alunos a ON a.id=r.aluno_id LEFT JOIN turmas t ON t.id=p.turma_id {where}
+        ORDER BY a.nome,p.id""",args).fetchall()
+    por_aluno={}
+    for r in rows: por_aluno.setdefault(r['aluno_id'],{'nome':r['aluno'],'turma':r['turma'],'notas':[]}).get('notas').append(float(r['nota'] or 0))
+    alertas=[]
+    for d in por_aluno.values():
+        notas=d['notas'];ult=notas[-1] if notas else 0
+        baixos=sum(n<6 for n in notas[-3:])
+        if baixos>=3: alertas.append({'nivel':'Crítico','titulo':d['nome'],'texto':'Três avaliações recentes abaixo de 6,0.','turma':d['turma']})
+        elif ult<6: alertas.append({'nivel':'Atenção','titulo':d['nome'],'texto':f'Último resultado: {ult:.1f}.','turma':d['turma']})
+        if len(notas)>=2 and notas[-1] < notas[-2]-2: alertas.append({'nivel':'Atenção','titulo':d['nome'],'texto':f'Queda de {notas[-2]-notas[-1]:.1f} pontos entre as duas últimas avaliações.','turma':d['turma']})
+    for h in _dados_habilidades(banco,escola,turma_id):
+        if h['percentual']<50: alertas.append({'nivel':'Habilidade','titulo':h['habilidade'],'texto':f"Domínio de apenas {h['percentual']}%. Recomenda-se intervenção.",'turma':'Turma selecionada' if turma_id else 'Geral'})
+    ordem={'Crítico':0,'Habilidade':1,'Atenção':2};alertas.sort(key=lambda x:ordem.get(x['nivel'],9))
+    turmas=_turmas_central(cur,escola);banco.close()
+    return render_template('alertas_pedagogicos.html',alertas=alertas,turmas=turmas,turma_id=turma_id)
+
+
+@app.route('/gerador-avaliacoes',methods=['GET','POST'])
+def gerador_avaliacoes():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco();banco.row_factory=sqlite3.Row;cur=banco.cursor();escola=session.get('escola_id')
+    turmas=_turmas_central(cur,escola)
+    disciplinas=[r[0] for r in cur.execute("SELECT DISTINCT disciplina FROM questoes WHERE disciplina IS NOT NULL AND TRIM(disciplina)<>'' ORDER BY disciplina").fetchall()]
+    if request.method=='POST':
+        nome=(request.form.get('nome') or '').strip();turma_id=request.form.get('turma_id',type=int);disc=(request.form.get('disciplina') or '').strip();qtd=max(1,min(request.form.get('quantidade',type=int) or 10,50));dificuldade=(request.form.get('dificuldade') or '').strip()
+        if not nome or not turma_id or not disc:
+            flash('Informe nome, turma e disciplina.','erro');banco.close();return redirect(url_for('gerador_avaliacoes'))
+        filtros=['disciplina=?'];args=[disc]
+        if dificuldade: filtros.append('dificuldade=?');args.append(dificuldade)
+        qids=[r[0] for r in cur.execute(f"SELECT id FROM questoes WHERE {' AND '.join(filtros)} ORDER BY RANDOM() LIMIT ?",args+[qtd]).fetchall()]
+        if not qids:
+            flash('Não há questões suficientes para os filtros selecionados.','erro');banco.close();return redirect(url_for('gerador_avaliacoes'))
+        turma=cur.execute('SELECT escola_id FROM turmas WHERE id=?',(turma_id,)).fetchone();escola_prova=(turma['escola_id'] if turma else escola)
+        cur.execute("INSERT INTO provas(nome,turma_id,professor_id,disciplina,quantidade,data_geracao,escola_id) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,?)",(nome,turma_id,None,disc,len(qids),escola_prova));pid=cur.lastrowid
+        cur.executemany('INSERT INTO prova_questoes(prova_id,questao_id) VALUES(?,?)',[(pid,q) for q in qids]);banco.commit();banco.close();flash(f'Avaliação criada automaticamente com {len(qids)} questões.','success');return redirect(url_for('visualizar_prova',prova_id=pid))
+    banco.close();return render_template('gerador_avaliacoes.html',turmas=turmas,disciplinas=disciplinas)
+
+
+@app.route('/conquistas')
+def conquistas_certificados():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco();banco.row_factory=sqlite3.Row;cur=banco.cursor();escola=session.get('escola_id');turma_id=request.args.get('turma_id',type=int)
+    filtros=[];args=[]
+    if escola: filtros.append('p.escola_id=?');args.append(escola)
+    if turma_id: filtros.append('p.turma_id=?');args.append(turma_id)
+    where=' WHERE '+' AND '.join(filtros) if filtros else ''
+    rows=cur.execute(f"""SELECT a.id aluno_id,a.nome aluno,t.nome turma,r.nota,p.id prova_id FROM resultados r JOIN provas p ON p.id=r.prova_id JOIN alunos a ON a.id=r.aluno_id LEFT JOIN turmas t ON t.id=p.turma_id {where} ORDER BY a.nome,p.id""",args).fetchall()
+    dados={}
+    for r in rows:
+        d=dados.setdefault(r['aluno_id'],{'aluno_id':r['aluno_id'],'aluno':r['aluno'],'turma':r['turma'],'notas':[],'conquistas':[]});d['notas'].append(float(r['nota'] or 0))
+    for d in dados.values():
+        n=d['notas']
+        if n: d['conquistas'].append(('primeiros-passos','Primeiros Passos','Concluiu sua primeira avaliação.'))
+        if any(x>=9.5 for x in n): d['conquistas'].append(('excelencia','Excelência','Alcançou nota 9,5 ou superior.'))
+        if len(n)>=2 and n[-1]>n[0]: d['conquistas'].append(('evolucao','Em Evolução','Melhorou seu desempenho ao longo das avaliações.'))
+        if len(n)>=5: d['conquistas'].append(('consistencia','Consistência','Concluiu cinco ou mais avaliações.'))
+    alunos=[d for d in dados.values() if d['conquistas']]
+    turmas=_turmas_central(cur,escola);banco.close();return render_template('conquistas.html',alunos=alunos,turmas=turmas,turma_id=turma_id)
+
+
+@app.route('/conquistas/certificado/<int:aluno_id>/<slug>')
+def certificado_conquista(aluno_id,slug):
+    if 'usuario_id' not in session: return redirect('/login')
+    nomes={'primeiros-passos':'Primeiros Passos','excelencia':'Excelência','evolucao':'Em Evolução','consistencia':'Consistência'}
+    if slug not in nomes: abort(404)
+    banco=conectar_banco();banco.row_factory=sqlite3.Row;cur=banco.cursor();aluno=cur.execute('SELECT a.*,t.nome turma_nome FROM alunos a LEFT JOIN turmas t ON t.id=a.turma_id WHERE a.id=?',(aluno_id,)).fetchone();banco.close()
+    if not aluno: abort(404)
+    return render_template('certificado.html',aluno=aluno,conquista=nomes[slug],data=agora_local().strftime('%d/%m/%Y'))
+
+
+@app.route('/biblioteca-atividades')
+def biblioteca_atividades():
+    if 'usuario_id' not in session: return redirect('/login')
+    banco=conectar_banco();banco.row_factory=sqlite3.Row;cur=banco.cursor();busca=(request.args.get('busca') or '').strip();disc=(request.args.get('disciplina') or '').strip();dif=(request.args.get('dificuldade') or '').strip()
+    filtros=[];args=[]
+    if busca: filtros.append('(q.enunciado LIKE ? OR q.assunto LIKE ? OR q.habilidade LIKE ?)');args += [f'%{busca}%']*3
+    if disc: filtros.append('q.disciplina=?');args.append(disc)
+    if dif: filtros.append('q.dificuldade=?');args.append(dif)
+    where=' WHERE '+' AND '.join(filtros) if filtros else ''
+    itens=cur.execute(f"""SELECT q.id,q.disciplina,q.assunto,q.enunciado,q.dificuldade,q.habilidade,COALESCE(u.nome,'ARK EDUS') autor,
+        (SELECT COUNT(*) FROM prova_questoes pq WHERE pq.questao_id=q.id) usos
+        FROM questoes q LEFT JOIN usuarios u ON u.id=q.criado_por {where} ORDER BY usos DESC,q.id DESC LIMIT 60""",args).fetchall()
+    disciplinas=[r[0] for r in cur.execute("SELECT DISTINCT disciplina FROM questoes WHERE TRIM(COALESCE(disciplina,''))<>'' ORDER BY disciplina").fetchall()]
+    banco.close();return render_template('biblioteca_atividades.html',itens=itens,disciplinas=disciplinas,busca=busca,disciplina=disc,dificuldade=dif)
+
 # =========================================================
 # ESTUDANTES — CONSULTA E ACOMPANHAMENTO PEDAGÓGICO
 # =========================================================
