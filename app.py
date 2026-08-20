@@ -2864,6 +2864,11 @@ def index():
     total_turmas = 0
     total_questoes = 0
     total_provas = 0
+    total_assinaturas = 0
+    total_cortesias = 0
+    total_relatorios = 0
+    total_analises = 0
+    total_jogos_dashboard = 0
 
     nome_instituicao = None
     permissoes_usuario = []
@@ -2904,6 +2909,26 @@ def index():
                 and "Anos Letivos" not in permissoes_usuario
             ):
                 permissoes_usuario.append("Anos Letivos")
+
+        # Indicadores quantitativos complementares do Dashboard.
+        # As tabelas de jogos são criadas de forma compatível em instalações existentes.
+        garantir_tabelas_jogos(banco)
+        tabelas = {r[0] for r in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "assinaturas_saas" in tabelas:
+            if usuario_cargo == "Administrador Geral":
+                total_assinaturas = cursor.execute("SELECT COUNT(*) FROM assinaturas_saas WHERE COALESCE(status,'') NOT IN ('cancelada','inativa')").fetchone()[0]
+                total_cortesias = cursor.execute("SELECT COUNT(*) FROM assinaturas_saas WHERE COALESCE(isento,0)=1 AND (isencao_fim IS NULL OR date(isencao_fim) >= date('now'))").fetchone()[0]
+            elif escola_id:
+                total_assinaturas = cursor.execute("SELECT COUNT(*) FROM assinaturas_saas WHERE escola_id=? AND COALESCE(status,'') NOT IN ('cancelada','inativa')",(escola_id,)).fetchone()[0]
+                total_cortesias = cursor.execute("SELECT COUNT(*) FROM assinaturas_saas WHERE escola_id=? AND COALESCE(isento,0)=1 AND (isencao_fim IS NULL OR date(isencao_fim) >= date('now'))",(escola_id,)).fetchone()[0]
+        if usuario_cargo == "Administrador Geral":
+            total_relatorios = cursor.execute("SELECT COUNT(*) FROM resultados").fetchone()[0]
+            total_analises = cursor.execute("SELECT COUNT(DISTINCT aluno_id) FROM resultados").fetchone()[0]
+            total_jogos_dashboard = cursor.execute("SELECT COUNT(*) FROM jogos_atividades").fetchone()[0]
+        elif escola_id:
+            total_relatorios = cursor.execute("SELECT COUNT(*) FROM resultados r JOIN provas p ON p.id=r.prova_id WHERE p.escola_id=?",(escola_id,)).fetchone()[0]
+            total_analises = cursor.execute("SELECT COUNT(DISTINCT r.aluno_id) FROM resultados r JOIN provas p ON p.id=r.prova_id WHERE p.escola_id=?",(escola_id,)).fetchone()[0]
+            total_jogos_dashboard = cursor.execute("SELECT COUNT(*) FROM jogos_atividades WHERE escola_id=?",(escola_id,)).fetchone()[0]
 
         # =====================================================
         # ADMINISTRADOR GERAL
@@ -3148,6 +3173,8 @@ def index():
             total_turmas=total_turmas,
             total_questoes=total_questoes,
             total_provas=total_provas,
+            total_assinaturas=total_assinaturas, total_cortesias=total_cortesias,
+            total_relatorios=total_relatorios, total_analises=total_analises, total_jogos_dashboard=total_jogos_dashboard,
             nome_instituicao=nome_instituicao,
             ano_letivo_id_ativo=ano_letivo_id_ativo,
             ano_letivo_ativo=ano_letivo_ativo,
@@ -3176,6 +3203,7 @@ def index():
             total_turmas=0,
             total_questoes=0,
             total_provas=0,
+            total_assinaturas=0, total_cortesias=0, total_relatorios=0, total_analises=0, total_jogos_dashboard=0,
             nome_instituicao=nome_instituicao,
             ano_letivo_id_ativo=ano_letivo_id_ativo,
             ano_letivo_ativo=ano_letivo_ativo,
@@ -5235,11 +5263,161 @@ def alunos():
 # =========================================================
 # JOGOS — CENTRAL DE GAMIFICAÇÃO
 # =========================================================
+def garantir_tabelas_jogos(banco=None):
+    proprio = banco is None
+    banco = banco or conectar_banco()
+    cur = banco.cursor()
+    cur.executescript("""
+        CREATE TABLE IF NOT EXISTS jogos_atividades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL,
+            tipo TEXT NOT NULL,
+            disciplina TEXT,
+            turma_id INTEGER,
+            escola_id INTEGER,
+            criado_por INTEGER NOT NULL,
+            configuracao_json TEXT NOT NULL DEFAULT '{}',
+            codigo TEXT UNIQUE NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(turma_id) REFERENCES turmas(id) ON DELETE SET NULL,
+            FOREIGN KEY(escola_id) REFERENCES escolas(id) ON DELETE CASCADE,
+            FOREIGN KEY(criado_por) REFERENCES usuarios(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS jogos_partidas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            atividade_id INTEGER NOT NULL,
+            iniciado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            finalizado_em TEXT,
+            FOREIGN KEY(atividade_id) REFERENCES jogos_atividades(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS jogos_participacoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            partida_id INTEGER NOT NULL,
+            atividade_id INTEGER NOT NULL,
+            aluno_id INTEGER,
+            nome_participante TEXT NOT NULL,
+            pontos INTEGER NOT NULL DEFAULT 0,
+            acertos INTEGER NOT NULL DEFAULT 0,
+            total INTEGER NOT NULL DEFAULT 0,
+            respostas_json TEXT NOT NULL DEFAULT '[]',
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(partida_id) REFERENCES jogos_partidas(id) ON DELETE CASCADE,
+            FOREIGN KEY(atividade_id) REFERENCES jogos_atividades(id) ON DELETE CASCADE,
+            FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE SET NULL
+        );
+    """)
+    banco.commit()
+    if proprio: banco.close()
+
+
+def _codigo_jogo(cur):
+    for _ in range(30):
+        codigo = str(uuid.uuid4().int)[-6:]
+        if not cur.execute("SELECT 1 FROM jogos_atividades WHERE codigo=?", (codigo,)).fetchone():
+            return codigo
+    return uuid.uuid4().hex[:8].upper()
+
+
 @app.route("/jogos")
 def jogos():
     if "usuario_id" not in session:
         return redirect("/login")
-    return render_template("jogos.html")
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    garantir_tabelas_jogos(banco); cur=banco.cursor()
+    uid=session.get("usuario_id"); cargo=session.get("usuario_cargo"); escola=session.get("escola_id")
+    filtro=""; args=[]
+    if cargo != "Administrador Geral":
+        if escola:
+            filtro=" WHERE a.escola_id=?"; args=[escola]
+        else:
+            filtro=" WHERE a.criado_por=?"; args=[uid]
+    atividades=cur.execute(f"""SELECT a.*, t.nome AS turma_nome,
+        (SELECT COUNT(*) FROM jogos_participacoes jp WHERE jp.atividade_id=a.id) participacoes
+        FROM jogos_atividades a LEFT JOIN turmas t ON t.id=a.turma_id {filtro}
+        ORDER BY a.id DESC LIMIT 20""", args).fetchall()
+    total_jogos=cur.execute("SELECT COUNT(*) FROM jogos_atividades a"+filtro,args).fetchone()[0]
+    total_partidas=cur.execute("SELECT COUNT(*) FROM jogos_partidas p JOIN jogos_atividades a ON a.id=p.atividade_id"+filtro,args).fetchone()[0]
+    total_participacoes=cur.execute("SELECT COUNT(*) FROM jogos_participacoes jp JOIN jogos_atividades a ON a.id=jp.atividade_id"+filtro,args).fetchone()[0]
+    total_turmas=cur.execute("SELECT COUNT(DISTINCT a.turma_id) FROM jogos_atividades a"+filtro+" AND a.turma_id IS NOT NULL" if filtro else "SELECT COUNT(DISTINCT turma_id) FROM jogos_atividades WHERE turma_id IS NOT NULL",args).fetchone()[0]
+    recentes=cur.execute(f"""SELECT jp.*, a.titulo, a.tipo FROM jogos_participacoes jp
+        JOIN jogos_atividades a ON a.id=jp.atividade_id {filtro.replace('a.','a.')}
+        ORDER BY jp.id DESC LIMIT 10""",args).fetchall()
+    banco.close()
+    return render_template("jogos.html", atividades=atividades, recentes=recentes, total_jogos=total_jogos,
+                           total_partidas=total_partidas,total_participacoes=total_participacoes,total_turmas_jogos=total_turmas)
+
+
+@app.route("/jogos/criar", methods=["GET","POST"])
+def jogos_criar():
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor()
+    escola=session.get("escola_id")
+    if request.method == "POST":
+        tipo=request.form.get("tipo","").strip(); titulo=request.form.get("titulo","").strip()
+        permitidos={"rapida","conecte","ordem","descubra"}
+        if tipo not in permitidos or not titulo:
+            flash("Informe o título e escolha um tipo de jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar"))
+        itens=[]
+        if tipo=="rapida":
+            perguntas=request.form.getlist("pergunta[]"); corretas=request.form.getlist("correta[]")
+            for i,q in enumerate(perguntas):
+                if q.strip():
+                    alts=[request.form.get(f"alt_{i}_{x}","").strip() for x in "ABCD"]
+                    itens.append({"pergunta":q.strip(),"alternativas":alts,"correta":(corretas[i] if i<len(corretas) else "A")})
+        elif tipo=="conecte":
+            esq=request.form.getlist("esquerda[]"); dire=request.form.getlist("direita[]")
+            itens=[{"a":a.strip(),"b":(dire[i].strip() if i<len(dire) else "")} for i,a in enumerate(esq) if a.strip()]
+        elif tipo=="ordem":
+            itens=[x.strip() for x in request.form.getlist("ordem_item[]") if x.strip()]
+        else:
+            respostas=request.form.getlist("resposta[]"); pistas=request.form.getlist("pistas[]")
+            itens=[{"resposta":r.strip(),"pistas":[p.strip() for p in (pistas[i] if i<len(pistas) else "").split("|") if p.strip()]} for i,r in enumerate(respostas) if r.strip()]
+        if not itens:
+            flash("Adicione pelo menos um item ao jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar",tipo=tipo))
+        config={"itens":itens,"tempo":int(request.form.get("tempo") or 30),"pontos_velocidade":bool(request.form.get("pontos_velocidade"))}
+        codigo=_codigo_jogo(cur)
+        cur.execute("""INSERT INTO jogos_atividades(titulo,tipo,disciplina,turma_id,escola_id,criado_por,configuracao_json,codigo)
+            VALUES(?,?,?,?,?,?,?,?)""",(titulo,tipo,request.form.get("disciplina","").strip(),request.form.get("turma_id") or None,escola,session["usuario_id"],json.dumps(config,ensure_ascii=False),codigo))
+        banco.commit(); flash(f"Atividade criada. Código para jogar: {codigo}","success"); banco.close(); return redirect(url_for("jogos"))
+    turmas=[]
+    if escola: turmas=cur.execute("SELECT id,nome FROM turmas WHERE escola_id=? ORDER BY nome",(escola,)).fetchall()
+    banco.close(); return render_template("jogos_criar.html", tipo=request.args.get("tipo","rapida"), turmas=turmas)
+
+
+@app.route("/jogar", methods=["GET","POST"])
+def jogos_entrar():
+    codigo=(request.values.get("codigo") or "").strip()
+    if request.method=="POST" and codigo: return redirect(url_for("jogos_jogar",codigo=codigo))
+    return render_template("jogos_entrar.html", codigo=codigo)
+
+
+@app.route("/jogar/<codigo>", methods=["GET","POST"])
+def jogos_jogar(codigo):
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor()
+    at=cur.execute("SELECT * FROM jogos_atividades WHERE codigo=? AND ativo=1",(codigo,)).fetchone()
+    if not at: banco.close(); flash("Código de jogo não encontrado.","erro"); return redirect(url_for("jogos_entrar"))
+    config=json.loads(at["configuracao_json"] or "{}")
+    if request.method=="POST":
+        nome=request.form.get("nome","").strip() or "Participante"; itens=config.get("itens",[]); acertos=0; respostas=[]
+        if at["tipo"]=="rapida":
+            for i,item in enumerate(itens):
+                r=request.form.get(f"r{i}",""); ok=r==item.get("correta"); acertos+=int(ok); respostas.append(r)
+        elif at["tipo"]=="conecte":
+            for i,item in enumerate(itens):
+                r=request.form.get(f"r{i}","").strip(); ok=r==item.get("b",""); acertos+=int(ok); respostas.append(r)
+        elif at["tipo"]=="ordem":
+            enviados=[request.form.get(f"r{i}","") for i in range(len(itens))]; acertos=sum(1 for i,x in enumerate(enviados) if x==itens[i]); respostas=enviados
+        else:
+            for i,item in enumerate(itens):
+                r=request.form.get(f"r{i}","").strip(); ok=unicodedata.normalize('NFKD',r).encode('ascii','ignore').decode().lower()==unicodedata.normalize('NFKD',item.get('resposta','')).encode('ascii','ignore').decode().lower(); acertos+=int(ok); respostas.append(r)
+        total=len(itens); pontos=round((acertos/total)*1000) if total else 0
+        cur.execute("INSERT INTO jogos_partidas(atividade_id,finalizado_em) VALUES(?,CURRENT_TIMESTAMP)",(at["id"],)); partida=cur.lastrowid
+        cur.execute("""INSERT INTO jogos_participacoes(partida_id,atividade_id,nome_participante,pontos,acertos,total,respostas_json)
+            VALUES(?,?,?,?,?,?,?)""",(partida,at["id"],nome,pontos,acertos,total,json.dumps(respostas,ensure_ascii=False)))
+        banco.commit(); ranking=cur.execute("SELECT nome_participante,pontos,acertos,total FROM jogos_participacoes WHERE atividade_id=? ORDER BY pontos DESC,id ASC LIMIT 10",(at["id"],)).fetchall(); banco.close()
+        return render_template("jogos_resultado.html",atividade=at,nome=nome,pontos=pontos,acertos=acertos,total=total,ranking=ranking)
+    banco.close(); return render_template("jogos_jogar.html",atividade=at,config=config)
 
 
 # =========================================================
