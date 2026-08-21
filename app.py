@@ -13546,72 +13546,210 @@ def resultados(prova_id):
         """, (prova_id,))
         questoes = [dict(q) for q in cursor.fetchall()]
 
-        # Consolida respostas usando somente a aplicação oficial escolhida
-        # para cada aluno. Isso evita que reaplicações contem duas vezes.
+        # =========================================================
+        # FONTE ÚNICA DE VERDADE DO RELATÓRIO
+        # =========================================================
+        # Consolida objetivas e discursivas usando apenas a aplicação oficial
+        # escolhida para cada aluno. As estatísticas são vinculadas por
+        # questao_id (e não pela posição das objetivas), preservando a ordem
+        # real da avaliação quando objetivas e discursivas estão intercaladas.
+        tipos_discursivos = {
+            "discursiva", "dissertativa", "resposta_aberta", "resposta aberta"
+        }
+        ordem_por_questao_id = {int(q["questao_id"]): numero for numero, q in enumerate(questoes, 1)}
+        questao_por_numero = {numero: q for numero, q in enumerate(questoes, 1)}
+
         aplicacoes_oficiais = {
             int(r["aluno_id"]): int(r["aplicacao_id"])
             for r in todos_registros
             if r.get("aplicacao_id") is not None
         }
-        respostas_consolidadas = {}
+        ids_aplicacoes_oficiais = sorted(set(aplicacoes_oficiais.values()))
 
-        if aplicacoes_oficiais:
-            placeholders = ",".join("?" for _ in aplicacoes_oficiais.values())
+        respostas_obj_por_aluno = {}
+        respostas_disc_por_aluno = {}
+
+        if ids_aplicacoes_oficiais:
+            placeholders = ",".join("?" for _ in ids_aplicacoes_oficiais)
             cursor.execute(f"""
                 SELECT aro.aplicacao_id, aro.aluno_id, aro.questao_id,
-                       aro.numero_questao, aro.acertou, aro.situacao, aro.resposta
+                       aro.numero_questao, aro.acertou, aro.situacao, aro.resposta,
+                       COALESCE(aro.anulada, 0) AS anulada
                 FROM aplicacao_respostas_objetivas aro
                 WHERE aro.aplicacao_id IN ({placeholders})
                 ORDER BY aro.aluno_id, aro.numero_questao
-            """, tuple(aplicacoes_oficiais.values()))
-            for r in cursor.fetchall():
-                if aplicacoes_oficiais.get(int(r["aluno_id"])) != int(r["aplicacao_id"]):
+            """, tuple(ids_aplicacoes_oficiais))
+            for reg in cursor.fetchall():
+                aluno_id = int(reg["aluno_id"])
+                if aplicacoes_oficiais.get(aluno_id) != int(reg["aplicacao_id"]):
                     continue
-                respostas_consolidadas[(int(r["aluno_id"]), int(r["numero_questao"]))] = dict(r)
+                respostas_obj_por_aluno[(aluno_id, int(reg["questao_id"]))] = dict(reg)
 
-        # Fallback para correções antigas. Só entra quando não há resposta da
-        # aplicação oficial para o mesmo aluno e número de questão.
+            cursor.execute(f"""
+                SELECT rd.aplicacao_id, rd.aluno_id, rd.questao_id, rd.numero_exibicao,
+                       rd.nota, rd.conceito, rd.corrigida,
+                       COALESCE(pq.peso, 0) AS peso, COALESCE(pq.anulada, 0) AS anulada
+                FROM respostas_discursivas_aplicacao rd
+                INNER JOIN aplicacoes ap ON ap.id = rd.aplicacao_id
+                LEFT JOIN prova_questoes pq
+                  ON pq.prova_id = ap.prova_id AND pq.questao_id = rd.questao_id
+                WHERE rd.aplicacao_id IN ({placeholders})
+                ORDER BY rd.aluno_id, rd.numero_exibicao
+            """, tuple(ids_aplicacoes_oficiais))
+            for reg in cursor.fetchall():
+                aluno_id = int(reg["aluno_id"])
+                if aplicacoes_oficiais.get(aluno_id) != int(reg["aplicacao_id"]):
+                    continue
+                respostas_disc_por_aluno[(aluno_id, int(reg["questao_id"]))] = dict(reg)
+
+        # Compatibilidade com correções antigas: só usa respostas_alunos quando
+        # não existe uma resposta objetiva da aplicação oficial.
         cursor.execute("""
             SELECT aluno_id, numero_questao, acertou,
-                   CASE
-                       WHEN TRIM(COALESCE(resposta_aluno, '')) = '' THEN 'em_branco'
-                       ELSE 'respondida'
-                   END AS situacao,
+                   CASE WHEN TRIM(COALESCE(resposta_aluno, '')) = ''
+                        THEN 'em_branco' ELSE 'respondida' END AS situacao,
                    resposta_aluno AS resposta
             FROM respostas_alunos
             WHERE prova_id = ?
             ORDER BY aluno_id, numero_questao
         """, (prova_id,))
-        for r in cursor.fetchall():
-            chave = (int(r["aluno_id"]), int(r["numero_questao"]))
-            if chave not in respostas_consolidadas:
-                respostas_consolidadas[chave] = dict(r)
+        for reg in cursor.fetchall():
+            numero = int(reg["numero_questao"] or 0)
+            q_ref = questao_por_numero.get(numero)
+            if not q_ref:
+                continue
+            tipo = (q_ref.get("tipo_questao") or "").strip().lower()
+            if tipo in tipos_discursivos:
+                continue
+            chave = (int(reg["aluno_id"]), int(q_ref["questao_id"]))
+            respostas_obj_por_aluno.setdefault(chave, {**dict(reg), "questao_id": q_ref["questao_id"], "anulada": 0})
 
-        stats_por_numero = {}
-        for (_, numero_q), r in respostas_consolidadas.items():
-            st = stats_por_numero.setdefault(numero_q, {"respondentes": 0, "acertos": 0, "em_branco": 0})
+        stats_por_questao = {}
+        for q in questoes:
+            qid = int(q["questao_id"])
+            stats_por_questao[qid] = {
+                "respondentes": 0, "acertos": 0, "erros": 0,
+                "em_branco": 0, "parciais": 0
+            }
+
+        for (_, qid), reg in respostas_obj_por_aluno.items():
+            st = stats_por_questao.setdefault(qid, {"respondentes":0,"acertos":0,"erros":0,"em_branco":0,"parciais":0})
             st["respondentes"] += 1
-            if int(r.get("acertou") or 0) == 1:
+            anulada = int(reg.get("anulada") or 0) == 1
+            situacao = str(reg.get("situacao") or "").strip().lower()
+            resposta = str(reg.get("resposta") or "").strip()
+            if anulada or int(reg.get("acertou") or 0) == 1:
                 st["acertos"] += 1
-            if (r.get("situacao") or "").strip().lower() == "em_branco" or not str(r.get("resposta") or "").strip():
+            elif situacao == "em_branco" or not resposta:
                 st["em_branco"] += 1
+            else:
+                st["erros"] += 1
 
-        obj_stats = {
-            q["questao_id"]: stats_por_numero.get(numero, {})
-            for numero, q in enumerate(questoes, 1)
-        }
+        for (_, qid), reg in respostas_disc_por_aluno.items():
+            if int(reg.get("corrigida") or 0) != 1:
+                continue
+            st = stats_por_questao.setdefault(qid, {"respondentes":0,"acertos":0,"erros":0,"em_branco":0,"parciais":0})
+            st["respondentes"] += 1
+            anulada = int(reg.get("anulada") or 0) == 1
+            conceito = str(reg.get("conceito") or "").strip().lower()
+            nota_disc = float(reg.get("nota") or 0)
+            peso_disc = float(reg.get("peso") or 0)
+            if anulada:
+                st["acertos"] += 1
+            elif avaliacao_sem_nota:
+                if conceito == "correta":
+                    st["acertos"] += 1
+                elif conceito == "parcial":
+                    st["parciais"] += 1
+                elif conceito == "em_branco":
+                    st["em_branco"] += 1
+                else:
+                    st["erros"] += 1
+            else:
+                if peso_disc > 0 and nota_disc >= peso_disc - 0.001:
+                    st["acertos"] += 1
+                elif nota_disc > 0:
+                    st["parciais"] += 1
+                elif conceito == "em_branco":
+                    st["em_branco"] += 1
+                else:
+                    st["erros"] += 1
 
         relatorio_questoes = []
         for numero, q in enumerate(questoes, 1):
-            st = obj_stats.get(q["questao_id"], {})
+            st = stats_por_questao.get(int(q["questao_id"]), {})
             respondentes = int(st.get("respondentes") or 0)
             acertos_q = int(st.get("acertos") or 0)
+            erros_q = int(st.get("erros") or 0)
             brancos = int(st.get("em_branco") or 0)
-            erros_q = max(respondentes - acertos_q - brancos, 0)
+            parciais = int(st.get("parciais") or 0)
             percentual = round(acertos_q / respondentes * 100, 1) if respondentes else 0
-            q.update(numero=numero, respondentes=respondentes, acertos=acertos_q,
-                     erros=erros_q, em_branco=brancos, percentual=percentual)
+            q.update(
+                numero=numero, respondentes=respondentes, acertos=acertos_q,
+                erros=erros_q, em_branco=brancos, parciais=parciais,
+                percentual=percentual
+            )
             relatorio_questoes.append(q)
+
+        # Atualiza os resultados individuais usando a mesma fonte consolidada.
+        # Em avaliação sem nota, as colunas de nota são apenas ocultadas na tela;
+        # o desempenho passa a refletir todas as questões corrigidas.
+        for aluno in todos_registros:
+            aluno_id = int(aluno["aluno_id"])
+            if (aluno.get("status") or "").strip().lower() in {"ausente", "faltou"}:
+                continue
+            acertos_unificados = erros_unificados = parciais_unificados = respondidas_unificadas = 0
+            for q in questoes:
+                qid = int(q["questao_id"])
+                tipo = (q.get("tipo_questao") or "").strip().lower()
+                if tipo in tipos_discursivos:
+                    reg = respostas_disc_por_aluno.get((aluno_id, qid))
+                    if not reg or int(reg.get("corrigida") or 0) != 1:
+                        continue
+                    respondidas_unificadas += 1
+                    if int(reg.get("anulada") or 0) == 1:
+                        acertos_unificados += 1
+                    elif avaliacao_sem_nota:
+                        conceito = str(reg.get("conceito") or "").strip().lower()
+                        if conceito == "correta": acertos_unificados += 1
+                        elif conceito == "parcial": parciais_unificados += 1
+                        else: erros_unificados += 1
+                    else:
+                        nota_d = float(reg.get("nota") or 0); peso_d = float(reg.get("peso") or 0)
+                        if peso_d > 0 and nota_d >= peso_d - 0.001: acertos_unificados += 1
+                        elif nota_d > 0: parciais_unificados += 1
+                        else: erros_unificados += 1
+                else:
+                    reg = respostas_obj_por_aluno.get((aluno_id, qid))
+                    if not reg:
+                        continue
+                    respondidas_unificadas += 1
+                    if int(reg.get("anulada") or 0) == 1 or int(reg.get("acertou") or 0) == 1:
+                        acertos_unificados += 1
+                    else:
+                        erros_unificados += 1
+            aluno["acertos"] = acertos_unificados
+            aluno["erros"] = erros_unificados
+            aluno["parciais"] = parciais_unificados
+            aluno["total_itens_avaliados"] = respondidas_unificadas
+            aluno["percentual"] = round(acertos_unificados / respondidas_unificadas * 100, 1) if respondidas_unificadas else 0
+
+        if avaliacao_sem_nota:
+            nao_ausentes = [
+                r for r in todos_registros
+                if (r.get("status") or "").strip().lower() not in {"ausente", "faltou"}
+            ]
+            resultados_lista = [
+                r for r in nao_ausentes
+                if int(r.get("total_itens_avaliados") or 0) > 0
+            ]
+            pendentes = [
+                r for r in nao_ausentes
+                if int(r.get("total_itens_avaliados") or 0) == 0
+            ]
+            total_alunos = len(resultados_lista)
+            # Avaliação sem nota não possui média/maior/menor/mediana numéricas.
+            media_turma = maior_nota = menor_nota = mediana = desvio_padrao = 0
 
         validas = [q for q in relatorio_questoes if q["respondentes"] > 0 and not q["anulada"]]
         questao_mais_facil = max(validas, key=lambda x: x["percentual"]) if validas else None
@@ -13637,6 +13775,13 @@ def resultados(prova_id):
 
         habilidades = agrupar_indicador("habilidade")
         descritores = agrupar_indicador("descritor")
+
+        # Acerto médio global: todas as questões efetivamente avaliadas,
+        # não apenas as objetivas. Respostas parciais permanecem identificadas
+        # como parciais e não são convertidas silenciosamente em acerto total.
+        total_acertos = sum(q["acertos"] for q in relatorio_questoes if not q["anulada"])
+        total_itens = sum(q["respondentes"] for q in relatorio_questoes if not q["anulada"])
+        percentual_medio = round(total_acertos / total_itens * 100, 1) if total_itens else 0
 
         # Acrescenta a descrição oficial da habilidade BNCC ao relatório.
         # A questão continua guardando o código, mas a impressão exibe código + descrição.
@@ -13687,34 +13832,41 @@ def resultados(prova_id):
         for h in habilidades:
             h["descricao"] = descricoes_habilidades.get((h.get("codigo") or "").strip(), "")
 
-        # Resumo das discursivas
-        cursor.execute("""
-            SELECT rda.questao_id, COUNT(*) total,
-                   SUM(CASE WHEN rda.corrigida = 1 THEN 1 ELSE 0 END) corrigidas,
-                   AVG(CASE WHEN rda.corrigida = 1 THEN rda.nota END) media,
-                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'correta' THEN 1 ELSE 0 END) totalmente_certas,
-                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'parcial' THEN 1 ELSE 0 END) parcialmente_certas,
-                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'errada' THEN 1 ELSE 0 END) erradas,
-                   SUM(CASE WHEN rda.corrigida = 1 AND rda.conceito = 'em_branco' THEN 1 ELSE 0 END) em_branco
-            FROM respostas_discursivas_aplicacao rda
-            JOIN aplicacoes ap ON ap.id = rda.aplicacao_id
-            WHERE ap.prova_id = ?
-            GROUP BY rda.questao_id
-        """, (prova_id,))
-        disc_stats = {r["questao_id"]: dict(r) for r in cursor.fetchall()}
+        # Resumo das discursivas — usa exclusivamente as respostas da
+        # aplicação oficial já consolidada acima.
+        disc_stats = {}
+        for (_, qid), reg in respostas_disc_por_aluno.items():
+            st = disc_stats.setdefault(qid, {
+                "total": 0, "corrigidas": 0, "soma_notas": 0.0,
+                "notas_validas": 0, "totalmente_certas": 0,
+                "parcialmente_certas": 0, "erradas": 0, "em_branco": 0
+            })
+            st["total"] += 1
+            if int(reg.get("corrigida") or 0) == 1:
+                st["corrigidas"] += 1
+                if reg.get("nota") is not None:
+                    st["soma_notas"] += float(reg.get("nota") or 0)
+                    st["notas_validas"] += 1
+                conceito = str(reg.get("conceito") or "").strip().lower()
+                if conceito == "correta": st["totalmente_certas"] += 1
+                elif conceito == "parcial": st["parcialmente_certas"] += 1
+                elif conceito == "em_branco": st["em_branco"] += 1
+                else: st["erradas"] += 1
+
         discursivas = []
         for q in relatorio_questoes:
             tipo = (q.get("tipo_questao") or "").lower()
-            if tipo in {"discursiva", "dissertativa", "resposta_aberta", "resposta aberta"}:
-                st = disc_stats.get(q["questao_id"], {})
+            if tipo in tipos_discursivos:
+                st = disc_stats.get(int(q["questao_id"]), {})
                 total = int(st.get("total") or 0)
                 corrigidas_q = int(st.get("corrigidas") or 0)
+                media_disc = (float(st.get("soma_notas") or 0) / int(st.get("notas_validas") or 1)) if int(st.get("notas_validas") or 0) else 0
                 discursivas.append({
                     **q,
                     "total_respostas": total,
                     "corrigidas": corrigidas_q,
                     "pendentes": max(total-corrigidas_q, 0),
-                    "media_discursiva": round(float(st.get("media") or 0), 2),
+                    "media_discursiva": round(media_disc, 2),
                     "totalmente_certas": int(st.get("totalmente_certas") or 0),
                     "parcialmente_certas": int(st.get("parcialmente_certas") or 0),
                     "erradas_discursivas": int(st.get("erradas") or 0),
@@ -13724,379 +13876,140 @@ def resultados(prova_id):
         # =========================================================
         # MAPA DE RESPOSTAS
         # =========================================================
-        # A matriz reúne as respostas objetivas e discursivas por aluno.
-        # As posições seguem a numeração exibida no cartão/prova de cada modelo.
-        tipos_discursivos = {
-            "discursiva",
-            "dissertativa",
-            "resposta_aberta",
-            "resposta aberta"
-        }
-
-        total_objetivas_mapa = sum(
-            1
-            for questao in relatorio_questoes
-            if (questao.get("tipo_questao") or "").strip().lower()
-            not in tipos_discursivos
-        )
-        total_discursivas_mapa = sum(
-            1
-            for questao in relatorio_questoes
-            if (questao.get("tipo_questao") or "").strip().lower()
-            in tipos_discursivos
-        )
-        total_questoes_mapa = (
-            total_objetivas_mapa + total_discursivas_mapa
-        )
-
-        mapa_colunas = []
-        for numero in range(1, total_questoes_mapa + 1):
-            mapa_colunas.append({
-                "numero": numero,
+        # Cada coluna segue a ordem REAL da avaliação. Isso corrige provas
+        # com questões objetivas e discursivas intercaladas (ex.: Q5 objetiva).
+        total_questoes_mapa = len(relatorio_questoes)
+        mapa_colunas = [
+            {
+                "numero": q["numero"],
+                "questao_id": int(q["questao_id"]),
                 "tipo": (
-                    "objetiva"
-                    if numero <= total_objetivas_mapa
-                    else "discursiva"
+                    "discursiva"
+                    if (q.get("tipo_questao") or "").strip().lower() in tipos_discursivos
+                    else "objetiva"
                 )
-            })
-
-        respostas_objetivas_mapa = {}
-        respostas_discursivas_mapa = {}
-
-        cols_aro = colunas("aplicacao_respostas_objetivas")
-        anulada_aro_expr = (
-            "COALESCE(aro.anulada, 0)"
-            if "anulada" in cols_aro
-            else "0"
-        )
-
-        cursor.execute(f"""
-            SELECT
-                aro.aplicacao_id,
-                aro.aluno_id,
-                aro.numero_questao,
-                aro.resposta,
-                aro.situacao,
-                aro.acertou,
-                {anulada_aro_expr} AS anulada
-            FROM aplicacao_respostas_objetivas aro
-            INNER JOIN aplicacoes ap
-                ON ap.id = aro.aplicacao_id
-            WHERE ap.prova_id = ?
-            ORDER BY
-                aro.aplicacao_id,
-                aro.aluno_id,
-                aro.numero_questao
-        """, (prova_id,))
-
-        for registro in cursor.fetchall():
-            chave = (
-                registro["aplicacao_id"],
-                registro["aluno_id"]
-            )
-            respostas_objetivas_mapa.setdefault(chave, {})[
-                int(registro["numero_questao"])
-            ] = dict(registro)
-
-        # Compatibilidade com correções antigas salvas em respostas_alunos.
-        cursor.execute("""
-            SELECT name
-            FROM sqlite_master
-            WHERE type = 'table'
-              AND name = 'respostas_alunos'
-            LIMIT 1
-        """)
-        if cursor.fetchone():
-            cols_ra = colunas("respostas_alunos")
-            resposta_ra_expr = (
-                "ra.resposta_aluno"
-                if "resposta_aluno" in cols_ra
-                else "ra.resposta"
-                if "resposta" in cols_ra
-                else "NULL"
-            )
-            correta_ra_expr = (
-                "ra.resposta_correta"
-                if "resposta_correta" in cols_ra
-                else "NULL"
-            )
-
-            cursor.execute(f"""
-                SELECT
-                    ra.aluno_id,
-                    ra.numero_questao,
-                    {resposta_ra_expr} AS resposta,
-                    {correta_ra_expr} AS resposta_correta,
-                    COALESCE(ra.acertou, 0) AS acertou
-                FROM respostas_alunos ra
-                WHERE ra.prova_id = ?
-                ORDER BY
-                    ra.aluno_id,
-                    ra.numero_questao
-            """, (prova_id,))
-
-            for registro in cursor.fetchall():
-                chave = (None, registro["aluno_id"])
-                resposta = (
-                    registro["resposta"]
-                    if "resposta" in registro.keys()
-                    else None
-                )
-                respostas_objetivas_mapa.setdefault(chave, {})[
-                    int(registro["numero_questao"])
-                ] = {
-                    "resposta": resposta,
-                    "situacao": (
-                        "respondida"
-                        if resposta not in (None, "")
-                        else "em_branco"
-                    ),
-                    "acertou": int(registro["acertou"] or 0),
-                    "anulada": 0
-                }
-
-        cursor.execute("""
-            SELECT
-                rd.aplicacao_id,
-                rd.aluno_id,
-                rd.numero_exibicao,
-                rd.nota,
-                rd.conceito,
-                rd.corrigida,
-                ROUND(COALESCE(pq.peso, 0), 2) AS peso,
-                COALESCE(pq.anulada, 0) AS anulada
-            FROM respostas_discursivas_aplicacao rd
-            INNER JOIN aplicacoes ap
-                ON ap.id = rd.aplicacao_id
-            LEFT JOIN prova_questoes pq
-                ON pq.prova_id = ap.prova_id
-               AND pq.questao_id = rd.questao_id
-            WHERE ap.prova_id = ?
-            ORDER BY
-                rd.aplicacao_id,
-                rd.aluno_id,
-                rd.numero_exibicao
-        """, (prova_id,))
-
-        for registro in cursor.fetchall():
-            chave = (
-                registro["aplicacao_id"],
-                registro["aluno_id"]
-            )
-            respostas_discursivas_mapa.setdefault(chave, {})[
-                int(registro["numero_exibicao"])
-            ] = dict(registro)
+            }
+            for q in relatorio_questoes
+        ]
 
         mapa_respostas = []
-
         for registro_aluno in todos_registros:
-            chave = (
-                registro_aluno.get("aplicacao_id"),
-                registro_aluno["aluno_id"]
-            )
-            respostas_objetivas = respostas_objetivas_mapa.get(
-                chave,
-                {}
-            )
-            respostas_discursivas = respostas_discursivas_mapa.get(
-                chave,
-                {}
-            )
-
+            aluno_id = int(registro_aluno["aluno_id"])
             celulas = []
             total_acertos_mapa = 0
             aluno_ausente = (
-                (registro_aluno.get("status") or "")
-                .strip()
-                .lower()
+                (registro_aluno.get("status") or "").strip().lower()
                 in {"ausente", "faltou"}
             )
 
             for coluna in mapa_colunas:
                 numero = coluna["numero"]
+                qid = coluna["questao_id"]
+                tipo = coluna["tipo"]
 
                 if aluno_ausente:
                     celulas.append({
-                        "numero": numero,
-                        "tipo": coluna["tipo"],
-                        "valor": "AUS",
-                        "status": "ausente",
-                        "titulo": "Aluno ausente"
+                        "numero": numero, "tipo": tipo, "valor": "AUS",
+                        "status": "ausente", "titulo": "Aluno ausente"
                     })
                     continue
 
-                if coluna["tipo"] == "objetiva":
-                    resposta = respostas_objetivas.get(numero)
-
+                if tipo == "objetiva":
+                    resposta = respostas_obj_por_aluno.get((aluno_id, qid))
                     if not resposta:
                         celulas.append({
-                            "numero": numero,
-                            "tipo": "objetiva",
-                            "valor": "—",
-                            "status": "sem_resposta",
-                            "titulo": "Resposta não registrada"
+                            "numero": numero, "tipo": tipo, "valor": "—",
+                            "status": "sem_resposta", "titulo": "Resposta não registrada"
                         })
                         continue
-
-                    valor = str(
-                        resposta.get("resposta") or ""
-                    ).strip().upper()
-                    situacao = str(
-                        resposta.get("situacao") or ""
-                    ).strip().lower()
-                    anulada = int(
-                        resposta.get("anulada") or 0
-                    ) == 1
-                    acertou = int(
-                        resposta.get("acertou") or 0
-                    ) == 1
-
+                    valor = str(resposta.get("resposta") or "").strip().upper()
+                    situacao = str(resposta.get("situacao") or "").strip().lower()
+                    anulada = int(resposta.get("anulada") or 0) == 1
+                    acertou = int(resposta.get("acertou") or 0) == 1
                     if anulada:
-                        status = "anulada"
-                        valor = "AN"
-                        titulo = "Questão anulada"
+                        status, valor, titulo = "anulada", "AN", "Questão anulada"
                         total_acertos_mapa += 1
                     elif situacao == "dupla_marcacao":
-                        status = "errada"
-                        valor = "DM"
-                        titulo = "Dupla marcação"
+                        status, valor, titulo = "errada", "DM", "Dupla marcação"
                     elif situacao == "em_branco" or not valor:
-                        status = "em_branco"
-                        valor = "—"
-                        titulo = "Resposta em branco"
+                        status, valor, titulo = "em_branco", "—", "Resposta em branco"
                     elif acertou:
-                        status = "correta"
-                        titulo = f"Resposta correta: {valor}"
+                        status, titulo = "correta", f"Resposta correta: {valor}"
                         total_acertos_mapa += 1
                     else:
-                        status = "errada"
-                        titulo = f"Resposta incorreta: {valor}"
-
+                        status, titulo = "errada", f"Resposta incorreta: {valor}"
                     celulas.append({
-                        "numero": numero,
-                        "tipo": "objetiva",
-                        "valor": valor,
-                        "status": status,
-                        "titulo": titulo
+                        "numero": numero, "tipo": tipo, "valor": valor,
+                        "status": status, "titulo": titulo
                     })
-
                 else:
-                    resposta = respostas_discursivas.get(numero)
-
+                    resposta = respostas_disc_por_aluno.get((aluno_id, qid))
                     if not resposta:
                         celulas.append({
-                            "numero": numero,
-                            "tipo": "discursiva",
-                            "valor": "—",
+                            "numero": numero, "tipo": tipo, "valor": "—",
                             "status": "sem_resposta",
                             "titulo": "Resposta discursiva não registrada"
                         })
                         continue
-
-                    anulada = int(
-                        resposta.get("anulada") or 0
-                    ) == 1
-                    corrigida = int(
-                        resposta.get("corrigida") or 0
-                    ) == 1
-                    nota_discursiva = float(
-                        resposta.get("nota") or 0
-                    )
-                    peso_discursiva = float(
-                        resposta.get("peso") or 0
-                    )
-
+                    anulada = int(resposta.get("anulada") or 0) == 1
+                    corrigida = int(resposta.get("corrigida") or 0) == 1
+                    nota_discursiva = float(resposta.get("nota") or 0)
+                    peso_discursiva = float(resposta.get("peso") or 0)
                     if anulada:
-                        status = "anulada"
-                        valor = "AN"
-                        titulo = "Questão anulada"
+                        status, valor, titulo = "anulada", "AN", "Questão anulada"
                         total_acertos_mapa += 1
                     elif not corrigida:
-                        status = "pendente"
-                        valor = "—"
-                        titulo = "Correção discursiva pendente"
+                        status, valor, titulo = "pendente", "—", "Correção discursiva pendente"
                     elif avaliacao_sem_nota:
                         conceito = str(resposta.get("conceito") or "").strip().lower()
                         if conceito == "correta":
-                            status = "correta"
-                            valor = "TC"
-                            titulo = "Resposta discursiva totalmente certa"
+                            status, valor, titulo = "correta", "TC", "Resposta discursiva totalmente certa"
                             total_acertos_mapa += 1
                         elif conceito == "parcial":
-                            status = "parcial"
-                            valor = "PC"
-                            titulo = "Resposta discursiva parcialmente certa"
-                        elif conceito == "errada":
-                            status = "errada"
-                            valor = "EE"
-                            titulo = "Resposta discursiva errada"
+                            status, valor, titulo = "parcial", "PC", "Resposta discursiva parcialmente certa"
                         elif conceito == "em_branco":
-                            status = "em_branco"
-                            valor = "EB"
-                            titulo = "Resposta discursiva em branco"
+                            status, valor, titulo = "em_branco", "EB", "Resposta discursiva em branco"
                         else:
-                            status = "pendente"
-                            valor = "—"
-                            titulo = "Classificação pedagógica não registrada"
-                    elif (
-                        peso_discursiva > 0
-                        and nota_discursiva >= peso_discursiva - 0.001
-                    ):
-                        status = "correta"
-                        valor = "TC"
-                        titulo = (
-                            "Resposta discursiva totalmente correta "
-                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
-                        )
+                            status, valor, titulo = "errada", "EE", "Resposta discursiva errada"
+                    elif peso_discursiva > 0 and nota_discursiva >= peso_discursiva - 0.001:
+                        status, valor = "correta", "TC"
+                        titulo = f"Resposta discursiva totalmente correta ({nota_discursiva:.2f}/{peso_discursiva:.2f})"
                         total_acertos_mapa += 1
                     elif nota_discursiva > 0:
-                        status = "parcial"
-                        valor = "PC"
-                        titulo = (
-                            "Resposta discursiva parcialmente correta "
-                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
-                        )
+                        status, valor = "parcial", "PC"
+                        titulo = f"Resposta discursiva parcialmente correta ({nota_discursiva:.2f}/{peso_discursiva:.2f})"
                     else:
-                        status = "errada"
-                        valor = "EE"
-                        titulo = (
-                            "Resposta discursiva incorreta "
-                            f"({nota_discursiva:.2f}/{peso_discursiva:.2f})"
-                        )
-
+                        status, valor = "errada", "EE"
+                        titulo = f"Resposta discursiva incorreta ({nota_discursiva:.2f}/{peso_discursiva:.2f})"
                     celulas.append({
-                        "numero": numero,
-                        "tipo": "discursiva",
-                        "valor": valor,
-                        "status": status,
-                        "titulo": titulo
+                        "numero": numero, "tipo": tipo, "valor": valor,
+                        "status": status, "titulo": titulo
                     })
 
             mapa_respostas.append({
-                "aluno_id": registro_aluno["aluno_id"],
-                "nome": registro_aluno["nome"],
+                "aluno_id": aluno_id, "nome": registro_aluno["nome"],
                 "matricula": registro_aluno.get("matricula"),
-                "status": registro_aluno.get("status"),
-                "ausente": aluno_ausente,
+                "status": registro_aluno.get("status"), "ausente": aluno_ausente,
                 "celulas": celulas,
-                "total_acertos": (
-                    0 if aluno_ausente else total_acertos_mapa
-                )
+                "total_acertos": 0 if aluno_ausente else total_acertos_mapa
             })
 
-        mapa_respostas.sort(
-            key=lambda item: (
-                item["ausente"],
-                item["nome"].casefold()
-            )
-        )
+        mapa_respostas.sort(key=lambda item: (item["ausente"], item["nome"].casefold()))
 
         # Ranking e situação
+        if avaliacao_sem_nota:
+            resultados_lista.sort(
+                key=lambda item: (-float(item.get("percentual") or 0), item["nome"].casefold())
+            )
         for posicao, item in enumerate(resultados_lista, 1):
             item["posicao"] = posicao
-            item["percentual"] = round((item["acertos"] / item["total_objetivas"] * 100), 1) if item["total_objetivas"] else 0
-            item["situacao_final"] = ("Aprovado" if media_aprovacao is not None and item["nota"] >= media_aprovacao else
-                                      "Abaixo da média" if media_aprovacao is not None else "Resultado disponível")
+            if "percentual" not in item:
+                base = int(item.get("total_itens_avaliados") or item.get("total_objetivas") or 0)
+                item["percentual"] = round((int(item.get("acertos") or 0) / base * 100), 1) if base else 0
+            if (not avaliacao_sem_nota) and media_aprovacao is not None and item.get("nota") is not None:
+                item["situacao_final"] = "Aprovado" if float(item["nota"]) >= media_aprovacao else "Abaixo da média"
+            else:
+                item["situacao_final"] = "Resultado disponível"
 
         return render_template(
             "resultados.html", prova=prova, resultados=resultados_lista,
