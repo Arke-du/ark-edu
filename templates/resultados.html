@@ -1148,6 +1148,64 @@
   #tab-questoes .questoes-print-desempenho{white-space:nowrap!important;text-align:center!important;font-weight:700!important}
   #tab-questoes .questoes-print-habilidade b{font-size:8pt!important}
   #tab-questoes .questoes-print-habilidade small{font-size:7.4pt!important;line-height:1.15!important}
+
+  /* A tabela HTML original não pode reaparecer por regras mais específicas
+     de retrato/paisagem. O PDF usa somente a grade compacta abaixo. */
+  body.print-retrato #tab-questoes .questoes-table,
+  body.print-paisagem #tab-questoes .questoes-table,
+  body.print-economico #tab-questoes .questoes-table,
+  body.print-colorido #tab-questoes .questoes-table{
+    display:none!important;
+  }
+
+  /* A grade compacta mantém o mesmo padrão visual das demais tabelas. */
+  #tab-questoes .questoes-print-grid{
+    border:1px solid #cbd2db!important;
+    border-radius:6px!important;
+    overflow:hidden!important;
+    background:#fff!important;
+  }
+  #tab-questoes .questoes-print-cell{
+    border-left:0!important;
+    border-right:1px solid #d9dee5!important;
+    border-bottom:1px solid #d9dee5!important;
+    border-top:0!important;
+    background:#fff!important;
+    color:#263244!important;
+  }
+  #tab-questoes .questoes-print-cell:last-child{border-right:0!important}
+  #tab-questoes .questoes-print-row:last-child .questoes-print-cell{border-bottom:0!important}
+  #tab-questoes .questoes-print-row:nth-child(odd) .questoes-print-cell{background:#f7f8fa!important}
+  #tab-questoes .questoes-print-head .questoes-print-cell{
+    background:#46515f!important;
+    color:#fff!important;
+    border-right:1px solid #35404c!important;
+    border-bottom:1px solid #35404c!important;
+    font-size:8pt!important;
+    font-weight:800!important;
+    letter-spacing:0!important;
+    text-transform:uppercase!important;
+    text-align:center!important;
+    padding:5px 4px!important;
+  }
+
+  body.print-colorido #tab-questoes .questoes-print-grid{
+    border-color:#9fb9d4!important;
+    border-radius:7px!important;
+  }
+  body.print-colorido #tab-questoes .questoes-print-head .questoes-print-cell{
+    background:linear-gradient(135deg,#0b2f68,#123b82)!important;
+    color:#fff!important;
+    border-color:#0a2b52!important;
+  }
+  body.print-colorido #tab-questoes .questoes-print-cell{
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#d5e0eb!important;
+  }
+  body.print-colorido #tab-questoes .questoes-print-row:nth-child(odd) .questoes-print-cell{
+    background:#f5f9ff!important;
+  }
 }
 </style>
 {% endblock %}
