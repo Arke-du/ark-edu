@@ -27,7 +27,7 @@
 .r-performance-fill{display:block;height:100%;background:linear-gradient(90deg,var(--azul),var(--azul2));border-radius:inherit}
 .r-performance strong{min-width:42px;text-align:right;font-size:11px}
 .print-summary-table{display:none}
-.print-footer{display:none}
+.print-footer{display:none}.questoes-print-grid{display:none}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:1000;padding:20px}.modal-overlay.open{display:grid}.modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 80px rgba(0,0,0,.25)}.modal-head{padding:20px 22px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center}.modal-head h3{margin:0}.modal-body{padding:20px 22px}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal-option{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--borda);border-radius:11px}.modal-option input{margin-top:3px}.modal-option strong{display:block;font-size:13px}.modal-option span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.modal-foot{padding:16px 22px;border-top:1px solid var(--borda);display:flex;justify-content:flex-end;gap:9px}.print-header{display:none}.print-only{display:none}
 
@@ -1082,7 +1082,6 @@
 }
 
 
-<style>
 @media print{
   #tab-questoes .questoes-table.sem-nota th:nth-child(9),
   #tab-questoes .questoes-table.sem-nota td:nth-child(9){width:40%!important;min-width:0!important}
@@ -1099,6 +1098,56 @@
     min-height:0!important;
     vertical-align:top!important;
   }
+
+  /* Impressão robusta: o Chromium pode fragmentar linhas de tabela com
+     conteúdo flexível em várias páginas. No PDF usamos uma grade própria. */
+  #tab-questoes .questoes-table{display:none!important}
+  #tab-questoes .questoes-print-grid{display:block!important;width:100%!important}
+  #tab-questoes .questoes-print-head,
+  #tab-questoes .questoes-print-row{
+    display:grid!important;
+    grid-template-columns:6% 10% 6% 7% 7% 7% 7% 13% 37%;
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+  #tab-questoes .questoes-print-grid.com-nota .questoes-print-head,
+  #tab-questoes .questoes-print-grid.com-nota .questoes-print-row{
+    grid-template-columns:6% 10% 7% 7% 7% 7% 14% 42%;
+  }
+  #tab-questoes .questoes-print-head{
+    break-after:avoid!important;
+    page-break-after:avoid!important;
+  }
+  #tab-questoes .questoes-print-row{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+    min-height:0!important;
+  }
+  #tab-questoes .questoes-print-cell{
+    box-sizing:border-box!important;
+    min-width:0!important;
+    padding:4px 4px!important;
+    border:1px solid #d3d3d3!important;
+    border-top:0!important;
+    font-size:8.2pt!important;
+    line-height:1.18!important;
+    white-space:normal!important;
+    overflow-wrap:break-word!important;
+    word-break:normal!important;
+    vertical-align:top!important;
+  }
+  #tab-questoes .questoes-print-head .questoes-print-cell{
+    border-top:1px solid #bdbdbd!important;
+    background:#e9e9e9!important;
+    font-size:7.4pt!important;
+    font-weight:800!important;
+    text-transform:uppercase!important;
+    text-align:center!important;
+  }
+  #tab-questoes .questoes-print-cell.center{text-align:center!important}
+  #tab-questoes .questoes-print-desempenho{white-space:nowrap!important;text-align:center!important;font-weight:700!important}
+  #tab-questoes .questoes-print-habilidade b{font-size:8pt!important}
+  #tab-questoes .questoes-print-habilidade small{font-size:7.4pt!important;line-height:1.15!important}
 }
 </style>
 {% endblock %}
@@ -1209,10 +1258,34 @@
         <div class="r-table-wrap"><table class="r-table" id="tabelaAlunos"><thead><tr><th>Pos.</th><th>Aluno</th><th>Matrícula</th><th class="center">Acertos</th><th class="center">Erros</th>{% if avaliacao_sem_nota %}<th class="center">Parciais</th>{% else %}<th class="center">Nota objetiva</th><th class="center">Nota discursiva</th><th class="center">Nota final</th>{% endif %}<th>Desempenho</th><th>Situação</th></tr></thead><tbody>{% for r in resultados %}<tr><td>{{ r.posicao }}º</td><td><b>{{ r.nome }}</b></td><td>{{ r.matricula or '—' }}</td><td class="center" style="color:#15803d;font-weight:900">{{ r.acertos }}</td><td class="center" style="color:#c93737;font-weight:900">{{ r.erros }}</td>{% if avaliacao_sem_nota %}<td class="center" style="font-weight:900">{{ r.parciais or 0 }}</td>{% else %}<td class="center">{{ '%.2f'|format(r.nota_objetiva or 0) }}</td><td class="center">{{ '%.2f'|format(r.nota_discursiva or 0) }}</td><td class="center"><span class="nota">{{ '%.2f'|format(r.nota) }}</span></td>{% endif %}<td><div class="r-performance"><div class="r-performance-track"><span class="r-performance-fill" style="width:{{ r.percentual }}%"></span></div><strong>{{ '%.1f'|format(r.percentual) }}%</strong></div></td><td><span class="tag {% if r.situacao_final == 'Aprovado' %}ok{% elif r.situacao_final == 'Abaixo da média' %}bad{% else %}warn{% endif %}">{{ r.situacao_final }}</span></td></tr>{% else %}<tr><td colspan="{{ 8 if avaliacao_sem_nota else 10 }}" class="center">Nenhum resultado concluído.</td></tr>{% endfor %}</tbody></table></div>
       </div>
 
-      <div id="tab-questoes" class="r-tab-panel report-section" data-report="questoes"><div class="r-section-head"><div><h3>Desempenho por questão</h3><p>Índices de acerto, erro e respostas em branco.</p></div></div><div class="r-table-wrap"><table class="r-table questoes-table {{ 'sem-nota' if avaliacao_sem_nota else 'com-nota' }}"><thead><tr><th>Questão</th><th>Tipo</th><th class="center">Peso</th><th class="center">Acertos</th>{% if avaliacao_sem_nota %}<th class="center">Parciais</th>{% endif %}<th class="center">Erros</th><th class="center">Em branco</th><th class="center">Desempenho</th><th>Habilidade / descritor</th></tr></thead><tbody>{% for q in relatorio_questoes %}<tr><td><b>Q{{ q.numero }}</b>{% if q.anulada %} <span class="r-type anulada">Anulada</span>{% endif %}</td><td><span class="r-type {% if 'discurs' in (q.tipo_questao or '')|lower %}discursiva{% else %}objetiva{% endif %}">
-      <span class="no-print">{{ q.tipo_questao }}</span>
-      <span class="print-only">{% if 'discurs' in (q.tipo_questao or '')|lower %}Discursiva{% else %}Objetiva{% endif %}</span>
-    </span></td><td class="center">{{ q.peso }}</td><td class="center">{{ q.acertos }}</td>{% if avaliacao_sem_nota %}<td class="center">{{ q.parciais or 0 }}</td>{% endif %}<td class="center">{{ q.erros }}</td><td class="center">{{ q.em_branco }}</td><td><div class="r-performance"><div class="r-performance-track"><span class="r-performance-fill" style="width:{{ q.percentual }}%"></span></div><strong>{{ q.percentual }}%</strong></div></td><td>{% if q.habilidade %}<b>{{ q.habilidade }}</b>{% if q.habilidade_descricao %}<br><small>{{ q.habilidade_descricao }}</small>{% endif %}{% elif q.descritor %}{{ q.descritor }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div></div>
+      <div id="tab-questoes" class="r-tab-panel report-section" data-report="questoes">
+        <div class="r-section-head"><div><h3>Desempenho por questão</h3><p>Índices de acerto, erro e respostas em branco.</p></div></div>
+        <div class="r-table-wrap">
+          <table class="r-table questoes-table {{ 'sem-nota' if avaliacao_sem_nota else 'com-nota' }}">
+            <thead><tr><th>Questão</th><th>Tipo</th><th class="center">Peso</th><th class="center">Acertos</th>{% if avaliacao_sem_nota %}<th class="center">Parciais</th>{% endif %}<th class="center">Erros</th><th class="center">Em branco</th><th class="center">Desempenho</th><th>Habilidade / descritor</th></tr></thead>
+            <tbody>{% for q in relatorio_questoes %}<tr><td><b>Q{{ q.numero }}</b>{% if q.anulada %} <span class="r-type anulada">Anulada</span>{% endif %}</td><td><span class="r-type {% if 'discurs' in (q.tipo_questao or '')|lower %}discursiva{% else %}objetiva{% endif %}"><span class="no-print">{{ q.tipo_questao }}</span><span class="print-only">{% if 'discurs' in (q.tipo_questao or '')|lower %}Discursiva{% else %}Objetiva{% endif %}</span></span></td><td class="center">{{ q.peso }}</td><td class="center">{{ q.acertos }}</td>{% if avaliacao_sem_nota %}<td class="center">{{ q.parciais or 0 }}</td>{% endif %}<td class="center">{{ q.erros }}</td><td class="center">{{ q.em_branco }}</td><td><div class="r-performance"><div class="r-performance-track"><span class="r-performance-fill" style="width:{{ q.percentual }}%"></span></div><strong>{{ q.percentual }}%</strong></div></td><td>{% if q.habilidade %}<b>{{ q.habilidade }}</b>{% if q.habilidade_descricao %}<br><small>{{ q.habilidade_descricao }}</small>{% endif %}{% elif q.descritor %}{{ q.descritor }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+
+        <div class="questoes-print-grid {{ 'sem-nota' if avaliacao_sem_nota else 'com-nota' }} print-only" aria-hidden="true">
+          <div class="questoes-print-head">
+            <div class="questoes-print-cell">Questão</div><div class="questoes-print-cell">Tipo</div><div class="questoes-print-cell">Peso</div><div class="questoes-print-cell">Acertos</div>{% if avaliacao_sem_nota %}<div class="questoes-print-cell">Parciais</div>{% endif %}<div class="questoes-print-cell">Erros</div><div class="questoes-print-cell">Em branco</div><div class="questoes-print-cell">Desempenho</div><div class="questoes-print-cell">Habilidade / descritor</div>
+          </div>
+          {% for q in relatorio_questoes %}
+          <div class="questoes-print-row">
+            <div class="questoes-print-cell center"><b>Q{{ q.numero }}</b>{% if q.anulada %}<br>Anulada{% endif %}</div>
+            <div class="questoes-print-cell center">{% if 'discurs' in (q.tipo_questao or '')|lower %}Discursiva{% else %}Objetiva{% endif %}</div>
+            <div class="questoes-print-cell center">{{ q.peso }}</div>
+            <div class="questoes-print-cell center">{{ q.acertos }}</div>
+            {% if avaliacao_sem_nota %}<div class="questoes-print-cell center">{{ q.parciais or 0 }}</div>{% endif %}
+            <div class="questoes-print-cell center">{{ q.erros }}</div>
+            <div class="questoes-print-cell center">{{ q.em_branco }}</div>
+            <div class="questoes-print-cell questoes-print-desempenho">{{ q.percentual }}%</div>
+            <div class="questoes-print-cell questoes-print-habilidade">{% if q.habilidade %}<b>{{ q.habilidade }}</b>{% if q.habilidade_descricao %}<br><small>{{ q.habilidade_descricao }}</small>{% endif %}{% elif q.descritor %}{{ q.descritor }}{% else %}—{% endif %}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
 
       <div id="tab-habilidades" class="r-tab-panel report-section" data-report="habilidades"><div class="r-section-head"><div><h3>Desempenho por habilidade</h3><p>Consolidação das habilidades vinculadas às questões.</p></div></div>{% if habilidades %}<div class="r-bars">{% for h in habilidades %}<div class="r-bar-row"><label><b>{{ h.codigo }}</b>{% if h.descricao %}<br><span class="r-habilidade-desc">{{ h.descricao }}</span>{% endif %}<br><small>Questões {{ h.questoes|join(', ') }} · {{ h.nivel }}</small></label><div class="r-bar"><i style="width:{{ h.percentual }}%"></i></div><strong>{{ h.percentual }}%</strong></div>{% endfor %}</div>{% else %}<p>Nenhuma habilidade cadastrada nas questões desta avaliação.</p>{% endif %}</div>
 
