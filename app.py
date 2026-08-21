@@ -13429,7 +13429,7 @@ def resultados(prova_id):
         nota_disc_expr = "aa.nota_discursiva" if "nota_discursiva" in cols_aa else "NULL"
 
         cursor.execute(f"""
-            WITH atuais AS (
+            WITH atuais_rankeados AS (
                 SELECT
                     aa.aluno_id,
                     aa.aplicacao_id,
@@ -13443,18 +13443,45 @@ def resultados(prova_id):
                         CASE WHEN aa.objetiva_corrigida = 1 AND COALESCE(aa.discursiva_pendente, 0) = 0
                              THEN aa.nota_objetiva ELSE NULL END) AS nota,
                     ap.data_aplicacao,
-                    1 AS origem_nova
+                    1 AS origem_nova,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY aa.aluno_id
+                        ORDER BY
+                            CASE
+                                WHEN COALESCE({nota_final_expr},
+                                    CASE WHEN aa.objetiva_corrigida = 1 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                                         THEN aa.nota_objetiva ELSE NULL END) IS NOT NULL THEN 3
+                                WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 2
+                                ELSE 1
+                            END DESC,
+                            ap.id DESC,
+                            aa.rowid DESC
+                    ) AS rn
                 FROM aplicacoes ap
                 JOIN aplicacao_alunos aa ON aa.aplicacao_id = ap.id
                 WHERE ap.prova_id = ?
+            ), atuais AS (
+                SELECT aluno_id, aplicacao_id, status, acertos, erros,
+                       total_objetivas, nota_objetiva, nota_discursiva, nota,
+                       data_aplicacao, origem_nova
+                FROM atuais_rankeados
+                WHERE rn = 1
+            ), legados_rankeados AS (
+                SELECT r.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY r.aluno_id
+                           ORDER BY r.id DESC
+                       ) AS rn
+                FROM resultados r
+                WHERE r.prova_id = ?
             ), legados AS (
                 SELECT r.aluno_id, NULL aplicacao_id, 'Corrigido' status,
                        COALESCE(r.acertos,0) acertos, COALESCE(r.erros,0) erros,
                        COALESCE(r.acertos,0)+COALESCE(r.erros,0) total_objetivas,
                        r.nota nota_objetiva, NULL nota_discursiva, r.nota nota,
                        NULL data_aplicacao, 0 origem_nova
-                FROM resultados r
-                WHERE r.prova_id = ?
+                FROM legados_rankeados r
+                WHERE r.rn = 1
                   AND NOT EXISTS (
                     SELECT 1 FROM atuais a WHERE a.aluno_id = r.aluno_id
                   )
@@ -13519,17 +13546,60 @@ def resultados(prova_id):
         """, (prova_id,))
         questoes = [dict(q) for q in cursor.fetchall()]
 
+        # Consolida respostas usando somente a aplicação oficial escolhida
+        # para cada aluno. Isso evita que reaplicações contem duas vezes.
+        aplicacoes_oficiais = {
+            int(r["aluno_id"]): int(r["aplicacao_id"])
+            for r in todos_registros
+            if r.get("aplicacao_id") is not None
+        }
+        respostas_consolidadas = {}
+
+        if aplicacoes_oficiais:
+            placeholders = ",".join("?" for _ in aplicacoes_oficiais.values())
+            cursor.execute(f"""
+                SELECT aro.aplicacao_id, aro.aluno_id, aro.questao_id,
+                       aro.numero_questao, aro.acertou, aro.situacao, aro.resposta
+                FROM aplicacao_respostas_objetivas aro
+                WHERE aro.aplicacao_id IN ({placeholders})
+                ORDER BY aro.aluno_id, aro.numero_questao
+            """, tuple(aplicacoes_oficiais.values()))
+            for r in cursor.fetchall():
+                if aplicacoes_oficiais.get(int(r["aluno_id"])) != int(r["aplicacao_id"]):
+                    continue
+                respostas_consolidadas[(int(r["aluno_id"]), int(r["numero_questao"]))] = dict(r)
+
+        # Fallback para correções antigas. Só entra quando não há resposta da
+        # aplicação oficial para o mesmo aluno e número de questão.
         cursor.execute("""
-            SELECT aro.questao_id,
-                   COUNT(*) respondentes,
-                   SUM(CASE WHEN aro.acertou = 1 THEN 1 ELSE 0 END) acertos,
-                   SUM(CASE WHEN aro.situacao = 'em_branco' OR TRIM(COALESCE(aro.resposta,'')) = '' THEN 1 ELSE 0 END) em_branco
-            FROM aplicacao_respostas_objetivas aro
-            JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
-            WHERE ap.prova_id = ?
-            GROUP BY aro.questao_id
+            SELECT aluno_id, numero_questao, acertou,
+                   CASE
+                       WHEN TRIM(COALESCE(resposta_aluno, '')) = '' THEN 'em_branco'
+                       ELSE 'respondida'
+                   END AS situacao,
+                   resposta_aluno AS resposta
+            FROM respostas_alunos
+            WHERE prova_id = ?
+            ORDER BY aluno_id, numero_questao
         """, (prova_id,))
-        obj_stats = {r["questao_id"]: dict(r) for r in cursor.fetchall()}
+        for r in cursor.fetchall():
+            chave = (int(r["aluno_id"]), int(r["numero_questao"]))
+            if chave not in respostas_consolidadas:
+                respostas_consolidadas[chave] = dict(r)
+
+        stats_por_numero = {}
+        for (_, numero_q), r in respostas_consolidadas.items():
+            st = stats_por_numero.setdefault(numero_q, {"respondentes": 0, "acertos": 0, "em_branco": 0})
+            st["respondentes"] += 1
+            if int(r.get("acertou") or 0) == 1:
+                st["acertos"] += 1
+            if (r.get("situacao") or "").strip().lower() == "em_branco" or not str(r.get("resposta") or "").strip():
+                st["em_branco"] += 1
+
+        obj_stats = {
+            q["questao_id"]: stats_por_numero.get(numero, {})
+            for numero, q in enumerate(questoes, 1)
+        }
 
         relatorio_questoes = []
         for numero, q in enumerate(questoes, 1):
@@ -14095,11 +14165,47 @@ def questao_relatorio(prova_id, numero):
     questao = questoes[numero - 1]
 
     cursor.execute("""
+        WITH apps_rank AS (
+            SELECT ap.prova_id, aa.aluno_id, ap.id aplicacao_id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY ap.prova_id, aa.aluno_id
+                       ORDER BY
+                           CASE
+                               WHEN aa.nota_final IS NOT NULL THEN 3
+                               WHEN aa.objetiva_corrigida = 1
+                                AND COALESCE(aa.discursiva_pendente,0) = 0
+                                AND aa.nota_objetiva IS NOT NULL THEN 3
+                               WHEN LOWER(TRIM(COALESCE(aa.status,''))) IN ('ausente','faltou') THEN 2
+                               ELSE 1
+                           END DESC,
+                           ap.id DESC, aa.id DESC
+                   ) rn
+            FROM aplicacoes ap
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id = ap.id
+            WHERE ap.prova_id = ?
+        ), atuais AS (
+            SELECT ar.aluno_id, aro.numero_questao, aro.acertou
+            FROM apps_rank ar
+            JOIN aplicacao_respostas_objetivas aro
+              ON aro.aplicacao_id = ar.aplicacao_id
+             AND aro.aluno_id = ar.aluno_id
+            WHERE ar.rn = 1
+        ), consolidadas AS (
+            SELECT aluno_id, numero_questao, acertou FROM atuais
+            UNION ALL
+            SELECT ra.aluno_id, ra.numero_questao, ra.acertou
+            FROM respostas_alunos ra
+            WHERE ra.prova_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM atuais a
+                  WHERE a.aluno_id = ra.aluno_id
+                    AND a.numero_questao = ra.numero_questao
+              )
+        )
         SELECT COUNT(*), SUM(acertou)
-        FROM respostas_alunos
-        WHERE prova_id = ?
-        AND numero_questao = ?
-    """, (prova_id, numero))
+        FROM consolidadas
+        WHERE numero_questao = ?
+    """, (prova_id, prova_id, numero))
 
     dados = cursor.fetchone()
 
@@ -14140,15 +14246,48 @@ def relatorio_questoes(prova_id):
         return "Prova não encontrada."
 
     cursor.execute("""
-        SELECT
-            numero_questao,
-            COUNT(*),
-            SUM(acertou)
-        FROM respostas_alunos
-        WHERE prova_id = ?
+        WITH apps_rank AS (
+            SELECT ap.prova_id, aa.aluno_id, ap.id aplicacao_id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY ap.prova_id, aa.aluno_id
+                       ORDER BY
+                           CASE
+                               WHEN aa.nota_final IS NOT NULL THEN 3
+                               WHEN aa.objetiva_corrigida = 1
+                                AND COALESCE(aa.discursiva_pendente,0) = 0
+                                AND aa.nota_objetiva IS NOT NULL THEN 3
+                               WHEN LOWER(TRIM(COALESCE(aa.status,''))) IN ('ausente','faltou') THEN 2
+                               ELSE 1
+                           END DESC,
+                           ap.id DESC, aa.id DESC
+                   ) rn
+            FROM aplicacoes ap
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id = ap.id
+            WHERE ap.prova_id = ?
+        ), atuais AS (
+            SELECT ar.aluno_id, aro.numero_questao, aro.acertou
+            FROM apps_rank ar
+            JOIN aplicacao_respostas_objetivas aro
+              ON aro.aplicacao_id = ar.aplicacao_id
+             AND aro.aluno_id = ar.aluno_id
+            WHERE ar.rn = 1
+        ), consolidadas AS (
+            SELECT aluno_id, numero_questao, acertou FROM atuais
+            UNION ALL
+            SELECT ra.aluno_id, ra.numero_questao, ra.acertou
+            FROM respostas_alunos ra
+            WHERE ra.prova_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM atuais a
+                  WHERE a.aluno_id = ra.aluno_id
+                    AND a.numero_questao = ra.numero_questao
+              )
+        )
+        SELECT numero_questao, COUNT(*), SUM(acertou)
+        FROM consolidadas
         GROUP BY numero_questao
         ORDER BY numero_questao
-    """, (prova_id,))
+    """, (prova_id, prova_id))
 
     dados = cursor.fetchall()
 
@@ -20437,36 +20576,68 @@ def relatorios():
 
         # Um aluno entra no relatório quando possui nota final ou quando
         # concluiu uma aplicação somente objetiva.
+        # Fonte única dos relatórios: para cada aluno/prova vale apenas uma
+        # aplicação consolidada. A regra é a mesma da tela de resultados:
+        # primeiro uma correção concluída; em empate, a aplicação mais recente.
+        # Assim, reaplicações não duplicam média, questões ou habilidades.
         resultados_cte = """
-            WITH resultados_consolidados AS (
+            WITH aplicacoes_rankeadas AS (
                 SELECT
                     ap.prova_id,
-                    aa.aluno_id,
                     ap.id AS aplicacao_id,
-                    CASE
-                        WHEN aa.nota_final IS NOT NULL
-                            THEN aa.nota_final
-                        WHEN aa.objetiva_corrigida = 1
-                         AND COALESCE(aa.discursiva_pendente, 0) = 0
-                            THEN aa.nota_objetiva
-                        ELSE NULL
-                    END AS nota
+                    aa.aluno_id,
+                    aa.status,
+                    aa.nota_final,
+                    aa.nota_objetiva,
+                    aa.objetiva_corrigida,
+                    aa.discursiva_pendente,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ap.prova_id, aa.aluno_id
+                        ORDER BY
+                            CASE
+                                WHEN aa.nota_final IS NOT NULL THEN 3
+                                WHEN aa.objetiva_corrigida = 1
+                                 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                                 AND aa.nota_objetiva IS NOT NULL THEN 3
+                                WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 2
+                                ELSE 1
+                            END DESC,
+                            ap.id DESC,
+                            aa.id DESC
+                    ) AS rn
                 FROM aplicacoes AS ap
                 INNER JOIN aplicacao_alunos AS aa
                     ON aa.aplicacao_id = ap.id
-                WHERE
+            ), aplicacoes_vigentes AS (
+                SELECT * FROM aplicacoes_rankeadas WHERE rn = 1
+            ), resultados_legados_rank AS (
+                SELECT rl.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY rl.prova_id, rl.aluno_id
+                           ORDER BY rl.id DESC
+                       ) AS rn
+                FROM resultados AS rl
+            ), resultados_consolidados AS (
+                SELECT
+                    av.prova_id,
+                    av.aluno_id,
+                    av.aplicacao_id,
                     CASE
-                        WHEN aa.nota_final IS NOT NULL
-                            THEN aa.nota_final
-                        WHEN aa.objetiva_corrigida = 1
-                         AND COALESCE(aa.discursiva_pendente, 0) = 0
-                            THEN aa.nota_objetiva
+                        WHEN av.nota_final IS NOT NULL THEN av.nota_final
+                        WHEN av.objetiva_corrigida = 1
+                         AND COALESCE(av.discursiva_pendente, 0) = 0
+                            THEN av.nota_objetiva
                         ELSE NULL
-                    END IS NOT NULL
-                  AND LOWER(TRIM(COALESCE(aa.status, ''))) NOT IN (
-                      'ausente',
-                      'faltou'
-                  )
+                    END AS nota
+                FROM aplicacoes_vigentes AS av
+                WHERE LOWER(TRIM(COALESCE(av.status, ''))) NOT IN ('ausente', 'faltou')
+                  AND CASE
+                        WHEN av.nota_final IS NOT NULL THEN av.nota_final
+                        WHEN av.objetiva_corrigida = 1
+                         AND COALESCE(av.discursiva_pendente, 0) = 0
+                            THEN av.nota_objetiva
+                        ELSE NULL
+                      END IS NOT NULL
 
                 UNION ALL
 
@@ -20481,31 +20652,25 @@ def relatorios():
                             THEN ROUND(10.0 * rl.acertos / p_leg.quantidade, 2)
                         ELSE NULL
                     END AS nota
-                FROM resultados AS rl
+                FROM resultados_legados_rank AS rl
                 LEFT JOIN provas AS p_leg ON p_leg.id = rl.prova_id
-                WHERE (
+                WHERE rl.rn = 1
+                  AND (
                     rl.nota IS NOT NULL
-                    OR (
-                        rl.acertos IS NOT NULL
-                        AND COALESCE(p_leg.quantidade, 0) > 0
-                    )
-                )
+                    OR (rl.acertos IS NOT NULL AND COALESCE(p_leg.quantidade, 0) > 0)
+                  )
                   AND NOT EXISTS (
                       SELECT 1
-                      FROM aplicacoes AS ap2
-                      INNER JOIN aplicacao_alunos AS aa2
-                          ON aa2.aplicacao_id = ap2.id
-                      WHERE ap2.prova_id = rl.prova_id
-                        AND aa2.aluno_id = rl.aluno_id
+                      FROM aplicacoes_vigentes AS av2
+                      WHERE av2.prova_id = rl.prova_id
+                        AND av2.aluno_id = rl.aluno_id
+                        AND LOWER(TRIM(COALESCE(av2.status, ''))) NOT IN ('ausente', 'faltou')
                         AND (
-                            aa2.nota_final IS NOT NULL
+                            av2.nota_final IS NOT NULL
                             OR (
-                                aa2.objetiva_corrigida = 1
-                                AND COALESCE(
-                                    aa2.discursiva_pendente,
-                                    0
-                                ) = 0
-                                AND aa2.nota_objetiva IS NOT NULL
+                                av2.objetiva_corrigida = 1
+                                AND COALESCE(av2.discursiva_pendente, 0) = 0
+                                AND av2.nota_objetiva IS NOT NULL
                             )
                         )
                   )
@@ -20513,15 +20678,45 @@ def relatorios():
         """
 
         respostas_cte = """
-            WITH respostas_consolidadas AS (
+            WITH aplicacoes_rankeadas AS (
                 SELECT
                     ap.prova_id,
+                    ap.id AS aplicacao_id,
+                    aa.aluno_id,
+                    aa.status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ap.prova_id, aa.aluno_id
+                        ORDER BY
+                            CASE
+                                WHEN aa.nota_final IS NOT NULL THEN 3
+                                WHEN aa.objetiva_corrigida = 1
+                                 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                                 AND aa.nota_objetiva IS NOT NULL THEN 3
+                                WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 2
+                                ELSE 1
+                            END DESC,
+                            ap.id DESC,
+                            aa.id DESC
+                    ) AS rn
+                FROM aplicacoes AS ap
+                INNER JOIN aplicacao_alunos AS aa
+                    ON aa.aplicacao_id = ap.id
+            ), aplicacoes_vigentes AS (
+                SELECT * FROM aplicacoes_rankeadas WHERE rn = 1
+            ), respostas_atuais AS (
+                SELECT
+                    av.prova_id,
                     aro.aluno_id,
                     aro.numero_questao,
                     aro.acertou
-                FROM aplicacoes AS ap
+                FROM aplicacoes_vigentes AS av
                 INNER JOIN aplicacao_respostas_objetivas AS aro
-                    ON aro.aplicacao_id = ap.id
+                    ON aro.aplicacao_id = av.aplicacao_id
+                   AND aro.aluno_id = av.aluno_id
+                WHERE LOWER(TRIM(COALESCE(av.status, ''))) NOT IN ('ausente', 'faltou')
+            ), respostas_consolidadas AS (
+                SELECT prova_id, aluno_id, numero_questao, acertou
+                FROM respostas_atuais
 
                 UNION ALL
 
@@ -20533,12 +20728,10 @@ def relatorios():
                 FROM respostas_alunos AS ra
                 WHERE NOT EXISTS (
                     SELECT 1
-                    FROM aplicacoes AS ap2
-                    INNER JOIN aplicacao_respostas_objetivas AS aro2
-                        ON aro2.aplicacao_id = ap2.id
-                    WHERE ap2.prova_id = ra.prova_id
-                      AND aro2.aluno_id = ra.aluno_id
-                      AND aro2.numero_questao = ra.numero_questao
+                    FROM respostas_atuais AS r2
+                    WHERE r2.prova_id = ra.prova_id
+                      AND r2.aluno_id = ra.aluno_id
+                      AND r2.numero_questao = ra.numero_questao
                 )
             )
         """
@@ -24456,48 +24649,111 @@ def inteligencia_pedagogica():
         FROM provas p JOIN turmas t ON t.id=p.turma_id
         WHERE {scope_where} ORDER BY t.nome COLLATE NOCASE,p.disciplina COLLATE NOCASE,p.nome COLLATE NOCASE""", scope_pars).fetchall()
 
-    # Resultados de aplicações novas + resultados legados. Avaliações marcadas
-    # "sem nota" não entram na média, evitando transformar acertos em nota 0.
+    # Resultados consolidados: a inteligência pedagógica usa exatamente a
+    # mesma regra dos relatórios e do centro de resultados. Uma reaplicação não
+    # pode fazer o mesmo aluno entrar duas vezes na mesma avaliação.
     notas = cur.execute(f"""
-        WITH atuais AS (
-            SELECT aa.aluno_id,a.nome aluno,p.id prova_id,p.nome prova,p.disciplina,
-                   t.id turma_id,t.nome turma,COALESCE(p.data_aplicacao,ap.data_aplicacao,p.data_geracao,ap.criado_em) data_ref,
-                   COALESCE(aa.nota_final,CASE WHEN aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0 THEN aa.nota_objetiva END) nota,
+        WITH apps_rankeadas AS (
+            SELECT
+                ap.id aplicacao_id, ap.prova_id, aa.aluno_id, aa.status,
+                aa.nota_final, aa.nota_objetiva, aa.objetiva_corrigida,
+                aa.discursiva_pendente,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ap.prova_id, aa.aluno_id
+                    ORDER BY
+                        CASE
+                            WHEN aa.nota_final IS NOT NULL THEN 3
+                            WHEN aa.objetiva_corrigida=1
+                             AND COALESCE(aa.discursiva_pendente,0)=0
+                             AND aa.nota_objetiva IS NOT NULL THEN 3
+                            WHEN LOWER(TRIM(COALESCE(aa.status,''))) IN ('ausente','faltou') THEN 2
+                            ELSE 1
+                        END DESC,
+                        ap.id DESC,
+                        aa.rowid DESC
+                ) rn
+            FROM aplicacoes ap
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+        ), atuais AS (
+            SELECT ar.aluno_id,a.nome aluno,p.id prova_id,p.nome prova,p.disciplina,
+                   t.id turma_id,t.nome turma,
+                   COALESCE(p.data_aplicacao,ap.data_aplicacao,p.data_geracao,ap.criado_em) data_ref,
+                   COALESCE(ar.nota_final,CASE WHEN ar.objetiva_corrigida=1 AND COALESCE(ar.discursiva_pendente,0)=0 THEN ar.nota_objetiva END) nota,
                    COALESCE(p.tem_nota,0) tem_nota
-            FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
-            JOIN provas p ON p.id=ap.prova_id JOIN turmas t ON t.id=p.turma_id JOIN alunos a ON a.id=aa.aluno_id
-            WHERE {where} AND LOWER(TRIM(COALESCE(aa.status,''))) NOT IN ('ausente','faltou')
+            FROM apps_rankeadas ar
+            JOIN aplicacoes ap ON ap.id=ar.aplicacao_id
+            JOIN provas p ON p.id=ar.prova_id
+            JOIN turmas t ON t.id=p.turma_id
+            JOIN alunos a ON a.id=ar.aluno_id
+            WHERE ar.rn=1 AND {where}
+              AND LOWER(TRIM(COALESCE(ar.status,''))) NOT IN ('ausente','faltou')
         ), legados AS (
             SELECT r.aluno_id,a.nome aluno,p.id prova_id,p.nome prova,p.disciplina,
                    t.id turma_id,t.nome turma,COALESCE(p.data_aplicacao,p.data_geracao) data_ref,
                    COALESCE(r.nota,CASE WHEN r.acertos IS NOT NULL AND COALESCE(p.quantidade,0)>0 THEN ROUND(10.0*r.acertos/p.quantidade,2) END) nota,
                    COALESCE(p.tem_nota,0) tem_nota
-            FROM resultados r JOIN provas p ON p.id=r.prova_id JOIN turmas t ON t.id=p.turma_id JOIN alunos a ON a.id=r.aluno_id
+            FROM resultados r
+            JOIN provas p ON p.id=r.prova_id
+            JOIN turmas t ON t.id=p.turma_id
+            JOIN alunos a ON a.id=r.aluno_id
             WHERE {where} AND NOT EXISTS (
-                SELECT 1 FROM aplicacoes ap2 JOIN aplicacao_alunos aa2 ON aa2.aplicacao_id=ap2.id
-                WHERE ap2.prova_id=r.prova_id AND aa2.aluno_id=r.aluno_id)
+                SELECT 1 FROM aplicacoes ap2
+                JOIN aplicacao_alunos aa2 ON aa2.aplicacao_id=ap2.id
+                WHERE ap2.prova_id=r.prova_id AND aa2.aluno_id=r.aluno_id
+            )
         )
         SELECT * FROM atuais UNION ALL SELECT * FROM legados ORDER BY data_ref,prova_id
     """, pars + pars).fetchall()
 
-    # Respostas objetivas consolidadas (novas + legado), fonte do percentual de
-    # acertos e do mapa de habilidades.
+    # Respostas objetivas seguem a mesma aplicação oficial selecionada acima.
+    # O legado só é utilizado quando o aluno nunca teve aplicação nova.
     respostas = cur.execute(f"""
-        WITH resp AS (
-            SELECT ap.prova_id,aro.aluno_id,aro.questao_id,aro.numero_questao,aro.acertou
-            FROM aplicacao_respostas_objetivas aro JOIN aplicacoes ap ON ap.id=aro.aplicacao_id
+        WITH apps_rankeadas AS (
+            SELECT
+                ap.id aplicacao_id, ap.prova_id, aa.aluno_id, aa.status,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ap.prova_id, aa.aluno_id
+                    ORDER BY
+                        CASE
+                            WHEN aa.nota_final IS NOT NULL THEN 3
+                            WHEN aa.objetiva_corrigida=1
+                             AND COALESCE(aa.discursiva_pendente,0)=0
+                             AND aa.nota_objetiva IS NOT NULL THEN 3
+                            WHEN LOWER(TRIM(COALESCE(aa.status,''))) IN ('ausente','faltou') THEN 2
+                            ELSE 1
+                        END DESC,
+                        ap.id DESC,
+                        aa.rowid DESC
+                ) rn
+            FROM aplicacoes ap
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+        ), resp AS (
+            SELECT ar.prova_id,aro.aluno_id,aro.questao_id,aro.numero_questao,aro.acertou
+            FROM apps_rankeadas ar
+            JOIN aplicacao_respostas_objetivas aro ON aro.aplicacao_id=ar.aplicacao_id
+            WHERE ar.rn=1
+              AND LOWER(TRIM(COALESCE(ar.status,''))) NOT IN ('ausente','faltou')
+
             UNION ALL
+
             SELECT ra.prova_id,ra.aluno_id,pq.questao_id,ra.numero_questao,ra.acertou
             FROM respostas_alunos ra
-            LEFT JOIN prova_questoes pq ON pq.prova_id=ra.prova_id AND COALESCE(NULLIF(pq.ordem,0),pq.id)=ra.numero_questao
+            LEFT JOIN prova_questoes pq
+              ON pq.prova_id=ra.prova_id
+             AND COALESCE(NULLIF(pq.ordem,0),pq.id)=ra.numero_questao
             WHERE NOT EXISTS (
-                SELECT 1 FROM aplicacoes ap2 JOIN aplicacao_respostas_objetivas aro2 ON aro2.aplicacao_id=ap2.id
-                WHERE ap2.prova_id=ra.prova_id AND aro2.aluno_id=ra.aluno_id AND aro2.numero_questao=ra.numero_questao)
+                SELECT 1 FROM aplicacoes ap2
+                JOIN aplicacao_alunos aa2 ON aa2.aplicacao_id=ap2.id
+                WHERE ap2.prova_id=ra.prova_id AND aa2.aluno_id=ra.aluno_id
+            )
         )
         SELECT resp.*,p.nome prova,p.disciplina,t.id turma_id,t.nome turma,a.nome aluno,
                COALESCE(NULLIF(TRIM(q.habilidade_bncc),''),NULLIF(TRIM(q.habilidade),''),'Sem habilidade informada') habilidade
-        FROM resp JOIN provas p ON p.id=resp.prova_id JOIN turmas t ON t.id=p.turma_id
-        JOIN alunos a ON a.id=resp.aluno_id LEFT JOIN questoes q ON q.id=resp.questao_id
+        FROM resp
+        JOIN provas p ON p.id=resp.prova_id
+        JOIN turmas t ON t.id=p.turma_id
+        JOIN alunos a ON a.id=resp.aluno_id
+        LEFT JOIN questoes q ON q.id=resp.questao_id
         WHERE {where}
     """, pars).fetchall()
 
