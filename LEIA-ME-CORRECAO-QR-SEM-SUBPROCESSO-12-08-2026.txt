@@ -1,0 +1,17 @@
+ARK EDUS — CORREÇÃO DO ERRO 500 NA IMPORTAÇÃO DE PDFs GRANDES
+
+Causa encontrada no log do Render:
+o Gunicorn encerrava o worker enquanto _decodificar_qr_cartao() aguardava
+subprocess.run()/communicate() do qr_worker.py.
+
+Correção aplicada:
+- removido subprocesso por página na leitura do QR;
+- QR lido diretamente com ZXing-C++ em recortes pequenos do canto superior direito;
+- tentativas limitadas e rápidas;
+- falhas de QR ficam em revisão e não derrubam o lote;
+- cada página é lida no máximo uma vez para QR;
+- mantido o salvamento por página já existente;
+- mantidos Procfile/render.yaml com timeout ampliado.
+
+Importante:
+o banco de dados não foi incluído neste ZIP.

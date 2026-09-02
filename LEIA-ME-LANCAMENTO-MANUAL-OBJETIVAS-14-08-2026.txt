@@ -1,0 +1,19 @@
+ARK EDUS — LANÇAMENTO MANUAL DE QUESTÕES OBJETIVAS
+Data: 14/08/2026
+
+IMPLEMENTADO
+- Nova opção "Lançar objetivas" na tela das aplicações.
+- Nova opção "Lançar objetivas manualmente" na tela de importação.
+- Lançamento por aluno, sem necessidade de importar cartão-resposta.
+- Seleção do modelo da prova.
+- Marcações A, B, C, D, Em branco e Dupla marcação.
+- Correção automática pelo gabarito do modelo selecionado.
+- Atualização de acertos, nota objetiva, nota final e relatórios.
+- Integração com as discursivas já existentes.
+- Alunos ausentes não podem receber lançamento até a falta ser desfeita.
+- Respostas já lançadas podem ser abertas e editadas novamente.
+- A origem do registro fica identificada como "manual" no banco.
+- O fluxo de importação por cartão continua funcionando normalmente.
+
+IMPORTANTE
+Esta alteração não remove nem recria o banco de dados e não apaga dados já lançados.

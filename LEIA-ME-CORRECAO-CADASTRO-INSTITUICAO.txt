@@ -1,0 +1,18 @@
+ARK EDUS — correção do cadastro de instituição
+Data: 07/08/2026
+
+Correções aplicadas:
+1. Resolvido o erro SQLite "user-defined function raised exception" durante o cadastro de instituição/administrador.
+2. A proteção do CPF não depende mais obrigatoriamente de LGPD_ENCRYPTION_KEY e LGPD_HASH_KEY para o sistema funcionar em Codespaces/Render. Quando essas variáveis não existem, as chaves são derivadas de SECRET_KEY.
+3. CPF do administrador agora é validado antes de chegar ao banco, evitando erro obscuro de trigger.
+4. As funções SQLite de proteção do CPF foram tornadas tolerantes a erros, evitando derrubar a transação com mensagem genérica.
+5. Mantidas as rotas de importação de alunos por PDF e o botão em Alunos e Matrículas.
+6. Verificação de sintaxe executada em app.py e lgpd_security.py.
+
+Recomendação de produção:
+- Configure uma SECRET_KEY longa e aleatória no Render.
+- Opcionalmente mantenha LGPD_ENCRYPTION_KEY e LGPD_HASH_KEY próprias para separação de segredos.
+
+Após substituir os arquivos:
+pip install -r requirements.txt
+python app.py

@@ -1,0 +1,20 @@
+ARK EDUS — CORREÇÃO DOS RESULTADOS EXISTENTES (V5)
+
+1. Corrigido erro 500 em /resultados/<id>:
+   - restaurada a função _recalcular_notas_aplicacoes_por_peso.
+
+2. Reparo automático dos dados já existentes:
+   - não exige reimportar cartões;
+   - preserva a resposta do aluno já gravada;
+   - resolve o gabarito atual pelo questao_id;
+   - prioridade: respostas_corretas -> correta -> flags de alternativas_json;
+   - QR é somente fallback quando não existe gabarito atual no banco;
+   - atualiza resposta_correta e acertou;
+   - atualiza respostas_alunos;
+   - recalcula acertos_objetivos, total_objetivas, nota_objetiva e nota_final.
+
+3. Relatório e mapa de respostas:
+   - passam a usar o campo acertou já reparado como fonte única de verdade,
+     evitando divergência entre cor da célula e desempenho por questão.
+
+Validação: app.py compilado com python -m py_compile sem erros.

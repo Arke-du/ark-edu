@@ -1,0 +1,46 @@
+ARK EDUS — INTELIGÊNCIA PEDAGÓGICA — 18/08/2026
+
+Implementado novo menu: Inteligência Pedagógica (abaixo de Relatórios).
+
+Recursos:
+1. Visão Geral / Dashboard pedagógico
+   - média geral
+   - estudantes avaliados
+   - estudantes com resultados abaixo de 6
+   - quantidade de habilidades críticas
+   - comparação por turma e componente
+   - habilidades que exigem atenção
+
+2. Mapa de Habilidades
+   - percentual de domínio calculado pelas respostas objetivas corrigidas
+   - Dominada: >= 80%
+   - Em desenvolvimento: 60% a 79,9%
+   - Atenção: 40% a 59,9%
+   - Crítica: < 40%
+
+3. Evolução dos Estudantes
+   - seleção individual do estudante
+   - gráfico das notas por avaliação
+   - histórico por prova, componente e turma
+
+4. Relatório Pedagógico Automático
+   - análise baseada nos dados reais do filtro atual
+   - texto editável
+   - copiar texto
+   - imprimir/salvar em PDF
+
+Permissões:
+- O módulo acompanha a permissão já existente de Relatórios.
+- Administrador Geral mantém visão ampla.
+- Instituição respeita sua escola/ano letivo.
+- Professor respeita seus vínculos/provas.
+
+Segurança de dados:
+- Não foi adicionada rotina de exclusão ou limpeza de dados.
+- A implementação é de leitura/análise sobre dados existentes.
+- Nenhuma tabela existente foi removida.
+
+Arquivos principais alterados:
+- app.py
+- templates/layout/base.html
+- templates/inteligencia_pedagogica.html (novo)

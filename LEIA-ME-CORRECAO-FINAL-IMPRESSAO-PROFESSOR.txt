@@ -1,0 +1,6 @@
+CORREÇÕES DESTA VERSÃO
+1. Alternativas da prova no padrão (A) (B) (C) (D), sem círculos.
+2. Impressão compactada: margens entre questões reduzidas e imagens limitadas para aproveitar melhor a folha A4 sem deformação.
+3. Imagens de alternativas limitadas a 38 mm de altura; imagens de enunciado/questão a 58 mm na prova aplicada.
+4. Resultados: nome do professor passa a priorizar a tabela professores, que é a origem usada por provas.professor_id. Isso evita colisão de IDs com usuarios e nome de outra pessoa.
+5. Nenhum banco .db incluído neste pacote.

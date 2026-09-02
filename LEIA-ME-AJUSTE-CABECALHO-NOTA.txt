@@ -1,0 +1,16 @@
+ARK EDUS — AJUSTE DO CABEÇALHO E CAMPO DE NOTA
+
+Alterações desta versão:
+- Corrigido o espaçamento de impressão para que o conteúdo não invada a moldura da página.
+- Moldura dupla mais discreta e alinhada.
+- Cabeçalho mais compacto e equilibrado.
+- Logo institucional com fallback: se o arquivo da logo não existir, não aparece ícone quebrado.
+- Novo controle "A avaliação terá nota?" na criação e edição da avaliação.
+- Quando "A avaliação terá nota?" estiver desativado, o campo "Nota" não aparece no modelo impresso/PDF.
+- Avaliações já existentes continuam com nota por padrão (compatibilidade).
+- A coluna tem_nota é criada automaticamente no banco existente, sem apagar cadastros.
+
+IMPORTANTE:
+- Este ZIP não contém plataforma.db, para não sobrescrever seus dados.
+- Extraia os arquivos POR CIMA do projeto atual.
+- Não apague a pasta static/uploads, pois ela guarda logos e outros arquivos enviados.

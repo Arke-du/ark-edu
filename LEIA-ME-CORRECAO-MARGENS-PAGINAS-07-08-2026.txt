@@ -1,0 +1,21 @@
+CORREÇÃO DEFINITIVA DAS MARGENS DE IMPRESSÃO — 07/08/2026
+
+Arquivo alterado:
+- templates/aplicacoes/modelo_prova.html
+
+Problema identificado no PDF enviado:
+- A margem aplicada em .page só funcionava no início do documento.
+- Nas páginas 2 e seguintes, o conteúdo recomeçava no topo da área de impressão e chegava a encostar/sobrepor a moldura.
+
+Correção aplicada:
+- A margem de todas as folhas passou a ser controlada por @page.
+- A4 retrato com margens: 16 mm superior, 15 mm laterais e 16 mm inferior.
+- Removido o padding da .page no modo print, evitando diferença entre a primeira e as demais páginas.
+- Moldura repetida em todas as páginas, posicionada dentro da área física da folha.
+- Conteúdo permanece aproximadamente 5 mm para dentro da moldura em todas as páginas.
+- Mantidas regras para não quebrar questões e alternativas de forma inadequada.
+
+IMPORTANTE:
+- O arquivo plataforma.db NÃO está incluído neste ZIP.
+- Substitua os arquivos do projeto e reinicie/recarregue a aplicação no Codespaces/Render.
+- Ao testar, feche a pré-visualização antiga e abra novamente a impressão para evitar cache visual.

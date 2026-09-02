@@ -1,0 +1,14 @@
+ARK EDUS — CORREÇÃO DE IMAGENS V2
+
+Correções realizadas:
+1. Imagem inserida dentro do editor do enunciado agora aparece na visualização e na impressão/PDF.
+2. Imagens antigas salvas com /static/uploads/ são normalizadas para a rota /uploads/.
+3. Novo campo de imagem principal na criação da questão.
+4. Imagens das alternativas usam a mesma rota persistente de uploads na visualização.
+5. Imagens das alternativas permanecem lidas de alternativas_json na prova final.
+6. Nenhuma rotina de exclusão/recriação do banco foi adicionada.
+
+IMPORTANTE NO RENDER:
+- DATABASE_PATH deve continuar apontando para o banco persistente atual.
+- UPLOAD_FOLDER deve apontar para um diretório em disco persistente (por exemplo /var/data/uploads), se o serviço usa Persistent Disk.
+- Não substitua o banco online pelo plataforma.db deste ZIP.

@@ -1,0 +1,11 @@
+ARK EDUS - CORREÇÃO DO BOTÃO BAIXAR MODELO
+Data: 10/08/2026
+
+Correção aplicada:
+- O botão "Continuar para PDF" não abre mais uma nova janela/pop-up.
+- A navegação para o modelo da prova acontece na mesma aba, evitando bloqueio do navegador.
+- A escolha de 1 ou 2 colunas continua dentro de Aplicações.
+- A rota existente de geração do modelo foi mantida.
+
+Fluxo esperado:
+Aplicações -> Baixar modelo -> escolher 1 ou 2 colunas -> Continuar para PDF -> página do modelo -> diálogo de impressão/PDF.

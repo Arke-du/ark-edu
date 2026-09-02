@@ -1,0 +1,20 @@
+ARK EDUS — CORREÇÃO DE CORTESIA INSTITUCIONAL
+Data: 13/08/2026
+
+CORREÇÃO REALIZADA
+- Professores vinculados a uma instituição com cortesia vigente passam a herdar corretamente o acesso institucional.
+- Uma assinatura individual pendente do professor não prevalece mais sobre a cortesia/assinatura ativa da instituição.
+- A mesma regra efetiva agora é usada tanto no bloqueio de acesso quanto na página "Minha assinatura".
+- Para contas institucionais, o plano da instituição tem prioridade sobre um plano individual residual do usuário.
+- Na página "Minha assinatura", quando houver cortesia institucional, o valor exibido para o usuário passa a ser R$ 0,00 e a cobertura identifica a instituição.
+
+ORDEM DE PRIORIDADE
+1. Cortesia institucional vigente.
+2. Cortesia individual vigente.
+3. Assinatura institucional ativa.
+4. Assinatura individual ativa.
+5. Registro institucional.
+6. Registro individual pendente.
+
+IMPORTANTE
+Esta versão foi produzida sobre o ZIP já corrigido de Relatórios + Impressão, preservando essas alterações.

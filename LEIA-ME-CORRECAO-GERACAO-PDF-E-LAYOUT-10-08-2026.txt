@@ -1,0 +1,11 @@
+ARK EDUS — correção da geração/impressão da prova
+
+- Removido o paginador JavaScript complexo do modelo de prova, que podia desorganizar o conteúdo e impedir/atrapalhar a abertura da impressão.
+- A escolha de 1 ou 2 colunas continua dentro de Aplicações, no momento de baixar o modelo.
+- A paginação agora usa o fluxo nativo de impressão do navegador, mais estável.
+- Margens A4 compactas e moldura dupla repetida nas páginas impressas.
+- Cabeçalho e instruções compactados para economizar papel.
+- Questões podem continuar na página/coluna seguinte; alternativas e imagens são protegidas contra cortes ruins.
+- Imagens discursivas permanecem maiores que as imagens comuns, respeitando a largura disponível.
+- Linhas discursivas foram compactadas sem serem removidas.
+- Nenhum banco platform.db foi incluído ou alterado.

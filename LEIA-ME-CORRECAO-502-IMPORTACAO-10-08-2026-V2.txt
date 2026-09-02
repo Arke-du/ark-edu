@@ -1,0 +1,14 @@
+ARK EDUS — CORREÇÃO 502 NA IMPORTAÇÃO DE CARTÕES (V2)
+
+Causa encontrada:
+O leitor de QR fazia muitas chamadas pesadas do OpenCV, inclusive detectAndDecodeMulti e ampliações de uma foto A4 inteira. Em uma imagem real de cartão esse caminho pode levar mais de 60 segundos e prender o worker do Gunicorn, fazendo o Render responder 502 Bad Gateway.
+
+Correção desta versão:
+1. O QR agora é lido por um processo isolado (qr_worker.py).
+2. Cada leitura tem limite máximo de 12 segundos. Se o cartão estiver difícil, a página é enviada para erro/revisão em vez de derrubar o servidor.
+3. O leitor trabalha prioritariamente apenas no topo direito, onde fica o QR do cartão ARK EDUS.
+4. Foi removido detectAndDecodeMulti do caminho crítico.
+5. O processo limita o tamanho da imagem e reduz uso de RAM.
+6. Gunicorn permanece com 1 worker, 2 threads e timeout de 180 segundos.
+
+IMPORTANTE: este pacote não contém plataforma.db.

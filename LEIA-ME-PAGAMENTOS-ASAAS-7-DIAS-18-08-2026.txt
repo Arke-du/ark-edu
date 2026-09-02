@@ -1,0 +1,29 @@
+ARK EDUS — ASAAS + 7 DIAS GRÁTIS
+
+Fluxo implementado:
+1. Todo novo professor autônomo recebe 7 dias completos do Plano Professor.
+2. Se escolher o Plano Gratuito, não há cobrança e ao fim do teste a conta vira Gratuita.
+3. Se escolher o Plano Professor, o usuário escolhe PIX, boleto ou cartão no checkout.
+4. A ARK EDUS cria/recupera o cliente no Asaas e cria uma assinatura mensal de R$ 39,90.
+5. O primeiro vencimento (nextDueDate) é definido para o fim dos 7 dias grátis.
+6. O webhook registra cobranças e ativa a assinatura após PAYMENT_RECEIVED/PAYMENT_CONFIRMED.
+7. Se a cobrança vencer sem pagamento após o teste, a assinatura fica pendente e o acesso premium é bloqueado até a regularização.
+
+Cartão:
+- Os dados são enviados diretamente pelo servidor ao Asaas e NÃO são gravados no banco da ARK EDUS.
+- O cartão é validado na criação; a primeira cobrança ocorre apenas no vencimento após o teste.
+- HTTPS deve permanecer ativo em produção.
+
+Variáveis Render:
+ASAAS_ENV=production
+ASAAS_API_KEY=<sua chave>
+ASAAS_WEBHOOK_TOKEN=<token secreto igual ao configurado no webhook Asaas>
+
+Webhook no Asaas:
+https://www.arkedus.com.br/api/asaas/webhook
+
+Eventos tratados:
+PAYMENT_CREATED, PAYMENT_RECEIVED, PAYMENT_CONFIRMED, PAYMENT_OVERDUE, PAYMENT_DELETED, PAYMENT_REFUNDED.
+
+Importante:
+Antes de produção, teste primeiro no Sandbox com ASAAS_ENV=sandbox e uma chave Sandbox.

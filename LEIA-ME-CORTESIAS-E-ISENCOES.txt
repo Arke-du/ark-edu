@@ -1,0 +1,35 @@
+ARK EDUS — CORTESIAS E ISENÇÕES
+
+Esta versão adiciona ao Administrador Geral a área:
+Gestão > Cortesias
+
+FUNCIONAMENTO
+- Permite selecionar professor autônomo ou instituição.
+- Permite liberar gratuitamente um plano pago.
+- Professor autônomo: Plano Professor.
+- Instituição: Start ou Essencial.
+- A data final é opcional. Sem data final, a cortesia não vence.
+- A conta isenta não gera cobrança e não é bloqueada por status do gateway.
+- Quando a validade termina, o acesso deixa de ser liberado pela cortesia.
+- A conta continua obedecendo aos limites e recursos do plano escolhido.
+- O usuário vê a informação "Cortesia / Isento de cobrança" em Minha assinatura.
+
+BANCO DE DADOS
+Na primeira inicialização, o sistema adiciona automaticamente à tabela assinaturas_saas:
+- isento
+- motivo_isencao
+- isencao_inicio
+- isencao_fim
+- concedida_por
+
+PUBLICAÇÃO
+1. Faça backup do projeto e do banco atual.
+2. Substitua os arquivos pelos desta pasta.
+3. Envie para o GitHub/Render.
+4. Reinicie a aplicação para executar a migração automática.
+5. Entre como Administrador Geral e acesse Cortesias no menu lateral.
+
+IMPORTANTE
+Para retirar uma cortesia, abra a área Cortesias, selecione a conta, desmarque
+"Isento de cobrança" e salve. A conta ficará pendente até que a cobrança seja
+regularizada ou uma nova cortesia seja concedida.

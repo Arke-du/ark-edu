@@ -1,0 +1,11 @@
+ARK EDUS — CORREÇÃO 502 NA IMPORTAÇÃO DE CARTÕES
+
+Correções aplicadas:
+1. Gunicorn passa a tolerar até 180 s para processamento de lotes/PDF, evitando encerramento do worker no timeout padrão de 30 s.
+2. Apenas 1 worker pesado de visão computacional, com 2 threads para requisições leves, reduzindo pico de RAM.
+3. Removida pré-leitura paralela de QR Codes: OpenCV simultâneo podia estourar memória da instância e causar 502.
+4. PDF renderizado em 1.25x em vez de 1.6x, reduzindo RAM e mantendo resolução suficiente para QR e marcações.
+5. Mantidos JPG/JPEG/PNG/PDF, revisão de ambiguidades e persistência /var/data.
+6. plataforma.db NÃO está incluído neste pacote.
+
+IMPORTANTE: após enviar ao Git, confirme no Render que o deploy usa o Procfile/render.yaml deste pacote.

@@ -1,0 +1,11 @@
+ARK EDUS — Correção de quebra de página da prova
+
+Correções aplicadas:
+- Questões curtas não podem mais ter o título isolado no fim/início de uma página.
+- O conteúdo de todas as páginas passa a respeitar a margem interna da moldura.
+- As margens de impressão foram transferidas para @page, evitando que apenas a primeira página tivesse o espaçamento correto.
+- Alternativas evitam quebra no meio da linha.
+- Cabeçalho e instruções continuam indivisíveis na impressão.
+- Mantida a regra de Nota condicional já implementada.
+
+O arquivo plataforma.db não faz parte deste pacote, para não sobrescrever cadastros existentes.

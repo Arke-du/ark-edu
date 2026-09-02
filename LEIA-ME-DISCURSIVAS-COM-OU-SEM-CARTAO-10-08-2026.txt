@@ -1,0 +1,21 @@
+ARK EDUS — CORREÇÃO DE DISCURSIVAS COM OU SEM IMPORTAÇÃO DO CARTÃO
+10/08/2026
+
+O que foi alterado:
+1. A tela "Lançar / corrigir discursivas" agora funciona mesmo antes de importar cartões.
+2. Os registros faltantes das questões discursivas são criados com INSERT OR IGNORE, preservando qualquer imagem, correção ou importação já existente.
+3. Se houver imagem importada, ela continua aparecendo normalmente. Sem imagem, a tela mostra o modo de lançamento manual para o professor consultar a prova física.
+4. Provas COM nota continuam usando pontuação numérica e pesos exatamente como antes.
+5. Provas SEM nota passam a usar três classificações pedagógicas:
+   - Totalmente certa
+   - Parcialmente certa
+   - Errada
+6. O relatório de provas sem nota mostra os totais dessas três classificações e o mapa de respostas usa C / P / E.
+7. A alteração NÃO modifica geração de QR Code, modelo da prova, cartão-resposta, embaralhamento ou códigos já impressos.
+8. Não há plataforma.db neste pacote.
+
+Fluxos disponíveis:
+A) Com cartão: importar cartões -> corrigir discursivas.
+B) Sem cartão: Aplicações -> Lançar / corrigir discursivas -> consultar a prova física -> salvar.
+
+Os dois fluxos usam o mesmo registro de correção. Importar uma folha depois não exige recriar a aplicação nem reimprimir cartões.

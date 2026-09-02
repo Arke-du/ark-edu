@@ -1,0 +1,13 @@
+ARK EDUS - CORREÇÃO DA TELA DE CARTÕES EM BRANCO
+
+Correções aplicadas:
+1. /aplicacoes/<id>/cartoes não fica mais em branco quando a aplicação antiga não possui registros em aplicacao_alunos.
+2. Nessa situação, a tela usa os alunos atualmente matriculados na turma apenas para gerar os cartões, sem alterar/gravar o banco.
+3. Mantido o modelo distribuído de forma determinística (1..quantidade_modelos).
+4. Logo institucional passa a usar a rota persistente /uploads, compatível com UPLOAD_FOLDER no Render.
+5. Se realmente não houver alunos, a página mostra uma mensagem clara em vez de uma tela vazia.
+6. Sintaxe de app.py e saas_arkedu.py validada e template Jinja validado.
+
+SEGURANÇA:
+- Este pacote não contém plataforma.db nem arquivos SQLite.
+- Não substitua /var/data/plataforma.db no Render.

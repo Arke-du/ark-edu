@@ -1,0 +1,40 @@
+ARK EDUS — CORREÇÃO DO WORKSPACE DO PROFESSOR AUTÔNOMO
+========================================================
+
+Esta versão corrige o erro exibido ao cadastrar turmas:
+"A instituição selecionada não existe ou está inativa."
+
+O que foi corrigido
+-------------------
+1. Cada Professor Autônomo passa a ter um workspace privado interno.
+2. Contas antigas sem escola_id são reparadas automaticamente ao iniciar o app.
+3. Se o workspace tiver sido removido ou estiver inativo, ele é recriado/reativado.
+4. O ano letivo atual é garantido automaticamente para o workspace.
+5. A sessão recebe o escola_id correto antes das rotas de turmas, alunos e provas.
+6. Contas antigas com cargo Professor Autônomo são migradas para tipo_conta=autonomo.
+7. Quando não existe assinatura legada, é criada uma assinatura gratuita ativa.
+8. A página de Turmas mostra "suas turmas" para o professor autônomo.
+9. A verificação de cargos foi ajustada para reconhecer explicitamente o cargo Professor Autônomo.
+
+Como aplicar
+------------
+1. Faça backup do seu plataforma.db atual.
+2. Substitua os arquivos do projeto pelos arquivos deste ZIP.
+3. Não substitua seu plataforma.db de produção por um banco antigo do ZIP.
+4. Inicie normalmente:
+
+   python app.py
+
+Na primeira inicialização, a correção automática repara os professores autônomos existentes.
+
+Arquivos principais alterados
+-----------------------------
+- saas_arkedu.py
+- app.py
+- templates/gestao/turmas.html
+
+Validação realizada
+-------------------
+- app.py compilado sem erros de sintaxe.
+- saas_arkedu.py compilado sem erros de sintaxe.
+- services/plano_service.py compilado sem erros de sintaxe.

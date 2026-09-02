@@ -1,0 +1,14 @@
+ARK EDUS — AJUSTE DE ALINHAMENTO NA GERAÇÃO DA PROVA
+Data: 10/08/2026
+
+ALTERAÇÕES REALIZADAS
+- Enunciados das questões passam a ser impressos com alinhamento JUSTIFICADO.
+- Textos das alternativas também passam a ser impressos com alinhamento JUSTIFICADO.
+- O ajuste foi aplicado ao modelo de prova gerado em 1 ou 2 colunas.
+- Também foi ajustada a visualização/impressão da prova para manter o mesmo padrão.
+- Imagens continuam centralizadas e sem deformação.
+- Não foi incluído banco de dados no ZIP.
+
+ARQUIVOS ALTERADOS
+- templates/aplicacoes/modelo_prova.html
+- templates/visualizar_prova.html

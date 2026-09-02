@@ -1,0 +1,6 @@
+ARK EDUS - correções 10/08/2026
+
+1. Habilidade BNCC: ao clicar/focar no campo, a lista de habilidades é carregada automaticamente, considerando componente, etapa e ano/série quando disponíveis. Continua possível pesquisar por código ou descrição.
+2. Limite de envio: aumentado de 10 MB para 50 MB para evitar erro 413 em questões com imagens.
+3. Erro 413: adicionado tratamento amigável, evitando a página branca padrão.
+4. Banco de dados: nenhum arquivo plataforma.db foi incluído/alterado.

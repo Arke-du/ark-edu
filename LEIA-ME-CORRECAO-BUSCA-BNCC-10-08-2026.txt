@@ -1,0 +1,15 @@
+ARK EDUS — CORREÇÃO DA BUSCA DE HABILIDADES BNCC — 10/08/2026
+
+Correções aplicadas:
+- busca local continua sendo a primeira opção;
+- fallback online da API pública bncc.dev foi reforçado;
+- compatibilidade com diferentes formatos de resposta da API;
+- correção de prática de linguagem/campos de atuação retornados como lista;
+- suporte adicional ao campo "objetos" para objeto do conhecimento;
+- tentativa extra pelo endpoint /v1/habilidades quando necessário;
+- mensagens da tela de Nova Questão ajustadas.
+
+A pesquisa aceita código (ex.: EF05LP06) ou trecho da descrição.
+Ao selecionar uma habilidade, Objeto do conhecimento e Unidade temática/Prática de linguagem são preenchidos automaticamente quando disponíveis.
+
+IMPORTANTE: este pacote permanece SEM plataforma.db para não sobrescrever os dados online.

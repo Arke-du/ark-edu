@@ -1,0 +1,16 @@
+ARK EDUS — JOGOS E DASHBOARD — 20/08/2026
+
+Implementado:
+- Correção de contraste do banner da Central de Jogos.
+- Resposta Rápida funcional.
+- Conecte funcional.
+- Coloque em Ordem funcional.
+- Descubra funcional com pistas.
+- Criação de atividades, código de acesso, tela /jogar, pontuação e ranking.
+- Registro de partidas e participações.
+- Indicadores reais na tela Jogos.
+- Dashboard: Assinaturas, Cortesias, Relatórios, Inteligência Pedagógica e Jogos agora exibem quantidades.
+- Cards do Dashboard continuam somente informativos, sem links.
+
+Banco:
+As tabelas jogos_atividades, jogos_partidas e jogos_participacoes são criadas automaticamente sem apagar dados existentes.

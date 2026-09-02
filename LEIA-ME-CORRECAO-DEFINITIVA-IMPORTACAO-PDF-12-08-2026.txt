@@ -1,0 +1,17 @@
+ARK EDUS — CORREÇÃO DA IMPORTAÇÃO DE PDFs GRANDES — 12/08/2026
+
+Problema localizado:
+- o leitor de QR podia gastar muitos segundos em páginas digitalizadas;
+- o Gunicorn encerrava a requisição após 180 s;
+- o banco só recebia COMMIT no final do lote, por isso cartões já lidos voltavam a aparecer como pendentes quando o processo era interrompido.
+
+Correções aplicadas nesta versão:
+1. Timeout do servidor ampliado para 900 s em Procfile e render.yaml.
+2. Leitor de QR com tentativa rápida no recorte real do QR e limite individual menor, evitando uma única página travar o lote.
+3. Pré-leitura dos QRs feita uma única vez por página.
+4. Recuperação segura de QR borrado quando a ordem completa do PDF é confirmada pelos demais QRs e coincide 100% com a ordem dos alunos da aplicação.
+5. COMMIT após CADA cartão processado; um erro posterior não apaga o que já foi corrigido.
+6. Páginas com falha deixam de ser apagadas silenciosamente: ficam registradas no histórico da importação para auditoria.
+7. A interface deixa de informar que páginas com falha serão descartadas.
+
+Banco de dados não incluído no ZIP.

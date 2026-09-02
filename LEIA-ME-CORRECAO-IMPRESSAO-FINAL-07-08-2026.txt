@@ -1,0 +1,14 @@
+ARK EDUS — CORREÇÃO FINAL DA IMPRESSÃO — 07/08/2026
+
+Correções aplicadas:
+1. Campo NOTA só aparece quando "A avaliação terá nota?" estiver realmente marcado.
+2. Nova avaliação passa a iniciar com a opção de nota DESMARCADA.
+3. Valores nulos/ausentes de tem_nota são tratados como SEM NOTA.
+4. Moldura da prova reforçada na visualização e repetida na impressão/PDF.
+5. Margens A4 ampliadas para impedir que questões e alternativas encostem na moldura nas páginas seguintes.
+6. Quebras de página preservam questão, título e alternativas sempre que possível.
+
+IMPORTANTE:
+- plataforma.db NÃO está incluído neste ZIP.
+- Seus cadastros existentes não são substituídos.
+- Para uma avaliação antiga que já esteja gravada com tem_nota=1, abra "Editar avaliação", desmarque "A avaliação terá nota?" e salve uma vez. Depois disso o campo Nota ficará oculto.

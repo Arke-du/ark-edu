@@ -1,0 +1,32 @@
+ARK EDUS — GERENCIAMENTO DE ASSINATURAS E CORTESIAS
+
+ALTERAÇÕES DESTA VERSÃO
+
+1. PROFESSOR AUTÔNOMO
+- Página "Minha assinatura" no menu lateral.
+- Visualização do plano atual, status, valor, início, próxima renovação, método de pagamento, renovação automática e gateway.
+- Histórico das 12 cobranças mais recentes.
+- Escolha do método de pagamento no checkout: PIX, boleto ou cartão.
+
+2. INSTITUIÇÕES
+- No cadastro da instituição, o Administrador Geral define:
+  plano Start ou Essencial; status inicial; método de pagamento; próxima cobrança;
+  renovação automática ou manual; cobrança normal ou cortesia; validade e motivo da cortesia;
+  observações internas de cobrança.
+- O Administrador da Instituição vê e acompanha a assinatura em "Minha assinatura".
+- A assinatura institucional é compartilhada pela escola, mesmo que o administrador que a visualize não seja o usuário que recebeu o registro inicial.
+
+3. CORTESIAS
+- Botão Editar preenche o formulário com a cortesia existente.
+- Botão Excluir remove a isenção e devolve a conta à cobrança normal.
+- A exclusão exige confirmação.
+- Somente o Administrador Geral pode criar, editar ou excluir cortesias.
+
+4. BANCO DE DADOS
+Na primeira inicialização, o sistema adiciona automaticamente em assinaturas_saas:
+- metodo_pagamento
+- renovacao_automatica
+- observacao_cobranca
+
+ATENÇÃO
+Faça backup de plataforma.db antes de publicar. Inicie com `python app.py` uma vez para executar as migrações automáticas.

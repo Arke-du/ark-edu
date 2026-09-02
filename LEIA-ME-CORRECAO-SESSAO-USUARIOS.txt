@@ -1,0 +1,16 @@
+ARK EDUS — CORREÇÃO DE SESSÃO ENTRE PROFESSORES
+
+Correções aplicadas:
+1. Ao concluir um novo cadastro de professor autônomo, qualquer sessão antiga do navegador é encerrada.
+2. O link da confirmação leva realmente à tela de login, sem retornar ao dashboard do usuário anterior.
+3. Em toda requisição autenticada, nome, cargo, tipo de conta e escola são sincronizados diretamente do banco pelo usuario_id.
+4. Se o usuário estiver inativo ou não existir mais, a sessão é encerrada automaticamente.
+5. Dashboard, menu lateral e topo passam a priorizar o nome obtido do usuário autenticado no banco.
+6. Cada professor continua vinculado somente ao seu próprio workspace autônomo.
+
+Teste recomendado:
+- Entre como Luana.
+- Abra Cadastre-se e crie outro professor.
+- Na confirmação, clique em Ir para a tela de login.
+- Entre com o novo e-mail.
+- Confirme que nome, espaço, turmas e assinatura pertencem ao novo professor.

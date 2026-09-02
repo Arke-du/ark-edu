@@ -1,0 +1,12 @@
+ARK EDUS — melhoria final dos layouts de impressão (1 e 2 colunas)
+
+Ajustes desta versão:
+- Corrigido o problema de páginas/colunas quase vazias causado por alturas fixas herdadas do editor de questões.
+- Imagens passam a respeitar a área útil sem gerar blocos invisíveis gigantes.
+- Evita título/enunciado órfão em uma página quando a imagem principal pode seguir junto no próximo espaço.
+- Redução leve e segura de margens e espaços entre questões, preservando legibilidade.
+- Duas colunas com melhor aproveitamento horizontal e imagens um pouco maiores.
+- Questões discursivas passam a aceitar 0 linhas de resposta quando configurado; o padrão, quando não informado, é 3 linhas.
+- Mantida a escolha de 1 ou 2 colunas dentro de Aplicações.
+
+Não inclui platform.db.

@@ -1,0 +1,26 @@
+ARK EDUS — AJUSTES DE PLANOS E ADMINISTRAÇÃO DE ASSINATURAS
+
+Alterações realizadas em 18/08/2026:
+
+1. Plano Gratuito
+- Mantido limite de 1 turma.
+- Limite alterado de 50 para 40 alunos.
+- Limite alterado de 2 para 1 prova por mês.
+- Regras atualizadas no código SaaS e textos comerciais do site.
+- A migração de planos atualiza também os limites existentes em planos_saas.
+
+2. Administrador Geral — nova aba Assinaturas
+- Menu lateral: Assinaturas.
+- URL: /gestao/assinaturas
+- Acesso exclusivo ao Administrador Geral.
+- Indicadores de total, acessos liberados, pendentes, canceladas e receita mensal prevista.
+- Busca e filtros por tipo, plano e status.
+- Visualização do último pagamento, método, vencimento, gateway e renovação.
+- Ações para ativar acesso, suspender acesso, cancelar assinatura e alterar plano.
+- Ao cancelar uma assinatura vinculada ao Asaas, a ARK EDUS tenta cancelar também a recorrência no gateway.
+- Ao mudar um Professor do plano Professor para o Gratuito, a recorrência Asaas também é cancelada para evitar cobrança futura.
+
+3. Teste gratuito
+- Os 7 dias grátis permanecem inalterados.
+- Durante o trial, o usuário continua com os recursos do Plano Professor.
+- Os limites de 40 alunos e 1 prova/mês passam a valer quando a conta efetivamente estiver no Plano Gratuito.

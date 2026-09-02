@@ -1,0 +1,12 @@
+ARK EDUS — CORREÇÃO DA IMPORTAÇÃO DE PDF GRANDE (12/08/2026)
+
+Correções aplicadas:
+1. PDF passa a ser renderizado página por página, reduzindo pico de memória.
+2. Cada cartão processado é confirmado no banco imediatamente; uma falha posterior não perde os anteriores.
+3. Página que não puder ser lida não é mais apagada/descartada silenciosamente: fica registrada como "Revisão necessária", com imagem e motivo.
+4. O PDF temporário só é removido após terminar o processamento das páginas.
+5. Timeout do Gunicorn ampliado de 180s para 600s para lotes extensos.
+6. Leitura isolada do QR mantém limite por página para impedir travamento infinito do worker.
+7. Mantida a leitura segura das bolhas: marcações ambíguas/em branco seguem para revisão, sem inventar resposta.
+
+IMPORTANTE: nenhum banco de dados foi incluído/alterado neste pacote.

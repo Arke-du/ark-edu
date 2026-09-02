@@ -1,0 +1,25 @@
+ARK EDUS — CORREÇÃO DE IMAGENS NAS QUESTÕES
+Data: 07/08/2026
+
+ALTERAÇÕES
+1. A impressão/visualização da avaliação agora carrega a imagem cadastrada na questão pelo diretório de uploads configurado na plataforma.
+2. Compatibilidade com referências antigas de imagem (nome simples, uploads/..., /static/uploads/...).
+3. A edição da questão agora permite manter, substituir ou remover a imagem do enunciado.
+4. A edição também permite manter, substituir ou remover imagens das alternativas.
+5. A impressão passa a renderizar imagens cadastradas nas alternativas.
+6. A edição continua criando uma cópia, preservando a questão original, conforme comportamento já existente.
+
+PRESERVAÇÃO DOS DADOS
+- Nenhum comando de exclusão ou limpeza de dados foi adicionado.
+- O arquivo plataforma.db recebido não foi alterado por esta correção.
+- Para o ambiente online, mantenha DATABASE_PATH apontando para o banco persistente já utilizado no Render.
+- Para que imagens enviadas sobrevivam a reinícios/deploys do Render, UPLOAD_FOLDER deve apontar para armazenamento persistente (por exemplo, um Persistent Disk). A nova rota /uploads/... serve os arquivos diretamente desse diretório configurado.
+
+IMPORTANTE NO DEPLOY
+Não substitua manualmente o banco persistente online pelo plataforma.db do ZIP. Publique o código mantendo as mesmas variáveis DATABASE_PATH e UPLOAD_FOLDER do ambiente online.
+
+ATUALIZAÇÃO ADICIONAL — IMPORTAÇÃO POR FOTO/PRINT
+- A tela Importar questões também aceita PNG/JPG/JPEG/WEBP.
+- A leitura usa visão por IA somente na etapa de importação e exige OPENAI_API_KEY no ambiente.
+- O professor revisa uma prévia antes de gravar qualquer questão.
+- O banco de dados existente não é apagado nem recriado.

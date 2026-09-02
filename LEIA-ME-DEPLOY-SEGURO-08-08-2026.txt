@@ -1,0 +1,26 @@
+ARK EDUS - DEPLOY SEGURO / RENDER
+
+Este pacote NÃO deve substituir o banco de produção.
+
+Render:
+DATABASE_PATH=/var/data/plataforma.db
+UPLOAD_FOLDER=/var/data/uploads
+BACKUP_DIR=/var/data/backups
+RENDER_DISK_PATH=/var/data
+Persistent Disk mount path: /var/data
+
+Correção incluída:
+- migração defensiva cria professor_vinculos e componentes_curriculares se estiverem ausentes;
+- nenhuma tabela é apagada;
+- nenhum dado é limpo;
+- plataforma.db foi colocado no .gitignore para evitar que um banco local seja enviado ao Git.
+
+ANTES DO DEPLOY:
+1. Não apague /var/data/plataforma.db.
+2. Faça backup do banco atual pelo recurso de backup da plataforma ou pelo Shell.
+3. Não copie o plataforma.db do projeto para /var/data.
+
+Se plataforma.db já estiver rastreado pelo Git, rode uma única vez:
+  git rm --cached plataforma.db
+Isso remove apenas do Git; não apaga o arquivo local.
+Depois: git add . && git commit && git push.

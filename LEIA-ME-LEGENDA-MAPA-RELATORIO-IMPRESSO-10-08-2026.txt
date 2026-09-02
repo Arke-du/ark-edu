@@ -1,0 +1,15 @@
+ARK EDUS - LEGENDA NO MAPA DE RESPOSTAS IMPRESSO
+Data: 10/08/2026
+
+Alteração realizada:
+- A legenda do Mapa de Respostas agora aparece também na impressão/PDF do relatório.
+- As cores da legenda são preservadas na impressão.
+- Em avaliações sem nota, a legenda inclui também:
+  TC = Totalmente certa
+  PC = Parcialmente certa
+  EE = Errada
+  EB = Em branco
+- AN = Anulada e DM = Dupla marcação permanecem na legenda.
+
+Esta alteração é somente no relatório de resultados.
+Não altera QR Codes, cartões-resposta, códigos de prova nem cartões A4/A5 já gerados.

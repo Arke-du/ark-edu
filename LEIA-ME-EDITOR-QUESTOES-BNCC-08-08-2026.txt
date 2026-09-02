@@ -1,0 +1,11 @@
+ARK EDUS - Editor de questões e fluxo BNCC
+
+Alterações:
+1. Imagem principal separada removida do cadastro e da edição.
+2. Imagens são inseridas diretamente no editor do enunciado.
+3. Imagens podem ser movidas, redimensionadas e alinhadas à esquerda/centro/direita.
+4. enunciado_html é salvo e usado na visualização da questão, montagem/visualização da prova e impressão/PDF.
+5. Edição usa o mesmo modelo de editor e converte imagens embutidas em uploads persistentes.
+6. Validação do gabarito ocorre antes do envio do formulário, evitando recarregar/zerar o conteúdo quando falta alternativa correta.
+7. BNCC começa pela Habilidade. Ao selecionar/digitar uma habilidade, Objeto do conhecimento e Unidade temática são preenchidos automaticamente.
+8. Nenhum arquivo de banco de dados está incluído neste pacote. Mantenha DATABASE_PATH=/var/data/plataforma.db no Render.

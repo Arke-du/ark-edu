@@ -1,0 +1,33 @@
+ARK EDUS — IMPORTAÇÃO DE ALUNOS POR PDF
+========================================
+
+Implementado em 07/08/2026.
+
+NOVO FLUXO
+1. Acesse Alunos e Matrículas.
+2. Clique em "Importar PDF".
+3. Selecione a turma de destino.
+4. Envie a relação alfabética em PDF.
+5. Confira matrícula e nome dos alunos encontrados.
+6. Desmarque linhas que não desejar importar e corrija campos, se necessário.
+7. Clique em "Confirmar importação".
+
+REGRAS
+- O PDF deve conter texto selecionável (PDF original/exportado pelo sistema escolar).
+- O formato principal reconhecido é: Matrícula | Nº | Nome do Aluno.
+- Matrículas repetidas no mesmo arquivo são ignoradas.
+- Se o aluno já existir na instituição, o cadastro permanente é reutilizado.
+- Se o aluno já estiver matriculado no mesmo ano letivo, não é duplicado.
+- A importação só funciona no ano letivo ativo.
+- A prévia fica disponível por 30 minutos e é vinculada ao usuário logado.
+- O upload continua sujeito ao limite global de 10 MB da aplicação.
+
+DEPENDÊNCIA ADICIONADA
+pypdf>=5.0,<7
+
+ARQUIVOS ALTERADOS/CRIADOS
+- app.py
+- requirements.txt
+- templates/alunos.html
+- templates/importar_alunos.html
+- LEIA-ME-IMPORTACAO-ALUNOS-PDF.txt

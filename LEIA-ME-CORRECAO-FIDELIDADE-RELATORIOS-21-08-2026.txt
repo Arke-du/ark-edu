@@ -1,0 +1,23 @@
+ARK EDUS — CORREÇÃO DE FIDELIDADE DOS RELATÓRIOS
+Data: 21/08/2026
+
+Objetivo
+Garantir que resultados, médias e estatísticas pedagógicas representem fielmente a correção oficial de cada aluno em cada avaliação.
+
+Alterações realizadas
+1. Uma única aplicação oficial por aluno/prova nos relatórios.
+2. Em reaplicações corrigidas, prevalece a correção concluída mais recente.
+3. Aplicações antigas do mesmo aluno não duplicam médias, ranking ou indicadores.
+4. Estatísticas por questão usam somente respostas da aplicação oficial.
+5. Resultados e respostas legados continuam compatíveis quando não existe dado equivalente no fluxo novo.
+6. O fallback legado não duplica uma resposta já existente na aplicação oficial.
+7. Rotas antigas de relatório por questão também passaram a usar a consolidação sem duplicidade.
+
+Validações executadas
+- Compilação sintática de app.py: OK.
+- Teste SQL com duas aplicações corrigidas do mesmo aluno: OK; somente a mais recente foi contabilizada.
+- Teste de respostas de reaplicação: OK; respostas antigas não interferiram.
+- Teste de compatibilidade com resultado legado: OK.
+
+Observação
+Não foi possível executar a aplicação Flask completa neste ambiente porque as dependências do projeto não estão instaladas aqui. A sintaxe Python e a lógica SQL alterada foram verificadas separadamente.

@@ -1,0 +1,11 @@
+ARK EDUS — Hierarquia de usuários e correções de interface — 18/08/2026
+
+- Removida a seleção manual de “Permissões de acesso” dos formulários de cadastrar e editar usuário.
+- As permissões de módulos passam a ser definidas automaticamente pelo perfil/cargo.
+- Administrador Geral mantém gestão global.
+- Administrador da Instituição pode cadastrar/atribuir apenas Coordenador, Professor e Secretário da própria instituição.
+- Professor Autônomo mantém ambiente próprio e agora visualiza Anos Letivos no menu.
+- Inteligência Pedagógica usa permissão própria, em vez de depender visualmente de Relatórios.
+- Filtros da Inteligência Pedagógica receberam larguras maiores para reduzir textos cortados.
+- Título do cabeçalho do Relatório Pedagógico foi forçado para branco sobre o fundo azul.
+- Registros antigos em usuario_permissoes deixam de controlar o acesso; a regra passa a ser centralizada por perfil.

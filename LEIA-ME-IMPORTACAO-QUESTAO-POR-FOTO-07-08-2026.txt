@@ -1,0 +1,27 @@
+ARK EDUS — IMPORTAÇÃO DE QUESTÃO POR FOTO/PRINT
+Data: 07/08/2026
+
+O que foi adicionado
+- O menu já existente "Importar questões" agora aceita PNG, JPG, JPEG e WEBP.
+- O professor pode tirar print/foto de uma questão de livro e enviar.
+- A IA lê o enunciado e alternativas e prepara uma prévia antes de salvar.
+- Se houver figura/tirinha/gráfico/mapa necessário à questão, a IA informa a região e a plataforma tenta recortar somente essa figura para usar na questão.
+- Gabarito NÃO é inventado: quando não estiver visível, a questão entra sem gabarito e aparece aviso para revisão.
+- BNCC/dificuldade/componente podem ser sugeridos, mas sempre devem ser revisados pelo professor.
+
+CONFIGURAÇÃO NO RENDER
+1. Abra o serviço ARK EDUS > Environment.
+2. Crie OPENAI_API_KEY com sua chave de API.
+3. Opcional: OPENAI_VISION_MODEL=gpt-5.6-luna
+4. Faça novo deploy.
+
+SEGURANÇA DOS DADOS
+- Esta alteração NÃO apaga, recria ou substitui o banco de dados.
+- Não há migration destrutiva.
+- O banco online continua sendo o indicado em DATABASE_PATH.
+- Não substitua manualmente o plataforma.db persistente do Render pelo arquivo local do ZIP.
+- A questão somente é gravada no banco quando o professor confirma a importação.
+
+PRIVACIDADE
+- Ao usar importação por foto/print, a imagem enviada é processada pela API de IA configurada no servidor.
+- O professor deve possuir autorização para usar o conteúdo enviado e observar direitos autorais/licenças do material didático.

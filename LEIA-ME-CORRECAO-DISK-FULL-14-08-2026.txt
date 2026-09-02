@@ -1,0 +1,18 @@
+ARK EDUS — CORREÇÃO DATABASE OR DISK IS FULL — 14/08/2026
+
+Causa encontrada:
+- Persistent Disk configurado com apenas 1 GB.
+- O backup automático incluía TODOS os uploads diariamente e mantinha 30 dias.
+- PDFs de cartões eram convertidos em PNG 2x e essas imagens permaneciam no disco.
+
+Correções aplicadas:
+1. Backups não duplicam uploads por padrão (BACKUP_INCLUDE_UPLOADS=false).
+2. Retenção padrão reduzida para 3 dias e no máximo 3 arquivos de backup.
+3. Limpeza dos backups antigos ocorre diretamente no filesystem ao iniciar, inclusive se o SQLite estiver sem espaço para escrever.
+4. Cartões processados passam a ser armazenados como JPEG otimizado (máx. 2000 px, qualidade 82), preservando visualização/revisão e reduzindo muito o espaço.
+5. render.yaml recebeu as configurações seguras de backup.
+
+IMPORTANTE NO RENDER:
+- O deploy desta versão deve liberar backups antigos ao iniciar.
+- Recomenda-se aumentar o Persistent Disk de 1 GB para pelo menos 5 GB para uso real com muitas turmas/cartões.
+- Não apagar plataforma.db.

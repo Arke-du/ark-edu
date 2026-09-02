@@ -1,0 +1,17 @@
+ARK EDUS — LEITURA DE CARTÕES A4 E A5
+10/08/2026
+
+Esta versão foi ajustada para cartões impressos em A4 e também para os cartões que já foram reduzidos/impressos em A5.
+
+ALTERAÇÕES PRINCIPAIS
+- QR é lido primeiro no recorte original, sem reduzir a foto inteira.
+- Leitura por ZXing-cpp, pyzbar e OpenCV (fallbacks sucessivos).
+- Ampliação e nitidez específicas para QR pequeno de cartão A5.
+- PDF convertido a 2x de resolução para preservar QR e bolhas pequenas.
+- Marcadores pretos ficaram independentes do tamanho físico da folha.
+- Correção de perspectiva continua normalizando a grade antes de ler A/B/C/D.
+- Worker de QR continua isolado: uma imagem difícil não deve derrubar o Render.
+- Tela de cartões passa a oferecer Imprimir A4 e Imprimir A5 para novas impressões.
+
+IMPORTANTE PARA CARTÕES A5 JÁ IMPRESSOS
+Não é necessário reimprimir. Digitalize/fotografe o cartão inteiro, sem cortar os 4 quadrados pretos, e com foco suficiente para distinguir os quadradinhos do QR.

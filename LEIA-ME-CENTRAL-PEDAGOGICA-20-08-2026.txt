@@ -1,0 +1,54 @@
+ARK EDUS — CENTRAL PEDAGÓGICA
+Atualização: 20/08/2026
+
+Implementado sobre a versão ARK_EDUS_JOGOS_COMPLETOS_20-08-2026.
+
+RECURSOS CRIADOS
+1. Central de Habilidades BNCC/SAEB
+   - Consolida acertos por habilidade a partir das respostas das provas.
+   - Indicadores: Dominada (>=80%), Em desenvolvimento (60–79,9%) e Prioritária (<60%).
+   - Filtro por turma.
+
+2. Plano de intervenção automático
+   - Gera planos para habilidades com domínio inferior a 60%.
+   - Inclui diagnóstico, objetivo, estratégia, atividade e jogo sugerido.
+   - Status: Pendente, Em andamento e Concluída.
+   - Nova tabela intervencoes_pedagogicas criada automaticamente sem apagar dados existentes.
+
+3. Comparativo entre avaliações
+   - Compara primeira e última avaliação por aluno e disciplina.
+   - Mostra evolução positiva, estabilidade ou queda.
+   - Filtro por turma.
+
+4. Alertas pedagógicos
+   - Detecta três avaliações recentes abaixo de 6,0.
+   - Detecta último resultado abaixo de 6,0.
+   - Detecta queda superior a 2 pontos entre as duas últimas avaliações.
+   - Detecta habilidades com domínio inferior a 50%.
+
+5. Gerador inteligente de avaliações
+   - Professor seleciona nome, turma, disciplina, quantidade e dificuldade.
+   - A plataforma seleciona automaticamente questões existentes no banco.
+   - Cria a prova e mantém o fluxo normal de edição/visualização.
+
+6. Certificados e conquistas
+   - Primeiros Passos: primeira avaliação concluída.
+   - Excelência: nota >= 9,5.
+   - Em Evolução: desempenho atual acima do primeiro resultado.
+   - Consistência: cinco ou mais avaliações.
+   - Certificado pronto para imprimir/salvar em PDF pelo navegador.
+
+7. Biblioteca de atividades compartilhadas
+   - Busca por conteúdo/habilidade.
+   - Filtro por disciplina e dificuldade.
+   - Ordenação priorizando questões mais utilizadas em provas.
+   - Exibe autor e quantidade de usos.
+
+NAVEGAÇÃO
+- Nova opção "Central Pedagógica" no menu lateral.
+- A central reúne todos os sete recursos em uma única tela para evitar excesso de itens no menu.
+
+VALIDAÇÃO
+- app.py validado com py_compile.
+- Templates novos validados pelo parser Jinja2.
+- O ambiente de edição não possui Flask instalado, então não foi possível iniciar o servidor localmente.
