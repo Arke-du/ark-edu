@@ -20242,18 +20242,30 @@ def reabrir_ano_letivo(ano_letivo_id):
 
 
 def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
-    """Recalcula acerto/erro sem destruir o gabarito específico do cartão.
+    """Recalcula acerto/erro usando a questão vinculada à prova como fonte principal.
 
-    Cartões V3 gravam no QR o gabarito EXATO usado na impressão (campo GAB).
-    Esse valor é a fonte de verdade para resultados já importados. O gabarito
-    geral da questão (questoes.correta) NÃO pode ser usado para sobrescrever
-    respostas antigas, pois pode não representar o cartão/modelo efetivamente
-    aplicado ao aluno.
+    Os modelos da ARK EDUS podem embaralhar a ORDEM das questões, mas não trocam
+    a letra das alternativas. Por isso, a forma mais segura de validar uma
+    resposta já importada é usar ``questao_id -> questoes.correta``. O GAB do QR
+    e ``resposta_correta`` ficam apenas como fallback de compatibilidade.
 
-    Para registros sem GAB no QR, preservamos ``resposta_correta`` já gravada
-    na resposta objetiva e apenas recalculamos ``acertou`` a partir dela.
+    Isso também corrige registros antigos em que ``resposta`` foi lida certo,
+    mas o campo ``acertou`` ficou gravado com valor incorreto.
     """
-    # Última importação OBJETIVA de cada aluno contendo o QR original.
+    # Gabarito oficial atual por questão pertencente à prova.
+    cursor.execute("""
+        SELECT pq.questao_id, q.correta
+        FROM prova_questoes pq
+        INNER JOIN questoes q ON q.id = pq.questao_id
+        WHERE pq.prova_id = ?
+    """, (prova_id,))
+    correta_por_questao = {
+        int(r["questao_id"]): _normalizar_letra_gabarito(r["correta"])
+        for r in cursor.fetchall()
+    }
+
+    # QR ainda é mantido como fallback para cartões muito antigos ou registros
+    # cuja questão tenha ficado sem gabarito no cadastro atual.
     cursor.execute("""
         SELECT ai.aplicacao_id, ai.aluno_id, ai.qr_texto
         FROM aplicacao_importacoes ai
@@ -20270,7 +20282,6 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
                 AND COALESCE(ai2.qr_texto, '') <> ''
           )
     """, (prova_id,))
-
     gab_por_aluno = {}
     for imp in cursor.fetchall():
         dados_qr = {}
@@ -20285,7 +20296,7 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
 
     cursor.execute("""
         SELECT aro.id, aro.aplicacao_id, aro.aluno_id, aro.numero_questao,
-               aro.resposta, aro.situacao, aro.resposta_correta,
+               aro.questao_id, aro.resposta, aro.situacao, aro.resposta_correta,
                aro.acertou, COALESCE(aro.anulada, 0) AS anulada
         FROM aplicacao_respostas_objetivas aro
         INNER JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
@@ -20294,7 +20305,6 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
     """, (prova_id,))
     registros = [dict(r) for r in cursor.fetchall()]
 
-    # Organiza as respostas na mesma ordem objetiva usada para montar o GAB.
     grupos = {}
     for reg in registros:
         chave = (int(reg["aplicacao_id"]), int(reg["aluno_id"]))
@@ -20310,10 +20320,14 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
             anulada = int(reg.get("anulada") or 0) == 1
             resposta = str(reg.get("resposta") or "").strip().upper()
             situacao = str(reg.get("situacao") or "").strip().lower()
+            qid = int(reg.get("questao_id") or 0)
 
-            # Prioridade absoluta: GAB congelado no QR. Se não houver, mantém
-            # a resposta_correta já salva no processamento original.
-            correta = gab[indice] if indice < len(gab) else _normalizar_letra_gabarito(reg.get("resposta_correta"))
+            # 1) questão vinculada à prova; 2) QR; 3) valor já gravado.
+            correta = correta_por_questao.get(qid, "")
+            if not correta and indice < len(gab):
+                correta = gab[indice]
+            if not correta:
+                correta = _normalizar_letra_gabarito(reg.get("resposta_correta"))
 
             if anulada:
                 nova_correta = "ANULADA"
@@ -20322,7 +20336,6 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
                 nova_correta = correta
                 novo_acertou = int(situacao == "respondida" and resposta == correta)
             else:
-                # Sem fonte confiável, não inventa gabarito nem altera o dado.
                 continue
 
             antiga_correta = str(reg.get("resposta_correta") or "").strip().upper()
@@ -20344,8 +20357,10 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
                 alterados += 1
                 pares_afetados.add(chave)
 
-    # Mantém os totais da aplicação coerentes após a recuperação pelo QR.
-    for aplicacao_id, aluno_id in pares_afetados:
+    # Recalcula totais objetivos de TODOS os alunos da prova, inclusive quando
+    # apenas o campo acertou estava inconsistente.
+    pares = {(int(r["aplicacao_id"]), int(r["aluno_id"])) for r in registros}
+    for aplicacao_id, aluno_id in pares:
         cursor.execute("""
             SELECT COUNT(*) AS total,
                    SUM(CASE WHEN COALESCE(acertou, 0) = 1 THEN 1 ELSE 0 END) AS acertos
