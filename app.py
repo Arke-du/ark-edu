@@ -2565,6 +2565,7 @@ def criar_tabelas():
     garantir_coluna("prova_questoes", "peso", "REAL DEFAULT 0")
     garantir_coluna("prova_questoes", "ordem", "INTEGER DEFAULT 0")
     garantir_coluna("prova_questoes", "anulada", "INTEGER NOT NULL DEFAULT 0")
+    garantir_coluna("prova_questoes", "gabarito_override", "TEXT")
     garantir_coluna("instituicao", "logo", "TEXT")
     garantir_coluna("permissoes", "pode_acessar", "INTEGER DEFAULT 0")
 
@@ -11734,6 +11735,182 @@ def excluir_prova(prova_id):
 
 
 
+
+def _recalcular_resultados_legados_por_gabarito(cursor, prova_id):
+    """Reprocessa também o fluxo legado usando os dados já salvos.
+
+    Não exige reimportação. A resposta do aluno é preservada; somente
+    resposta_correta/acertou e o resumo em resultados são recalculados.
+    """
+    cursor.execute("""
+        SELECT pq.id AS vinculo_id, pq.questao_id,
+               COALESCE(pq.gabarito_override, '') AS gabarito_override,
+               q.*
+        FROM prova_questoes pq
+        INNER JOIN questoes q ON q.id = pq.questao_id
+        WHERE pq.prova_id = ?
+        ORDER BY COALESCE(NULLIF(pq.ordem, 0), pq.id), pq.id
+    """, (prova_id,))
+    itens = [dict(r) for r in cursor.fetchall()]
+    gabarito_por_numero = {}
+    for numero, item in enumerate(itens, start=1):
+        override = _normalizar_letra_gabarito(item.get("gabarito_override"))
+        gabarito_por_numero[numero] = override or _gabarito_atual_questao(item)
+
+    cursor.execute("""
+        SELECT id, aluno_id, numero_questao, resposta_aluno
+        FROM respostas_alunos
+        WHERE prova_id = ?
+    """, (prova_id,))
+    alunos = set()
+    for reg in cursor.fetchall():
+        numero = int(reg["numero_questao"] or 0)
+        correta = _normalizar_letra_gabarito(gabarito_por_numero.get(numero, ""))
+        if not correta:
+            continue
+        resposta = _normalizar_letra_gabarito(reg["resposta_aluno"])
+        acertou = int(bool(resposta) and resposta == correta)
+        cursor.execute("""
+            UPDATE respostas_alunos
+            SET resposta_correta = ?, acertou = ?
+            WHERE id = ?
+        """, (correta, acertou, reg["id"]))
+        alunos.add(int(reg["aluno_id"]))
+
+    for aluno_id in alunos:
+        cursor.execute("""
+            SELECT COUNT(*) AS total,
+                   SUM(CASE WHEN COALESCE(acertou,0)=1 THEN 1 ELSE 0 END) AS acertos
+            FROM respostas_alunos
+            WHERE prova_id = ? AND aluno_id = ?
+        """, (prova_id, aluno_id))
+        resumo = cursor.fetchone()
+        total = int(resumo["total"] or 0)
+        acertos = int(resumo["acertos"] or 0)
+        erros = max(0, total - acertos)
+        nota = round((acertos / total) * 10, 2) if total else 0
+        cursor.execute("DELETE FROM resultados WHERE prova_id = ? AND aluno_id = ?", (prova_id, aluno_id))
+        cursor.execute("""
+            INSERT INTO resultados (prova_id, aluno_id, acertos, erros, nota)
+            VALUES (?, ?, ?, ?, ?)
+        """, (prova_id, aluno_id, acertos, erros, nota))
+
+
+@app.route("/provas/<int:prova_id>/gabarito", methods=["GET", "POST"])
+def corrigir_gabarito_prova(prova_id):
+    """Permite corrigir SOMENTE o gabarito de uma prova já agendada/finalizada.
+
+    A estrutura, enunciados e alternativas permanecem bloqueados. O ajuste é
+    específico desta prova e dispara o recálculo dos resultados já existentes.
+    """
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+    try:
+        if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False, permitir_finalizada=True):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("""
+            SELECT p.id, p.nome, p.status, p.disciplina, p.data_aplicacao,
+                   t.nome AS turma_nome
+            FROM provas p
+            INNER JOIN turmas t ON t.id = p.turma_id
+            WHERE p.id = ?
+            LIMIT 1
+        """, (prova_id,))
+        prova = cursor.fetchone()
+        if not prova:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        cursor.execute("""
+            SELECT pq.id AS vinculo_id, pq.questao_id, COALESCE(pq.ordem,0) AS ordem,
+                   COALESCE(pq.gabarito_override,'') AS gabarito_override,
+                   q.tipo_questao, q.enunciado, q.enunciado_html,
+                   q.alternativa_a, q.alternativa_b, q.alternativa_c, q.alternativa_d,
+                   q.alternativas_json, q.correta, q.respostas_corretas
+            FROM prova_questoes pq
+            INNER JOIN questoes q ON q.id = pq.questao_id
+            WHERE pq.prova_id = ?
+            ORDER BY COALESCE(NULLIF(pq.ordem,0), pq.id), pq.id
+        """, (prova_id,))
+        questoes = []
+        for numero, row in enumerate(cursor.fetchall(), start=1):
+            item = dict(row)
+            item["numero"] = numero
+            override = _normalizar_letra_gabarito(item.get("gabarito_override"))
+            item["gabarito_banco"] = _gabarito_atual_questao(item)
+            item["gabarito_efetivo"] = override or item["gabarito_banco"]
+            try:
+                alternativas = json.loads(item.get("alternativas_json") or "[]")
+            except Exception:
+                alternativas = []
+            if not alternativas:
+                alternativas = []
+                for letra, campo in zip("ABCD", ("alternativa_a","alternativa_b","alternativa_c","alternativa_d")):
+                    texto = item.get(campo) or ""
+                    if texto:
+                        alternativas.append({"letra": letra, "texto": texto})
+            item["alternativas"] = alternativas
+            item["editavel_gabarito"] = item.get("tipo_questao") == "multipla_escolha"
+            questoes.append(item)
+
+        if request.method == "POST":
+            alteracoes = 0
+            for item in questoes:
+                if not item["editavel_gabarito"]:
+                    continue
+                campo = f"gabarito_{item['vinculo_id']}"
+                if campo not in request.form:
+                    continue
+                nova = _normalizar_letra_gabarito(request.form.get(campo))
+                letras_validas = {
+                    _normalizar_letra_gabarito(a.get("letra"))
+                    for a in item["alternativas"] if isinstance(a, dict)
+                }
+                letras_validas.discard("")
+                if not nova or (letras_validas and nova not in letras_validas):
+                    flash(f"Gabarito inválido na questão {item['numero']}.", "erro")
+                    return redirect(f"/provas/{prova_id}/gabarito")
+                anterior = _normalizar_letra_gabarito(item.get("gabarito_override")) or item.get("gabarito_banco")
+                # Guardamos override só quando ele difere do banco. Se voltar ao
+                # gabarito original, limpamos o override.
+                valor_override = None if nova == item.get("gabarito_banco") else nova
+                cursor.execute("""
+                    UPDATE prova_questoes
+                    SET gabarito_override = ?
+                    WHERE id = ? AND prova_id = ?
+                """, (valor_override, item["vinculo_id"], prova_id))
+                if nova != anterior:
+                    alteracoes += 1
+
+            # Repara imediatamente os dados que JÁ estão no banco.
+            _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id)
+            _recalcular_notas_aplicacoes_por_peso(cursor, prova_id=prova_id)
+            _recalcular_resultados_legados_por_gabarito(cursor, prova_id)
+            cursor.execute("UPDATE provas SET atualizado_em = ? WHERE id = ?", (
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id
+            ))
+            banco.commit()
+            if alteracoes:
+                flash(f"Gabarito atualizado. {alteracoes} questão(ões) alterada(s) e resultados recalculados.", "sucesso")
+            else:
+                flash("Gabarito conferido e resultados recalculados com os dados já existentes.", "sucesso")
+            return redirect(f"/resultados/{prova_id}")
+
+        return render_template("corrigir_gabarito_prova.html", prova=prova, questoes=questoes)
+    except Exception as erro:
+        banco.rollback()
+        app.logger.exception("Erro ao corrigir gabarito da prova %s", prova_id)
+        flash(f"Não foi possível corrigir o gabarito: {erro}", "erro")
+        return redirect(f"/resultados/{prova_id}")
+    finally:
+        banco.close()
+
+
 @app.route("/editar_prova/<int:prova_id>")
 def editar_prova(prova_id):
     banco = conectar_banco()
@@ -13263,7 +13440,7 @@ def corrigir_cartoes(prova_id):
     )
 
     cursor.execute("""
-        SELECT questoes.correta
+        SELECT COALESCE(NULLIF(TRIM(prova_questoes.gabarito_override), ''), questoes.correta) AS correta
         FROM prova_questoes
         JOIN questoes
             ON prova_questoes.questao_id = questoes.id
@@ -20329,7 +20506,7 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
     """
     # 1) Gabarito atual da questão: usado apenas como fallback final.
     cursor.execute("""
-        SELECT q.*
+        SELECT pq.questao_id, COALESCE(pq.gabarito_override, '') AS gabarito_override, q.*
         FROM prova_questoes pq
         INNER JOIN questoes q ON q.id = pq.questao_id
         WHERE pq.prova_id = ?
@@ -20337,7 +20514,11 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
     correta_por_questao = {}
     for linha in cursor.fetchall():
         reg = dict(linha)
-        correta_por_questao[int(reg["id"])] = _gabarito_atual_questao(reg)
+        qid = int(reg.get("questao_id") or reg.get("id") or 0)
+        # Se o gabarito foi corrigido especificamente DENTRO desta prova,
+        # ele tem prioridade absoluta sobre QR, histórico e banco de questões.
+        override = _normalizar_letra_gabarito(reg.get("gabarito_override"))
+        correta_por_questao[qid] = override or _gabarito_atual_questao(reg)
 
     # 2) Fonte principal para aplicações já realizadas: último GAB congelado no QR de cada aluno.
     cursor.execute("""
@@ -20832,7 +21013,8 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
             q.*,
             COALESCE(NULLIF(pq.ordem, 0), pq.id) AS ordem_original,
             COALESCE(pq.peso, 0) AS peso,
-            COALESCE(pq.anulada, 0) AS anulada
+            COALESCE(pq.anulada, 0) AS anulada,
+            COALESCE(pq.gabarito_override, '') AS gabarito_override
         FROM prova_questoes pq
         INNER JOIN questoes q ON q.id = pq.questao_id
         WHERE pq.prova_id = ?
@@ -20890,8 +21072,12 @@ def _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo):
                     "imagem": imagem_alt,
                 })
 
+        # Gabarito corrigido especificamente nesta prova tem prioridade.
+        # Isso permite ajustar uma prova já agendada sem alterar a questão no banco.
+        override_prova = _normalizar_letra_gabarito(questao.get("gabarito_override"))
+
         # Obtém o gabarito original sem mudar a letra da alternativa.
-        corretas = []
+        corretas = [override_prova] if override_prova else []
         try:
             lista_corretas = json.loads(
                 questao.get("respostas_corretas") or "[]"

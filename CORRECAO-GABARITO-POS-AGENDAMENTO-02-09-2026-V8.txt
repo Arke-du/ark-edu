@@ -1,0 +1,24 @@
+ARK EDUS — V8 — CORREÇÃO DE GABARITO APÓS AGENDAMENTO
+
+Objetivo
+- Manter a prova bloqueada após o agendamento/finalização.
+- Permitir alterar SOMENTE o gabarito de questões objetivas dentro daquela prova.
+- Recalcular automaticamente os resultados já armazenados, sem reimportar cartões.
+
+Implementado
+1. Nova coluna prova_questoes.gabarito_override (migração automática).
+2. Nova tela: /provas/<id>/gabarito
+3. Botão "Corrigir gabarito" na lista de provas e na tela de resultados.
+4. O gabarito corrigido é específico da prova e não altera a questão original no banco.
+5. Ao salvar, são recalculados:
+   - resposta_correta e acertou das respostas objetivas;
+   - acertos_objetivos e total_objetivas;
+   - nota objetiva e nota final;
+   - resultados do fluxo legado.
+6. O override também passa a ser usado em novas leituras/gerações vinculadas à prova.
+
+Exemplo
+- Q3 foi cadastrada por engano com gabarito B.
+- A prova já foi agendada e os alunos marcaram C.
+- Acesse "Corrigir gabarito", altere Q3 para C e salve.
+- Os registros existentes são recalculados e o relatório/mapa passam a refletir C como correta.

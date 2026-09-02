@@ -1837,6 +1837,16 @@
                                         </a>
 
                                         {% if pode_editar %}
+                                        <a href="/provas/{{ prova.id }}/gabarito">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M4 6H20"></path><path d="M4 12H14"></path><path d="M4 18H11"></path>
+                                                <path d="M16 16L18 18L22 13"></path>
+                                            </svg>
+                                            Corrigir gabarito
+                                        </a>
+                                        {% endif %}
+
+                                        {% if pode_editar %}
                                         <a href="/editar_prova/{{ prova.id }}">
                                             <svg class="provas-svg" viewBox="0 0 24 24">
                                                 <path d="M12 20H21"></path>

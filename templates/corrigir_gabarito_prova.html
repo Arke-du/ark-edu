@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Corrigir gabarito | ARK EDUS{% endblock %}
+{% block conteudo %}
+<style>
+.gab-wrap{max-width:1180px;margin:0 auto;padding:28px 24px 50px}.gab-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.gab-top h1{margin:0;color:#0d3260;font-size:30px}.gab-top p{margin:7px 0 0;color:#667085}.gab-actions{display:flex;gap:10px;flex-wrap:wrap}.gab-btn{border:1px solid #d7e1ec;background:#fff;color:#0d3260;padding:11px 16px;border-radius:10px;text-decoration:none;font-weight:800;cursor:pointer}.gab-btn.primary{background:#0d3260;color:#fff;border-color:#0d3260}.gab-alert{background:#effbff;border:1px solid #a9e3ef;border-radius:14px;padding:16px 18px;margin-bottom:20px;color:#174b5a}.gab-alert strong{color:#0d3260}.gab-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:13px}.gab-card{background:#fff;border:1px solid #e4eaf1;border-radius:16px;margin-bottom:14px;overflow:hidden}.gab-head{display:grid;grid-template-columns:70px minmax(0,1fr) 240px;gap:18px;align-items:center;padding:18px 20px}.gab-num{width:48px;height:48px;border-radius:12px;background:#eaf8fb;color:#0a7894;display:flex;align-items:center;justify-content:center;font-weight:900}.gab-q h3{margin:0 0 7px;color:#132b49;font-size:16px}.gab-q small{color:#8792a2}.gab-select label{display:block;font-size:12px;font-weight:900;color:#667085;margin-bottom:6px}.gab-select select{width:100%;padding:11px;border:1px solid #cfd9e5;border-radius:9px;background:#fff;font-weight:800;color:#0d3260}.gab-original{font-size:11px;color:#7b8796;margin-top:6px}.gab-alts{border-top:1px solid #edf1f5;padding:12px 20px 16px 90px;color:#49566a;font-size:13px}.gab-alt{margin:5px 0}.gab-alt b{color:#0d3260}.gab-disabled{color:#98a2b3;font-weight:700}.gab-save{position:sticky;bottom:15px;display:flex;justify-content:flex-end;margin-top:22px}.gab-save .gab-btn{box-shadow:0 8px 24px rgba(13,50,96,.18)}@media(max-width:800px){.gab-head{grid-template-columns:56px 1fr}.gab-select{grid-column:1/-1}.gab-alts{padding-left:20px}.gab-top{flex-direction:column}}
+</style>
+<div class="gab-wrap">
+  <div class="gab-top">
+    <div>
+      <h1>Corrigir gabarito</h1>
+      <p>Altere apenas a resposta correta. A estrutura da avaliação continua bloqueada após o agendamento.</p>
+      <div class="gab-meta"><span><b>Prova:</b> {{ prova['nome'] }}</span><span><b>Turma:</b> {{ prova['turma_nome'] }}</span><span><b>Status:</b> {{ prova['status'] or '—' }}</span></div>
+    </div>
+    <div class="gab-actions"><a class="gab-btn" href="/resultados/{{ prova['id'] }}">← Voltar aos resultados</a></div>
+  </div>
+
+  <div class="gab-alert"><strong>Importante:</strong> esta correção não altera o enunciado nem as alternativas da prova impressa. Ao salvar, a ARK EDUS recalcula automaticamente as respostas e notas que já estão cadastradas, sem precisar reimportar cartões.</div>
+
+  <form method="POST">
+  {% for q in questoes %}
+    <div class="gab-card">
+      <div class="gab-head">
+        <div class="gab-num">Q{{ q['numero'] }}</div>
+        <div class="gab-q"><h3>{{ q['enunciado']|striptags }}</h3><small>{{ q['tipo_questao']|replace('_',' ')|title }}</small></div>
+        <div class="gab-select">
+          {% if q['editavel_gabarito'] %}
+            <label>GABARITO DESTA PROVA</label>
+            <select name="gabarito_{{ q['vinculo_id'] }}" required>
+              {% for alt in q['alternativas'] %}
+                {% set letra = alt.get('letra','') %}
+                <option value="{{ letra }}" {% if letra == q['gabarito_efetivo'] %}selected{% endif %}>{{ letra }}</option>
+              {% endfor %}
+            </select>
+            <div class="gab-original">Banco: {{ q['gabarito_banco'] or 'não definido' }}{% if q['gabarito_override'] %} · Corrigido nesta prova: {{ q['gabarito_override'] }}{% endif %}</div>
+          {% else %}
+            <div class="gab-disabled">Questão não objetiva — sem gabarito por alternativa.</div>
+          {% endif %}
+        </div>
+      </div>
+      {% if q['alternativas'] %}<div class="gab-alts">{% for alt in q['alternativas'] %}<div class="gab-alt"><b>{{ alt.get('letra','') }})</b> {{ alt.get('texto','')|striptags }}</div>{% endfor %}</div>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="gab-save"><button class="gab-btn primary" type="submit">Salvar gabarito e recalcular resultados</button></div>
+  </form>
+</div>
+{% endblock %}
