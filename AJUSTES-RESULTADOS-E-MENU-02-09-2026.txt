@@ -1,0 +1,18 @@
+ARK EDUS — AJUSTES 02/09/2026
+
+1. CORREÇÃO DOS RESULTADOS OBJETIVOS
+- Antes de montar /resultados/<prova_id>, a plataforma agora compara novamente a resposta marcada pelo aluno com o gabarito atualmente vinculado à avaliação.
+- Corrige casos em que uma alternativa correta (ex.: Q3 = C) ficou gravada como erro por causa de um gabarito antigo/congelado no QR ou na importação.
+- Sincroniza aplicacao_respostas_objetivas, respostas_alunos e os totais em aplicacao_alunos.
+- Em seguida, recalcula as notas por peso com a função já existente.
+
+2. MENU LATERAL
+Foram removidos do menu lateral:
+- Inteligência Pedagógica
+- Central Pedagógica
+- Jogos
+
+Observação: as rotas/código interno desses módulos foram preservados para evitar quebra de dependências e facilitar restauração futura. Eles não aparecem mais na navegação principal.
+
+VALIDAÇÃO
+- app.py compilado com sucesso via py_compile.

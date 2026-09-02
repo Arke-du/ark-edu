@@ -13422,6 +13422,10 @@ def resultados(prova_id):
 
         avaliacao_sem_nota = int(prova["tem_nota"] or 0) != 1
 
+        # Antes de montar o relatório, confere novamente cada resposta objetiva
+        # contra o gabarito atual da avaliação. Isso corrige resultados antigos
+        # que ficaram presos a um gabarito incorreto salvo no QR/importação.
+        _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id)
         _recalcular_notas_aplicacoes_por_peso(cursor, prova_id=prova_id)
         banco.commit()
 
@@ -20235,6 +20239,131 @@ def reabrir_ano_letivo(ano_letivo_id):
 # Cole este bloco no app.py antes do:
 # 
 # =========================================================
+
+
+def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
+    """Sincroniza respostas objetivas já lidas com o gabarito atual da prova.
+
+    O cartão continua sendo responsável por informar a resposta marcada pelo aluno,
+    mas o status de acerto/erro deve refletir o gabarito atualmente vinculado à
+    avaliação. Isso evita que um gabarito antigo/congelado no QR deixe uma questão
+    correta aparecendo como errada nos resultados.
+    """
+    cursor.execute("""
+        SELECT q.id AS questao_id, q.correta, q.respostas_corretas,
+               COALESCE(pq.anulada, 0) AS anulada
+        FROM prova_questoes pq
+        INNER JOIN questoes q ON q.id = pq.questao_id
+        WHERE pq.prova_id = ?
+    """, (prova_id,))
+
+    gabaritos = {}
+    anuladas = set()
+    for q in cursor.fetchall():
+        qid = int(q["questao_id"])
+        if int(q["anulada"] or 0) == 1:
+            anuladas.add(qid)
+
+        correta = ""
+        try:
+            lista = json.loads(q["respostas_corretas"] or "[]")
+            if isinstance(lista, list):
+                for valor in lista:
+                    letra = _normalizar_letra_gabarito(valor)
+                    if letra:
+                        correta = letra
+                        break
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+        if not correta:
+            correta = _normalizar_letra_gabarito(q["correta"])
+        if correta:
+            gabaritos[qid] = correta
+
+    if not gabaritos and not anuladas:
+        return 0
+
+    cursor.execute("""
+        SELECT aro.id, aro.aplicacao_id, aro.aluno_id, aro.numero_questao,
+               aro.questao_id, aro.resposta, aro.situacao, aro.resposta_correta,
+               aro.acertou, COALESCE(aro.anulada, 0) AS anulada
+        FROM aplicacao_respostas_objetivas aro
+        INNER JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
+        WHERE ap.prova_id = ?
+    """, (prova_id,))
+
+    alterados = 0
+    pares_afetados = set()
+    for reg in cursor.fetchall():
+        qid = int(reg["questao_id"])
+        anulada = qid in anuladas or int(reg["anulada"] or 0) == 1
+        correta = gabaritos.get(qid, "")
+        situacao = str(reg["situacao"] or "").strip().lower()
+        resposta = str(reg["resposta"] or "").strip().upper()
+
+        if anulada:
+            novo_acertou = 1
+            nova_correta = "ANULADA"
+        elif correta:
+            novo_acertou = int(situacao == "respondida" and resposta == correta)
+            nova_correta = correta
+        else:
+            # Sem gabarito válido, preserva o resultado existente para não
+            # transformar uma questão legada em erro por falta de cadastro.
+            continue
+
+        antiga_correta = str(reg["resposta_correta"] or "").strip().upper()
+        antigo_acertou = int(reg["acertou"] or 0)
+        if antigo_acertou != novo_acertou or antiga_correta != nova_correta:
+            cursor.execute("""
+                UPDATE aplicacao_respostas_objetivas
+                SET resposta_correta = ?, acertou = ?, atualizado_em = ?
+                WHERE id = ?
+            """, (
+                nova_correta,
+                novo_acertou,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                reg["id"]
+            ))
+            alterados += 1
+            pares_afetados.add((int(reg["aplicacao_id"]), int(reg["aluno_id"])))
+
+            # Mantém a tabela legada coerente com a fonte atual.
+            cursor.execute("""
+                UPDATE respostas_alunos
+                SET resposta_correta = ?, acertou = ?
+                WHERE prova_id = ? AND aluno_id = ? AND numero_questao = ?
+            """, (
+                nova_correta,
+                novo_acertou,
+                prova_id,
+                reg["aluno_id"],
+                reg["numero_questao"]
+            ))
+
+    # Atualiza os totais objetivos dos alunos afetados. A nota é recalculada
+    # em seguida por _recalcular_notas_aplicacoes_por_peso().
+    for aplicacao_id, aluno_id in pares_afetados:
+        cursor.execute("""
+            SELECT COUNT(*) AS total,
+                   SUM(CASE WHEN COALESCE(acertou, 0) = 1 THEN 1 ELSE 0 END) AS acertos
+            FROM aplicacao_respostas_objetivas
+            WHERE aplicacao_id = ? AND aluno_id = ?
+        """, (aplicacao_id, aluno_id))
+        resumo = cursor.fetchone()
+        cursor.execute("""
+            UPDATE aplicacao_alunos
+            SET acertos_objetivos = ?, total_objetivas = ?
+            WHERE aplicacao_id = ? AND aluno_id = ?
+        """, (
+            int(resumo["acertos"] or 0),
+            int(resumo["total"] or 0),
+            aplicacao_id,
+            aluno_id
+        ))
+
+    return alterados
 
 
 def _recalcular_notas_aplicacoes_por_peso(
