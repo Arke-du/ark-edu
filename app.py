@@ -20242,108 +20242,109 @@ def reabrir_ano_letivo(ano_letivo_id):
 
 
 def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
-    """Sincroniza respostas objetivas já lidas com o gabarito atual da prova.
+    """Recalcula acerto/erro sem destruir o gabarito específico do cartão.
 
-    O cartão continua sendo responsável por informar a resposta marcada pelo aluno,
-    mas o status de acerto/erro deve refletir o gabarito atualmente vinculado à
-    avaliação. Isso evita que um gabarito antigo/congelado no QR deixe uma questão
-    correta aparecendo como errada nos resultados.
+    Cartões V3 gravam no QR o gabarito EXATO usado na impressão (campo GAB).
+    Esse valor é a fonte de verdade para resultados já importados. O gabarito
+    geral da questão (questoes.correta) NÃO pode ser usado para sobrescrever
+    respostas antigas, pois pode não representar o cartão/modelo efetivamente
+    aplicado ao aluno.
+
+    Para registros sem GAB no QR, preservamos ``resposta_correta`` já gravada
+    na resposta objetiva e apenas recalculamos ``acertou`` a partir dela.
     """
+    # Última importação OBJETIVA de cada aluno contendo o QR original.
     cursor.execute("""
-        SELECT q.id AS questao_id, q.correta, q.respostas_corretas,
-               COALESCE(pq.anulada, 0) AS anulada
-        FROM prova_questoes pq
-        INNER JOIN questoes q ON q.id = pq.questao_id
-        WHERE pq.prova_id = ?
+        SELECT ai.aplicacao_id, ai.aluno_id, ai.qr_texto
+        FROM aplicacao_importacoes ai
+        INNER JOIN aplicacoes ap ON ap.id = ai.aplicacao_id
+        WHERE ap.prova_id = ?
+          AND UPPER(COALESCE(ai.tipo_folha, 'OBJETIVAS')) = 'OBJETIVAS'
+          AND COALESCE(ai.qr_texto, '') <> ''
+          AND ai.id = (
+              SELECT MAX(ai2.id)
+              FROM aplicacao_importacoes ai2
+              WHERE ai2.aplicacao_id = ai.aplicacao_id
+                AND ai2.aluno_id = ai.aluno_id
+                AND UPPER(COALESCE(ai2.tipo_folha, 'OBJETIVAS')) = 'OBJETIVAS'
+                AND COALESCE(ai2.qr_texto, '') <> ''
+          )
     """, (prova_id,))
 
-    gabaritos = {}
-    anuladas = set()
-    for q in cursor.fetchall():
-        qid = int(q["questao_id"])
-        if int(q["anulada"] or 0) == 1:
-            anuladas.add(qid)
-
-        correta = ""
-        try:
-            lista = json.loads(q["respostas_corretas"] or "[]")
-            if isinstance(lista, list):
-                for valor in lista:
-                    letra = _normalizar_letra_gabarito(valor)
-                    if letra:
-                        correta = letra
-                        break
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-
-        if not correta:
-            correta = _normalizar_letra_gabarito(q["correta"])
-        if correta:
-            gabaritos[qid] = correta
-
-    if not gabaritos and not anuladas:
-        return 0
+    gab_por_aluno = {}
+    for imp in cursor.fetchall():
+        dados_qr = {}
+        for parte in str(imp["qr_texto"] or "").split("|"):
+            if ":" not in parte:
+                continue
+            chave, valor = parte.split(":", 1)
+            dados_qr[chave.strip().upper()] = valor.strip()
+        gab = re.sub(r"[^A-D]", "", str(dados_qr.get("GAB", "")).upper())
+        if gab:
+            gab_por_aluno[(int(imp["aplicacao_id"]), int(imp["aluno_id"]))] = gab
 
     cursor.execute("""
         SELECT aro.id, aro.aplicacao_id, aro.aluno_id, aro.numero_questao,
-               aro.questao_id, aro.resposta, aro.situacao, aro.resposta_correta,
+               aro.resposta, aro.situacao, aro.resposta_correta,
                aro.acertou, COALESCE(aro.anulada, 0) AS anulada
         FROM aplicacao_respostas_objetivas aro
         INNER JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
         WHERE ap.prova_id = ?
+        ORDER BY aro.aplicacao_id, aro.aluno_id, aro.numero_questao, aro.id
     """, (prova_id,))
+    registros = [dict(r) for r in cursor.fetchall()]
+
+    # Organiza as respostas na mesma ordem objetiva usada para montar o GAB.
+    grupos = {}
+    for reg in registros:
+        chave = (int(reg["aplicacao_id"]), int(reg["aluno_id"]))
+        grupos.setdefault(chave, []).append(reg)
 
     alterados = 0
     pares_afetados = set()
-    for reg in cursor.fetchall():
-        qid = int(reg["questao_id"])
-        anulada = qid in anuladas or int(reg["anulada"] or 0) == 1
-        correta = gabaritos.get(qid, "")
-        situacao = str(reg["situacao"] or "").strip().lower()
-        resposta = str(reg["resposta"] or "").strip().upper()
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        if anulada:
-            novo_acertou = 1
-            nova_correta = "ANULADA"
-        elif correta:
-            novo_acertou = int(situacao == "respondida" and resposta == correta)
-            nova_correta = correta
-        else:
-            # Sem gabarito válido, preserva o resultado existente para não
-            # transformar uma questão legada em erro por falta de cadastro.
-            continue
+    for chave, linhas in grupos.items():
+        gab = gab_por_aluno.get(chave, "")
+        for indice, reg in enumerate(linhas):
+            anulada = int(reg.get("anulada") or 0) == 1
+            resposta = str(reg.get("resposta") or "").strip().upper()
+            situacao = str(reg.get("situacao") or "").strip().lower()
 
-        antiga_correta = str(reg["resposta_correta"] or "").strip().upper()
-        antigo_acertou = int(reg["acertou"] or 0)
-        if antigo_acertou != novo_acertou or antiga_correta != nova_correta:
-            cursor.execute("""
-                UPDATE aplicacao_respostas_objetivas
-                SET resposta_correta = ?, acertou = ?, atualizado_em = ?
-                WHERE id = ?
-            """, (
-                nova_correta,
-                novo_acertou,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                reg["id"]
-            ))
-            alterados += 1
-            pares_afetados.add((int(reg["aplicacao_id"]), int(reg["aluno_id"])))
+            # Prioridade absoluta: GAB congelado no QR. Se não houver, mantém
+            # a resposta_correta já salva no processamento original.
+            correta = gab[indice] if indice < len(gab) else _normalizar_letra_gabarito(reg.get("resposta_correta"))
 
-            # Mantém a tabela legada coerente com a fonte atual.
-            cursor.execute("""
-                UPDATE respostas_alunos
-                SET resposta_correta = ?, acertou = ?
-                WHERE prova_id = ? AND aluno_id = ? AND numero_questao = ?
-            """, (
-                nova_correta,
-                novo_acertou,
-                prova_id,
-                reg["aluno_id"],
-                reg["numero_questao"]
-            ))
+            if anulada:
+                nova_correta = "ANULADA"
+                novo_acertou = 1
+            elif correta:
+                nova_correta = correta
+                novo_acertou = int(situacao == "respondida" and resposta == correta)
+            else:
+                # Sem fonte confiável, não inventa gabarito nem altera o dado.
+                continue
 
-    # Atualiza os totais objetivos dos alunos afetados. A nota é recalculada
-    # em seguida por _recalcular_notas_aplicacoes_por_peso().
+            antiga_correta = str(reg.get("resposta_correta") or "").strip().upper()
+            antigo_acertou = int(reg.get("acertou") or 0)
+            if antiga_correta != nova_correta or antigo_acertou != novo_acertou:
+                cursor.execute("""
+                    UPDATE aplicacao_respostas_objetivas
+                    SET resposta_correta = ?, acertou = ?, atualizado_em = ?
+                    WHERE id = ?
+                """, (nova_correta, novo_acertou, agora, reg["id"]))
+                cursor.execute("""
+                    UPDATE respostas_alunos
+                    SET resposta_correta = ?, acertou = ?
+                    WHERE prova_id = ? AND aluno_id = ? AND numero_questao = ?
+                """, (
+                    nova_correta, novo_acertou, prova_id,
+                    reg["aluno_id"], reg["numero_questao"]
+                ))
+                alterados += 1
+                pares_afetados.add(chave)
+
+    # Mantém os totais da aplicação coerentes após a recuperação pelo QR.
     for aplicacao_id, aluno_id in pares_afetados:
         cursor.execute("""
             SELECT COUNT(*) AS total,
@@ -20357,14 +20358,11 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
             SET acertos_objetivos = ?, total_objetivas = ?
             WHERE aplicacao_id = ? AND aluno_id = ?
         """, (
-            int(resumo["acertos"] or 0),
-            int(resumo["total"] or 0),
-            aplicacao_id,
-            aluno_id
+            int(resumo["acertos"] or 0), int(resumo["total"] or 0),
+            aplicacao_id, aluno_id
         ))
 
     return alterados
-
 
 def _recalcular_notas_aplicacoes_por_peso(
     cursor,
