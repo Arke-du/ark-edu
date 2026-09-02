@@ -1,0 +1,15 @@
+ARK EDUS - Correção V6 - Resultados já aplicados
+
+Causa concreta corrigida:
+A V5 priorizava o gabarito atual do banco de questões antes do gabarito congelado
+no QR do cartão já aplicado. Isso fazia resultados históricos continuarem errados
+quando o valor atual da questão divergia da versão efetivamente impressa.
+
+Nova prioridade para aplicações existentes:
+1. GAB do QR salvo em aplicacao_importacoes (versão exata do cartão aplicado)
+2. resposta_correta histórica já salva na resposta
+3. gabarito atual da questão, somente como fallback
+
+A resposta marcada pelo aluno não é alterada.
+A rotina atualiza resposta_correta/acertou e recalcula os totais/notas existentes.
+Não exige reimportação.

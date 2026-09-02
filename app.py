@@ -20302,14 +20302,14 @@ def _gabarito_atual_questao(questao):
 
 
 def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
-    """Repara resultados JÁ GRAVADOS usando o gabarito atual do banco.
+    """Repara resultados JÁ GRAVADOS sem exigir nova importação.
 
-    Não exige reimportação. A resposta do aluno permanece exatamente como foi
-    lida/salva; somente ``resposta_correta`` e ``acertou`` são reconciliados
-    pelo ``questao_id``. O QR é usado apenas como fallback quando a questão não
-    possui gabarito atual no banco.
+    Para aplicações já realizadas, a fonte principal é o gabarito congelado
+    no QR do cartão objetivo, pois ele representa exatamente a versão impressa
+    entregue ao aluno. Se não existir GAB no QR, preserva o gabarito histórico
+    salvo na resposta e só então usa o gabarito atual do banco como fallback.
     """
-    # 1) Fonte principal: gabarito atual da questão vinculada à prova.
+    # 1) Gabarito atual da questão: usado apenas como fallback final.
     cursor.execute("""
         SELECT q.*
         FROM prova_questoes pq
@@ -20321,7 +20321,7 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
         reg = dict(linha)
         correta_por_questao[int(reg["id"])] = _gabarito_atual_questao(reg)
 
-    # 2) Fallback: último gabarito congelado no QR de cada aluno.
+    # 2) Fonte principal para aplicações já realizadas: último GAB congelado no QR de cada aluno.
     cursor.execute("""
         SELECT ai.aplicacao_id, ai.aluno_id, ai.qr_texto
         FROM aplicacao_importacoes ai
@@ -20377,12 +20377,21 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
             resposta = _normalizar_letra_gabarito(reg.get("resposta"))
             situacao = str(reg.get("situacao") or "").strip().lower()
 
-            # Banco atual > QR congelado > valor histórico já salvo.
-            correta = _normalizar_letra_gabarito(correta_por_questao.get(qid, ""))
-            if not correta and indice_obj < len(gab):
+            # FONTE DE VERDADE PARA RESULTADOS JÁ APLICADOS:
+            # 1) o GAB congelado no QR do cartão que o aluno realmente respondeu;
+            # 2) o gabarito histórico salvo na própria resposta;
+            # 3) somente como último fallback, o gabarito atual da questão.
+            #
+            # Isso é essencial porque a questão pode ter sido editada depois da
+            # impressão/aplicação. O resultado histórico não pode mudar por causa
+            # de uma edição posterior no banco de questões.
+            correta = ""
+            if indice_obj < len(gab):
                 correta = _normalizar_letra_gabarito(gab[indice_obj])
             if not correta:
                 correta = _normalizar_letra_gabarito(reg.get("resposta_correta"))
+            if not correta:
+                correta = _normalizar_letra_gabarito(correta_por_questao.get(qid, ""))
 
             if anulada:
                 nova_correta = "ANULADA"
