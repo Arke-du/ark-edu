@@ -1,0 +1,13 @@
+ARK EDUS — V9 — ALTERAÇÃO DE GABARITO INTEGRADA À VISUALIZAÇÃO DA PROVA
+
+Fluxo solicitado:
+1. Prova em rascunho: Editar prova continua abrindo o editor normal.
+2. Prova agendada, em correção ou finalizada: a ação Editar prova abre a visualização administrativa da prova.
+3. Ao lado de Anular questão, cada questão objetiva de múltipla escolha mostra Alterar gabarito.
+4. O professor escolhe a nova letra e salva sem liberar a edição da estrutura da avaliação.
+5. A alteração fica registrada apenas naquela prova em prova_questoes.gabarito_override.
+6. Após salvar, a plataforma recalcula imediatamente os dados já existentes no banco: acerto/erro por resposta, totais objetivos, notas, resultados legados, desempenho por questão e mapa de respostas.
+7. Não é necessário reimportar cartões.
+8. O gabarito do professor exibido no rodapé da visualização passa a refletir o gabarito efetivo da prova.
+
+Também foram retirados os atalhos separados de Corrigir gabarito em Provas/Resultados para concentrar o fluxo dentro de Editar prova, conforme solicitado.

@@ -885,6 +885,18 @@ img {
 .question-annul-button:hover { background: var(--arke-danger-bg); }
 .question-annul-button.reactivate { border-color: #bbf7d0; color: var(--arke-success); }
 .question-annul-button.reactivate:hover { background: var(--arke-success-bg); }
+.question-key-wrap { position: relative; display: flex; align-items: center; gap: 7px; }
+.question-key-button { min-height: 32px; padding: 6px 11px; border: 1px solid #93c5fd; border-radius: 9px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800; cursor: pointer; }
+.question-key-button:hover { background: #dbeafe; }
+.question-key-editor { display: none; align-items: center; gap: 6px; padding: 5px 6px; border: 1px solid #bfdbfe; border-radius: 10px; background: #fff; box-shadow: 0 5px 18px rgba(15, 23, 42, .10); }
+.question-key-editor.open { display: flex; }
+.question-key-editor select { height: 32px; min-width: 62px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font-weight: 800; }
+.question-key-save, .question-key-cancel { height: 32px; padding: 0 10px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.question-key-save { border: 1px solid #2563eb; background: #2563eb; color: #fff; }
+.question-key-save:hover { background: #1d4ed8; }
+.question-key-cancel { border: 1px solid #cbd5e1; background: #fff; color: #475569; }
+.question-key-current { font-size: 11px; color: #64748b; white-space: nowrap; }
+@media (max-width: 900px) { .question-key-editor.open { position:absolute; right:0; top:38px; z-index:20; } }
 
 .question-metadata { padding: 14px 20px; border-bottom: 1px solid var(--arke-border); background: #fbfdff; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .question-metadata > div { min-width: 0; padding: 10px 12px; border: 1px solid #e6edf7; border-radius: 10px; background: #fff; }
@@ -2527,6 +2539,38 @@ img {
                                     {% if questao['anulada'] %}Reativar questão{% else %}Anular questão{% endif %}
                                 </button>
                             </form>
+
+                            {% set status_prova = (prova['status'] or 'rascunho')|lower %}
+                            {% if tipo == 'multipla_escolha' and status_prova in ['agendada', 'em_correcao', 'em correção', 'aguardando correção', 'finalizada'] %}
+                            <div class="question-key-wrap">
+                                <button
+                                    type="button"
+                                    class="question-key-button"
+                                    onclick="abrirAlteracaoGabarito({{ questao['prova_questao_id'] }})"
+                                >
+                                    Alterar gabarito
+                                </button>
+                                <form
+                                    id="gabarito-editor-{{ questao['prova_questao_id'] }}"
+                                    class="question-key-editor"
+                                    method="POST"
+                                    action="/prova/{{ prova['id'] }}/questao/{{ questao['prova_questao_id'] }}/alterar-gabarito"
+                                    onsubmit="return confirmarNovoGabarito(this, {{ loop.index }}, '{{ questao['gabarito_efetivo'] or '' }}')"
+                                >
+                                    <span class="question-key-current">Atual: <strong>{{ questao['gabarito_efetivo'] or '—' }}</strong></span>
+                                    <select name="nova_correta" aria-label="Novo gabarito da questão {{ loop.index }}" required>
+                                        {% for alternativa in questao.get('alternativas_render', []) %}
+                                            {% set letra_alt = alternativa.get('letra') or ('ABCD'[loop.index0] if loop.index0 < 4 else '') %}
+                                            {% if letra_alt %}
+                                            <option value="{{ letra_alt }}"{% if letra_alt == questao['gabarito_efetivo'] %} selected{% endif %}>{{ letra_alt }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="question-key-save">Salvar</button>
+                                    <button type="button" class="question-key-cancel" onclick="fecharAlteracaoGabarito({{ questao['prova_questao_id'] }})">Cancelar</button>
+                                </form>
+                            </div>
+                            {% endif %}
                         </div>
 
                     </div>
@@ -2693,7 +2737,7 @@ img {
                                 </span>
 
                                 <strong>
-                                    {% if questao['anulada'] %}ANULADA{% else %}{{ questao['correta'] }}{% endif %}
+                                    {% if questao['anulada'] %}ANULADA{% else %}{{ questao['gabarito_efetivo'] or questao['correta'] }}{% endif %}
                                 </strong>
                             </div>
 
@@ -2737,6 +2781,31 @@ function alternarGabarito() {
             ? 'Ocultar respostas'
             : 'Exibir respostas';
     }
+}
+
+function abrirAlteracaoGabarito(vinculoId) {
+    document.querySelectorAll('.question-key-editor.open').forEach(function(editor) {
+        if (editor.id !== 'gabarito-editor-' + vinculoId) editor.classList.remove('open');
+    });
+    const editor = document.getElementById('gabarito-editor-' + vinculoId);
+    if (editor) editor.classList.toggle('open');
+}
+
+function fecharAlteracaoGabarito(vinculoId) {
+    const editor = document.getElementById('gabarito-editor-' + vinculoId);
+    if (editor) editor.classList.remove('open');
+}
+
+function confirmarNovoGabarito(form, numero, atual) {
+    const select = form.querySelector('select[name="nova_correta"]');
+    const nova = select ? select.value : '';
+    if (!nova) return false;
+    if (nova === atual) {
+        return window.confirm(`O gabarito da questão ${String(numero).padStart(2, '0')} continuará ${nova}. Deseja recalcular os resultados mesmo assim?`);
+    }
+    return window.confirm(
+        `Alterar o gabarito da questão ${String(numero).padStart(2, '0')} de ${atual || '—'} para ${nova}?\n\nTodos os resultados já lançados serão recalculados automaticamente.`
+    );
 }
 
 function confirmarAlteracaoQuestao(form, numero, estaAnulada) {

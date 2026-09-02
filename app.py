@@ -11053,6 +11053,7 @@ def visualizar_prova(prova_id):
             SELECT
                 p.id,
                 p.nome,
+                p.status,
                 p.turma_id,
                 t.nome AS turma_nome,
                 t.ano AS turma_ano,
@@ -11089,6 +11090,7 @@ def visualizar_prova(prova_id):
             GROUP BY
                 p.id,
                 p.nome,
+                p.status,
                 p.turma_id,
                 t.nome,
                 t.ano,
@@ -11122,6 +11124,7 @@ def visualizar_prova(prova_id):
             SELECT
                 q.*,
                 pq.id AS prova_questao_id,
+                COALESCE(pq.gabarito_override, '') AS gabarito_override,
                 COALESCE(pq.peso, 0) AS peso,
                 COALESCE(pq.anulada, 0) AS anulada,
                 COALESCE(pq.ordem, pq.id) AS ordem_prova
@@ -11155,6 +11158,8 @@ def visualizar_prova(prova_id):
                     if texto:
                         alternativas_render.append({"letra": chr(65 + indice), "texto": texto, "imagem": ""})
             item["alternativas_render"] = alternativas_render
+            override_gabarito = _normalizar_letra_gabarito(item.get("gabarito_override"))
+            item["gabarito_efetivo"] = override_gabarito or _gabarito_atual_questao(item)
             questoes.append(item)
 
         # =====================================================
@@ -11294,6 +11299,148 @@ def alternar_anulacao_questao(prova_id, prova_questao_id):
         )
         return redirect(url_for("visualizar_prova", prova_id=prova_id))
 
+    finally:
+        banco.close()
+
+
+@app.route(
+    "/prova/<int:prova_id>/questao/<int:prova_questao_id>/alterar-gabarito",
+    methods=["POST"]
+)
+def alterar_gabarito_questao_prova(prova_id, prova_questao_id):
+    """Altera somente o gabarito de uma questão da prova e recalcula tudo.
+
+    Foi criada para avaliações já agendadas/em correção/finalizadas.
+    Não libera edição do enunciado, alternativas, pesos ou estrutura.
+    """
+    if not permissao_modulo("Provas"):
+        return redirect("/acesso_negado")
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        if not _pode_gerenciar_prova(
+            cursor, prova_id, exigir_edicao=False, permitir_finalizada=True
+        ):
+            return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("SELECT status FROM provas WHERE id = ? LIMIT 1", (prova_id,))
+        prova_status = cursor.fetchone()
+        if not prova_status:
+            flash("Avaliação não encontrada.", "erro")
+            return redirect("/provas")
+
+        status_atual = (prova_status["status"] or "rascunho").strip().lower()
+        if status_atual not in {
+            "agendada", "em_correcao", "em correção",
+            "aguardando correção", "finalizada"
+        }:
+            flash(
+                "A alteração isolada do gabarito fica disponível após o agendamento da avaliação.",
+                "aviso"
+            )
+            return redirect(url_for("visualizar_prova", prova_id=prova_id))
+
+        cursor.execute("""
+            SELECT pq.id AS prova_questao_id, pq.questao_id,
+                   COALESCE(pq.gabarito_override, '') AS gabarito_override,
+                   q.tipo_questao, q.alternativas_json,
+                   q.alternativa_a, q.alternativa_b, q.alternativa_c, q.alternativa_d,
+                   q.correta, q.respostas_corretas
+            FROM prova_questoes pq
+            INNER JOIN questoes q ON q.id = pq.questao_id
+            WHERE pq.id = ? AND pq.prova_id = ?
+            LIMIT 1
+        """, (prova_questao_id, prova_id))
+        linha = cursor.fetchone()
+        if not linha:
+            flash("Questão não encontrada nesta avaliação.", "erro")
+            return redirect(url_for("visualizar_prova", prova_id=prova_id))
+
+        questao = dict(linha)
+        tipo = str(questao.get("tipo_questao") or "").strip().lower()
+        if tipo != "multipla_escolha":
+            flash("O gabarito só pode ser alterado em questões objetivas de múltipla escolha.", "aviso")
+            return redirect(
+                url_for("visualizar_prova", prova_id=prova_id)
+                + f"#questao-{prova_questao_id}"
+            )
+
+        nova = _normalizar_letra_gabarito(request.form.get("nova_correta"))
+        letras_validas = set()
+        try:
+            alternativas = json.loads(questao.get("alternativas_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            alternativas = []
+        if isinstance(alternativas, list):
+            for indice, alt in enumerate(alternativas):
+                if isinstance(alt, dict):
+                    letra = _normalizar_letra_gabarito(alt.get("letra") or chr(65 + indice))
+                    texto = str(alt.get("texto") or alt.get("enunciado") or "").strip()
+                    if letra and (texto or alt.get("imagem")):
+                        letras_validas.add(letra)
+        if not letras_validas:
+            for letra, campo in zip("ABCD", ("alternativa_a", "alternativa_b", "alternativa_c", "alternativa_d")):
+                if str(questao.get(campo) or "").strip():
+                    letras_validas.add(letra)
+
+        if not nova or (letras_validas and nova not in letras_validas):
+            flash("Selecione uma alternativa válida para o novo gabarito.", "erro")
+            return redirect(
+                url_for("visualizar_prova", prova_id=prova_id)
+                + f"#questao-{prova_questao_id}"
+            )
+
+        anterior = (
+            _normalizar_letra_gabarito(questao.get("gabarito_override"))
+            or _gabarito_atual_questao(questao)
+        )
+        gabarito_banco = _gabarito_atual_questao(questao)
+        valor_override = None if nova == gabarito_banco else nova
+
+        cursor.execute("""
+            UPDATE prova_questoes
+            SET gabarito_override = ?
+            WHERE id = ? AND prova_id = ?
+        """, (valor_override, prova_questao_id, prova_id))
+
+        # Reprocessa os dados que já existem no banco. Nenhum cartão precisa
+        # ser importado novamente. O override desta prova tem prioridade.
+        _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id)
+        _recalcular_notas_aplicacoes_por_peso(cursor, prova_id=prova_id)
+        _recalcular_resultados_legados_por_gabarito(cursor, prova_id)
+        cursor.execute(
+            "UPDATE provas SET atualizado_em = ? WHERE id = ?",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id)
+        )
+        banco.commit()
+
+        if anterior != nova:
+            flash(
+                f"Gabarito alterado de {anterior or '—'} para {nova}. Todos os resultados foram recalculados.",
+                "sucesso"
+            )
+        else:
+            flash("Gabarito mantido e resultados recalculados.", "sucesso")
+
+        destino = request.form.get("destino") or "visualizar"
+        if destino == "resultados":
+            return redirect(f"/resultados/{prova_id}")
+        return redirect(
+            url_for("visualizar_prova", prova_id=prova_id)
+            + f"#questao-{prova_questao_id}"
+        )
+
+    except Exception as erro:
+        banco.rollback()
+        app.logger.exception(
+            "Erro ao alterar gabarito da prova %s, questão vínculo %s",
+            prova_id, prova_questao_id
+        )
+        flash(f"Não foi possível alterar o gabarito: {erro}", "erro")
+        return redirect(url_for("visualizar_prova", prova_id=prova_id))
     finally:
         banco.close()
 
@@ -11919,10 +12066,13 @@ def editar_prova(prova_id):
 
     cursor.execute("SELECT status FROM provas WHERE id = ?", (prova_id,))
     status_prova = cursor.fetchone()
-    if status_prova and (status_prova["status"] or "rascunho").lower() == "finalizada":
+    status_atual = (status_prova["status"] or "rascunho").strip().lower() if status_prova else "rascunho"
+    # Depois de agendada/em correção/finalizada, o botão "Editar prova"
+    # abre a visualização administrativa. A estrutura continua bloqueada,
+    # mas cada questão objetiva oferece a ação "Alterar gabarito".
+    if status_atual in {"agendada", "em_correcao", "em correção", "aguardando correção", "finalizada"}:
         banco.close()
-        flash("Esta avaliação já foi finalizada e não pode mais ser editada.", "aviso")
-        return redirect(f"/provas/{prova_id}/montar")
+        return redirect(url_for("visualizar_prova", prova_id=prova_id))
 
     if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
         banco.close()
