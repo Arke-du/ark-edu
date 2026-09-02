@@ -13578,7 +13578,6 @@ def resultados(prova_id):
             cursor.execute(f"""
                 SELECT aro.aplicacao_id, aro.aluno_id, aro.questao_id,
                        aro.numero_questao, aro.acertou, aro.situacao, aro.resposta,
-                       aro.resposta_correta,
                        COALESCE(aro.anulada, 0) AS anulada
                 FROM aplicacao_respostas_objetivas aro
                 WHERE aro.aplicacao_id IN ({placeholders})
@@ -13610,7 +13609,7 @@ def resultados(prova_id):
         # Compatibilidade com correções antigas: só usa respostas_alunos quando
         # não existe uma resposta objetiva da aplicação oficial.
         cursor.execute("""
-            SELECT aluno_id, numero_questao, acertou, resposta_correta,
+            SELECT aluno_id, numero_questao, acertou,
                    CASE WHEN TRIM(COALESCE(resposta_aluno, '')) = ''
                         THEN 'em_branco' ELSE 'respondida' END AS situacao,
                    resposta_aluno AS resposta
@@ -13643,12 +13642,7 @@ def resultados(prova_id):
             anulada = int(reg.get("anulada") or 0) == 1
             situacao = str(reg.get("situacao") or "").strip().lower()
             resposta = str(reg.get("resposta") or "").strip()
-            correta_salva = _normalizar_letra_gabarito(reg.get("resposta_correta"))
-            resposta_salva = _normalizar_letra_gabarito(reg.get("resposta"))
-            acertou_ao_vivo = bool(
-                situacao == "respondida" and correta_salva and resposta_salva == correta_salva
-            )
-            if anulada or acertou_ao_vivo:
+            if anulada or int(reg.get("acertou") or 0) == 1:
                 st["acertos"] += 1
             elif situacao == "em_branco" or not resposta:
                 st["em_branco"] += 1
@@ -13935,13 +13929,7 @@ def resultados(prova_id):
                     valor = str(resposta.get("resposta") or "").strip().upper()
                     situacao = str(resposta.get("situacao") or "").strip().lower()
                     anulada = int(resposta.get("anulada") or 0) == 1
-                    correta_salva = _normalizar_letra_gabarito(resposta.get("resposta_correta"))
-                    resposta_normalizada = _normalizar_letra_gabarito(valor)
-                    acertou = bool(
-                        situacao == "respondida"
-                        and correta_salva
-                        and resposta_normalizada == correta_salva
-                    )
+                    acertou = int(resposta.get("acertou") or 0) == 1
                     if anulada:
                         status, valor, titulo = "anulada", "AN", "Questão anulada"
                         total_acertos_mapa += 1
@@ -20254,17 +20242,30 @@ def reabrir_ano_letivo(ano_letivo_id):
 
 
 def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
-    """Repara, no próprio banco, resultados objetivos já existentes.
+    """Recalcula acerto/erro usando a questão vinculada à prova como fonte principal.
 
-    A fonte oficial é EXATAMENTE a mesma usada para gerar/corrigir a aplicação:
-    ``_questoes_modelo_aplicacao``. Ela considera ``respostas_corretas`` antes
-    de ``questoes.correta`` e respeita o modelo do aluno. Se o QR da importação
-    possui ``GAB``, ele tem prioridade por ser o gabarito congelado no cartão.
+    Os modelos da ARK EDUS podem embaralhar a ORDEM das questões, mas não trocam
+    a letra das alternativas. Por isso, a forma mais segura de validar uma
+    resposta já importada é usar ``questao_id -> questoes.correta``. O GAB do QR
+    e ``resposta_correta`` ficam apenas como fallback de compatibilidade.
 
-    Isso corrige inclusive dados que versões anteriores tenham gravado com
-    ``resposta_correta``/``acertou`` inconsistentes, sem exigir nova importação.
+    Isso também corrige registros antigos em que ``resposta`` foi lida certo,
+    mas o campo ``acertou`` ficou gravado com valor incorreto.
     """
-    # Último GAB congelado no QR, quando existir.
+    # Gabarito oficial atual por questão pertencente à prova.
+    cursor.execute("""
+        SELECT pq.questao_id, q.correta
+        FROM prova_questoes pq
+        INNER JOIN questoes q ON q.id = pq.questao_id
+        WHERE pq.prova_id = ?
+    """, (prova_id,))
+    correta_por_questao = {
+        int(r["questao_id"]): _normalizar_letra_gabarito(r["correta"])
+        for r in cursor.fetchall()
+    }
+
+    # QR ainda é mantido como fallback para cartões muito antigos ou registros
+    # cuja questão tenha ficado sem gabarito no cadastro atual.
     cursor.execute("""
         SELECT ai.aplicacao_id, ai.aluno_id, ai.qr_texto
         FROM aplicacao_importacoes ai
@@ -20295,41 +20296,14 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
 
     cursor.execute("""
         SELECT aro.id, aro.aplicacao_id, aro.aluno_id, aro.numero_questao,
-               aro.questao_id, aro.modelo, aro.resposta, aro.situacao,
-               aro.resposta_correta, aro.acertou,
-               COALESCE(aro.anulada, 0) AS anulada,
-               COALESCE(aa.modelo, aro.modelo, 1) AS modelo_oficial
+               aro.questao_id, aro.resposta, aro.situacao, aro.resposta_correta,
+               aro.acertou, COALESCE(aro.anulada, 0) AS anulada
         FROM aplicacao_respostas_objetivas aro
         INNER JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
-        LEFT JOIN aplicacao_alunos aa
-          ON aa.aplicacao_id = aro.aplicacao_id AND aa.aluno_id = aro.aluno_id
         WHERE ap.prova_id = ?
         ORDER BY aro.aplicacao_id, aro.aluno_id, aro.numero_questao, aro.id
     """, (prova_id,))
     registros = [dict(r) for r in cursor.fetchall()]
-
-    # Reconstrói o gabarito por aplicação/modelo pela MESMA função que monta a
-    # prova/cartão. Evita usar diretamente q.correta, que pode estar legado
-    # enquanto respostas_corretas contém o valor realmente vigente.
-    modelos_necessarios = sorted({
-        (int(r["aplicacao_id"]), max(1, int(r.get("modelo_oficial") or 1)))
-        for r in registros
-    })
-    mapa_modelos = {}
-    for aplicacao_id, modelo in modelos_necessarios:
-        questoes_modelo = _questoes_modelo_aplicacao(cursor, aplicacao_id, modelo)
-        por_qid = {}
-        objetivas_em_ordem = []
-        for numero, q in enumerate(questoes_modelo, 1):
-            if _tipo_discursivo_aplicacao(q.get("tipo_questao")):
-                continue
-            correta = _normalizar_letra_gabarito(q.get("correta"))
-            por_qid[int(q["id"])] = correta
-            objetivas_em_ordem.append((numero, int(q["id"]), correta))
-        mapa_modelos[(aplicacao_id, modelo)] = {
-            "por_qid": por_qid,
-            "objetivas": objetivas_em_ordem,
-        }
 
     grupos = {}
     for reg in registros:
@@ -20337,29 +20311,21 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
         grupos.setdefault(chave, []).append(reg)
 
     alterados = 0
+    pares_afetados = set()
     agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     for chave, linhas in grupos.items():
-        aplicacao_id, aluno_id = chave
-        modelo = max(1, int(linhas[0].get("modelo_oficial") or 1))
-        mapa = mapa_modelos.get((aplicacao_id, modelo), {})
-        por_qid = mapa.get("por_qid", {})
         gab = gab_por_aluno.get(chave, "")
-
-        # As linhas já são só objetivas e estão ordenadas pela posição exibida.
-        for indice_obj, reg in enumerate(linhas):
-            qid = int(reg.get("questao_id") or 0)
+        for indice, reg in enumerate(linhas):
             anulada = int(reg.get("anulada") or 0) == 1
-            resposta = _normalizar_letra_gabarito(reg.get("resposta"))
+            resposta = str(reg.get("resposta") or "").strip().upper()
             situacao = str(reg.get("situacao") or "").strip().lower()
+            qid = int(reg.get("questao_id") or 0)
 
-            # 1) GAB congelado do QR; 2) reconstrução oficial do mesmo modelo;
-            # 3) valor histórico apenas se nenhuma das fontes oficiais existir.
-            correta = ""
-            if indice_obj < len(gab):
-                correta = _normalizar_letra_gabarito(gab[indice_obj])
-            if not correta:
-                correta = _normalizar_letra_gabarito(por_qid.get(qid, ""))
+            # 1) questão vinculada à prova; 2) QR; 3) valor já gravado.
+            correta = correta_por_questao.get(qid, "")
+            if not correta and indice < len(gab):
+                correta = gab[indice]
             if not correta:
                 correta = _normalizar_letra_gabarito(reg.get("resposta_correta"))
 
@@ -20386,11 +20352,13 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
                     WHERE prova_id = ? AND aluno_id = ? AND numero_questao = ?
                 """, (
                     nova_correta, novo_acertou, prova_id,
-                    aluno_id, reg["numero_questao"]
+                    reg["aluno_id"], reg["numero_questao"]
                 ))
                 alterados += 1
+                pares_afetados.add(chave)
 
-    # Recalcula totais de todos os alunos com os dados reparados.
+    # Recalcula totais objetivos de TODOS os alunos da prova, inclusive quando
+    # apenas o campo acertou estava inconsistente.
     pares = {(int(r["aplicacao_id"]), int(r["aluno_id"])) for r in registros}
     for aplicacao_id, aluno_id in pares:
         cursor.execute("""
@@ -20410,6 +20378,767 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
         ))
 
     return alterados
+
+def _recalcular_notas_aplicacoes_por_peso(
+    cursor,
+    prova_id=None,
+    aplicacao_id=None,
+    aluno_id=None
+):
+    """
+    Recalcula notas objetivas usando prova_questoes.peso.
+
+    Também atualiza a nota final quando não há discursivas ou quando todas
+    as discursivas do aluno já foram corrigidas. Isso corrige registros
+    antigos que foram gravados com a fórmula proporcional por quantidade.
+    """
+    condicoes = ["aa.objetiva_corrigida = 1"]
+    parametros = []
+
+    if prova_id is not None:
+        condicoes.append("ap.prova_id = ?")
+        parametros.append(prova_id)
+
+    if aplicacao_id is not None:
+        condicoes.append("aa.aplicacao_id = ?")
+        parametros.append(aplicacao_id)
+
+    if aluno_id is not None:
+        condicoes.append("aa.aluno_id = ?")
+        parametros.append(aluno_id)
+
+    cursor.execute(f"""
+        SELECT
+            aa.aplicacao_id,
+            aa.aluno_id,
+            ap.prova_id,
+            ROUND(
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN COALESCE(aro.acertou, 0) = 1
+                                THEN COALESCE(pq.peso, 0)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ),
+                2
+            ) AS nota_objetiva_calculada,
+            COUNT(aro.id) AS total_respostas_objetivas,
+            COALESCE(aa.nota_discursiva, 0) AS nota_discursiva
+        FROM aplicacao_alunos AS aa
+        INNER JOIN aplicacoes AS ap
+            ON ap.id = aa.aplicacao_id
+        INNER JOIN aplicacao_respostas_objetivas AS aro
+            ON aro.aplicacao_id = aa.aplicacao_id
+           AND aro.aluno_id = aa.aluno_id
+        LEFT JOIN prova_questoes AS pq
+            ON pq.prova_id = ap.prova_id
+           AND pq.questao_id = aro.questao_id
+        WHERE {" AND ".join(condicoes)}
+        GROUP BY
+            aa.aplicacao_id,
+            aa.aluno_id,
+            ap.prova_id,
+            aa.nota_discursiva
+        HAVING COUNT(aro.id) > 0
+    """, parametros)
+
+    registros = cursor.fetchall()
+
+    for registro in registros:
+        aplicacao_atual = registro["aplicacao_id"]
+        aluno_atual = registro["aluno_id"]
+        nota_objetiva = round(
+            float(registro["nota_objetiva_calculada"] or 0),
+            2
+        )
+        nota_discursiva = round(
+            float(registro["nota_discursiva"] or 0),
+            2
+        )
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(
+                    CASE
+                        WHEN corrigida = 1 THEN 1
+                        ELSE 0
+                    END
+                ) AS corrigidas
+            FROM respostas_discursivas_aplicacao
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+              AND TRIM(COALESCE(imagem_resposta, '')) <> ''
+        """, (aplicacao_atual, aluno_atual))
+
+        discursivas = cursor.fetchone()
+        total_discursivas = int(discursivas["total"] or 0)
+        corrigidas = int(discursivas["corrigidas"] or 0)
+
+        if total_discursivas == 0:
+            nota_final = nota_objetiva
+        elif corrigidas == total_discursivas:
+            nota_final = round(
+                nota_objetiva + nota_discursiva,
+                2
+            )
+        else:
+            nota_final = None
+
+        cursor.execute("""
+            UPDATE aplicacao_alunos
+            SET nota_objetiva = ?,
+                nota_final = ?
+            WHERE aplicacao_id = ?
+              AND aluno_id = ?
+        """, (
+            nota_objetiva,
+            nota_final,
+            aplicacao_atual,
+            aluno_atual
+        ))
+
+
+@app.route("/relatorios")
+def relatorios():
+    """
+    Visão geral dos resultados.
+
+    Consolida:
+    1. resultados das novas aplicações, armazenados em aplicacao_alunos;
+    2. resultados legados da tabela resultados, quando ainda não existir
+       um resultado equivalente nas novas aplicações.
+    """
+    if not permissao_modulo("Relatórios"):
+        return redirect("/acesso_negado")
+
+    # Garante que as tabelas e colunas das aplicações existam antes
+    # de montar as consultas consolidadas.
+    _garantir_tabelas_aplicacoes()
+
+    contexto = obter_contexto_plataforma()
+    cargo = contexto["cargo"]
+    usuario_id = contexto["usuario_id"]
+    escola_usuario_id = contexto["escola_id"]
+    ano_contexto = contexto["ano"]
+    ano_letivo_id = contexto["ano_letivo_id"]
+
+    escola_filtro = request.args.get("escola_id", type=int)
+    turma_filtro = request.args.get("turma_id", type=int)
+    disciplina_filtro = request.args.get("disciplina", "").strip()
+    prova_filtro = request.args.get("prova_id", type=int)
+
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    cursor = banco.cursor()
+
+    try:
+        _recalcular_notas_aplicacoes_por_peso(cursor)
+        banco.commit()
+
+        # ---------------------------------------------------------
+        # Restrições de acesso e filtros
+        # ---------------------------------------------------------
+        condicoes = ["1 = 1"]
+        parametros = []
+
+        if cargo == "Administrador Geral":
+            if escola_filtro:
+                condicoes.append("COALESCE(p.escola_id, t.escola_id) = ?")
+                parametros.append(escola_filtro)
+
+            # Para o Administrador Geral, o ano é comparado pelo número,
+            # pois cada instituição possui um ano_letivo_id diferente.
+            if ano_contexto is not None:
+                condicoes.append("al.ano = ?")
+                parametros.append(ano_contexto)
+        else:
+            if not escola_usuario_id:
+                flash(
+                    "Não foi possível identificar sua instituição.",
+                    "erro"
+                )
+                return redirect("/")
+
+            condicoes.append("COALESCE(p.escola_id, t.escola_id) = ?")
+            parametros.append(escola_usuario_id)
+
+            if ano_letivo_id:
+                condicoes.append("p.ano_letivo_id = ?")
+                parametros.append(ano_letivo_id)
+
+            if cargo == "Professor":
+                # provas.professor_id ainda referencia a tabela legada
+                # `professores`, enquanto a sessão guarda usuarios.id.
+                # Converter o ID evita o relatório localizar a prova por
+                # coincidência de IDs e perder os resultados do professor.
+                professor_legado_id = _professor_legado_do_usuario(
+                    cursor, usuario_id
+                )
+                banco.commit()
+
+                if professor_legado_id:
+                    condicoes.append("p.professor_id = ?")
+                    parametros.append(professor_legado_id)
+                else:
+                    # Sem correspondência legada, não expõe provas de outro
+                    # professor. O EXISTS usa os vínculos atuais e componente.
+                    condicoes.append("""
+                        EXISTS (
+                            SELECT 1
+                            FROM professor_vinculos AS pv_rel
+                            LEFT JOIN componentes_curriculares AS cc_rel
+                                ON cc_rel.id = pv_rel.componente_id
+                            WHERE pv_rel.professor_id = ?
+                              AND pv_rel.turma_id = p.turma_id
+                              AND (
+                                  cc_rel.id IS NULL
+                                  OR LOWER(TRIM(cc_rel.nome)) =
+                                     LOWER(TRIM(p.disciplina))
+                              )
+                        )
+                    """)
+                    parametros.append(usuario_id)
+
+        if turma_filtro:
+            condicoes.append("p.turma_id = ?")
+            parametros.append(turma_filtro)
+
+        if disciplina_filtro:
+            condicoes.append(
+                "LOWER(TRIM(p.disciplina)) = LOWER(TRIM(?))"
+            )
+            parametros.append(disciplina_filtro)
+
+        if prova_filtro:
+            condicoes.append("p.id = ?")
+            parametros.append(prova_filtro)
+
+        where_sql = " AND ".join(condicoes)
+
+        base_joins = """
+            FROM provas AS p
+            INNER JOIN turmas AS t
+                ON t.id = p.turma_id
+            LEFT JOIN escolas AS e
+                ON e.id = COALESCE(p.escola_id, t.escola_id)
+            LEFT JOIN anos_letivos AS al
+                ON al.id = p.ano_letivo_id
+        """
+
+        # Um aluno entra no relatório quando possui nota final ou quando
+        # concluiu uma aplicação somente objetiva.
+        # Fonte única dos relatórios: para cada aluno/prova vale apenas uma
+        # aplicação consolidada. A regra é a mesma da tela de resultados:
+        # primeiro uma correção concluída; em empate, a aplicação mais recente.
+        # Assim, reaplicações não duplicam média, questões ou habilidades.
+        resultados_cte = """
+            WITH aplicacoes_rankeadas AS (
+                SELECT
+                    ap.prova_id,
+                    ap.id AS aplicacao_id,
+                    aa.aluno_id,
+                    aa.status,
+                    aa.nota_final,
+                    aa.nota_objetiva,
+                    aa.objetiva_corrigida,
+                    aa.discursiva_pendente,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ap.prova_id, aa.aluno_id
+                        ORDER BY
+                            CASE
+                                WHEN aa.nota_final IS NOT NULL THEN 3
+                                WHEN aa.objetiva_corrigida = 1
+                                 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                                 AND aa.nota_objetiva IS NOT NULL THEN 3
+                                WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 2
+                                ELSE 1
+                            END DESC,
+                            ap.id DESC,
+                            aa.id DESC
+                    ) AS rn
+                FROM aplicacoes AS ap
+                INNER JOIN aplicacao_alunos AS aa
+                    ON aa.aplicacao_id = ap.id
+            ), aplicacoes_vigentes AS (
+                SELECT * FROM aplicacoes_rankeadas WHERE rn = 1
+            ), resultados_legados_rank AS (
+                SELECT rl.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY rl.prova_id, rl.aluno_id
+                           ORDER BY rl.id DESC
+                       ) AS rn
+                FROM resultados AS rl
+            ), resultados_consolidados AS (
+                SELECT
+                    av.prova_id,
+                    av.aluno_id,
+                    av.aplicacao_id,
+                    CASE
+                        WHEN av.nota_final IS NOT NULL THEN av.nota_final
+                        WHEN av.objetiva_corrigida = 1
+                         AND COALESCE(av.discursiva_pendente, 0) = 0
+                            THEN av.nota_objetiva
+                        ELSE NULL
+                    END AS nota
+                FROM aplicacoes_vigentes AS av
+                WHERE LOWER(TRIM(COALESCE(av.status, ''))) NOT IN ('ausente', 'faltou')
+                  AND CASE
+                        WHEN av.nota_final IS NOT NULL THEN av.nota_final
+                        WHEN av.objetiva_corrigida = 1
+                         AND COALESCE(av.discursiva_pendente, 0) = 0
+                            THEN av.nota_objetiva
+                        ELSE NULL
+                      END IS NOT NULL
+
+                UNION ALL
+
+                SELECT
+                    rl.prova_id,
+                    rl.aluno_id,
+                    NULL AS aplicacao_id,
+                    CASE
+                        WHEN rl.nota IS NOT NULL THEN rl.nota
+                        WHEN rl.acertos IS NOT NULL
+                         AND COALESCE(p_leg.quantidade, 0) > 0
+                            THEN ROUND(10.0 * rl.acertos / p_leg.quantidade, 2)
+                        ELSE NULL
+                    END AS nota
+                FROM resultados_legados_rank AS rl
+                LEFT JOIN provas AS p_leg ON p_leg.id = rl.prova_id
+                WHERE rl.rn = 1
+                  AND (
+                    rl.nota IS NOT NULL
+                    OR (rl.acertos IS NOT NULL AND COALESCE(p_leg.quantidade, 0) > 0)
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM aplicacoes_vigentes AS av2
+                      WHERE av2.prova_id = rl.prova_id
+                        AND av2.aluno_id = rl.aluno_id
+                        AND LOWER(TRIM(COALESCE(av2.status, ''))) NOT IN ('ausente', 'faltou')
+                        AND (
+                            av2.nota_final IS NOT NULL
+                            OR (
+                                av2.objetiva_corrigida = 1
+                                AND COALESCE(av2.discursiva_pendente, 0) = 0
+                                AND av2.nota_objetiva IS NOT NULL
+                            )
+                        )
+                  )
+            )
+        """
+
+        respostas_cte = """
+            WITH aplicacoes_rankeadas AS (
+                SELECT
+                    ap.prova_id,
+                    ap.id AS aplicacao_id,
+                    aa.aluno_id,
+                    aa.status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ap.prova_id, aa.aluno_id
+                        ORDER BY
+                            CASE
+                                WHEN aa.nota_final IS NOT NULL THEN 3
+                                WHEN aa.objetiva_corrigida = 1
+                                 AND COALESCE(aa.discursiva_pendente, 0) = 0
+                                 AND aa.nota_objetiva IS NOT NULL THEN 3
+                                WHEN LOWER(TRIM(COALESCE(aa.status, ''))) IN ('ausente', 'faltou') THEN 2
+                                ELSE 1
+                            END DESC,
+                            ap.id DESC,
+                            aa.id DESC
+                    ) AS rn
+                FROM aplicacoes AS ap
+                INNER JOIN aplicacao_alunos AS aa
+                    ON aa.aplicacao_id = ap.id
+            ), aplicacoes_vigentes AS (
+                SELECT * FROM aplicacoes_rankeadas WHERE rn = 1
+            ), respostas_atuais AS (
+                SELECT
+                    av.prova_id,
+                    aro.aluno_id,
+                    aro.numero_questao,
+                    aro.acertou
+                FROM aplicacoes_vigentes AS av
+                INNER JOIN aplicacao_respostas_objetivas AS aro
+                    ON aro.aplicacao_id = av.aplicacao_id
+                   AND aro.aluno_id = av.aluno_id
+                WHERE LOWER(TRIM(COALESCE(av.status, ''))) NOT IN ('ausente', 'faltou')
+            ), respostas_consolidadas AS (
+                SELECT prova_id, aluno_id, numero_questao, acertou
+                FROM respostas_atuais
+
+                UNION ALL
+
+                SELECT
+                    ra.prova_id,
+                    ra.aluno_id,
+                    ra.numero_questao,
+                    ra.acertou
+                FROM respostas_alunos AS ra
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM respostas_atuais AS r2
+                    WHERE r2.prova_id = ra.prova_id
+                      AND r2.aluno_id = ra.aluno_id
+                      AND r2.numero_questao = ra.numero_questao
+                )
+            )
+        """
+
+        # ---------------------------------------------------------
+        # Opções dos filtros
+        # ---------------------------------------------------------
+        if cargo == "Administrador Geral":
+            cursor.execute("""
+                SELECT id, nome_instituicao
+                FROM escolas
+                WHERE COALESCE(status, 1) = 1
+                ORDER BY nome_instituicao COLLATE NOCASE
+            """)
+            escolas = cursor.fetchall()
+        else:
+            cursor.execute("""
+                SELECT id, nome_instituicao
+                FROM escolas
+                WHERE id = ?
+            """, (escola_usuario_id,))
+            escolas = cursor.fetchall()
+
+        opcoes_condicoes = ["1 = 1"]
+        opcoes_parametros = []
+
+        if cargo == "Administrador Geral":
+            if escola_filtro:
+                opcoes_condicoes.append("t.escola_id = ?")
+                opcoes_parametros.append(escola_filtro)
+
+            if ano_contexto is not None:
+                opcoes_condicoes.append("al.ano = ?")
+                opcoes_parametros.append(ano_contexto)
+        else:
+            opcoes_condicoes.append("t.escola_id = ?")
+            opcoes_parametros.append(escola_usuario_id)
+
+            if ano_letivo_id:
+                opcoes_condicoes.append("t.ano_letivo_id = ?")
+                opcoes_parametros.append(ano_letivo_id)
+
+        if cargo == "Professor":
+            opcoes_condicoes.append("""
+                EXISTS (
+                    SELECT 1
+                    FROM professor_vinculos AS pv
+                    WHERE pv.professor_id = ?
+                      AND pv.turma_id = t.id
+                )
+            """)
+            opcoes_parametros.append(usuario_id)
+
+        cursor.execute(f"""
+            SELECT DISTINCT
+                t.id,
+                t.nome,
+                t.ano,
+                t.turno
+            FROM turmas AS t
+            LEFT JOIN anos_letivos AS al
+                ON al.id = t.ano_letivo_id
+            WHERE {" AND ".join(opcoes_condicoes)}
+            ORDER BY
+                t.ano COLLATE NOCASE,
+                t.nome COLLATE NOCASE
+        """, opcoes_parametros)
+        turmas = cursor.fetchall()
+
+        cursor.execute(f"""
+            SELECT DISTINCT TRIM(p.disciplina) AS disciplina
+            {base_joins}
+            WHERE {where_sql}
+              AND TRIM(COALESCE(p.disciplina, '')) <> ''
+            ORDER BY disciplina COLLATE NOCASE
+        """, parametros)
+        disciplinas = [
+            linha["disciplina"]
+            for linha in cursor.fetchall()
+        ]
+
+        # Lista de provas sem aplicar o próprio filtro de prova.
+        condicoes_provas = [
+            condicao
+            for condicao in condicoes
+            if condicao != "p.id = ?"
+        ]
+        parametros_provas = list(parametros)
+
+        if prova_filtro:
+            parametros_provas.pop()
+
+        cursor.execute(f"""
+            SELECT
+                p.id,
+                p.nome,
+                t.nome AS turma_nome,
+                p.disciplina
+            {base_joins}
+            WHERE {" AND ".join(condicoes_provas)}
+            ORDER BY
+                COALESCE(
+                    p.data_aplicacao,
+                    p.data_geracao,
+                    p.id
+                ) DESC,
+                p.id DESC
+        """, parametros_provas)
+        provas_filtro = cursor.fetchall()
+
+        # ---------------------------------------------------------
+        # Indicadores gerais
+        # ---------------------------------------------------------
+        cursor.execute(
+            resultados_cte + f"""
+            SELECT
+                COUNT(DISTINCT p.id) AS total_avaliacoes,
+                COUNT(DISTINCT rc.aluno_id) AS alunos_avaliados,
+                ROUND(AVG(rc.nota), 1) AS media_geral,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota,
+                SUM(
+                    CASE
+                        WHEN p.media_ativa = 1
+                         AND p.media_aprovacao IS NOT NULL
+                         AND rc.nota >= p.media_aprovacao
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS aprovados_com_media,
+                SUM(
+                    CASE
+                        WHEN p.media_ativa = 1
+                         AND p.media_aprovacao IS NOT NULL
+                         AND rc.nota IS NOT NULL
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS resultados_com_media
+            {base_joins}
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            WHERE {where_sql}
+            """,
+            parametros
+        )
+        indicadores = cursor.fetchone()
+
+        total_com_media = indicadores["resultados_com_media"] or 0
+        aprovados_com_media = indicadores["aprovados_com_media"] or 0
+
+        taxa_aprovacao = (
+            round(
+                (aprovados_com_media / total_com_media) * 100,
+                1
+            )
+            if total_com_media > 0
+            else 0
+        )
+
+        # ---------------------------------------------------------
+        # Desempenho por turma
+        # ---------------------------------------------------------
+        cursor.execute(
+            resultados_cte + f"""
+            SELECT
+                t.id AS turma_id,
+                t.nome AS turma_nome,
+                t.ano AS turma_ano,
+                COUNT(DISTINCT p.id) AS total_avaliacoes,
+                COUNT(DISTINCT rc.aluno_id) AS alunos_avaliados,
+                ROUND(AVG(rc.nota), 1) AS media,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota
+            {base_joins}
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            WHERE {where_sql}
+            GROUP BY
+                t.id,
+                t.nome,
+                t.ano
+            HAVING COUNT(rc.aluno_id) > 0
+            ORDER BY
+                media DESC,
+                t.nome COLLATE NOCASE
+            LIMIT 12
+            """,
+            parametros
+        )
+        desempenho_turmas = cursor.fetchall()
+
+        # ---------------------------------------------------------
+        # Avaliações recentes
+        # ---------------------------------------------------------
+        cursor.execute(
+            resultados_cte + f"""
+            SELECT
+                p.id,
+                p.nome,
+                p.disciplina,
+                COALESCE(
+                    MAX(ap_recente.data_aplicacao),
+                    p.data_aplicacao
+                ) AS data_aplicacao,
+                p.status,
+                p.media_ativa,
+                p.media_aprovacao,
+                t.nome AS turma_nome,
+                e.nome_instituicao,
+                COUNT(rc.aluno_id) AS total_resultados,
+                ROUND(AVG(rc.nota), 1) AS media,
+                ROUND(MAX(rc.nota), 1) AS maior_nota,
+                ROUND(MIN(rc.nota), 1) AS menor_nota
+            {base_joins}
+            LEFT JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            LEFT JOIN aplicacoes AS ap_recente
+                ON ap_recente.prova_id = p.id
+            WHERE {where_sql}
+            GROUP BY
+                p.id,
+                p.nome,
+                p.disciplina,
+                p.data_aplicacao,
+                p.status,
+                p.media_ativa,
+                p.media_aprovacao,
+                t.nome,
+                e.nome_instituicao
+            ORDER BY
+                COALESCE(
+                    MAX(ap_recente.data_aplicacao),
+                    p.data_aplicacao,
+                    p.data_geracao,
+                    p.id
+                ) DESC,
+                p.id DESC
+            LIMIT 10
+            """,
+            parametros
+        )
+        avaliacoes = cursor.fetchall()
+
+        # ---------------------------------------------------------
+        # Questões objetivas com maior índice de erro
+        # ---------------------------------------------------------
+        cursor.execute(
+            respostas_cte + f"""
+            SELECT
+                rq.prova_id,
+                rq.numero_questao,
+                p.nome AS prova_nome,
+                p.disciplina,
+                COUNT(*) AS respondentes,
+                SUM(
+                    CASE WHEN rq.acertou = 1 THEN 1 ELSE 0 END
+                ) AS acertos,
+                SUM(
+                    CASE WHEN rq.acertou = 0 THEN 1 ELSE 0 END
+                ) AS erros,
+                ROUND(
+                    100.0
+                    * SUM(
+                        CASE WHEN rq.acertou = 0 THEN 1 ELSE 0 END
+                    )
+                    / NULLIF(COUNT(*), 0),
+                    1
+                ) AS percentual_erros
+            {base_joins}
+            INNER JOIN respostas_consolidadas AS rq
+                ON rq.prova_id = p.id
+            WHERE {where_sql}
+            GROUP BY
+                rq.prova_id,
+                rq.numero_questao,
+                p.nome,
+                p.disciplina
+            HAVING COUNT(*) > 0
+            ORDER BY
+                percentual_erros DESC,
+                respondentes DESC
+            LIMIT 8
+            """,
+            parametros
+        )
+        questoes_criticas = cursor.fetchall()
+
+        # ---------------------------------------------------------
+        # Ranking de alunos
+        # ---------------------------------------------------------
+        cursor.execute(
+            resultados_cte + f"""
+            SELECT
+                alu.id AS aluno_id,
+                alu.nome AS aluno_nome,
+                t.nome AS turma_nome,
+                COUNT(rc.nota) AS avaliacoes_realizadas,
+                ROUND(AVG(rc.nota), 1) AS media
+            {base_joins}
+            INNER JOIN resultados_consolidados AS rc
+                ON rc.prova_id = p.id
+            INNER JOIN alunos AS alu
+                ON alu.id = rc.aluno_id
+            WHERE {where_sql}
+            GROUP BY
+                alu.id,
+                alu.nome,
+                t.nome
+            HAVING COUNT(rc.nota) > 0
+            ORDER BY
+                media DESC,
+                avaliacoes_realizadas DESC,
+                alu.nome COLLATE NOCASE
+            LIMIT 5
+            """,
+            parametros
+        )
+        ranking_alunos = cursor.fetchall()
+
+        return render_template(
+            "relatorios/index.html",
+            escolas=escolas,
+            turmas=turmas,
+            disciplinas=disciplinas,
+            provas_filtro=provas_filtro,
+            indicadores=indicadores,
+            taxa_aprovacao=taxa_aprovacao,
+            desempenho_turmas=desempenho_turmas,
+            avaliacoes=avaliacoes,
+            questoes_criticas=questoes_criticas,
+            ranking_alunos=ranking_alunos,
+            filtros={
+                "escola_id": escola_filtro,
+                "turma_id": turma_filtro,
+                "disciplina": disciplina_filtro,
+                "prova_id": prova_filtro
+            }
+        )
+
+    except sqlite3.Error as erro:
+        import traceback
+        traceback.print_exc()
+        flash(
+            f"Não foi possível carregar os relatórios: {erro}",
+            "erro"
+        )
+        return redirect("/")
+
+    finally:
+        banco.close()
+
 
 # =========================================================
 # MÓDULO DE APLICAÇÕES DE AVALIAÇÕES — ARK EDUS
