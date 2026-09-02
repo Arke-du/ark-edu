@@ -1,0 +1,14 @@
+ARK EDUS — CORREÇÃO DE RESULTADOS V7
+
+Objetivo:
+Corrigir resultados objetivos já gravados no banco, sem reimportar cartões.
+
+Alterações:
+1. A correção passa a usar questao_id + gabarito atual cadastrado na questão como fonte principal.
+2. O QR e o gabarito histórico ficam apenas como fallback para registros legados.
+3. O relatório "Desempenho por questão" não confia mais cegamente no campo acertou: compara diretamente resposta x resposta_correta.
+4. O Mapa de respostas usa a mesma comparação direta para definir verde/vermelho.
+5. Os totais individuais também usam a mesma regra.
+6. Ao abrir /resultados/<prova_id>, os registros existentes são sincronizados e persistidos no banco.
+
+Não é necessário reimportar cartões.

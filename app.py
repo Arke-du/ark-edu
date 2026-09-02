@@ -13643,10 +13643,15 @@ def resultados(prova_id):
             anulada = int(reg.get("anulada") or 0) == 1
             situacao = str(reg.get("situacao") or "").strip().lower()
             resposta = str(reg.get("resposta") or "").strip()
-            acertou_salvo = int(reg.get("acertou") or 0) == 1
-            if anulada or acertou_salvo:
+            correta_reg = _normalizar_letra_gabarito(reg.get("resposta_correta"))
+            resposta_reg = _normalizar_letra_gabarito(resposta)
+            acertou_direto = bool(
+                correta_reg and resposta_reg and resposta_reg == correta_reg
+                and situacao not in {"dupla_marcacao", "em_branco"}
+            )
+            if anulada or acertou_direto:
                 st["acertos"] += 1
-            elif situacao == "em_branco" or not resposta:
+            elif situacao == "em_branco" or not resposta_reg:
                 st["em_branco"] += 1
             else:
                 st["erros"] += 1
@@ -13730,7 +13735,15 @@ def resultados(prova_id):
                     if not reg:
                         continue
                     respondidas_unificadas += 1
-                    if int(reg.get("anulada") or 0) == 1 or int(reg.get("acertou") or 0) == 1:
+                    anulada_obj = int(reg.get("anulada") or 0) == 1
+                    situacao_obj = str(reg.get("situacao") or "").strip().lower()
+                    resp_obj = _normalizar_letra_gabarito(reg.get("resposta"))
+                    gab_obj = _normalizar_letra_gabarito(reg.get("resposta_correta"))
+                    acertou_obj = bool(
+                        gab_obj and resp_obj and resp_obj == gab_obj
+                        and situacao_obj not in {"dupla_marcacao", "em_branco"}
+                    )
+                    if anulada_obj or acertou_obj:
                         acertos_unificados += 1
                     else:
                         erros_unificados += 1
@@ -13931,7 +13944,12 @@ def resultados(prova_id):
                     valor = str(resposta.get("resposta") or "").strip().upper()
                     situacao = str(resposta.get("situacao") or "").strip().lower()
                     anulada = int(resposta.get("anulada") or 0) == 1
-                    acertou = int(resposta.get("acertou") or 0) == 1
+                    correta_mapa = _normalizar_letra_gabarito(resposta.get("resposta_correta"))
+                    resposta_mapa = _normalizar_letra_gabarito(valor)
+                    acertou = bool(
+                        correta_mapa and resposta_mapa and resposta_mapa == correta_mapa
+                        and situacao not in {"dupla_marcacao", "em_branco"}
+                    )
                     if anulada:
                         status, valor, titulo = "anulada", "AN", "Questão anulada"
                         total_acertos_mapa += 1
@@ -20304,10 +20322,10 @@ def _gabarito_atual_questao(questao):
 def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
     """Repara resultados JÁ GRAVADOS sem exigir nova importação.
 
-    Para aplicações já realizadas, a fonte principal é o gabarito congelado
-    no QR do cartão objetivo, pois ele representa exatamente a versão impressa
-    entregue ao aluno. Se não existir GAB no QR, preserva o gabarito histórico
-    salvo na resposta e só então usa o gabarito atual do banco como fallback.
+    Recalcula as respostas objetivas já existentes usando o questao_id e o
+    gabarito atual cadastrado na questão. Na ARK EDUS os modelos alteram apenas
+    a ordem das questões, não a letra das alternativas. QR e histórico ficam
+    somente como fallback para registros legados sem gabarito atual.
     """
     # 1) Gabarito atual da questão: usado apenas como fallback final.
     cursor.execute("""
@@ -20377,21 +20395,17 @@ def _sincronizar_acertos_objetivos_com_gabarito_atual(cursor, prova_id):
             resposta = _normalizar_letra_gabarito(reg.get("resposta"))
             situacao = str(reg.get("situacao") or "").strip().lower()
 
-            # FONTE DE VERDADE PARA RESULTADOS JÁ APLICADOS:
-            # 1) o GAB congelado no QR do cartão que o aluno realmente respondeu;
-            # 2) o gabarito histórico salvo na própria resposta;
-            # 3) somente como último fallback, o gabarito atual da questão.
-            #
-            # Isso é essencial porque a questão pode ter sido editada depois da
-            # impressão/aplicação. O resultado histórico não pode mudar por causa
-            # de uma edição posterior no banco de questões.
-            correta = ""
-            if indice_obj < len(gab):
-                correta = _normalizar_letra_gabarito(gab[indice_obj])
+            # FONTE DE VERDADE DO RESULTADO:
+            # as alternativas NÃO mudam de letra entre os modelos; apenas a ordem
+            # das questões muda. Portanto, para dados que já estão no banco, a
+            # correção deve ser feita pelo questao_id + gabarito atual cadastrado
+            # na própria questão. O GAB antigo do QR e resposta_correta histórica
+            # ficam apenas como fallback para registros legados sem gabarito atual.
+            correta = _normalizar_letra_gabarito(correta_por_questao.get(qid, ""))
             if not correta:
                 correta = _normalizar_letra_gabarito(reg.get("resposta_correta"))
-            if not correta:
-                correta = _normalizar_letra_gabarito(correta_por_questao.get(qid, ""))
+            if not correta and indice_obj < len(gab):
+                correta = _normalizar_letra_gabarito(gab[indice_obj])
 
             if anulada:
                 nova_correta = "ANULADA"
