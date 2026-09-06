@@ -52,6 +52,8 @@
 
 .ark-modal-fundo{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.ark-modal-fundo.ativo{display:flex}.ark-modal{width:min(440px,100%);overflow:hidden;border:1px solid #dbe4f0;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25);animation:arkModalEntrada .18s ease-out}.ark-modal-topo{display:flex;align-items:center;gap:12px;padding:20px 22px 14px}.ark-modal-icone{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:#fff7ed;color:#ea580c;font-size:23px}.ark-modal h3{margin:0;color:#0f2f66;font-size:18px}.ark-modal p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5}.ark-modal-acoes{display:flex;justify-content:flex-end;padding:14px 22px 20px}.ark-modal-ok{min-height:42px;padding:0 18px;border:0;border-radius:11px;background:linear-gradient(135deg,#17468f,#2563eb);color:#fff;font:inherit;font-size:13px;font-weight:850;cursor:pointer;box-shadow:0 8px 18px rgba(37,99,235,.2)}@keyframes arkModalEntrada{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @media(max-width:850px){.questoes-grid,.tipo-grid,.linha-classificacao{grid-template-columns:1fr}.largo{grid-column:auto}.alternativa-item{grid-template-columns:38px minmax(0,1fr)}.alternativa-acoes{grid-column:2}.questoes-rodape,.acoes-direita{display:grid;width:100%}.questoes-btn{width:100%}}
+
+.ia-top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ia-btn{border:0;border-radius:999px;background:linear-gradient(135deg,#17468f,#6d5dfc);color:#fff;min-height:40px;padding:9px 15px;font:inherit;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.18)}.ia-btn:disabled{opacity:.65;cursor:wait}.ia-modal-fundo{position:fixed;inset:0;z-index:9999;display:none;place-items:center;padding:20px;background:rgba(15,23,42,.52);backdrop-filter:blur(3px)}.ia-modal-fundo.ativo{display:grid}.ia-modal{width:min(620px,100%);border-radius:20px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.28);overflow:hidden}.ia-modal-head{padding:20px 22px 14px;border-bottom:1px solid #e2e8f0}.ia-modal-head h3{margin:0;color:#123b72;font-size:20px}.ia-modal-head p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.45}.ia-modal-body{display:grid;gap:12px;padding:20px 22px}.ia-modal-body label{font-size:12px;font-weight:850;color:#334155}.ia-modal-body textarea{width:100%;min-height:105px;resize:vertical;border:1px solid #cbd5e1;border-radius:12px;padding:12px;font:inherit;line-height:1.45;outline:none}.ia-modal-body textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(37,99,235,.1)}.ia-contexto{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ia-chip{padding:9px 10px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;color:#475569}.ia-modal-actions{display:flex;justify-content:flex-end;gap:9px;padding:14px 22px 20px}.ia-modal-actions button{min-height:40px;border-radius:10px;padding:8px 14px;font:inherit;font-weight:850;cursor:pointer}.ia-cancel{border:1px solid #cbd5e1;background:#fff;color:#475569}.ia-generate{border:0;background:#17468f;color:#fff}.ia-status{min-height:18px;color:#64748b;font-size:12px}.ia-status.erro{color:#b91c1c}.ia-note{padding:10px 12px;border-radius:11px;background:#eff6ff;color:#1e40af;font-size:11px;line-height:1.4}@media(max-width:650px){.ia-contexto{grid-template-columns:1fr}}
 </style>
 {% endblock %}
 
@@ -67,7 +69,7 @@
             <h1>Nova questão</h1>
             <p>{% if prova_id %}A questão será salva no banco e adicionada automaticamente à avaliação.{% else %}Cadastre rapidamente e detalhe a classificação pedagógica apenas quando necessário.{% endif %}</p>
         </div>
-        <div class="modo-rapido">Modo rápido ativado</div>
+        <div class="ia-top-actions"><button type="button" class="ia-btn" id="abrirArkIA">✨ Gerar com IA</button><div class="modo-rapido">Modo rápido ativado</div></div>
     </header>
 
     <form method="POST" action="/cadastrar_questao" enctype="multipart/form-data" id="formQuestao">
@@ -220,6 +222,23 @@
             <div class="questoes-rodape"><span class="ajuda">Os campos avançados são opcionais.</span><div class="acoes-direita"><a href="/" class="questoes-btn secundario">Cancelar</a><button type="submit" class="questoes-btn principal">Cadastrar questão</button></div></div>
         </section>
     </form>
+</div>
+<div class="ia-modal-fundo" id="modalArkIA" role="dialog" aria-modal="true" aria-labelledby="tituloArkIA">
+    <div class="ia-modal">
+        <div class="ia-modal-head"><h3 id="tituloArkIA">✨ Gerar questão com ARK IA</h3><p>A IA usa a classificação preenchida no formulário e devolve uma sugestão para você revisar antes de cadastrar.</p></div>
+        <div class="ia-modal-body">
+            <div class="ia-contexto">
+                <div class="ia-chip"><b>Componente:</b> <span id="iaCtxDisciplina">—</span></div>
+                <div class="ia-chip"><b>Ano/Série:</b> <span id="iaCtxAno">—</span></div>
+                <div class="ia-chip"><b>Dificuldade:</b> <span id="iaCtxDificuldade">—</span></div>
+                <div class="ia-chip"><b>Habilidade:</b> <span id="iaCtxHabilidade">—</span></div>
+            </div>
+            <div><label for="iaTema">Tema, conteúdo ou orientação</label><textarea id="iaTema" placeholder="Ex.: Revoltas Regenciais, com foco em interpretação histórica e linguagem adequada ao 8º ano."></textarea></div>
+            <div class="ia-note">A questão não é salva automaticamente. Ela será colocada no formulário para sua revisão; só entra no banco quando você clicar em “Cadastrar questão”.</div>
+            <div class="ia-status" id="iaStatus"></div>
+        </div>
+        <div class="ia-modal-actions"><button type="button" class="ia-cancel" id="fecharArkIA">Cancelar</button><button type="button" class="ia-generate" id="gerarArkIA">Gerar questão</button></div>
+    </div>
 </div>
 <div class="ark-modal-fundo" id="modalValidacao" role="dialog" aria-modal="true" aria-labelledby="modalValidacaoTitulo">
     <div class="ark-modal">
@@ -595,6 +614,54 @@ document.addEventListener("DOMContentLoaded", () => {
         arrastando.classList.add("selecionada");
         figuraSelecionada = arrastando;
     });
+
+    const abrirArkIA=document.getElementById("abrirArkIA");
+    const modalArkIA=document.getElementById("modalArkIA");
+    const fecharArkIA=document.getElementById("fecharArkIA");
+    const gerarArkIA=document.getElementById("gerarArkIA");
+    const iaTema=document.getElementById("iaTema");
+    const iaStatus=document.getElementById("iaStatus");
+    function atualizarContextoIA(){
+        document.getElementById("iaCtxDisciplina").textContent=disciplina.value||"—";
+        document.getElementById("iaCtxAno").textContent=anoSerie.value||"—";
+        document.getElementById("iaCtxDificuldade").textContent=document.getElementById("dificuldadeQuestao").value||"Média";
+        document.getElementById("iaCtxHabilidade").textContent=document.getElementById("habilidadeBncc").value||"Não informada";
+    }
+    function fecharModalIA(){modalArkIA.classList.remove("ativo")}
+    abrirArkIA?.addEventListener("click",()=>{atualizarContextoIA();iaStatus.textContent="";iaStatus.className="ia-status";modalArkIA.classList.add("ativo");setTimeout(()=>iaTema.focus(),50)});
+    fecharArkIA?.addEventListener("click",fecharModalIA);
+    modalArkIA?.addEventListener("click",e=>{if(e.target===modalArkIA)fecharModalIA()});
+    gerarArkIA?.addEventListener("click",async()=>{
+        const payload={
+            disciplina:disciplina.value,
+            etapa_ensino:etapa.value,
+            ano_serie:anoSerie.value,
+            dificuldade:document.getElementById("dificuldadeQuestao").value||"Média",
+            habilidade_bncc:document.getElementById("habilidadeBncc").value||"",
+            tema:iaTema.value.trim()
+        };
+        iaStatus.className="ia-status"; iaStatus.textContent="Gerando questão..."; gerarArkIA.disabled=true; gerarArkIA.textContent="Gerando...";
+        try{
+            const resp=await fetch("/api/ia/gerar-questao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+            const data=await resp.json().catch(()=>({ok:false,erro:"Resposta inválida do servidor."}));
+            if(!resp.ok || !data.ok) throw new Error(data.erro||"Não foi possível gerar a questão.");
+            const q=data.questao||{};
+            document.querySelector('input[name="tipo_questao"][value="multipla_escolha"]').checked=true;
+            editor.innerHTML="";
+            const p=document.createElement("p"); p.textContent=q.enunciado||""; editor.appendChild(p);
+            lista.innerHTML="";
+            (q.alternativas||[]).forEach((texto,idx)=>{const item=criarAlternativa(texto); if(letra(idx)===q.gabarito)item.querySelector(".input-correta").checked=true;});
+            const dif=document.getElementById("dificuldadeQuestao"); if(["Fácil","Média","Difícil"].includes(q.dificuldade)) dif.value=q.dificuldade;
+            const hab=document.getElementById("habilidadeBncc"); if(q.habilidade_bncc && !hab.value) hab.value=q.habilidade_bncc;
+            const uni=document.getElementById("unidadeTematica"); if(q.unidade_tematica && !uni.value) uni.value=q.unidade_tematica;
+            const obj=document.getElementById("objetoConhecimento"); if(q.objeto_conhecimento && !obj.value) obj.value=q.objeto_conhecimento;
+            const bloom=document.getElementById("taxonomiaBloom"); if(q.taxonomia_bloom && [...bloom.options].some(o=>o.value===q.taxonomia_bloom)) bloom.value=q.taxonomia_bloom;
+            const obs=document.getElementById("observacoesQuestao"); if(q.explicacao && !obs.value) obs.value="Sugestão de justificativa da ARK IA: "+q.explicacao;
+            atualizarTipo(); fecharModalIA(); editor.scrollIntoView({behavior:"smooth",block:"center"});
+        }catch(err){iaStatus.className="ia-status erro";iaStatus.textContent=err.message||"Não foi possível gerar a questão."}
+        finally{gerarArkIA.disabled=false;gerarArkIA.textContent="Gerar questão"}
+    });
+
     etapa.addEventListener("change", atualizarSeries);
     document.querySelectorAll('input[name="tipo_questao"]').forEach(input => input.addEventListener("change", atualizarTipo));
     botaoAdicionar.addEventListener("click", criarAlternativa);

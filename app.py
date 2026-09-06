@@ -9756,6 +9756,259 @@ def _extrair_texto_resposta_openai(payload):
     return "\n".join(partes).strip()
 
 
+
+
+def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="OPENAI_TEXT_MODEL"):
+    """Chama a Responses API e exige uma resposta JSON utilizável pela ARK EDUS.
+
+    A chave permanece exclusivamente no backend. O frontend recebe somente o
+    conteúdo pedagógico gerado, nunca credenciais do provedor.
+    """
+    chave = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not chave:
+        raise ValueError(
+            "A IA ainda não está configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente do Render."
+        )
+
+    modelo = (
+        os.environ.get(modelo_env)
+        or os.environ.get("OPENAI_MODEL")
+        or "gpt-5.6-luna"
+    ).strip()
+
+    corpo = {
+        "model": modelo,
+        "instructions": instrucoes,
+        "input": dados_usuario,
+        "text": {"format": {"type": "json_object"}},
+    }
+    try:
+        resposta = requests.post(
+            "https://api.openai.com/v1/responses",
+            headers={
+                "Authorization": f"Bearer {chave}",
+                "Content-Type": "application/json",
+            },
+            json=corpo,
+            timeout=90,
+        )
+    except requests.RequestException as exc:
+        raise ValueError("Não foi possível conectar à IA agora. Tente novamente em instantes.") from exc
+
+    if resposta.status_code >= 400:
+        detalhe = ""
+        try:
+            detalhe = ((resposta.json().get("error") or {}).get("message") or "").strip()
+        except Exception:
+            pass
+        if resposta.status_code in {401, 403}:
+            raise ValueError("A chave da IA não foi aceita. Confira OPENAI_API_KEY no Render.")
+        if resposta.status_code == 429:
+            raise ValueError("O limite de uso da IA foi atingido no momento. Aguarde e tente novamente.")
+        raise ValueError("A IA não conseguiu concluir a solicitação." + (f" Detalhe: {detalhe[:220]}" if detalhe else ""))
+
+    texto = _extrair_texto_resposta_openai(resposta.json())
+    if not texto:
+        raise ValueError("A IA respondeu sem conteúdo utilizável.")
+    try:
+        return json.loads(texto)
+    except json.JSONDecodeError as exc:
+        # Alguns modelos podem envolver o JSON em uma cerca Markdown apesar da instrução.
+        limpo = re.sub(r"^```(?:json)?\\s*|\\s*```$", "", texto.strip(), flags=re.I | re.S)
+        try:
+            return json.loads(limpo)
+        except json.JSONDecodeError:
+            raise ValueError("A IA retornou uma resposta em formato inesperado. Tente novamente.") from exc
+
+
+@app.route("/api/ia/gerar-questao", methods=["POST"])
+def ia_gerar_questao():
+    """Gera uma questão para revisão; nada é salvo até o professor cadastrar."""
+    if not cargo_permitido([
+        "Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"
+    ]):
+        return jsonify({"ok": False, "erro": "Sessão expirada."}), 401
+    if not permissao_modulo("Questões"):
+        return jsonify({"ok": False, "erro": "Você não tem permissão para criar questões."}), 403
+
+    dados = request.get_json(silent=True) or {}
+    disciplina = str(dados.get("disciplina") or "").strip()
+    etapa = str(dados.get("etapa_ensino") or "").strip()
+    ano_serie = str(dados.get("ano_serie") or "").strip()
+    tema = str(dados.get("tema") or "").strip()
+    habilidade = str(dados.get("habilidade_bncc") or "").strip()
+    dificuldade = str(dados.get("dificuldade") or "Média").strip()
+
+    if not disciplina:
+        return jsonify({"ok": False, "erro": "Selecione o componente curricular antes de gerar."}), 400
+    if not ano_serie:
+        return jsonify({"ok": False, "erro": "Selecione o ano/série antes de gerar."}), 400
+    if not tema and not habilidade:
+        return jsonify({"ok": False, "erro": "Informe um tema/conteúdo ou uma habilidade BNCC."}), 400
+
+    instrucoes = """
+Você é a ARK IA, assistente pedagógica da plataforma ARK EDUS.
+Crie UMA questão escolar objetiva de múltipla escolha, clara, original e adequada à etapa informada.
+A questão será revisada por um professor antes de ser salva.
+Não cite que foi criada por IA. Evite ambiguidades, pegadinhas e alternativas obviamente absurdas.
+Produza exatamente 4 alternativas e somente uma correta.
+Retorne SOMENTE um objeto JSON válido com estas chaves:
+enunciado (string), alternativas (array de 4 strings), gabarito (A|B|C|D),
+explicacao (string curta), dificuldade (Fácil|Média|Difícil), habilidade_bncc (string),
+unidade_tematica (string), objeto_conhecimento (string), taxonomia_bloom (string).
+Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campos vazios em vez de inventar.
+""".strip()
+
+    entrada = {
+        "disciplina": disciplina,
+        "etapa_ensino": etapa,
+        "ano_serie": ano_serie,
+        "tema_ou_conteudo": tema,
+        "habilidade_bncc_informada": habilidade,
+        "dificuldade_desejada": dificuldade,
+        "orientacao": "Gere conteúdo em português do Brasil e adequado ao contexto escolar brasileiro."
+    }
+
+    try:
+        saida = _ark_ia_json(instrucoes, json.dumps(entrada, ensure_ascii=False))
+        alternativas = [str(x).strip() for x in (saida.get("alternativas") or []) if str(x).strip()]
+        gabarito = _normalizar_letra_gabarito(saida.get("gabarito"))
+        if len(alternativas) != 4 or gabarito not in {"A", "B", "C", "D"}:
+            raise ValueError("A IA não devolveu quatro alternativas com um gabarito válido. Tente gerar novamente.")
+        questao = {
+            "enunciado": str(saida.get("enunciado") or "").strip(),
+            "alternativas": alternativas,
+            "gabarito": gabarito,
+            "explicacao": str(saida.get("explicacao") or "").strip(),
+            "dificuldade": str(saida.get("dificuldade") or dificuldade).strip(),
+            "habilidade_bncc": str(saida.get("habilidade_bncc") or habilidade).strip(),
+            "unidade_tematica": str(saida.get("unidade_tematica") or "").strip(),
+            "objeto_conhecimento": str(saida.get("objeto_conhecimento") or "").strip(),
+            "taxonomia_bloom": str(saida.get("taxonomia_bloom") or "").strip(),
+        }
+        if not questao["enunciado"]:
+            raise ValueError("A IA não devolveu um enunciado válido. Tente novamente.")
+        return jsonify({"ok": True, "questao": questao})
+    except ValueError as exc:
+        return jsonify({"ok": False, "erro": str(exc)}), 400
+    except Exception as exc:
+        print("ERRO ARK IA - GERAR QUESTAO:", repr(exc))
+        return jsonify({"ok": False, "erro": "Não foi possível gerar a questão agora."}), 500
+
+
+@app.route("/api/ia/analisar-resultados/<int:prova_id>", methods=["POST"])
+def ia_analisar_resultados(prova_id):
+    """Analisa somente dados agregados da avaliação, sem enviar nomes de alunos à IA."""
+    if not cargo_permitido([
+        "Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"
+    ]):
+        return jsonify({"ok": False, "erro": "Sessão expirada."}), 401
+    if not permissao_modulo("Relatórios"):
+        return jsonify({"ok": False, "erro": "Você não tem permissão para analisar resultados."}), 403
+
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco(); banco.row_factory = sqlite3.Row
+    cur = banco.cursor()
+    try:
+        prova = cur.execute("""
+            SELECT p.id,p.nome,p.disciplina,p.turma_id,t.nome AS turma_nome,t.ano AS turma_ano
+            FROM provas p LEFT JOIN turmas t ON t.id=p.turma_id
+            WHERE p.id=? LIMIT 1
+        """, (prova_id,)).fetchone()
+        if not prova:
+            return jsonify({"ok": False, "erro": "Avaliação não encontrada."}), 404
+        if not _pode_gerenciar_prova(cur, prova_id, exigir_edicao=False, permitir_finalizada=True):
+            return jsonify({"ok": False, "erro": "Você não tem acesso a esta avaliação."}), 403
+
+        _sincronizar_acertos_objetivos_com_gabarito_atual(cur, prova_id)
+        _recalcular_notas_aplicacoes_por_peso(cur, prova_id=prova_id)
+        banco.commit()
+
+        # Seleciona uma única aplicação oficial por estudante para evitar duplicidade.
+        oficiais = cur.execute("""
+            WITH rankeadas AS (
+              SELECT aa.aluno_id, aa.aplicacao_id, aa.nota_final, aa.nota_objetiva,
+                     COALESCE(aa.acertos_objetivos,0) acertos,
+                     COALESCE(aa.total_objetivas,0) total,
+                     ROW_NUMBER() OVER (PARTITION BY aa.aluno_id ORDER BY ap.id DESC, aa.rowid DESC) rn
+              FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+              WHERE ap.prova_id=? AND LOWER(TRIM(COALESCE(aa.status,''))) NOT IN ('ausente','faltou')
+            )
+            SELECT * FROM rankeadas WHERE rn=1
+        """, (prova_id,)).fetchall()
+        apps = [int(r["aplicacao_id"]) for r in oficiais]
+        alunos_avaliados = len(oficiais)
+        acertos = sum(int(r["acertos"] or 0) for r in oficiais)
+        itens = sum(int(r["total"] or 0) for r in oficiais)
+        acerto_medio = round(acertos / itens * 100, 1) if itens else 0
+        notas = [float(r["nota_final"] if r["nota_final"] is not None else r["nota_objetiva"])
+                 for r in oficiais if (r["nota_final"] is not None or r["nota_objetiva"] is not None)]
+        media = round(sum(notas)/len(notas), 2) if notas else None
+
+        questoes = cur.execute("""
+            SELECT pq.questao_id, COALESCE(NULLIF(pq.ordem,0),pq.id) ordem,
+                   q.enunciado, COALESCE(q.habilidade_bncc,q.habilidade) AS habilidade, q.descritor_saeb AS descritor, q.tipo_questao
+            FROM prova_questoes pq JOIN questoes q ON q.id=pq.questao_id
+            WHERE pq.prova_id=? ORDER BY COALESCE(NULLIF(pq.ordem,0),pq.id),pq.id
+        """, (prova_id,)).fetchall()
+        stats = {int(q["questao_id"]): {"acertos":0,"total":0} for q in questoes}
+        if apps:
+            ph=','.join('?' for _ in apps)
+            for r in cur.execute(f"""
+                SELECT questao_id,resposta,resposta_correta,situacao,COALESCE(anulada,0) anulada
+                FROM aplicacao_respostas_objetivas WHERE aplicacao_id IN ({ph})
+            """, tuple(apps)).fetchall():
+                qid=int(r["questao_id"])
+                st=stats.setdefault(qid,{"acertos":0,"total":0}); st["total"]+=1
+                resp=_normalizar_letra_gabarito(r["resposta"]); gab=_normalizar_letra_gabarito(r["resposta_correta"])
+                situacao=str(r["situacao"] or '').strip().lower()
+                if int(r["anulada"] or 0)==1 or (resp and gab and resp==gab and situacao not in {"dupla_marcacao","em_branco"}):
+                    st["acertos"]+=1
+
+        itens_questoes=[]
+        for numero,q in enumerate(questoes,1):
+            st=stats.get(int(q["questao_id"]),{"acertos":0,"total":0})
+            pct=round(st["acertos"]/st["total"]*100,1) if st["total"] else 0
+            enunciado=re.sub(r"<[^>]+>", " ", str(q["enunciado"] or ""))
+            enunciado=re.sub(r"\\s+", " ", enunciado).strip()[:260]
+            itens_questoes.append({
+                "numero":numero,"percentual":pct,"acertos":st["acertos"],"respondentes":st["total"],
+                "habilidade":str(q["habilidade"] or "").strip(),"descritor":str(q["descritor"] or "").strip(),
+                "enunciado_resumido":enunciado,
+            })
+
+        pacote={
+            "avaliacao":prova["nome"],"disciplina":prova["disciplina"],"turma":prova["turma_nome"],
+            "ano_serie":prova["turma_ano"],"alunos_avaliados":alunos_avaliados,
+            "acerto_medio_percentual":acerto_medio,"media_notas":media,"questoes":itens_questoes,
+        }
+        instrucoes="""
+Você é a ARK IA, analista pedagógica da plataforma ARK EDUS.
+Analise APENAS os dados agregados recebidos; não invente alunos, habilidades ou causas não demonstradas.
+Use português do Brasil, tom profissional e prático para professor/coordenador.
+Retorne SOMENTE JSON válido com:
+resumo (2 a 4 frases), pontos_fortes (array de até 4 strings),
+pontos_atencao (array de até 4 strings), recomendacoes (array de 3 a 6 strings),
+proxima_acao (string objetiva).
+Ao mencionar questões, use Q1, Q2 etc. Diferencie dado observado de hipótese pedagógica.
+""".strip()
+        saida=_ark_ia_json(instrucoes, json.dumps(pacote, ensure_ascii=False))
+        return jsonify({"ok":True,"analise":{
+            "resumo":str(saida.get("resumo") or "").strip(),
+            "pontos_fortes":[str(x).strip() for x in (saida.get("pontos_fortes") or []) if str(x).strip()][:4],
+            "pontos_atencao":[str(x).strip() for x in (saida.get("pontos_atencao") or []) if str(x).strip()][:4],
+            "recomendacoes":[str(x).strip() for x in (saida.get("recomendacoes") or []) if str(x).strip()][:6],
+            "proxima_acao":str(saida.get("proxima_acao") or "").strip(),
+        }})
+    except ValueError as exc:
+        return jsonify({"ok":False,"erro":str(exc)}),400
+    except Exception as exc:
+        print("ERRO ARK IA - ANALISE RESULTADOS:", repr(exc))
+        return jsonify({"ok":False,"erro":"Não foi possível analisar os resultados agora."}),500
+    finally:
+        banco.close()
+
+
 def _salvar_recorte_figura_importacao(caminho_imagem, caixa):
     """Recorta apenas a figura/ilustração da questão, evitando duplicar o print inteiro."""
     if not isinstance(caixa, dict):

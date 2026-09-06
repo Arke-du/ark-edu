@@ -2,6 +2,8 @@
 <style>
 .arkedu-plan-watermark{display:none}
 @media print{.arkedu-plan-watermark{display:block;position:fixed;inset:42% 0 auto 0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;opacity:.09;transform:rotate(-24deg);z-index:99999;pointer-events:none}}
+
+.ia-result-btn{background:linear-gradient(135deg,#17468f,#6d5dfc)!important;border-color:transparent!important;color:#fff!important}.ia-result-modal{position:fixed;inset:0;z-index:9999;display:none;place-items:center;padding:20px;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)}.ia-result-modal.open{display:grid}.ia-result-card{width:min(760px,100%);max-height:88vh;overflow:auto;border-radius:20px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.28)}.ia-result-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:20px 22px;border-bottom:1px solid #e2e8f0}.ia-result-head h3{margin:0;color:#123b72;font-size:21px}.ia-result-head p{margin:5px 0 0;color:#64748b;font-size:12px}.ia-result-body{padding:20px 22px;display:grid;gap:15px}.ia-loading{padding:28px;border:1px dashed #bfd2ef;border-radius:14px;background:#f8fbff;color:#31557e;text-align:center;font-weight:800}.ia-analysis-section{padding:14px 16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}.ia-analysis-section h4{margin:0 0 8px;color:#123b72;font-size:14px}.ia-analysis-section p{margin:0;color:#475569;line-height:1.6;font-size:13px}.ia-analysis-section ul{margin:0;padding-left:19px;color:#475569;font-size:13px;line-height:1.55}.ia-next{background:#eff6ff;border-color:#bfdbfe}.ia-result-foot{display:flex;justify-content:flex-end;gap:9px;padding:0 22px 20px}.ia-result-error{padding:14px;border-radius:12px;background:#fef2f2;color:#b91c1c;font-size:13px}.ia-copy{border:1px solid #cbd5e1;background:#fff;color:#17468f}.ia-close{border:0;background:#17468f;color:#fff}.ia-result-foot button,.ia-result-head button{min-height:40px;border-radius:10px;padding:8px 14px;font:inherit;font-weight:850;cursor:pointer}
 </style>
 {% if exibir_marca_dagua_arkedu %}<div class="arkedu-plan-watermark">ARK EDUS • PLANO GRATUITO</div>{% endif %}
 {% extends "layout/base.html" %}
@@ -1234,7 +1236,7 @@
   </div>
 
   <header class="r-topo">
-    <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
+    <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button><button class="r-btn ia-result-btn" id="btnAnaliseIA" type="button">✨ Analisar com IA</button></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
   </header>
 
   <section class="r-card">
@@ -1436,6 +1438,14 @@
   <span>{{ prova['nome_instituicao'] or 'ARK EDUS' }}</span>
 </div>
 
+<div class="ia-result-modal" id="modalAnaliseIA" role="dialog" aria-modal="true" aria-labelledby="tituloAnaliseIA">
+  <div class="ia-result-card">
+    <div class="ia-result-head"><div><h3 id="tituloAnaliseIA">✨ Análise pedagógica com ARK IA</h3><p>A IA recebe somente dados agregados da avaliação, sem nomes de estudantes.</p></div><button class="ia-copy" type="button" id="fecharAnaliseIATopo">✕</button></div>
+    <div class="ia-result-body" id="conteudoAnaliseIA"><div class="ia-loading">Clique em “Analisar com IA” para gerar uma leitura pedagógica deste resultado.</div></div>
+    <div class="ia-result-foot"><button class="ia-copy" type="button" id="copiarAnaliseIA">Copiar análise</button><button class="ia-close" type="button" id="fecharAnaliseIA">Fechar</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalImpressao">
   <div class="modal"><div class="modal-head"><div><h3>Configurar relatório</h3><small style="color:#667085">Escolha o conteúdo. A estrutura se adapta automaticamente ao formato Retrato ou Paisagem, sem cortar informações.</small></div><button class="r-btn" onclick="fecharModalImpressao()">✕</button></div>
     <div class="modal-body"><div class="modal-grid">
@@ -1547,5 +1557,37 @@ window.addEventListener('afterprint',()=>{
 })
 document.querySelectorAll('.r-tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.r-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.r-tab-panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+btn.dataset.tab).classList.add('active')}))
 const busca=document.getElementById('buscaAluno');if(busca){busca.addEventListener('input',()=>{const termo=busca.value.toLowerCase();document.querySelectorAll('#tabelaAlunos tbody tr').forEach(tr=>tr.style.display=tr.innerText.toLowerCase().includes(termo)?'':'none')})}
+
+const modalAnaliseIA=document.getElementById('modalAnaliseIA');
+const conteudoAnaliseIA=document.getElementById('conteudoAnaliseIA');
+const btnAnaliseIA=document.getElementById('btnAnaliseIA');
+function escaparIA(valor){const d=document.createElement('div');d.textContent=valor||'';return d.innerHTML}
+function listaIA(titulo,itens){if(!itens?.length)return '';return `<div class="ia-analysis-section"><h4>${escaparIA(titulo)}</h4><ul>${itens.map(x=>`<li>${escaparIA(x)}</li>`).join('')}</ul></div>`}
+function fecharModalAnaliseIA(){modalAnaliseIA?.classList.remove('open')}
+document.getElementById('fecharAnaliseIA')?.addEventListener('click',fecharModalAnaliseIA);
+document.getElementById('fecharAnaliseIATopo')?.addEventListener('click',fecharModalAnaliseIA);
+modalAnaliseIA?.addEventListener('click',e=>{if(e.target===modalAnaliseIA)fecharModalAnaliseIA()});
+btnAnaliseIA?.addEventListener('click',async()=>{
+  modalAnaliseIA.classList.add('open');
+  conteudoAnaliseIA.innerHTML='<div class="ia-loading">ARK IA está analisando o desempenho da avaliação...</div>';
+  btnAnaliseIA.disabled=true;
+  try{
+    const resp=await fetch('/api/ia/analisar-resultados/{{ prova["id"] }}',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const data=await resp.json().catch(()=>({ok:false,erro:'Resposta inválida do servidor.'}));
+    if(!resp.ok||!data.ok)throw new Error(data.erro||'Não foi possível gerar a análise.');
+    const a=data.analise||{};
+    conteudoAnaliseIA.innerHTML=`
+      <div class="ia-analysis-section"><h4>Síntese</h4><p>${escaparIA(a.resumo)}</p></div>
+      ${listaIA('Pontos fortes',a.pontos_fortes)}
+      ${listaIA('Pontos de atenção',a.pontos_atencao)}
+      ${listaIA('Recomendações pedagógicas',a.recomendacoes)}
+      <div class="ia-analysis-section ia-next"><h4>Próxima ação sugerida</h4><p>${escaparIA(a.proxima_acao)}</p></div>`;
+  }catch(err){conteudoAnaliseIA.innerHTML=`<div class="ia-result-error">${escaparIA(err.message||'Não foi possível analisar os resultados.')}</div>`}
+  finally{btnAnaliseIA.disabled=false}
+});
+document.getElementById('copiarAnaliseIA')?.addEventListener('click',async()=>{
+  const texto=conteudoAnaliseIA.innerText.trim(); if(!texto)return;
+  try{await navigator.clipboard.writeText(texto);alert('Análise copiada.')}catch(e){alert('Não foi possível copiar automaticamente.')}
+});
 </script>
 {% endblock %}
