@@ -1,0 +1,9 @@
+ARK EDUS V14.3 - CORREÇÃO HTTP 500 NA GERAÇÃO DE QUESTÃO COM ARK IA
+
+- Rota /api/ia/gerar-questao agora é totalmente protegida e sempre devolve JSON em falhas internas.
+- Chamada Gemini limitada a 25 segundos para reduzir falhas de proxy.
+- Parser JSON tolera BOM, cercas e pequenos textos extras.
+- Alternativas e gabarito são normalizados de forma mais tolerante.
+- Especificação de imagem é validada antes de chegar ao navegador.
+- Exceções inesperadas são registradas no log do Render com traceback.
+- Mantidas todas as funções das versões V13, V14, V14.1 e V14.2.

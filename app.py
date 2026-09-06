@@ -9826,39 +9826,54 @@ def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", t
         + "\n\nResponda somente com JSON válido, sem Markdown e sem texto fora do JSON."
     )
     texto = _chamar_gemini(entrada, modelo_env=modelo_env, timeout=timeout)
+    limpo = _limpar_json_ia(texto).lstrip("\ufeff").strip()
     try:
-        return json.loads(_limpar_json_ia(texto))
+        return json.loads(limpo)
     except json.JSONDecodeError as exc:
+        # Alguns modelos eventualmente acrescentam uma frase curta antes/depois do JSON.
+        # Recuperamos apenas o primeiro objeto completo quando isso acontecer.
+        inicio = limpo.find("{")
+        fim = limpo.rfind("}")
+        if inicio >= 0 and fim > inicio:
+            try:
+                return json.loads(limpo[inicio:fim + 1])
+            except json.JSONDecodeError:
+                pass
         raise ValueError("A IA retornou uma resposta em formato inesperado. Tente novamente.") from exc
 
 
 @app.route("/api/ia/gerar-questao", methods=["POST"])
 def ia_gerar_questao():
-    """Gera uma questão para revisão; nada é salvo até o professor cadastrar."""
-    if not cargo_permitido([
-        "Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"
-    ]):
-        return jsonify({"ok": False, "erro": "Sessão expirada."}), 401
-    if not permissao_modulo("Questões"):
-        return jsonify({"ok": False, "erro": "Você não tem permissão para criar questões."}), 403
+    """Gera uma questão para revisão; nada é salvo até o professor cadastrar.
 
-    dados = request.get_json(silent=True) or {}
-    disciplina = str(dados.get("disciplina") or "").strip()
-    etapa = str(dados.get("etapa_ensino") or "").strip()
-    ano_serie = str(dados.get("ano_serie") or "").strip()
-    tema = str(dados.get("tema") or "").strip()
-    habilidade = str(dados.get("habilidade_bncc") or "").strip()
-    dificuldade = str(dados.get("dificuldade") or "Média").strip()
-    criar_imagem = bool(dados.get("criar_imagem"))
+    Esta rota é deliberadamente defensiva: qualquer falha é devolvida em JSON,
+    evitando páginas HTML de erro que o frontend não consegue interpretar.
+    """
+    try:
+        if not cargo_permitido([
+            "Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"
+        ]):
+            return jsonify({"ok": False, "erro": "Sessão expirada."}), 401
+        if not permissao_modulo("Questões"):
+            return jsonify({"ok": False, "erro": "Você não tem permissão para criar questões."}), 403
 
-    if not disciplina:
-        return jsonify({"ok": False, "erro": "Selecione o componente curricular antes de gerar."}), 400
-    if not ano_serie:
-        return jsonify({"ok": False, "erro": "Selecione o ano/série antes de gerar."}), 400
-    if not tema and not habilidade:
-        return jsonify({"ok": False, "erro": "Informe um tema/conteúdo ou uma habilidade BNCC."}), 400
+        dados = request.get_json(silent=True) or {}
+        disciplina = str(dados.get("disciplina") or "").strip()
+        etapa = str(dados.get("etapa_ensino") or "").strip()
+        ano_serie = str(dados.get("ano_serie") or "").strip()
+        tema = str(dados.get("tema") or "").strip()
+        habilidade = str(dados.get("habilidade_bncc") or "").strip()
+        dificuldade = str(dados.get("dificuldade") or "Média").strip()
+        criar_imagem = bool(dados.get("criar_imagem"))
 
-    instrucoes = """
+        if not disciplina:
+            return jsonify({"ok": False, "erro": "Selecione o componente curricular antes de gerar."}), 400
+        if not ano_serie:
+            return jsonify({"ok": False, "erro": "Selecione o ano/série antes de gerar."}), 400
+        if not tema and not habilidade:
+            return jsonify({"ok": False, "erro": "Informe um tema/conteúdo ou uma habilidade BNCC."}), 400
+
+        instrucoes = """
 Você é a ARK IA, assistente pedagógica da plataforma ARK EDUS.
 Crie UMA questão escolar objetiva de múltipla escolha, clara, original e adequada à etapa informada.
 A questão será revisada por um professor antes de ser salva.
@@ -9868,34 +9883,65 @@ Retorne SOMENTE um objeto JSON válido com estas chaves:
 enunciado (string), alternativas (array de 4 strings), gabarito (A|B|C|D),
 explicacao (string curta), dificuldade (Fácil|Média|Difícil), habilidade_bncc (string),
 unidade_tematica (string), objeto_conhecimento (string), taxonomia_bloom (string), imagem_apoio (object ou null).
-Se criar_imagem for true, crie também uma imagem pedagógica ESQUEMÁTICA adequada à questão, sem depender de geração de imagem paga.
-A chave imagem_apoio deve ter: tipo (grid|number_line|bar_chart|timeline|shapes), titulo (string), descricao (string), dados (object).
-Para grid, dados = {colunas:["A","B","C","D"], linhas:["1","2","3","4"], itens:[{coluna:"B",linha:"3",rotulo:"Biblioteca",simbolo:"📚"}]}.
-Para number_line, dados = {inicio:0,fim:10,destaques:[{valor:4,rotulo:"A"}]}.
-Para bar_chart, dados = {categorias:["A","B"], valores:[3,5], eixo_y:"Quantidade"}.
-Para timeline, dados = {eventos:[{ano:"1822",rotulo:"Independência"}]}.
-Para shapes, dados = {formas:[{tipo:"circulo|quadrado|retangulo|triangulo",rotulo:"A",fracao_pintada:"3/4"}]}.
+Se criar_imagem for true, inclua uma imagem pedagógica ESQUEMÁTICA simples. Use apenas um destes tipos:
+grid, number_line, bar_chart, timeline ou shapes.
+Formato de imagem_apoio:
+{"tipo":"bar_chart","titulo":"...","descricao":"...","dados":{"categorias":["A","B"],"valores":[3,5],"eixo_y":"Quantidade"}}
+Para grid, dados deve conter colunas, linhas e itens (cada item: coluna, linha, rotulo).
+Para number_line, dados deve conter inicio, fim e destaques (cada destaque: valor, rotulo).
+Para timeline, dados deve conter eventos (cada evento: ano, rotulo).
+Para shapes, dados deve conter formas (cada forma: tipo, rotulo; tipos: circulo, quadrado, retangulo, triangulo).
 Se criar_imagem for false, imagem_apoio deve ser null.
-Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campos vazios em vez de inventar.
+Se não tiver segurança sobre código BNCC/unidade/objeto, deixe esses campos vazios.
 """.strip()
 
-    entrada = {
-        "disciplina": disciplina,
-        "etapa_ensino": etapa,
-        "ano_serie": ano_serie,
-        "tema_ou_conteudo": tema,
-        "habilidade_bncc_informada": habilidade,
-        "dificuldade_desejada": dificuldade,
-        "criar_imagem": criar_imagem,
-        "orientacao": "Gere conteúdo em português do Brasil e adequado ao contexto escolar brasileiro."
-    }
+        entrada = {
+            "disciplina": disciplina,
+            "etapa_ensino": etapa,
+            "ano_serie": ano_serie,
+            "tema_ou_conteudo": tema,
+            "habilidade_bncc_informada": habilidade,
+            "dificuldade_desejada": dificuldade,
+            "criar_imagem": criar_imagem,
+            "orientacao": "Gere conteúdo em português do Brasil e adequado ao contexto escolar brasileiro."
+        }
 
-    try:
-        saida = _ark_ia_json(instrucoes, json.dumps(entrada, ensure_ascii=False), timeout=35)
-        alternativas = [str(x).strip() for x in (saida.get("alternativas") or []) if str(x).strip()]
-        gabarito = _normalizar_letra_gabarito(saida.get("gabarito"))
+        # Mantém a chamada abaixo do limite de proxies intermediários do deploy.
+        saida = _ark_ia_json(instrucoes, json.dumps(entrada, ensure_ascii=False), timeout=25)
+        if not isinstance(saida, dict):
+            raise ValueError("A IA devolveu uma estrutura inesperada. Tente novamente.")
+
+        alternativas_brutas = saida.get("alternativas") or []
+        alternativas = []
+        for item in alternativas_brutas:
+            if isinstance(item, dict):
+                item = item.get("texto") or item.get("alternativa") or item.get("conteudo") or ""
+            texto_item = str(item or "").strip()
+            if texto_item:
+                alternativas.append(texto_item)
+
+        letra = str(saida.get("gabarito") or "").strip().upper()
+        # Aceita respostas como "B", "B)", "Alternativa B" etc.
+        import re as _re_ia
+        achou = _re_ia.search(r"\b([ABCD])\b", letra)
+        gabarito = achou.group(1) if achou else (letra[:1] if letra[:1] in "ABCD" else "")
+
         if len(alternativas) != 4 or gabarito not in {"A", "B", "C", "D"}:
             raise ValueError("A IA não devolveu quatro alternativas com um gabarito válido. Tente gerar novamente.")
+
+        imagem_apoio = saida.get("imagem_apoio") if criar_imagem else None
+        if imagem_apoio is not None and not isinstance(imagem_apoio, dict):
+            imagem_apoio = None
+        if isinstance(imagem_apoio, dict):
+            tipo = str(imagem_apoio.get("tipo") or "").strip()
+            if tipo not in {"grid", "number_line", "bar_chart", "timeline", "shapes"}:
+                imagem_apoio = None
+            else:
+                imagem_apoio.setdefault("titulo", "Imagem de apoio")
+                imagem_apoio.setdefault("descricao", "Esquema pedagógico gerado pela ARK IA")
+                if not isinstance(imagem_apoio.get("dados"), dict):
+                    imagem_apoio["dados"] = {}
+
         questao = {
             "enunciado": str(saida.get("enunciado") or "").strip(),
             "alternativas": alternativas,
@@ -9906,16 +9952,25 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campo
             "unidade_tematica": str(saida.get("unidade_tematica") or "").strip(),
             "objeto_conhecimento": str(saida.get("objeto_conhecimento") or "").strip(),
             "taxonomia_bloom": str(saida.get("taxonomia_bloom") or "").strip(),
-            "imagem_apoio": saida.get("imagem_apoio") if criar_imagem and isinstance(saida.get("imagem_apoio"), dict) else None,
+            "imagem_apoio": imagem_apoio,
         }
         if not questao["enunciado"]:
             raise ValueError("A IA não devolveu um enunciado válido. Tente novamente.")
+
         return jsonify({"ok": True, "questao": questao})
+
     except ValueError as exc:
         return jsonify({"ok": False, "erro": str(exc)}), 400
     except Exception as exc:
-        print("ERRO ARK IA - GERAR QUESTAO:", repr(exc))
-        return jsonify({"ok": False, "erro": "Não foi possível gerar a questão agora."}), 500
+        try:
+            app.logger.exception("ERRO ARK IA - GERAR QUESTAO")
+        except Exception:
+            print("ERRO ARK IA - GERAR QUESTAO:", repr(exc))
+        # Não expõe segredo/configuração, mas informa o tipo técnico para diagnóstico.
+        return jsonify({
+            "ok": False,
+            "erro": f"Falha interna ao gerar a questão ({type(exc).__name__}). Tente novamente."
+        }), 500
 
 
 @app.route("/api/ia/analisar-resultados/<int:prova_id>", methods=["GET", "POST"])
