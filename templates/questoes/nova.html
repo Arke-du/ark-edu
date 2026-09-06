@@ -659,8 +659,19 @@ document.addEventListener("DOMContentLoaded", () => {
         iaStatus.className="ia-status"; iaStatus.textContent="Gerando questão..."; gerarArkIA.disabled=true; gerarArkIA.textContent="Gerando...";
         try{
             const resp=await fetch("/api/ia/gerar-questao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-            const data=await resp.json().catch(()=>({ok:false,erro:"Resposta inválida do servidor."}));
-            if(!resp.ok || !data.ok) throw new Error(data.erro||"Não foi possível gerar a questão.");
+            const bruto=await resp.text();
+            let data=null;
+            try{data=JSON.parse(bruto)}catch(_e){
+                const tipo=(resp.headers.get("content-type")||"").toLowerCase();
+                let detalhe="";
+                if(!tipo.includes("application/json")){
+                    if(resp.status===502 || resp.status===503 || resp.status===504) detalhe=" O servidor demorou para receber a resposta da IA. Tente novamente.";
+                    else if(resp.status===404) detalhe=" A rota da ARK IA não foi encontrada no servidor. Confira se o deploy terminou.";
+                    else detalhe=` Erro HTTP ${resp.status || "desconhecido"}.`;
+                }
+                throw new Error("O servidor não devolveu uma resposta válida da ARK IA."+detalhe);
+            }
+            if(!resp.ok || !data.ok) throw new Error(data.erro||`Não foi possível gerar a questão (HTTP ${resp.status}).`);
             const q=data.questao||{};
             document.querySelector('input[name="tipo_questao"][value="multipla_escolha"]').checked=true;
             editor.innerHTML="";

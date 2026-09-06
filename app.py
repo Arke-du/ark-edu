@@ -9817,7 +9817,7 @@ def _chamar_gemini(input_data, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
     return texto
 
 
-def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL"):
+def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
     """Executa uma tarefa pedagógica da ARK IA usando Gemini e devolve JSON."""
     entrada = (
         instrucoes.strip()
@@ -9825,7 +9825,7 @@ def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL"):
         + str(dados_usuario)
         + "\n\nResponda somente com JSON válido, sem Markdown e sem texto fora do JSON."
     )
-    texto = _chamar_gemini(entrada, modelo_env=modelo_env)
+    texto = _chamar_gemini(entrada, modelo_env=modelo_env, timeout=timeout)
     try:
         return json.loads(_limpar_json_ia(texto))
     except json.JSONDecodeError as exc:
@@ -9891,7 +9891,7 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campo
     }
 
     try:
-        saida = _ark_ia_json(instrucoes, json.dumps(entrada, ensure_ascii=False))
+        saida = _ark_ia_json(instrucoes, json.dumps(entrada, ensure_ascii=False), timeout=35)
         alternativas = [str(x).strip() for x in (saida.get("alternativas") or []) if str(x).strip()]
         gabarito = _normalizar_letra_gabarito(saida.get("gabarito"))
         if len(alternativas) != 4 or gabarito not in {"A", "B", "C", "D"}:
