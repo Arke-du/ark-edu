@@ -9907,9 +9907,9 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campo
         return jsonify({"ok": False, "erro": "Não foi possível gerar a questão agora."}), 500
 
 
-@app.route("/api/ia/analisar-resultados/<int:prova_id>", methods=["POST"])
+@app.route("/api/ia/analisar-resultados/<int:prova_id>", methods=["GET", "POST"])
 def ia_analisar_resultados(prova_id):
-    """Analisa somente dados agregados da avaliação, sem enviar nomes de alunos à IA."""
+    """Gera, consulta e persiste a análise pedagógica agregada da avaliação."""
     if not cargo_permitido([
         "Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"
     ]):
@@ -9921,8 +9921,22 @@ def ia_analisar_resultados(prova_id):
     banco = conectar_banco(); banco.row_factory = sqlite3.Row
     cur = banco.cursor()
     try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS analises_ia_resultados (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prova_id INTEGER NOT NULL UNIQUE,
+                analise_json TEXT NOT NULL,
+                criado_em TEXT NOT NULL,
+                atualizado_em TEXT NOT NULL,
+                usuario_id INTEGER,
+                FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE
+            )
+        """)
+        banco.commit()
+
         prova = cur.execute("""
-            SELECT p.id,p.nome,p.disciplina,p.turma_id,t.nome AS turma_nome,t.ano AS turma_ano
+            SELECT p.id,p.nome,p.disciplina,p.turma_id,p.tem_nota,
+                   t.nome AS turma_nome,t.ano AS turma_ano
             FROM provas p LEFT JOIN turmas t ON t.id=p.turma_id
             WHERE p.id=? LIMIT 1
         """, (prova_id,)).fetchone()
@@ -9931,11 +9945,27 @@ def ia_analisar_resultados(prova_id):
         if not _pode_gerenciar_prova(cur, prova_id, exigir_edicao=False, permitir_finalizada=True):
             return jsonify({"ok": False, "erro": "Você não tem acesso a esta avaliação."}), 403
 
+        salva = cur.execute("""
+            SELECT analise_json, criado_em, atualizado_em
+            FROM analises_ia_resultados WHERE prova_id=? LIMIT 1
+        """, (prova_id,)).fetchone()
+        if request.method == "GET":
+            if not salva:
+                return jsonify({"ok": True, "existe": False, "analise": None})
+            try:
+                analise_salva = json.loads(salva["analise_json"] or "{}")
+            except Exception:
+                analise_salva = {}
+            return jsonify({
+                "ok": True, "existe": True, "analise": analise_salva,
+                "criado_em": salva["criado_em"], "atualizado_em": salva["atualizado_em"]
+            })
+
         _sincronizar_acertos_objetivos_com_gabarito_atual(cur, prova_id)
         _recalcular_notas_aplicacoes_por_peso(cur, prova_id=prova_id)
         banco.commit()
 
-        # Seleciona uma única aplicação oficial por estudante para evitar duplicidade.
+        # Uma única aplicação oficial por estudante, sem nomes ou matrículas.
         oficiais = cur.execute("""
             WITH rankeadas AS (
               SELECT aa.aluno_id, aa.aplicacao_id, aa.nota_final, aa.nota_objetiva,
@@ -9949,68 +9979,139 @@ def ia_analisar_resultados(prova_id):
         """, (prova_id,)).fetchall()
         apps = [int(r["aplicacao_id"]) for r in oficiais]
         alunos_avaliados = len(oficiais)
-        acertos = sum(int(r["acertos"] or 0) for r in oficiais)
-        itens = sum(int(r["total"] or 0) for r in oficiais)
-        acerto_medio = round(acertos / itens * 100, 1) if itens else 0
         notas = [float(r["nota_final"] if r["nota_final"] is not None else r["nota_objetiva"])
                  for r in oficiais if (r["nota_final"] is not None or r["nota_objetiva"] is not None)]
         media = round(sum(notas)/len(notas), 2) if notas else None
 
         questoes = cur.execute("""
             SELECT pq.questao_id, COALESCE(NULLIF(pq.ordem,0),pq.id) ordem,
-                   q.enunciado, COALESCE(q.habilidade_bncc,q.habilidade) AS habilidade, q.descritor_saeb AS descritor, q.tipo_questao
+                   q.enunciado, COALESCE(q.habilidade_bncc,q.habilidade) AS habilidade,
+                   q.descritor_saeb AS descritor, q.tipo_questao,
+                   COALESCE(pq.peso,0) peso, COALESCE(pq.anulada,0) anulada
             FROM prova_questoes pq JOIN questoes q ON q.id=pq.questao_id
             WHERE pq.prova_id=? ORDER BY COALESCE(NULLIF(pq.ordem,0),pq.id),pq.id
         """, (prova_id,)).fetchall()
-        stats = {int(q["questao_id"]): {"acertos":0,"total":0} for q in questoes}
+        stats = {int(q["questao_id"]): {"acertos":0,"parciais":0,"erros":0,"em_branco":0,"total":0} for q in questoes}
+
         if apps:
             ph=','.join('?' for _ in apps)
             for r in cur.execute(f"""
                 SELECT questao_id,resposta,resposta_correta,situacao,COALESCE(anulada,0) anulada
                 FROM aplicacao_respostas_objetivas WHERE aplicacao_id IN ({ph})
             """, tuple(apps)).fetchall():
-                qid=int(r["questao_id"])
-                st=stats.setdefault(qid,{"acertos":0,"total":0}); st["total"]+=1
+                qid=int(r["questao_id"]); st=stats.setdefault(qid,{"acertos":0,"parciais":0,"erros":0,"em_branco":0,"total":0})
+                st["total"]+=1
                 resp=_normalizar_letra_gabarito(r["resposta"]); gab=_normalizar_letra_gabarito(r["resposta_correta"])
                 situacao=str(r["situacao"] or '').strip().lower()
                 if int(r["anulada"] or 0)==1 or (resp and gab and resp==gab and situacao not in {"dupla_marcacao","em_branco"}):
                     st["acertos"]+=1
+                elif situacao=="em_branco" or not resp:
+                    st["em_branco"]+=1
+                else:
+                    st["erros"]+=1
+
+            for r in cur.execute(f"""
+                SELECT rd.questao_id, rd.nota, rd.conceito, rd.corrigida,
+                       COALESCE(pq.peso,0) peso, COALESCE(pq.anulada,0) anulada
+                FROM respostas_discursivas_aplicacao rd
+                JOIN aplicacoes ap ON ap.id=rd.aplicacao_id
+                LEFT JOIN prova_questoes pq ON pq.prova_id=ap.prova_id AND pq.questao_id=rd.questao_id
+                WHERE rd.aplicacao_id IN ({ph})
+            """, tuple(apps)).fetchall():
+                if int(r["corrigida"] or 0)!=1:
+                    continue
+                qid=int(r["questao_id"]); st=stats.setdefault(qid,{"acertos":0,"parciais":0,"erros":0,"em_branco":0,"total":0})
+                st["total"]+=1
+                conceito=str(r["conceito"] or '').strip().lower()
+                nota=float(r["nota"] or 0); peso=float(r["peso"] or 0)
+                if int(r["anulada"] or 0)==1:
+                    st["acertos"]+=1
+                elif int(prova["tem_nota"] or 0)!=1:
+                    if conceito=="correta": st["acertos"]+=1
+                    elif conceito=="parcial": st["parciais"]+=1
+                    elif conceito=="em_branco": st["em_branco"]+=1
+                    else: st["erros"]+=1
+                else:
+                    if peso>0 and nota>=peso-0.001: st["acertos"]+=1
+                    elif nota>0: st["parciais"]+=1
+                    elif conceito=="em_branco": st["em_branco"]+=1
+                    else: st["erros"]+=1
 
         itens_questoes=[]
+        pontos_total=0.0; respostas_total=0
         for numero,q in enumerate(questoes,1):
-            st=stats.get(int(q["questao_id"]),{"acertos":0,"total":0})
-            pct=round(st["acertos"]/st["total"]*100,1) if st["total"] else 0
+            st=stats.get(int(q["questao_id"]),{"acertos":0,"parciais":0,"erros":0,"em_branco":0,"total":0})
+            pontos=float(st["acertos"])+(float(st["parciais"])*0.5)
+            pct=round(pontos/st["total"]*100,1) if st["total"] else 0
+            pontos_total += pontos; respostas_total += int(st["total"])
             enunciado=re.sub(r"<[^>]+>", " ", str(q["enunciado"] or ""))
-            enunciado=re.sub(r"\\s+", " ", enunciado).strip()[:260]
+            enunciado=re.sub(r"\s+", " ", enunciado).strip()[:320]
             itens_questoes.append({
-                "numero":numero,"percentual":pct,"acertos":st["acertos"],"respondentes":st["total"],
+                "numero":numero,"tipo":str(q["tipo_questao"] or ""),"percentual":pct,
+                "acertos":st["acertos"],"parciais":st["parciais"],"erros":st["erros"],
+                "em_branco":st["em_branco"],"respondentes":st["total"],
                 "habilidade":str(q["habilidade"] or "").strip(),"descritor":str(q["descritor"] or "").strip(),
                 "enunciado_resumido":enunciado,
             })
 
+        acerto_medio = round(pontos_total/respostas_total*100,1) if respostas_total else 0
         pacote={
             "avaliacao":prova["nome"],"disciplina":prova["disciplina"],"turma":prova["turma_nome"],
             "ano_serie":prova["turma_ano"],"alunos_avaliados":alunos_avaliados,
-            "acerto_medio_percentual":acerto_medio,"media_notas":media,"questoes":itens_questoes,
+            "desempenho_medio_percentual":acerto_medio,"media_notas":media,"questoes":itens_questoes,
+            "regra_discursiva_sem_nota":"correta=100%, parcial=50%, incorreta/em branco=0%"
         }
         instrucoes="""
 Você é a ARK IA, analista pedagógica da plataforma ARK EDUS.
-Analise APENAS os dados agregados recebidos; não invente alunos, habilidades ou causas não demonstradas.
-Use português do Brasil, tom profissional e prático para professor/coordenador.
-Retorne SOMENTE JSON válido com:
-resumo (2 a 4 frases), pontos_fortes (array de até 4 strings),
-pontos_atencao (array de até 4 strings), recomendacoes (array de 3 a 6 strings),
-proxima_acao (string objetiva).
-Ao mencionar questões, use Q1, Q2 etc. Diferencie dado observado de hipótese pedagógica.
+Produza uma análise pedagógica DETALHADA, útil para professor, coordenação e planejamento de recomposição.
+Analise SOMENTE os dados agregados fornecidos. Não invente alunos, causas, conteúdos, habilidades ou evidências ausentes.
+Não trate ausência de nota como ausência de aprendizagem quando houver classificação de questão discursiva.
+Em questões discursivas sem nota, considere: correta=100%, parcial=50%, incorreta/em branco=0%.
+Use português do Brasil, linguagem profissional, clara, pedagógica e acionável.
+Sempre diferencie: (a) dado observado nos resultados; (b) hipótese pedagógica a confirmar em sala.
+
+Retorne SOMENTE JSON válido com estas chaves:
+resumo_executivo: string com 5 a 8 frases;
+leitura_detalhada: array de 5 a 10 strings, citando Qs, percentuais, habilidades/descritores quando disponíveis e padrões observados;
+pontos_fortes: array de 4 a 7 strings;
+pontos_atencao: array de 4 a 8 strings;
+prioridades_pedagogicas: array de 3 a 6 strings em ordem de prioridade;
+intervencoes_detalhadas: array de 4 a 8 strings, cada item explicando estratégia, como aplicar e qual evidência observar;
+atividades_sugeridas: array de 4 a 8 strings, com propostas concretas e adequadas ao contexto da avaliação;
+recomposicao: array de 3 a 6 strings com sequência sugerida de retomada/reensino;
+acompanhamento: array de 3 a 6 strings com formas de verificar evolução e reavaliar;
+proximos_passos: string com um plano objetivo para as próximas aulas.
+Evite frases genéricas como apenas 'retomar o conteúdo'. Explique o que fazer e por quê.
 """.strip()
         saida=_ark_ia_json(instrucoes, json.dumps(pacote, ensure_ascii=False))
-        return jsonify({"ok":True,"analise":{
-            "resumo":str(saida.get("resumo") or "").strip(),
-            "pontos_fortes":[str(x).strip() for x in (saida.get("pontos_fortes") or []) if str(x).strip()][:4],
-            "pontos_atencao":[str(x).strip() for x in (saida.get("pontos_atencao") or []) if str(x).strip()][:4],
-            "recomendacoes":[str(x).strip() for x in (saida.get("recomendacoes") or []) if str(x).strip()][:6],
-            "proxima_acao":str(saida.get("proxima_acao") or "").strip(),
-        }})
+
+        def lista_limpa(chave, limite):
+            return [str(x).strip() for x in (saida.get(chave) or []) if str(x).strip()][:limite]
+        analise={
+            "resumo_executivo":str(saida.get("resumo_executivo") or saida.get("resumo") or "").strip(),
+            "leitura_detalhada":lista_limpa("leitura_detalhada",10),
+            "pontos_fortes":lista_limpa("pontos_fortes",7),
+            "pontos_atencao":lista_limpa("pontos_atencao",8),
+            "prioridades_pedagogicas":lista_limpa("prioridades_pedagogicas",6),
+            "intervencoes_detalhadas":lista_limpa("intervencoes_detalhadas",8),
+            "atividades_sugeridas":lista_limpa("atividades_sugeridas",8),
+            "recomposicao":lista_limpa("recomposicao",6),
+            "acompanhamento":lista_limpa("acompanhamento",6),
+            "proximos_passos":str(saida.get("proximos_passos") or saida.get("proxima_acao") or "").strip(),
+        }
+        agora=agora_local().strftime("%Y-%m-%d %H:%M:%S")
+        usuario_id=session.get("usuario_id") or session.get("user_id")
+        existente=cur.execute("SELECT id,criado_em FROM analises_ia_resultados WHERE prova_id=?",(prova_id,)).fetchone()
+        if existente:
+            cur.execute("""UPDATE analises_ia_resultados SET analise_json=?, atualizado_em=?, usuario_id=? WHERE prova_id=?""",
+                        (json.dumps(analise,ensure_ascii=False),agora,usuario_id,prova_id))
+            criado_em=existente["criado_em"]
+        else:
+            cur.execute("""INSERT INTO analises_ia_resultados(prova_id,analise_json,criado_em,atualizado_em,usuario_id) VALUES(?,?,?,?,?)""",
+                        (prova_id,json.dumps(analise,ensure_ascii=False),agora,agora,usuario_id))
+            criado_em=agora
+        banco.commit()
+        return jsonify({"ok":True,"analise":analise,"criado_em":criado_em,"atualizado_em":agora,"salva":True})
     except ValueError as exc:
         return jsonify({"ok":False,"erro":str(exc)}),400
     except Exception as exc:
@@ -14588,6 +14689,33 @@ def resultados(prova_id):
 
         mapa_respostas.sort(key=lambda item: (item["ausente"], item["nome"].casefold()))
 
+        # Análise pedagógica da ARK IA já salva para esta prova.
+        # É carregada sem nova chamada à IA para economizar a cota do provedor.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analises_ia_resultados (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prova_id INTEGER NOT NULL UNIQUE,
+                analise_json TEXT NOT NULL,
+                criado_em TEXT NOT NULL,
+                atualizado_em TEXT NOT NULL,
+                usuario_id INTEGER,
+                FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE
+            )
+        """)
+        banco.commit()
+        analise_ia_salva = None
+        analise_ia_atualizado_em = None
+        reg_analise_ia = cursor.execute("""
+            SELECT analise_json, atualizado_em
+            FROM analises_ia_resultados WHERE prova_id=? LIMIT 1
+        """, (prova_id,)).fetchone()
+        if reg_analise_ia:
+            try:
+                analise_ia_salva = json.loads(reg_analise_ia["analise_json"] or "{}")
+            except Exception:
+                analise_ia_salva = None
+            analise_ia_atualizado_em = reg_analise_ia["atualizado_em"]
+
         # Ranking e situação
         if avaliacao_sem_nota:
             resultados_lista.sort(
@@ -14619,6 +14747,8 @@ def resultados(prova_id):
             mapa_colunas=mapa_colunas,
             mapa_respostas=mapa_respostas,
             total_questoes_mapa=total_questoes_mapa,
+            analise_ia_salva=analise_ia_salva,
+            analise_ia_atualizado_em=analise_ia_atualizado_em,
             gerado_em=agora_local().strftime("%d/%m/%Y às %H:%M")
         )
 

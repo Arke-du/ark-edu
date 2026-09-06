@@ -1,0 +1,15 @@
+ARK EDUS V13 — Mudança 4: análise pedagógica ARK IA detalhada e persistente
+Data: 06/09/2026
+
+Implementado sobre a V12:
+- análise pedagógica da ARK IA ampliada, com leitura detalhada, pontos fortes, pontos de atenção,
+  prioridades, intervenções, atividades, recomposição, acompanhamento e próximos passos;
+- questões discursivas entram no pacote da IA e o parcial vale 50% no desempenho pedagógico;
+- análise salva por prova na tabela analises_ia_resultados;
+- ao reabrir Ver resultados, a análise salva reaparece sem nova chamada ao Gemini;
+- opção Gerar nova análise atualiza o registro salvo;
+- cartão permanente da análise dentro da página Ver resultados;
+- opção de incluir ou não a Análise pedagógica da ARK IA na configuração de impressão;
+- análise, quando selecionada, é adicionada ao final do relatório impresso/PDF.
+
+Observação: os dados enviados ao Gemini permanecem agregados, sem nomes ou matrículas de estudantes.
