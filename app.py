@@ -14255,11 +14255,15 @@ def resultados(prova_id):
             erros_q = int(st.get("erros") or 0)
             brancos = int(st.get("em_branco") or 0)
             parciais = int(st.get("parciais") or 0)
-            percentual = round(acertos_q / respondentes * 100, 1) if respondentes else 0
+            # Desempenho pedagógico: respostas parcialmente corretas valem 50%
+            # para o percentual da questão/habilidade, sem alterar a contagem
+            # nominal de acertos, parciais, erros ou em branco.
+            pontos_desempenho = acertos_q + (parciais * 0.5)
+            percentual = round(pontos_desempenho / respondentes * 100, 1) if respondentes else 0
             q.update(
                 numero=numero, respondentes=respondentes, acertos=acertos_q,
                 erros=erros_q, em_branco=brancos, parciais=parciais,
-                percentual=percentual
+                pontos_desempenho=pontos_desempenho, percentual=percentual
             )
             relatorio_questoes.append(q)
 
@@ -14342,13 +14346,15 @@ def resultados(prova_id):
                 valor = (q.get(campo) or "").strip()
                 if not valor:
                     continue
-                item = grupos.setdefault(valor, {"codigo": valor, "questoes": [], "acertos": 0, "respondentes": 0})
+                item = grupos.setdefault(valor, {"codigo": valor, "questoes": [], "acertos": 0, "parciais": 0, "pontos_desempenho": 0.0, "respondentes": 0})
                 item["questoes"].append(q["numero"])
                 item["acertos"] += q["acertos"]
+                item["parciais"] += q.get("parciais", 0)
+                item["pontos_desempenho"] += q.get("pontos_desempenho", q["acertos"])
                 item["respondentes"] += q["respondentes"]
             saida = []
             for item in grupos.values():
-                item["percentual"] = round(item["acertos"] / item["respondentes"] * 100, 1) if item["respondentes"] else 0
+                item["percentual"] = round(item["pontos_desempenho"] / item["respondentes"] * 100, 1) if item["respondentes"] else 0
                 item["nivel"] = "Avançado" if item["percentual"] >= 80 else "Adequado" if item["percentual"] >= 60 else "Básico" if item["percentual"] >= 40 else "Abaixo do básico"
                 saida.append(item)
             return sorted(saida, key=lambda x: x["percentual"], reverse=True)
@@ -14356,12 +14362,13 @@ def resultados(prova_id):
         habilidades = agrupar_indicador("habilidade")
         descritores = agrupar_indicador("descritor")
 
-        # Acerto médio global: todas as questões efetivamente avaliadas,
-        # não apenas as objetivas. Respostas parciais permanecem identificadas
-        # como parciais e não são convertidas silenciosamente em acerto total.
+        # Desempenho médio global: todas as questões efetivamente avaliadas.
+        # Respostas discursivas parcialmente corretas contribuem com 50%,
+        # seguindo a mesma regra usada no desempenho por questão/habilidade.
         total_acertos = sum(q["acertos"] for q in relatorio_questoes if not q["anulada"])
+        total_pontos_desempenho = sum(q.get("pontos_desempenho", q["acertos"]) for q in relatorio_questoes if not q["anulada"])
         total_itens = sum(q["respondentes"] for q in relatorio_questoes if not q["anulada"])
-        percentual_medio = round(total_acertos / total_itens * 100, 1) if total_itens else 0
+        percentual_medio = round(total_pontos_desempenho / total_itens * 100, 1) if total_itens else 0
 
         # Acrescenta a descrição oficial da habilidade BNCC ao relatório.
         # A questão continua guardando o código, mas a impressão exibe código + descrição.

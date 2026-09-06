@@ -1,0 +1,17 @@
+ARK EDUS V12 — Atualizações solicitadas
+
+1. Desempenho de questões discursivas
+- Correto = 100%
+- Parcialmente correto = 50%
+- Incorreto = 0%
+- Em branco = 0%
+- A regra foi aplicada ao percentual por questão, habilidade, descritor e ao desempenho médio global do relatório.
+- As contagens TC/PC/EE/EB permanecem separadas e não foram alteradas.
+
+2. Favicon ARK EDUS
+- As páginas internas agora usam o mesmo favicon da página pública de Planos: static/img/logo-arkedus.png.
+- Substitui o ícone genérico do navegador.
+
+3. Dashboard
+- Removidos os cards Inteligência Pedagógica e Jogos do Dashboard para todos os perfis.
+- Os demais cards permanecem de acordo com cada perfil/permissão.

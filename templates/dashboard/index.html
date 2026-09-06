@@ -107,17 +107,9 @@
         <div class="indicador-conteudo"><span>Relatórios</span><strong>{{ total_relatorios|default(0) }}</strong><small>Resultados registrados</small></div>
     </div>
 
-    <div class="indicador-card" role="group" aria-label="Inteligência Pedagógica">
-        <div class="indicador-icone"><svg viewBox="0 0 24 24"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19V12"></path><path d="M22 19V3"></path><path d="M3 21H23"></path></svg></div>
-        <div class="indicador-conteudo"><span>Inteligência Pedagógica</span><strong>{{ total_analises|default(0) }}</strong><small>Estudantes com resultados analisáveis</small></div>
-    </div>
     {% endif %}
 
-    {# Jogos aparece na lateral para todos os perfis e, por isso, também aparece no Dashboard. #}
-    <div class="indicador-card" role="group" aria-label="Jogos">
-        <div class="indicador-icone"><svg viewBox="0 0 24 24"><path d="M8 8H16A5 5 0 0 1 20.7 14.7L19.6 17.8A2 2 0 0 1 16.2 18.5L14.7 17H9.3L7.8 18.5A2 2 0 0 1 4.4 17.8L3.3 14.7A5 5 0 0 1 8 8Z"></path><path d="M7 12V16"></path><path d="M5 14H9"></path></svg></div>
-        <div class="indicador-conteudo"><span>Jogos</span><strong>{{ total_jogos_dashboard|default(0) }}</strong><small>Atividades gamificadas criadas</small></div>
-    </div>
+
 
 </section>
 
