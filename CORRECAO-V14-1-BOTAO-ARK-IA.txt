@@ -1,0 +1,17 @@
+CORREÇÃO V14.1 — BOTÃO "GERAR COM IA"
+Data: 06/09/2026
+
+Problema corrigido:
+- O botão "Gerar com IA" não respondia porque havia um erro de sintaxe JavaScript na nova função responsável por desenhar a imagem pedagógica em malha quadriculada.
+- Esse erro interrompia a execução do bloco de JavaScript inteiro antes que o evento de clique do botão fosse registrado.
+
+Correção aplicada:
+- Corrigido o fechamento do forEach dos itens da malha em templates/questoes/nova.html.
+- Validada a sintaxe dos 3 blocos JavaScript do template com Node.js.
+- Validado app.py com py_compile.
+
+Mantidas todas as funções da V14, inclusive:
+- geração de questão com Gemini;
+- opção "Criar imagem de apoio";
+- geração local/gratuita de malha, reta numérica, gráfico de barras, linha do tempo e formas geométricas;
+- alterações anteriores da ARK IA e dos relatórios.
