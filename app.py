@@ -9849,6 +9849,7 @@ def ia_gerar_questao():
     tema = str(dados.get("tema") or "").strip()
     habilidade = str(dados.get("habilidade_bncc") or "").strip()
     dificuldade = str(dados.get("dificuldade") or "Média").strip()
+    criar_imagem = bool(dados.get("criar_imagem"))
 
     if not disciplina:
         return jsonify({"ok": False, "erro": "Selecione o componente curricular antes de gerar."}), 400
@@ -9866,7 +9867,15 @@ Produza exatamente 4 alternativas e somente uma correta.
 Retorne SOMENTE um objeto JSON válido com estas chaves:
 enunciado (string), alternativas (array de 4 strings), gabarito (A|B|C|D),
 explicacao (string curta), dificuldade (Fácil|Média|Difícil), habilidade_bncc (string),
-unidade_tematica (string), objeto_conhecimento (string), taxonomia_bloom (string).
+unidade_tematica (string), objeto_conhecimento (string), taxonomia_bloom (string), imagem_apoio (object ou null).
+Se criar_imagem for true, crie também uma imagem pedagógica ESQUEMÁTICA adequada à questão, sem depender de geração de imagem paga.
+A chave imagem_apoio deve ter: tipo (grid|number_line|bar_chart|timeline|shapes), titulo (string), descricao (string), dados (object).
+Para grid, dados = {colunas:["A","B","C","D"], linhas:["1","2","3","4"], itens:[{coluna:"B",linha:"3",rotulo:"Biblioteca",simbolo:"📚"}]}.
+Para number_line, dados = {inicio:0,fim:10,destaques:[{valor:4,rotulo:"A"}]}.
+Para bar_chart, dados = {categorias:["A","B"], valores:[3,5], eixo_y:"Quantidade"}.
+Para timeline, dados = {eventos:[{ano:"1822",rotulo:"Independência"}]}.
+Para shapes, dados = {formas:[{tipo:"circulo|quadrado|retangulo|triangulo",rotulo:"A",fracao_pintada:"3/4"}]}.
+Se criar_imagem for false, imagem_apoio deve ser null.
 Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campos vazios em vez de inventar.
 """.strip()
 
@@ -9877,6 +9886,7 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campo
         "tema_ou_conteudo": tema,
         "habilidade_bncc_informada": habilidade,
         "dificuldade_desejada": dificuldade,
+        "criar_imagem": criar_imagem,
         "orientacao": "Gere conteúdo em português do Brasil e adequado ao contexto escolar brasileiro."
     }
 
@@ -9896,6 +9906,7 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, mantenha esses campo
             "unidade_tematica": str(saida.get("unidade_tematica") or "").strip(),
             "objeto_conhecimento": str(saida.get("objeto_conhecimento") or "").strip(),
             "taxonomia_bloom": str(saida.get("taxonomia_bloom") or "").strip(),
+            "imagem_apoio": saida.get("imagem_apoio") if criar_imagem and isinstance(saida.get("imagem_apoio"), dict) else None,
         }
         if not questao["enunciado"]:
             raise ValueError("A IA não devolveu um enunciado válido. Tente novamente.")

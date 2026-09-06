@@ -1,0 +1,8 @@
+ARK EDUS V14 — imagem de apoio na geração de questões
+
+- Adiciona a opção “Criar imagem de apoio” ao modal Gerar com IA.
+- A ARK IA gera uma especificação estruturada para recursos pedagógicos simples.
+- A própria ARK EDUS desenha a imagem localmente no navegador e insere no editor do enunciado.
+- Tipos suportados: malha quadriculada, reta numérica, gráfico de barras, linha do tempo e formas geométricas.
+- A imagem é convertida em PNG e segue o fluxo já existente de salvamento de imagens do enunciado.
+- Não usa modelo de geração de imagens pago; continua usando apenas o Gemini de texto já configurado.
