@@ -9742,83 +9742,94 @@ def _questoes_texto_importacao(texto, defaults):
     return resultado
 
 
-def _extrair_texto_resposta_openai(payload):
-    """Obtém o texto final da Responses API sem depender do SDK."""
-    if isinstance(payload, dict) and isinstance(payload.get("output_text"), str):
+def _extrair_texto_resposta_gemini(payload):
+    """Obtém o texto final retornado pela Gemini Interactions API."""
+    if not isinstance(payload, dict):
+        return ""
+    if isinstance(payload.get("output_text"), str):
         return payload["output_text"].strip()
     partes = []
-    for item in (payload or {}).get("output", []) if isinstance(payload, dict) else []:
-        for conteudo in item.get("content", []) if isinstance(item, dict) else []:
-            if not isinstance(conteudo, dict):
-                continue
-            if conteudo.get("type") in {"output_text", "text"} and conteudo.get("text"):
+    for step in payload.get("steps", []) or []:
+        if not isinstance(step, dict) or step.get("type") != "model_output":
+            continue
+        for conteudo in step.get("content", []) or []:
+            if isinstance(conteudo, dict) and conteudo.get("type") == "text" and conteudo.get("text"):
                 partes.append(str(conteudo["text"]))
     return "\n".join(partes).strip()
 
 
+def _limpar_json_ia(texto):
+    """Aceita JSON puro ou JSON envolvido em cerca Markdown."""
+    texto = (texto or "").strip()
+    texto = re.sub(r"^```(?:json)?\s*|\s*```$", "", texto, flags=re.I | re.S).strip()
+    return texto
 
 
-def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="OPENAI_TEXT_MODEL"):
-    """Chama a Responses API e exige uma resposta JSON utilizável pela ARK EDUS.
-
-    A chave permanece exclusivamente no backend. O frontend recebe somente o
-    conteúdo pedagógico gerado, nunca credenciais do provedor.
-    """
-    chave = (os.environ.get("OPENAI_API_KEY") or "").strip()
+def _chamar_gemini(input_data, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
+    """Chama a Gemini Interactions API pelo backend, sem expor a chave no navegador."""
+    chave = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not chave:
         raise ValueError(
-            "A IA ainda não está configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente do Render."
+            "A ARK IA ainda não está configurada. Adicione GEMINI_API_KEY nas variáveis de ambiente do Render."
         )
 
     modelo = (
         os.environ.get(modelo_env)
-        or os.environ.get("OPENAI_MODEL")
-        or "gpt-5.6-luna"
+        or os.environ.get("GEMINI_MODEL")
+        or "gemini-3.6-flash"
     ).strip()
 
     corpo = {
         "model": modelo,
-        "instructions": instrucoes,
-        "input": dados_usuario,
-        "text": {"format": {"type": "json_object"}},
+        "input": input_data,
+        "store": False,
+        "generation_config": {"thinking_level": "low"},
     }
     try:
         resposta = requests.post(
-            "https://api.openai.com/v1/responses",
+            "https://generativelanguage.googleapis.com/v1beta/interactions",
             headers={
-                "Authorization": f"Bearer {chave}",
+                "x-goog-api-key": chave,
                 "Content-Type": "application/json",
             },
             json=corpo,
-            timeout=90,
+            timeout=timeout,
         )
     except requests.RequestException as exc:
-        raise ValueError("Não foi possível conectar à IA agora. Tente novamente em instantes.") from exc
+        raise ValueError("Não foi possível conectar ao Gemini agora. Tente novamente em instantes.") from exc
 
     if resposta.status_code >= 400:
         detalhe = ""
         try:
-            detalhe = ((resposta.json().get("error") or {}).get("message") or "").strip()
+            erro = resposta.json().get("error") or {}
+            detalhe = str(erro.get("message") or "").strip()
         except Exception:
-            pass
+            detalhe = (resposta.text or "").strip()
         if resposta.status_code in {401, 403}:
-            raise ValueError("A chave da IA não foi aceita. Confira OPENAI_API_KEY no Render.")
+            raise ValueError("A chave do Gemini não foi aceita. Confira GEMINI_API_KEY no Render.")
         if resposta.status_code == 429:
-            raise ValueError("O limite de uso da IA foi atingido no momento. Aguarde e tente novamente.")
-        raise ValueError("A IA não conseguiu concluir a solicitação." + (f" Detalhe: {detalhe[:220]}" if detalhe else ""))
+            raise ValueError("O limite gratuito do Gemini foi atingido no momento. Aguarde e tente novamente.")
+        raise ValueError("O Gemini não conseguiu concluir a solicitação." + (f" Detalhe: {detalhe[:220]}" if detalhe else ""))
 
-    texto = _extrair_texto_resposta_openai(resposta.json())
+    texto = _extrair_texto_resposta_gemini(resposta.json())
     if not texto:
-        raise ValueError("A IA respondeu sem conteúdo utilizável.")
+        raise ValueError("O Gemini respondeu sem conteúdo utilizável.")
+    return texto
+
+
+def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL"):
+    """Executa uma tarefa pedagógica da ARK IA usando Gemini e devolve JSON."""
+    entrada = (
+        instrucoes.strip()
+        + "\n\nDADOS DA SOLICITAÇÃO:\n"
+        + str(dados_usuario)
+        + "\n\nResponda somente com JSON válido, sem Markdown e sem texto fora do JSON."
+    )
+    texto = _chamar_gemini(entrada, modelo_env=modelo_env)
     try:
-        return json.loads(texto)
+        return json.loads(_limpar_json_ia(texto))
     except json.JSONDecodeError as exc:
-        # Alguns modelos podem envolver o JSON em uma cerca Markdown apesar da instrução.
-        limpo = re.sub(r"^```(?:json)?\\s*|\\s*```$", "", texto.strip(), flags=re.I | re.S)
-        try:
-            return json.loads(limpo)
-        except json.JSONDecodeError:
-            raise ValueError("A IA retornou uma resposta em formato inesperado. Tente novamente.") from exc
+        raise ValueError("A IA retornou uma resposta em formato inesperado. Tente novamente.") from exc
 
 
 @app.route("/api/ia/gerar-questao", methods=["POST"])
@@ -10039,24 +10050,21 @@ def _salvar_recorte_figura_importacao(caminho_imagem, caixa):
 
 
 def _questoes_de_imagem_com_ia(caminho_imagem, extensao, defaults):
-    """Lê print/foto de livro com visão e devolve questões estruturadas para revisão."""
-    import requests
-
-    chave = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    """Lê print/foto de livro com visão do Gemini e devolve questões para revisão."""
+    chave = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not chave:
         raise ValueError(
-            "A importação por foto precisa da variável OPENAI_API_KEY configurada no servidor. "
+            "A importação por foto precisa da variável GEMINI_API_KEY configurada no servidor. "
             "Nenhum dado do banco é alterado por essa configuração."
         )
 
-    modelo = (os.environ.get("OPENAI_VISION_MODEL") or "gpt-5.6-luna").strip()
     mime = {
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"
     }.get(extensao, "image/jpeg")
     dados = Path(caminho_imagem).read_bytes()
     if len(dados) > 15 * 1024 * 1024:
         raise ValueError("A imagem deve ter no máximo 15 MB.")
-    data_url = f"data:{mime};base64,{base64.b64encode(dados).decode('ascii')}"
+    imagem_b64 = base64.b64encode(dados).decode("ascii")
 
     instrucao = f"""
 Você está importando uma questão escolar a partir de uma FOTO ou PRINT de livro para a plataforma ARK EDUS.
@@ -10082,42 +10090,15 @@ Formato JSON obrigatório:
 {{"questoes":[{{"disciplina":"","turma":"","etapa_ensino":"","ano_serie":"","tipo_questao":"multipla_escolha","enunciado":"","alternativas":[],"respostas_corretas":[],"gabarito_confianca":"nao_visivel","resposta_esperada":"","criterios_correcao":"","dificuldade":"Média","habilidade_bncc":"","unidade_tematica":"","objeto_conhecimento":"","sistema_matriz":"","matriz_referencia":"","descritor_saeb":"","taxonomia_bloom":"","fonte":"","tags":"","observacoes":"","figura_caixa":null}}]}}
 """.strip()
 
-    corpo = {
-        "model": modelo,
-        "input": [{
-            "role": "user",
-            "content": [
-                {"type": "input_text", "text": instrucao},
-                {"type": "input_image", "image_url": data_url, "detail": "high"},
-            ],
-        }],
-        "text": {"format": {"type": "json_object"}},
-    }
+    input_data = [
+        {"type": "text", "text": instrucao + "\n\nResponda somente com JSON válido, sem Markdown."},
+        {"type": "image", "data": imagem_b64, "mime_type": mime},
+    ]
     try:
-        resposta = requests.post(
-            "https://api.openai.com/v1/responses",
-            headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
-            json=corpo,
-            timeout=90,
-        )
-    except requests.RequestException as exc:
-        raise ValueError("Não foi possível conectar ao serviço de leitura por IA. Tente novamente.") from exc
-
-    if resposta.status_code >= 400:
-        detalhe = ""
-        try:
-            detalhe = (resposta.json().get("error") or {}).get("message", "")
-        except Exception:
-            pass
-        if resposta.status_code in {401, 403}:
-            raise ValueError("A chave da IA não foi aceita. Confira OPENAI_API_KEY no Render.")
-        if resposta.status_code == 429:
-            raise ValueError("O limite da IA foi atingido no momento. Aguarde e tente novamente.")
-        raise ValueError("A IA não conseguiu processar a imagem." + (f" Detalhe: {detalhe[:180]}" if detalhe else ""))
-
-    try:
-        texto = _extrair_texto_resposta_openai(resposta.json())
-        resultado = json.loads(texto)
+        texto = _chamar_gemini(input_data, modelo_env="GEMINI_VISION_MODEL", timeout=90)
+        resultado = json.loads(_limpar_json_ia(texto))
+    except ValueError:
+        raise
     except Exception as exc:
         raise ValueError("A leitura da imagem retornou um formato inesperado. Tente uma foto mais nítida.") from exc
 

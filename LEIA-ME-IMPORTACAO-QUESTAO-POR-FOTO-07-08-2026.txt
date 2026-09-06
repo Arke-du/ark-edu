@@ -11,8 +11,8 @@ O que foi adicionado
 
 CONFIGURAÇÃO NO RENDER
 1. Abra o serviço ARK EDUS > Environment.
-2. Crie OPENAI_API_KEY com sua chave de API.
-3. Opcional: OPENAI_VISION_MODEL=gpt-5.6-luna
+2. Crie GEMINI_API_KEY com sua chave de API.
+3. Opcional: GEMINI_VISION_MODEL=gemini-3.6-flash
 4. Faça novo deploy.
 
 SEGURANÇA DOS DADOS

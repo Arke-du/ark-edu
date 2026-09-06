@@ -20,6 +20,6 @@ Não substitua manualmente o banco persistente online pelo plataforma.db do ZIP.
 
 ATUALIZAÇÃO ADICIONAL — IMPORTAÇÃO POR FOTO/PRINT
 - A tela Importar questões também aceita PNG/JPG/JPEG/WEBP.
-- A leitura usa visão por IA somente na etapa de importação e exige OPENAI_API_KEY no ambiente.
+- A leitura usa visão por IA somente na etapa de importação e exige GEMINI_API_KEY no ambiente.
 - O professor revisa uma prévia antes de gravar qualquer questão.
 - O banco de dados existente não é apagado nem recriado.

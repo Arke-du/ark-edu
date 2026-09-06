@@ -1,0 +1,18 @@
+ARK EDUS V11 - MIGRAÇÃO DA OPENAI PARA GOOGLE GEMINI
+
+Alterações:
+1. Removidas do app.py todas as chamadas à OpenAI Responses API.
+2. ARK IA agora usa Google Gemini Interactions API.
+3. Geração de questões usa Gemini.
+4. Análise pedagógica dos resultados usa Gemini.
+5. Importação por foto/print também usa visão do Gemini.
+6. Variáveis OPENAI_API_KEY, OPENAI_TEXT_MODEL e OPENAI_VISION_MODEL não são mais usadas pelo app.py.
+7. Novas variáveis:
+   GEMINI_API_KEY
+   GEMINI_TEXT_MODEL=gemini-3.6-flash
+   GEMINI_VISION_MODEL=gemini-3.6-flash
+8. A chamada é feita somente no backend Flask.
+9. O frontend nunca recebe a chave da API.
+10. As interações são enviadas com store=false.
+
+No Render, após o deploy, remova as variáveis OPENAI_* antigas e adicione as GEMINI_* acima.

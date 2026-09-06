@@ -1,24 +1,24 @@
-ARK EDUS - INTEGRAÇÃO ARK IA
-Data: 03/09/2026
+ARK EDUS - INTEGRAÇÃO ARK IA COM GOOGLE GEMINI
 
-RECURSOS ADICIONADOS
-1. Gerar questão com IA
-   Caminho: Banco de Questões > Nova questão > Gerar com IA
-   A IA usa componente, etapa, ano/série, dificuldade, habilidade e o tema informado.
-   A sugestão é preenchida no formulário e NÃO é salva automaticamente.
-   O professor revisa e só então clica em Cadastrar questão.
+Versão V11
 
-2. Analisar resultados com IA
-   Caminho: Resultados da Prova > Analisar com IA
-   São enviados somente dados agregados da avaliação; nomes e matrículas dos estudantes não são enviados.
-   A resposta inclui síntese, pontos fortes, pontos de atenção, recomendações e próxima ação.
+A ARK IA foi migrada da OpenAI para a Google Gemini API.
+Não há mais chamada ativa à API da OpenAI no app.py.
+
+FUNÇÕES QUE USAM GEMINI
+- Gerar questão com IA no Banco de Questões.
+- Analisar resultados pedagogicamente.
+- Importar questões por foto/print usando visão.
 
 CONFIGURAÇÃO NO RENDER
-Adicionar nas Environment Variables:
-OPENAI_API_KEY=<sua chave>
-OPENAI_TEXT_MODEL=gpt-5.6-luna
+GEMINI_API_KEY=<sua chave criada no Google AI Studio>
+GEMINI_TEXT_MODEL=gemini-3.6-flash
+GEMINI_VISION_MODEL=gemini-3.6-flash
 
-A chave nunca deve ser colocada em JavaScript, template HTML ou commit do Git.
+Os dois modelos são opcionais. Se não forem informados, a aplicação usa gemini-3.6-flash.
+A chave fica somente no backend e não é enviada ao navegador.
 
-OBSERVAÇÃO
-A plataforma já usava OPENAI_API_KEY para importação por foto. A ARK IA reutiliza a mesma chave de forma segura no backend.
+A integração usa a Gemini Interactions API, com store=false, para evitar armazenamento de estado de conversa pela API.
+
+IMPORTANTE SOBRE O NÍVEL GRATUITO
+O código não ativa faturamento nem compra créditos. O custo depende da configuração do projeto/chave no Google AI Studio/Google Cloud. Para permanecer no nível gratuito, use um projeto no Free Tier e não faça upgrade para faturamento pago.
