@@ -1,0 +1,14 @@
+ARK EDUS V15.1 — CORREÇÃO DO FALLBACK CLOUDFLARE / JSON MODE
+Data: 06/09/2026
+
+1. O fallback Cloudflare da ARK IA passa a usar o formato de mensagens recomendado pelo Workers AI.
+2. Para tarefas que exigem JSON, a ARK EDUS usa por padrão o modelo:
+   @cf/meta/llama-3.3-70b-instruct-fp8-fast
+   por possuir suporte oficial a JSON Mode no Workers AI.
+3. A chamada estruturada envia response_format={"type":"json_object"}.
+4. O parser agora aceita tanto texto em result.response quanto objetos JSON estruturados devolvidos diretamente pela Cloudflare.
+5. A variável CLOUDFLARE_TEXT_MODEL permanece válida para usos textuais futuros.
+6. Nova variável opcional:
+   CLOUDFLARE_JSON_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+   Se não for cadastrada no Render, esse valor já é usado automaticamente.
+7. Não é necessário alterar CLOUDFLARE_ACCOUNT_ID nem CLOUDFLARE_API_TOKEN.

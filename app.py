@@ -9818,7 +9818,12 @@ def _chamar_gemini(input_data, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
 
 
 def _extrair_texto_resposta_cloudflare(payload):
-    """Obtém o texto final retornado pelo Workers AI da Cloudflare."""
+    """Obtém o conteúdo final retornado pelo Workers AI da Cloudflare.
+
+    O Workers AI pode devolver texto simples em ``result.response`` ou, quando
+    JSON Mode está ativo, um objeto JSON já estruturado. Neste segundo caso
+    serializamos o objeto para que o parser comum da ARK IA possa tratá-lo.
+    """
     if not isinstance(payload, dict):
         return ""
     resultado = payload.get("result")
@@ -9829,14 +9834,33 @@ def _extrair_texto_resposta_cloudflare(payload):
             valor = resultado.get(chave)
             if isinstance(valor, str) and valor.strip():
                 return valor.strip()
+            if isinstance(valor, (dict, list)):
+                try:
+                    return json.dumps(valor, ensure_ascii=False)
+                except Exception:
+                    pass
         escolhas = resultado.get("choices") or []
         if isinstance(escolhas, list) and escolhas:
             primeira = escolhas[0] if isinstance(escolhas[0], dict) else {}
             mensagem = primeira.get("message") if isinstance(primeira, dict) else None
-            if isinstance(mensagem, dict) and isinstance(mensagem.get("content"), str):
-                return mensagem["content"].strip()
+            if isinstance(mensagem, dict):
+                conteudo = mensagem.get("content")
+                if isinstance(conteudo, str) and conteudo.strip():
+                    return conteudo.strip()
+                if isinstance(conteudo, (dict, list)):
+                    try:
+                        return json.dumps(conteudo, ensure_ascii=False)
+                    except Exception:
+                        pass
             if isinstance(primeira.get("text"), str):
                 return primeira["text"].strip()
+        # Alguns modelos/rotas podem devolver o próprio resultado já como objeto final.
+        chaves_envelope = {"response", "output_text", "text", "choices", "usage"}
+        if resultado and not (set(resultado.keys()) & chaves_envelope):
+            try:
+                return json.dumps(resultado, ensure_ascii=False)
+            except Exception:
+                pass
     return ""
 
 
@@ -9847,23 +9871,46 @@ def _cloudflare_configurado():
     )
 
 
-def _chamar_cloudflare(prompt, *, timeout=35):
-    """Fallback gratuito da ARK IA usando Cloudflare Workers AI."""
+def _chamar_cloudflare(prompt, *, timeout=35, json_mode=False):
+    """Fallback gratuito da ARK IA usando Cloudflare Workers AI.
+
+    Para tarefas estruturadas, usa por padrão um modelo oficialmente compatível
+    com JSON Mode. Isso evita depender de o modelo obedecer apenas ao texto do
+    prompt e reduz respostas com Markdown ou JSON incompleto.
+    """
     account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
     token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
     if not account_id or not token:
         raise ValueError("O fallback Cloudflare Workers AI ainda não está configurado no Render.")
 
-    modelo = (
-        os.environ.get("CLOUDFLARE_TEXT_MODEL")
-        or "@cf/google/gemma-4-26b-a4b-it"
-    ).strip()
+    if json_mode:
+        modelo = (
+            os.environ.get("CLOUDFLARE_JSON_MODEL")
+            or "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+        ).strip()
+    else:
+        modelo = (
+            os.environ.get("CLOUDFLARE_TEXT_MODEL")
+            or "@cf/google/gemma-4-26b-a4b-it"
+        ).strip()
+
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{modelo}"
     corpo = {
-        "prompt": str(prompt),
-        "max_tokens": 2200,
-        "temperature": 0.35,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Você é a ARK IA, assistente pedagógica da plataforma ARK EDUS. "
+                    "Siga rigorosamente o formato solicitado pelo usuário."
+                ),
+            },
+            {"role": "user", "content": str(prompt)},
+        ],
+        "max_tokens": 2600,
+        "temperature": 0.25,
     }
+    if json_mode:
+        corpo["response_format"] = {"type": "json_object"}
     try:
         resposta = requests.post(
             url,
@@ -9950,7 +9997,7 @@ def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", t
     # O fallback é textual. As rotas multimodais de leitura de imagem continuam usando Gemini Vision diretamente.
     if _cloudflare_configurado():
         try:
-            texto = _chamar_cloudflare(entrada, timeout=max(30, min(int(timeout or 35), 45)))
+            texto = _chamar_cloudflare(entrada, timeout=max(30, min(int(timeout or 35), 45)), json_mode=True)
             return _carregar_json_ark_ia(texto)
         except ValueError as exc:
             erros.append(f"Cloudflare: {exc}")
