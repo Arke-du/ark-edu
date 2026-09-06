@@ -1,0 +1,34 @@
+ARK EDUS — V15 — ARK IA HÍBRIDA GRATUITA
+Data: 06/09/2026
+
+ALTERAÇÕES
+
+1. ARK IA agora usa dois provedores de texto em cascata:
+   - principal: Google Gemini (GEMINI_API_KEY);
+   - fallback automático: Cloudflare Workers AI.
+
+2. Se o Gemini falhar, estiver indisponível, atingir cota ou devolver JSON inválido,
+   a ARK EDUS tenta automaticamente o Cloudflare Workers AI, sem o professor
+   precisar selecionar provedor.
+
+3. Variáveis novas no Render:
+   CLOUDFLARE_ACCOUNT_ID
+   CLOUDFLARE_API_TOKEN
+   CLOUDFLARE_TEXT_MODEL=@cf/google/gemma-4-26b-a4b-it
+
+4. O motor visual pedagógico próprio da ARK EDUS continua gerando os recursos
+   visuais por código (grid, reta numérica, gráfico, linha do tempo e formas),
+   sem usar API de geração de imagens.
+
+5. Correção das alternativas geradas por IA:
+   - a interface já mostra A/B/C/D;
+   - o backend remove automaticamente prefixos como A), B), (C), D.,
+     “Alternativa A” etc. antes de preencher os campos.
+   - o prompt também instrui os provedores a devolver somente o texto.
+
+6. A leitura multimodal/foto continua usando GEMINI_VISION_MODEL, porque o fallback
+   Cloudflare desta versão foi implementado para tarefas textuais/JSON da ARK IA.
+
+IMPORTANTE
+Nunca coloque CLOUDFLARE_API_TOKEN no código-fonte ou no GitHub. Configure apenas
+no Environment do Render.

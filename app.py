@@ -9817,21 +9817,106 @@ def _chamar_gemini(input_data, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
     return texto
 
 
-def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
-    """Executa uma tarefa pedagógica da ARK IA usando Gemini e devolve JSON."""
-    entrada = (
-        instrucoes.strip()
-        + "\n\nDADOS DA SOLICITAÇÃO:\n"
-        + str(dados_usuario)
-        + "\n\nResponda somente com JSON válido, sem Markdown e sem texto fora do JSON."
+def _extrair_texto_resposta_cloudflare(payload):
+    """Obtém o texto final retornado pelo Workers AI da Cloudflare."""
+    if not isinstance(payload, dict):
+        return ""
+    resultado = payload.get("result")
+    if isinstance(resultado, str):
+        return resultado.strip()
+    if isinstance(resultado, dict):
+        for chave in ("response", "output_text", "text"):
+            valor = resultado.get(chave)
+            if isinstance(valor, str) and valor.strip():
+                return valor.strip()
+        escolhas = resultado.get("choices") or []
+        if isinstance(escolhas, list) and escolhas:
+            primeira = escolhas[0] if isinstance(escolhas[0], dict) else {}
+            mensagem = primeira.get("message") if isinstance(primeira, dict) else None
+            if isinstance(mensagem, dict) and isinstance(mensagem.get("content"), str):
+                return mensagem["content"].strip()
+            if isinstance(primeira.get("text"), str):
+                return primeira["text"].strip()
+    return ""
+
+
+def _cloudflare_configurado():
+    return bool(
+        (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+        and (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
     )
-    texto = _chamar_gemini(entrada, modelo_env=modelo_env, timeout=timeout)
+
+
+def _chamar_cloudflare(prompt, *, timeout=35):
+    """Fallback gratuito da ARK IA usando Cloudflare Workers AI."""
+    account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+    token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+    if not account_id or not token:
+        raise ValueError("O fallback Cloudflare Workers AI ainda não está configurado no Render.")
+
+    modelo = (
+        os.environ.get("CLOUDFLARE_TEXT_MODEL")
+        or "@cf/google/gemma-4-26b-a4b-it"
+    ).strip()
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{modelo}"
+    corpo = {
+        "prompt": str(prompt),
+        "max_tokens": 2200,
+        "temperature": 0.35,
+    }
+    try:
+        resposta = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=corpo,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        raise ValueError("Não foi possível conectar ao fallback gratuito da ARK IA agora.") from exc
+
+    if resposta.status_code >= 400:
+        detalhe = ""
+        try:
+            payload_erro = resposta.json()
+            erros = payload_erro.get("errors") or []
+            if erros and isinstance(erros[0], dict):
+                detalhe = str(erros[0].get("message") or erros[0].get("code") or "").strip()
+        except Exception:
+            detalhe = (resposta.text or "").strip()
+        if resposta.status_code in {401, 403}:
+            raise ValueError("A Cloudflare não aceitou as credenciais da ARK IA. Confira Account ID e API Token no Render.")
+        if resposta.status_code == 429:
+            raise ValueError("O limite gratuito da Cloudflare Workers AI foi atingido no momento.")
+        raise ValueError(
+            "O fallback gratuito da ARK IA não conseguiu concluir a solicitação."
+            + (f" Detalhe: {detalhe[:220]}" if detalhe else "")
+        )
+
+    try:
+        payload = resposta.json()
+    except Exception as exc:
+        raise ValueError("A Cloudflare respondeu em um formato inesperado.") from exc
+    if payload.get("success") is False:
+        erros = payload.get("errors") or []
+        detalhe = ""
+        if erros and isinstance(erros[0], dict):
+            detalhe = str(erros[0].get("message") or "").strip()
+        raise ValueError("A Cloudflare não conseguiu concluir a solicitação." + (f" Detalhe: {detalhe[:220]}" if detalhe else ""))
+    texto = _extrair_texto_resposta_cloudflare(payload)
+    if not texto:
+        raise ValueError("A Cloudflare respondeu sem conteúdo utilizável.")
+    return texto
+
+
+def _carregar_json_ark_ia(texto):
+    """Converte a saída de qualquer provedor da ARK IA em objeto JSON."""
     limpo = _limpar_json_ia(texto).lstrip("\ufeff").strip()
     try:
         return json.loads(limpo)
     except json.JSONDecodeError as exc:
-        # Alguns modelos eventualmente acrescentam uma frase curta antes/depois do JSON.
-        # Recuperamos apenas o primeiro objeto completo quando isso acontecer.
         inicio = limpo.find("{")
         fim = limpo.rfind("}")
         if inicio >= 0 and fim > inicio:
@@ -9840,6 +9925,59 @@ def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", t
             except json.JSONDecodeError:
                 pass
         raise ValueError("A IA retornou uma resposta em formato inesperado. Tente novamente.") from exc
+
+
+def _ark_ia_json(instrucoes, dados_usuario, *, modelo_env="GEMINI_TEXT_MODEL", timeout=90):
+    """ARK IA: Gemini Free como principal e Cloudflare Workers AI como fallback."""
+    entrada = (
+        instrucoes.strip()
+        + "\n\nDADOS DA SOLICITAÇÃO:\n"
+        + str(dados_usuario)
+        + "\n\nResponda somente com JSON válido, sem Markdown e sem texto fora do JSON."
+    )
+
+    erros = []
+    try:
+        texto = _chamar_gemini(entrada, modelo_env=modelo_env, timeout=timeout)
+        return _carregar_json_ark_ia(texto)
+    except ValueError as exc:
+        erros.append(f"Gemini: {exc}")
+        try:
+            app.logger.warning("ARK IA: Gemini indisponível; tentando Cloudflare Workers AI. Motivo: %s", exc)
+        except Exception:
+            pass
+
+    # O fallback é textual. As rotas multimodais de leitura de imagem continuam usando Gemini Vision diretamente.
+    if _cloudflare_configurado():
+        try:
+            texto = _chamar_cloudflare(entrada, timeout=max(30, min(int(timeout or 35), 45)))
+            return _carregar_json_ark_ia(texto)
+        except ValueError as exc:
+            erros.append(f"Cloudflare: {exc}")
+            try:
+                app.logger.warning("ARK IA: fallback Cloudflare também falhou. Motivo: %s", exc)
+            except Exception:
+                pass
+    else:
+        erros.append("Cloudflare: fallback ainda não configurado")
+
+    # Não expõe credenciais, mas informa de forma útil por que os dois provedores não responderam.
+    resumo = " | ".join(erros)
+    raise ValueError("A ARK IA está temporariamente indisponível. " + resumo[:600])
+
+
+def _normalizar_texto_alternativa_ia(texto):
+    """Remove rótulos A), B), (C), D. etc. porque a interface já exibe as letras."""
+    valor = str(texto or "").strip()
+    if not valor:
+        return ""
+    valor = re.sub(
+        r"^\s*(?:alternativa\s+)?(?:\([A-D]\)|[A-D]\s*[\)\.\:\-–—])\s*",
+        "",
+        valor,
+        flags=re.I,
+    ).strip()
+    return valor
 
 
 @app.route("/api/ia/gerar-questao", methods=["POST"])
@@ -9879,6 +10017,7 @@ Crie UMA questão escolar objetiva de múltipla escolha, clara, original e adequ
 A questão será revisada por um professor antes de ser salva.
 Não cite que foi criada por IA. Evite ambiguidades, pegadinhas e alternativas obviamente absurdas.
 Produza exatamente 4 alternativas e somente uma correta.
+IMPORTANTE: no array alternativas, escreva SOMENTE o texto de cada resposta. NÃO inclua rótulos como A), B), C), D), (A), "Alternativa A" ou semelhantes, pois a interface da ARK EDUS já exibe as letras separadamente.
 Retorne SOMENTE um objeto JSON válido com estas chaves:
 enunciado (string), alternativas (array de 4 strings), gabarito (A|B|C|D),
 explicacao (string curta), dificuldade (Fácil|Média|Difícil), habilidade_bncc (string),
@@ -9916,7 +10055,7 @@ Se não tiver segurança sobre código BNCC/unidade/objeto, deixe esses campos v
         for item in alternativas_brutas:
             if isinstance(item, dict):
                 item = item.get("texto") or item.get("alternativa") or item.get("conteudo") or ""
-            texto_item = str(item or "").strip()
+            texto_item = _normalizar_texto_alternativa_ia(item)
             if texto_item:
                 alternativas.append(texto_item)
 
