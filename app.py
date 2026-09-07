@@ -9398,6 +9398,69 @@ def normalizar_ordem_questoes_prova(cursor, prova_id):
         """, (indice, registro["id"], prova_id))
 
 
+def redistribuir_pesos_automaticos(cursor, prova_id):
+    """Redistribui automaticamente a pontuação quando a avaliação é com nota.
+
+    A redistribuição só ocorre quando a prova está configurada no modo automático.
+    O peso total padrão é 10,00 e a última questão absorve eventual diferença de
+    arredondamento para garantir que a soma seja exatamente igual ao total.
+    """
+    cursor.execute("""
+        SELECT
+            COALESCE(tem_nota, 0) AS tem_nota,
+            COALESCE(peso_total, 10) AS peso_total,
+            COALESCE(tipo_peso, 'automatico') AS tipo_peso
+        FROM provas
+        WHERE id = ?
+        LIMIT 1
+    """, (prova_id,))
+    prova_peso = cursor.fetchone()
+
+    if not prova_peso:
+        return
+
+    if int(prova_peso["tem_nota"] or 0) != 1:
+        return
+
+    if (prova_peso["tipo_peso"] or "automatico").strip().lower() != "automatico":
+        return
+
+    try:
+        peso_total = round(float(prova_peso["peso_total"] or 10), 2)
+    except (TypeError, ValueError):
+        peso_total = 10.0
+
+    if peso_total <= 0:
+        peso_total = 10.0
+
+    cursor.execute("""
+        SELECT id
+        FROM prova_questoes
+        WHERE prova_id = ?
+        ORDER BY ordem, id
+    """, (prova_id,))
+    vinculos = cursor.fetchall()
+
+    quantidade = len(vinculos)
+    if quantidade == 0:
+        return
+
+    valor_base = round(peso_total / quantidade, 2)
+    acumulado = 0.0
+
+    for indice, vinculo in enumerate(vinculos):
+        if indice == quantidade - 1:
+            peso = round(peso_total - acumulado, 2)
+        else:
+            peso = valor_base
+            acumulado = round(acumulado + peso, 2)
+
+        cursor.execute("""
+            UPDATE prova_questoes
+            SET peso = ?
+            WHERE id = ? AND prova_id = ?
+        """, (peso, vinculo["id"], prova_id))
+
 
 # =========================================================
 # IMPORTAÇÃO EM LOTE DE QUESTÕES
@@ -10715,6 +10778,7 @@ def confirmar_importacao_questoes():
             cursor.execute("""
                 UPDATE provas SET quantidade=(SELECT COUNT(*) FROM prova_questoes WHERE prova_id=?), atualizado_em=? WHERE id=?
             """, (prova_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id))
+            redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
         try: os.remove(caminho_preview)
         except OSError: pass
@@ -10752,6 +10816,7 @@ def montar_prova(prova_id):
                 p.disciplina,
                 p.data_aplicacao,
                 p.status,
+                COALESCE(p.tem_nota, 0) AS tem_nota,
                 COALESCE(p.peso_total, 10) AS peso_total,
                 COALESCE(p.tipo_peso, 'automatico') AS tipo_peso,
                 p.escola_id,
@@ -10790,6 +10855,7 @@ def montar_prova(prova_id):
             return redirect(f"/prova/{prova_id}")
 
         normalizar_ordem_questoes_prova(cursor, prova_id)
+        redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
 
         cursor.execute("""
@@ -11030,6 +11096,7 @@ def adicionar_questoes_selecionadas(prova_id):
             UPDATE provas SET quantidade = (SELECT COUNT(*) FROM prova_questoes WHERE prova_id = ?),
                 atualizado_em = ? WHERE id = ?
         """, (prova_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id))
+        redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
 
         if adicionadas:
@@ -11166,6 +11233,7 @@ def adicionar_questao_prova(prova_id):
             prova_id
         ))
 
+        redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
         flash("Questão adicionada à avaliação.", "sucesso")
 
@@ -11200,6 +11268,12 @@ def salvar_pesos_prova(prova_id):
             exigir_edicao=True
         ):
             return _redirecionar_acesso_negado_prova()
+
+        cursor.execute("SELECT COALESCE(tem_nota, 0) AS tem_nota FROM provas WHERE id = ? LIMIT 1", (prova_id,))
+        prova_modo = cursor.fetchone()
+        if not prova_modo or int(prova_modo["tem_nota"] or 0) != 1:
+            flash("Esta avaliação foi configurada sem nota e não utiliza pontuação por questão.", "aviso")
+            return redirect(f"/provas/{prova_id}/montar")
 
         tipo_peso = (request.form.get("tipo_peso") or "automatico").strip()
         if tipo_peso not in {"automatico", "manual"}:
@@ -11407,6 +11481,7 @@ def duplicar_questao_prova(prova_id, vinculo_id):
             prova_id
         ))
 
+        redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
         flash(
             "Questão duplicada e adicionada ao final da avaliação.",
@@ -11536,6 +11611,7 @@ def remover_questao_prova(prova_id, vinculo_id):
             prova_id
         ))
 
+        redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
         flash("Questão removida da avaliação.", "sucesso")
 

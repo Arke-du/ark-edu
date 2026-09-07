@@ -1,0 +1,27 @@
+ARK EDUS V16 — Pontuação automática da avaliação
+Data: 06/09/2026
+
+1. Avaliação sem nota
+- O bloco “Pontuação da avaliação” não é exibido na tela de montagem.
+- Os campos de peso por questão também não são exibidos.
+- O endpoint de pontuação bloqueia alterações para avaliações configuradas sem nota.
+
+2. Avaliação com nota
+- Valor total padrão: 10,00 pontos.
+- O valor total continua editável.
+- Distribuição automática continua como padrão.
+- Ao adicionar, importar, duplicar ou remover questões, os pesos são redistribuídos automaticamente quando a prova está no modo automático.
+- A soma é preservada exatamente; a última questão absorve eventual diferença de arredondamento.
+- O modo manual continua disponível para pesos diferentes por questão.
+
+3. Interface
+- Texto explicativo mais claro.
+- Destaque para distribuição automática recomendada.
+- Cada questão exibe seu valor atual em pontos.
+- Resumo mostra como o total está sendo dividido.
+
+Exemplos:
+- 10,00 com 2 questões: 5,00 + 5,00.
+- 10,00 com 4 questões: 2,50 cada.
+- 8,00 com 4 questões: 2,00 cada.
+- 10,00 com 3 questões: 3,33 + 3,33 + 3,34.
