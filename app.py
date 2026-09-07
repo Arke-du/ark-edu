@@ -21697,6 +21697,17 @@ def _garantir_tabelas_aplicacoes():
     garantir_coluna_aplicacao_aluno("nota_discursiva", "REAL")
     garantir_coluna_aplicacao_aluno("nota_final", "REAL")
 
+    # V17 — registra se a aplicação usa a turma inteira ou apenas um subconjunto
+    # escolhido no momento da criação. Aplicações antigas recebem "turma" por
+    # compatibilidade, sem qualquer exclusão ou alteração destrutiva.
+    cursor.execute("PRAGMA table_info(aplicacoes)")
+    colunas_aplicacoes = {linha[1] for linha in cursor.fetchall()}
+    if "modo_alunos" not in colunas_aplicacoes:
+        cursor.execute(
+            "ALTER TABLE aplicacoes "
+            "ADD COLUMN modo_alunos TEXT NOT NULL DEFAULT 'turma'"
+        )
+
     # Classificação pedagógica das discursivas em avaliações sem nota.
     cursor.execute("PRAGMA table_info(respostas_discursivas_aplicacao)")
     colunas_rd = {linha[1] for linha in cursor.fetchall()}
@@ -21728,12 +21739,18 @@ def _sincronizar_alunos_aplicacao(cursor, aplicacao_id):
     apagar resultados já registrados.
     """
     cursor.execute("""
-        SELECT a.turma_id, a.ano_letivo_id, a.quantidade_modelos
+        SELECT a.turma_id, a.ano_letivo_id, a.quantidade_modelos,
+               COALESCE(NULLIF(a.modo_alunos, ''), 'turma') AS modo_alunos
         FROM aplicacoes a
         WHERE a.id = ?
     """, (aplicacao_id,))
     aplicacao = cursor.fetchone()
     if not aplicacao:
+        return 0
+
+    # Aplicações criadas com seleção parcial possuem uma lista fechada de
+    # participantes em aplicacao_alunos. Nunca complete com o restante da turma.
+    if str(aplicacao["modo_alunos"] or "turma").strip().lower() == "selecionados":
         return 0
 
     cursor.execute("""
@@ -21776,7 +21793,8 @@ def _garantir_aluno_qr_na_aplicacao(cursor, aplicacao_id, aluno_id, modelo=1):
     se o aluno pertence à turma da aplicação e cria somente o vínculo ausente.
     """
     cursor.execute("""
-        SELECT a.turma_id, a.ano_letivo_id
+        SELECT a.turma_id, a.ano_letivo_id,
+               COALESCE(NULLIF(a.modo_alunos, ''), 'turma') AS modo_alunos
         FROM aplicacoes a
         WHERE a.id = ?
     """, (aplicacao_id,))
@@ -21791,6 +21809,11 @@ def _garantir_aluno_qr_na_aplicacao(cursor, aplicacao_id, aluno_id, modelo=1):
     """, (aplicacao_id, aluno_id))
     if cursor.fetchone():
         return True
+
+    # Em uma aplicação com participantes selecionados, um aluno que não esteja
+    # previamente vinculado não pode entrar pela leitura de um QR de outra folha.
+    if str(aplicacao["modo_alunos"] or "turma").strip().lower() == "selecionados":
+        return False
 
     pertence = False
     # Compatibilidade com o vínculo legado alunos.turma_id.
@@ -22306,13 +22329,14 @@ def nova_aplicacao(prova_id):
                 INSERT INTO aplicacoes (
                     prova_id, turma_id, escola_id, ano_letivo_id, nome,
                     data_aplicacao, quantidade_modelos, status,
-                    observacoes, criado_por
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Agendada', ?, ?)
+                    observacoes, criado_por, modo_alunos
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Agendada', ?, ?, ?)
             """, (
                 prova_id, prova["turma_id"], prova["escola_id"] or prova["turma_escola_id"],
                 prova["ano_letivo_id"], request.form.get("nome") or f"Aplicação - {prova['nome']}",
                 request.form.get("data_aplicacao") or prova["data_aplicacao"], quantidade_modelos,
-                request.form.get("observacoes", "").strip(), session.get("usuario_id")
+                request.form.get("observacoes", "").strip(), session.get("usuario_id"),
+                "selecionados" if modo_alunos == "selecionados" else "turma"
             ))
             aplicacao_id = cursor.lastrowid
 
@@ -22430,14 +22454,10 @@ def cartoes_aplicacao(aplicacao_id):
         """, (aplicacao_id,))
         alunos = [dict(linha) for linha in cursor.fetchall()]
 
-        # Compatibilidade/recuperação para aplicações antigas: algumas aplicações
-        # podem existir sem linhas em aplicacao_alunos (por exemplo, aplicações
-        # criadas antes da estrutura atual ou após migração). Nessa situação a
-        # página de cartões não deve ficar completamente em branco. Usamos, apenas
-        # para a geração desta tela, os alunos atualmente matriculados na turma e
-        # distribuímos os modelos de forma determinística. Não gravamos nada no
-        # banco aqui, portanto não alteramos a aplicação nem os dados existentes.
-        if not alunos:
+        # Compatibilidade/recuperação apenas para aplicações de turma inteira.
+        # Uma aplicação com seleção parcial tem lista fechada; se por algum motivo
+        # estiver vazia, não podemos substituir silenciosamente pelos 30 alunos.
+        if not alunos and str(aplicacao["modo_alunos"] or "turma").strip().lower() != "selecionados":
             cursor.execute("""
                 SELECT DISTINCT al.id, al.nome,
                        COALESCE(al.matricula, '') AS matricula

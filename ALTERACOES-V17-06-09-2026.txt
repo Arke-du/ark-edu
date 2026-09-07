@@ -1,0 +1,19 @@
+ARK EDUS V17 — PARTICIPANTES DA APLICAÇÃO
+
+Correção principal:
+- Aplicações criadas com "Selecionar alunos" passam a manter uma lista fechada de participantes.
+- Cartões-resposta são gerados somente para os alunos selecionados.
+- Importação, lançamento manual, pendências, ausências e total de alunos usam somente aplicacao_alunos da aplicação.
+- O restante da turma não é mais adicionado automaticamente ao abrir cartões/importação.
+- QR de aluno não participante não é aceito em aplicação com seleção parcial.
+
+Compatibilidade:
+- Aplicações antigas são tratadas como "Turma inteira" por padrão para não excluir participantes nem resultados existentes.
+- Nenhuma aplicação já existente é apagada ou reduzida automaticamente.
+
+Implementação:
+- Nova coluna aplicacoes.modo_alunos (turma/selecionados), criada automaticamente no primeiro uso.
+- nova_aplicacao grava o modo escolhido.
+- _sincronizar_alunos_aplicacao não completa a turma quando modo_alunos=selecionados.
+- _garantir_aluno_qr_na_aplicacao bloqueia inclusão automática de aluno fora da lista selecionada.
+- Fallback visual de cartões para turma inteira não é executado em seleção parcial.
