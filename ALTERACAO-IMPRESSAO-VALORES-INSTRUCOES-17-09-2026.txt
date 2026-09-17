@@ -1,0 +1,7 @@
+ARK EDUS — Alteração da impressão — 17/09/2026
+
+1. Cabeçalho da prova exibe o valor total da avaliação quando tem_nota está ativo.
+2. Cada questão exibe seu peso/valor individual na impressão.
+3. Instruções passaram para uma única coluna, garantindo leitura visual 1, 2, 3, 4, 5.
+4. Avaliações sem nota não exibem valor total nem valor por questão.
+5. Mantidas as alterações anteriores, incluindo texto justificado e valor total da avaliação.

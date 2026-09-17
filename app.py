@@ -22456,6 +22456,7 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
     try:
         cursor.execute("""
             SELECT a.*, p.nome AS prova_nome, p.disciplina, p.professor_id,
+                   COALESCE(p.peso_total, 10) AS peso_total,
                    CASE WHEN CAST(COALESCE(p.tem_nota, 0) AS INTEGER) = 1 THEN 1 ELSE 0 END AS tem_nota,
                    t.nome AS turma_nome, e.nome_instituicao, e.logo,
                    e.cidade, e.estado,
