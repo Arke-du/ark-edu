@@ -12792,6 +12792,23 @@ def atualizar_prova(prova_id):
     tem_nota = 1 if request.form.get("tem_nota") == "1" else 0
     media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
     media_aprovacao = None
+    peso_total = None
+
+    # O valor total só é obrigatório quando a avaliação possui nota.
+    # Aceita tanto vírgula quanto ponto como separador decimal.
+    if tem_nota:
+        peso_total_raw = request.form.get("peso_total", "").strip()
+        try:
+            peso_total = float(peso_total_raw.replace(",", "."))
+        except (TypeError, ValueError):
+            flash("Informe um valor total válido para a avaliação.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        if peso_total <= 0:
+            flash("O valor total da avaliação deve ser maior que zero.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        peso_total = round(peso_total, 2)
 
     if not nome or not disciplina:
         flash("Preencha os dados obrigatórios da avaliação.", "erro")
