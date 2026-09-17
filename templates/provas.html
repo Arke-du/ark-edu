@@ -2035,6 +2035,12 @@
                         </div>
                     </div>
 
+                    <div class="provas-form-grupo provas-media-campo" id="campoPesoTotalProva">
+                        <label for="pesoTotalProva">Valor total da avaliação</label>
+                        <input id="pesoTotalProva" name="peso_total" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal" value="10.00" disabled>
+                        <span style="color:#64748b;font-size:11px;line-height:1.45;">Informe a pontuação máxima que o estudante poderá obter nesta avaliação.</span>
+                    </div>
+
                     <div class="provas-media-card">
                         <div class="provas-media-linha">
                             <div class="provas-media-texto">
@@ -2914,6 +2920,23 @@ document.addEventListener("DOMContentLoaded", function () {
         );
     });
 
+
+    const temNota = document.getElementById("temNotaProva");
+    const campoPesoTotal = document.getElementById("campoPesoTotalProva");
+    const pesoTotalInput = document.getElementById("pesoTotalProva");
+
+    function atualizarCampoPesoTotal() {
+        if (!temNota || !campoPesoTotal || !pesoTotalInput) return;
+        const ativo = temNota.checked;
+        campoPesoTotal.classList.toggle("ativo", ativo);
+        pesoTotalInput.disabled = !ativo;
+        pesoTotalInput.required = ativo;
+    }
+
+    if (temNota) {
+        temNota.addEventListener("change", atualizarCampoPesoTotal);
+        atualizarCampoPesoTotal();
+    }
 
     const mediaAtiva = document.getElementById("mediaAtivaProva");
     const campoMedia = document.getElementById("campoMediaProva");

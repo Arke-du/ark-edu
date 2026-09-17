@@ -8882,11 +8882,11 @@ def gerar_prova():
             )
         except (TypeError, ValueError):
             flash("Informe um valor total válido para a avaliação.", "erro")
-            return redirect(f"/editar_prova/{prova_id}")
+            return redirect("/provas")
 
         if peso_total <= 0 or peso_total > 1000:
             flash("O valor total da avaliação deve ser maior que 0 e menor ou igual a 1000.", "erro")
-            return redirect(f"/editar_prova/{prova_id}")
+            return redirect("/provas")
 
         peso_total = round(peso_total, 2)
 
@@ -9032,9 +9032,10 @@ def gerar_prova():
                 atualizado_em,
                 media_ativa,
                 media_aprovacao,
-                tem_nota
+                tem_nota,
+                peso_total
             )
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'rascunho', ?, ?, ?, ?, ?)
         """, (
             nome,
             turma_id,
@@ -9047,7 +9048,8 @@ def gerar_prova():
             agora,
             media_ativa,
             media_aprovacao,
-            tem_nota
+            tem_nota,
+            peso_total
         ))
 
         prova_id = cursor.lastrowid
