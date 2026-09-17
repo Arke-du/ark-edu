@@ -8873,6 +8873,22 @@ def gerar_prova():
     tem_nota = 1 if request.form.get("tem_nota") == "1" else 0
     media_ativa = 1 if request.form.get("media_ativa") == "1" else 0
     media_aprovacao = None
+    peso_total = None
+
+    if tem_nota:
+        try:
+            peso_total = float(
+                (request.form.get("peso_total") or "").strip().replace(",", ".")
+            )
+        except (TypeError, ValueError):
+            flash("Informe um valor total válido para a avaliação.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        if peso_total <= 0 or peso_total > 1000:
+            flash("O valor total da avaliação deve ser maior que 0 e menor ou igual a 1000.", "erro")
+            return redirect(f"/editar_prova/{prova_id}")
+
+        peso_total = round(peso_total, 2)
 
     if media_ativa:
         media_texto = request.form.get("media_aprovacao", "").strip().replace(",", ".")
@@ -12809,7 +12825,13 @@ def atualizar_prova(prova_id):
         if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=True):
             return _redirecionar_acesso_negado_prova()
 
-        cursor.execute("SELECT escola_id, ano_letivo_id FROM provas WHERE id = ?", (prova_id,))
+        cursor.execute("""
+            SELECT escola_id, ano_letivo_id,
+                   COALESCE(peso_total, 10) AS peso_total,
+                   COALESCE(tipo_peso, 'automatico') AS tipo_peso
+            FROM provas
+            WHERE id = ?
+        """, (prova_id,))
         prova_atual = cursor.fetchone()
 
         cursor.execute("""
@@ -12828,15 +12850,63 @@ def atualizar_prova(prova_id):
             flash("O professor selecionado não pertence à instituição.", "erro")
             return redirect(f"/editar_prova/{prova_id}")
 
+        # Quando a avaliação tem nota, o valor total informado nesta tela
+        # passa a ser a referência da pontuação. No modo automático, os pesos
+        # das questões existentes são redistribuídos para fechar exatamente o total.
+        # No modo manual, preservamos os pesos definidos pelo professor e só
+        # aceitamos a alteração se a soma já corresponder ao novo total.
+        if tem_nota and peso_total is not None:
+            cursor.execute("""
+                SELECT id, COALESCE(peso, 0) AS peso
+                FROM prova_questoes
+                WHERE prova_id = ?
+                ORDER BY ordem, id
+            """, (prova_id,))
+            vinculos = cursor.fetchall()
+
+            tipo_peso = (prova_atual["tipo_peso"] or "automatico").strip().lower()
+            if tipo_peso not in {"automatico", "manual"}:
+                tipo_peso = "automatico"
+
+            if vinculos and tipo_peso == "automatico":
+                quantidade = len(vinculos)
+                valor_base = round(peso_total / quantidade, 2)
+                acumulado = 0.0
+
+                for indice, vinculo in enumerate(vinculos):
+                    if indice == quantidade - 1:
+                        peso_questao = round(peso_total - acumulado, 2)
+                    else:
+                        peso_questao = valor_base
+                        acumulado = round(acumulado + peso_questao, 2)
+
+                    cursor.execute("""
+                        UPDATE prova_questoes
+                        SET peso = ?
+                        WHERE id = ? AND prova_id = ?
+                    """, (peso_questao, vinculo["id"], prova_id))
+
+            elif vinculos and tipo_peso == "manual":
+                soma_manual = round(sum(float(v["peso"] or 0) for v in vinculos), 2)
+                if abs(soma_manual - peso_total) > 0.009:
+                    flash(
+                        f"Esta avaliação usa pesos manuais que somam {soma_manual:.2f}. "
+                        f"Ajuste os pesos das questões para somarem {peso_total:.2f} antes de alterar o valor total.",
+                        "erro"
+                    )
+                    return redirect(f"/editar_prova/{prova_id}")
+
         cursor.execute("""
             UPDATE provas
             SET nome = ?, turma_id = ?, professor_id = ?, disciplina = ?,
                 data_aplicacao = ?, media_ativa = ?, media_aprovacao = ?, tem_nota = ?,
+                peso_total = CASE WHEN ? = 1 THEN ? ELSE peso_total END,
                 atualizado_em = ?
             WHERE id = ?
         """, (
             nome, turma_id, professor_id, disciplina, data_aplicacao,
             media_ativa, media_aprovacao, tem_nota,
+            tem_nota, peso_total,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id
         ))
         banco.commit()

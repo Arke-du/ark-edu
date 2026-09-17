@@ -370,6 +370,23 @@
                                 <span></span>
                             </label>
                         </div>
+
+                        <div class="editar-prova-grupo editar-prova-media-campo" id="campoPesoTotalProva">
+                            <label for="pesoTotalProva">Valor total da avaliação</label>
+                            <input
+                                id="pesoTotalProva"
+                                name="peso_total"
+                                type="number"
+                                min="0.01"
+                                max="1000"
+                                step="0.01"
+                                inputmode="decimal"
+                                value="{{ '%.2f'|format(prova['peso_total'] or 10) }}"
+                            >
+                            <span style="color:#64748b;font-size:11px;line-height:1.45;">
+                                Informe a pontuação máxima que o estudante poderá obter nesta avaliação.
+                            </span>
+                        </div>
                     </div>
 
                     <div class="editar-prova-media-card">
@@ -438,17 +455,37 @@
 {% block scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const check = document.getElementById("mediaAtivaProva");
-    const campo = document.getElementById("campoMediaProva");
-    const input = document.getElementById("mediaAprovacaoProva");
-    function atualizar() {
-        const ativo = check && check.checked;
-        campo.classList.toggle("ativo", ativo);
-        input.disabled = !ativo;
-        input.required = ativo;
+    const checkMedia = document.getElementById("mediaAtivaProva");
+    const campoMedia = document.getElementById("campoMediaProva");
+    const inputMedia = document.getElementById("mediaAprovacaoProva");
+
+    const checkNota = document.getElementById("temNotaProva");
+    const campoPeso = document.getElementById("campoPesoTotalProva");
+    const inputPeso = document.getElementById("pesoTotalProva");
+
+    function atualizarMedia() {
+        const ativo = checkMedia && checkMedia.checked;
+        if (campoMedia) campoMedia.classList.toggle("ativo", ativo);
+        if (inputMedia) {
+            inputMedia.disabled = !ativo;
+            inputMedia.required = ativo;
+        }
     }
-    if (check) check.addEventListener("change", atualizar);
-    atualizar();
+
+    function atualizarPesoTotal() {
+        const ativo = checkNota && checkNota.checked;
+        if (campoPeso) campoPeso.classList.toggle("ativo", ativo);
+        if (inputPeso) {
+            inputPeso.disabled = !ativo;
+            inputPeso.required = ativo;
+        }
+    }
+
+    if (checkMedia) checkMedia.addEventListener("change", atualizarMedia);
+    if (checkNota) checkNota.addEventListener("change", atualizarPesoTotal);
+
+    atualizarMedia();
+    atualizarPesoTotal();
 });
 </script>
 {% endblock %}

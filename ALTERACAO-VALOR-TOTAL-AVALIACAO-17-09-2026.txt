@@ -1,0 +1,17 @@
+ARK EDUS - ALTERAÇÃO: VALOR TOTAL DA AVALIAÇÃO
+Data: 17/09/2026
+
+Implementado na tela Editar avaliação:
+- Quando "A avaliação terá nota?" estiver ativado, aparece o campo "Valor total da avaliação".
+- O campo usa a coluna existente provas.peso_total.
+- O valor deve ser maior que 0 e pode ter casas decimais.
+- Ao salvar uma prova com distribuição automática, os pesos das questões existentes são redistribuídos para somarem exatamente o novo valor total.
+- Em distribuição manual, os pesos personalizados são preservados. Se a soma atual não corresponder ao novo total, o sistema pede que os pesos sejam ajustados antes da alteração.
+- Ao desativar "A avaliação terá nota?", o campo de valor total fica oculto e desabilitado; o peso salvo é preservado para o caso de a nota ser reativada futuramente.
+
+Arquivos alterados:
+- app.py
+- templates/editar_prova.html
+
+Validação executada:
+- python -m py_compile app.py (OK)
