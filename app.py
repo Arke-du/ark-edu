@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -5361,21 +5360,21 @@ def jogos_criar():
         if tipo not in permitidos or not titulo:
             flash("Informe o título e escolha um tipo de jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar"))
         itens=[]
-        wordwall_url = ""
         if tipo=="wordwall":
-            bruto=(request.form.get("wordwall_embed") or "").strip()
-            # Aceita tanto a URL de incorporação quanto o iframe copiado do Wordwall.
-            m=re.search(r"src=[\"']([^\"']+)[\"']", bruto, flags=re.I)
-            wordwall_url=(m.group(1) if m else bruto).strip()
+            import re
+            from urllib.parse import urlparse
+            bruto=(request.form.get("wordwall_url") or "").strip()
+            m=re.search(r'src=["\']([^"\']+)["\']', bruto, re.I)
+            url=(m.group(1) if m else bruto).strip()
             try:
-                parsed=urlparse(wordwall_url)
-                host=(parsed.hostname or "").lower(); scheme=parsed.scheme.lower()
+                u=urlparse(url)
+                host=(u.hostname or "").lower()
+                valido=(u.scheme == "https" and (host == "wordwall.net" or host.endswith(".wordwall.net")))
             except Exception:
-                host=""; scheme=""
-            if scheme != "https" or not (host=="wordwall.net" or host.endswith(".wordwall.net")):
-                flash("Cole o código de incorporação (iframe) ou uma URL HTTPS do Wordwall.","erro")
-                banco.close(); return redirect(url_for("jogos_criar",tipo=tipo))
-            itens=[{"wordwall_url":wordwall_url}]
+                valido=False
+            if not valido:
+                flash("Cole um link HTTPS ou código de incorporação válido do Wordwall.","erro"); banco.close(); return redirect(url_for("jogos_criar",tipo="wordwall"))
+            config={"wordwall_url":url}
         elif tipo=="rapida":
             perguntas=request.form.getlist("pergunta[]"); corretas=request.form.getlist("correta[]")
             for i,q in enumerate(perguntas):
@@ -5390,9 +5389,10 @@ def jogos_criar():
         else:
             respostas=request.form.getlist("resposta[]"); pistas=request.form.getlist("pistas[]")
             itens=[{"resposta":r.strip(),"pistas":[p.strip() for p in (pistas[i] if i<len(pistas) else "").split("|") if p.strip()]} for i,r in enumerate(respostas) if r.strip()]
-        if not itens:
-            flash("Adicione pelo menos um item ao jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar",tipo=tipo))
-        config={"itens":itens,"tempo":int(request.form.get("tempo") or 30),"pontos_velocidade":bool(request.form.get("pontos_velocidade"))}
+        if tipo != "wordwall":
+            if not itens:
+                flash("Adicione pelo menos um item ao jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar",tipo=tipo))
+            config={"itens":itens,"tempo":int(request.form.get("tempo") or 30),"pontos_velocidade":bool(request.form.get("pontos_velocidade"))}
         codigo=_codigo_jogo(cur)
         cur.execute("""INSERT INTO jogos_atividades(titulo,tipo,disciplina,turma_id,escola_id,criado_por,configuracao_json,codigo)
             VALUES(?,?,?,?,?,?,?,?)""",(titulo,tipo,request.form.get("disciplina","").strip(),request.form.get("turma_id") or None,escola,session["usuario_id"],json.dumps(config,ensure_ascii=False),codigo))
@@ -5415,15 +5415,18 @@ def jogos_jogar(codigo):
     at=cur.execute("SELECT * FROM jogos_atividades WHERE codigo=? AND ativo=1",(codigo,)).fetchone()
     if not at: banco.close(); flash("Código de jogo não encontrado.","erro"); return redirect(url_for("jogos_entrar"))
     config=json.loads(at["configuracao_json"] or "{}")
-    if request.method=="POST":
-        nome=request.form.get("nome","").strip() or "Participante"; itens=config.get("itens",[]); acertos=0; respostas=[]
-        if at["tipo"]=="wordwall":
-            wordwall_url=(itens[0].get("wordwall_url") if itens else "")
+    if at["tipo"] == "wordwall":
+        nome=(request.values.get("nome") or "").strip()
+        if request.method == "POST" and nome:
             cur.execute("INSERT INTO jogos_partidas(atividade_id) VALUES(?)",(at["id"],)); partida=cur.lastrowid
             cur.execute("""INSERT INTO jogos_participacoes(partida_id,atividade_id,nome_participante,pontos,acertos,total,respostas_json)
-                VALUES(?,?,?,?,?,?,?)""",(partida,at["id"],nome,0,0,0,json.dumps([{"status":"abriu_wordwall"}],ensure_ascii=False)))
+                VALUES(?,?,?,?,?,?,?)""",(partida,at["id"],nome,0,0,0,'[]'))
             banco.commit(); banco.close()
-            return render_template("jogos_wordwall.html",atividade=at,nome=nome,wordwall_url=wordwall_url)
+            return render_template("jogos_wordwall.html",atividade=at,config=config,nome=nome)
+        banco.close()
+        return render_template("jogos_wordwall_entrar.html",atividade=at,codigo=codigo)
+    if request.method=="POST":
+        nome=request.form.get("nome","").strip() or "Participante"; itens=config.get("itens",[]); acertos=0; respostas=[]
         if at["tipo"]=="rapida":
             for i,item in enumerate(itens):
                 r=request.form.get(f"r{i}",""); ok=r==item.get("correta"); acertos+=int(ok); respostas.append(r)
@@ -18837,7 +18840,7 @@ def aplicar_cabecalhos_seguranca(resposta):
         "default-src 'self'; img-src 'self' data: blob:; "
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
         "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-        "font-src 'self' data: https://cdnjs.cloudflare.com; connect-src 'self'"
+        "font-src 'self' data: https://cdnjs.cloudflare.com; connect-src 'self'; frame-src https://wordwall.net https://*.wordwall.net"
     )
     if request.is_secure:
         resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
