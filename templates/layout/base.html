@@ -550,6 +550,24 @@
             {% endif %}
 
 
+            <!-- ARK PLAY / Jogos -->
+
+            <a
+                href="{{ url_for('jogos') }}"
+                class="{% if request.path.startswith('/jogos') %}ativo-menu{% endif %}"
+            >
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 8H18A4 4 0 0 1 22 12V16A3 3 0 0 1 17 18L15 16H9L7 18A3 3 0 0 1 2 16V12A4 4 0 0 1 6 8Z"></path>
+                    <path d="M7 12H11"></path>
+                    <path d="M9 10V14"></path>
+                    <circle cx="16" cy="11" r="1"></circle>
+                    <circle cx="18" cy="14" r="1"></circle>
+                </svg>
+
+                <span>ARK PLAY</span>
+            </a>
+
+
             <!-- Relatórios -->
 
             {% if permissao_modulo("Relatórios") %}

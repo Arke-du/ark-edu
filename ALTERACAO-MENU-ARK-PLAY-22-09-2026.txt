@@ -1,0 +1,8 @@
+CORREÇÃO DO MENU ARK PLAY — 22/09/2026
+
+O módulo de Jogos/Wordwall já existia no código, porém não havia link para ele no menu lateral principal.
+Foi adicionado o item "ARK PLAY" ao menu em templates/layout/base.html, apontando para /jogos.
+
+Fluxo:
+Professor: ARK PLAY > Criar atividade > Wordwall com PIN.
+Aluno: /jogar > PIN > nome > atividade, sem login.
