@@ -1,0 +1,26 @@
+ARK EDUS — ARK PLAY + WORDWALL POR PIN (22/09/2026)
+
+IMPLEMENTADO
+- Novo tipo de jogo: "Wordwall (PIN sem login)".
+- Professor continua autenticado para criar a atividade.
+- Professor cola o iframe/código de incorporação do Wordwall.
+- ARK EDUS gera o PIN usando o sistema de códigos já existente.
+- Rota pública /jogar não exige login.
+- Aluno digita apenas o PIN e depois o próprio nome.
+- Wordwall abre incorporado dentro da ARK EDUS.
+- Tela pública ARK PLAY não usa o layout autenticado da plataforma.
+- Registro de participação quando o aluno abre a atividade Wordwall.
+- Validação de segurança aceita somente HTTPS em wordwall.net e subdomínios.
+
+IMPORTANTE
+- A ARK EDUS registra que o participante abriu a atividade.
+- O iframe, sozinho, não fornece à ARK EDUS a pontuação interna do Wordwall.
+  Resultados detalhados continuam sujeitos aos recursos oferecidos pelo Wordwall.
+
+COMO USAR
+1. Entre em Jogos > Criar atividade.
+2. Selecione "Wordwall (PIN sem login)".
+3. No Wordwall, copie o código de incorporação/iframe da atividade.
+4. Cole no campo da ARK EDUS e salve.
+5. Passe o PIN gerado aos alunos.
+6. O aluno acessa /jogar, informa o PIN e o nome, sem fazer login.

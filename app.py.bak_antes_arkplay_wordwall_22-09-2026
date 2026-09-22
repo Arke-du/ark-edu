@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -5357,26 +5356,11 @@ def jogos_criar():
     escola=session.get("escola_id")
     if request.method == "POST":
         tipo=request.form.get("tipo","").strip(); titulo=request.form.get("titulo","").strip()
-        permitidos={"rapida","conecte","ordem","descubra","wordwall"}
+        permitidos={"rapida","conecte","ordem","descubra"}
         if tipo not in permitidos or not titulo:
             flash("Informe o título e escolha um tipo de jogo.","erro"); banco.close(); return redirect(url_for("jogos_criar"))
         itens=[]
-        wordwall_url = ""
-        if tipo=="wordwall":
-            bruto=(request.form.get("wordwall_embed") or "").strip()
-            # Aceita tanto a URL de incorporação quanto o iframe copiado do Wordwall.
-            m=re.search(r"src=[\"']([^\"']+)[\"']", bruto, flags=re.I)
-            wordwall_url=(m.group(1) if m else bruto).strip()
-            try:
-                parsed=urlparse(wordwall_url)
-                host=(parsed.hostname or "").lower(); scheme=parsed.scheme.lower()
-            except Exception:
-                host=""; scheme=""
-            if scheme != "https" or not (host=="wordwall.net" or host.endswith(".wordwall.net")):
-                flash("Cole o código de incorporação (iframe) ou uma URL HTTPS do Wordwall.","erro")
-                banco.close(); return redirect(url_for("jogos_criar",tipo=tipo))
-            itens=[{"wordwall_url":wordwall_url}]
-        elif tipo=="rapida":
+        if tipo=="rapida":
             perguntas=request.form.getlist("pergunta[]"); corretas=request.form.getlist("correta[]")
             for i,q in enumerate(perguntas):
                 if q.strip():
@@ -5417,13 +5401,6 @@ def jogos_jogar(codigo):
     config=json.loads(at["configuracao_json"] or "{}")
     if request.method=="POST":
         nome=request.form.get("nome","").strip() or "Participante"; itens=config.get("itens",[]); acertos=0; respostas=[]
-        if at["tipo"]=="wordwall":
-            wordwall_url=(itens[0].get("wordwall_url") if itens else "")
-            cur.execute("INSERT INTO jogos_partidas(atividade_id) VALUES(?)",(at["id"],)); partida=cur.lastrowid
-            cur.execute("""INSERT INTO jogos_participacoes(partida_id,atividade_id,nome_participante,pontos,acertos,total,respostas_json)
-                VALUES(?,?,?,?,?,?,?)""",(partida,at["id"],nome,0,0,0,json.dumps([{"status":"abriu_wordwall"}],ensure_ascii=False)))
-            banco.commit(); banco.close()
-            return render_template("jogos_wordwall.html",atividade=at,nome=nome,wordwall_url=wordwall_url)
         if at["tipo"]=="rapida":
             for i,item in enumerate(itens):
                 r=request.form.get(f"r{i}",""); ok=r==item.get("correta"); acertos+=int(ok); respostas.append(r)
