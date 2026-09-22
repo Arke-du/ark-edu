@@ -5308,6 +5308,11 @@ def garantir_tabelas_jogos(banco=None):
             FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE SET NULL
         );
     """)
+    # Evolucao ARK PLAY: estado de sala e controle ao vivo (migração segura)
+    cols = {r[1] for r in cur.execute("PRAGMA table_info(jogos_atividades)").fetchall()}
+    for nome, ddl in [("sala_status", "TEXT NOT NULL DEFAULT 'fechada'"), ("sala_aberta_em", "TEXT"), ("sala_encerrada_em", "TEXT")]:
+        if nome not in cols:
+            cur.execute(f"ALTER TABLE jogos_atividades ADD COLUMN {nome} {ddl}")
     banco.commit()
     if proprio: banco.close()
 
@@ -5374,7 +5379,9 @@ def jogos_criar():
                 valido=False
             if not valido:
                 flash("Cole um link HTTPS ou código de incorporação válido do Wordwall.","erro"); banco.close(); return redirect(url_for("jogos_criar",tipo="wordwall"))
-            config={"wordwall_url":url}
+            # O Wordwall pode bloquear links /resource em iframe. O código oficial <iframe> /embed é preferível.
+            eh_embed=("/embed/" in u.path.lower()) or bool(m)
+            config={"wordwall_url":url,"wordwall_embed":eh_embed}
         elif tipo=="rapida":
             perguntas=request.form.getlist("pergunta[]"); corretas=request.form.getlist("correta[]")
             for i,q in enumerate(perguntas):
@@ -5402,6 +5409,69 @@ def jogos_criar():
     banco.close(); return render_template("jogos_criar.html", tipo=request.args.get("tipo","rapida"), turmas=turmas)
 
 
+@app.route("/jogos/<int:atividade_id>/sala")
+def jogos_sala(atividade_id):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor()
+    at=cur.execute("SELECT a.*,t.nome turma_nome FROM jogos_atividades a LEFT JOIN turmas t ON t.id=a.turma_id WHERE a.id=?",(atividade_id,)).fetchone()
+    if not at: banco.close(); abort(404)
+    parts=cur.execute("SELECT * FROM jogos_participacoes WHERE atividade_id=? ORDER BY id DESC LIMIT 100",(atividade_id,)).fetchall()
+    banco.close(); return render_template("jogos_sala.html",atividade=at,participantes=parts)
+
+@app.route("/jogos/<int:atividade_id>/sala/<acao>", methods=["POST"])
+def jogos_sala_acao(atividade_id,acao):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); garantir_tabelas_jogos(banco); cur=banco.cursor()
+    if acao=="abrir": cur.execute("UPDATE jogos_atividades SET sala_status='aberta',sala_aberta_em=CURRENT_TIMESTAMP,sala_encerrada_em=NULL,ativo=1 WHERE id=?",(atividade_id,))
+    elif acao=="iniciar": cur.execute("UPDATE jogos_atividades SET sala_status='iniciada',ativo=1 WHERE id=?",(atividade_id,))
+    elif acao=="fechar": cur.execute("UPDATE jogos_atividades SET sala_status='fechada',sala_encerrada_em=CURRENT_TIMESTAMP,ativo=0 WHERE id=?",(atividade_id,))
+    banco.commit(); banco.close(); return redirect(url_for("jogos_sala",atividade_id=atividade_id))
+
+@app.route("/jogos/<int:atividade_id>/participantes.json")
+def jogos_participantes_json(atividade_id):
+    if "usuario_id" not in session: return {"erro":"login"},401
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor()
+    at=cur.execute("SELECT sala_status FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone()
+    rows=cur.execute("SELECT nome_participante,pontos,acertos,total,criado_em FROM jogos_participacoes WHERE atividade_id=? ORDER BY id DESC LIMIT 100",(atividade_id,)).fetchall(); banco.close()
+    return {"status":at["sala_status"] if at else "fechada","participantes":[dict(r) for r in rows]}
+
+@app.route("/jogos/<int:atividade_id>/projetar")
+def jogos_projetar(atividade_id):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); at=banco.execute("SELECT * FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone(); banco.close()
+    if not at: abort(404)
+    return render_template("jogos_projetar.html",atividade=at)
+
+@app.route("/jogos/<int:atividade_id>/resultados")
+def jogos_resultados_prof(atividade_id):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor(); at=cur.execute("SELECT * FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone()
+    rows=cur.execute("SELECT * FROM jogos_participacoes WHERE atividade_id=? ORDER BY pontos DESC,id ASC",(atividade_id,)).fetchall(); banco.close()
+    return render_template("jogos_resultados_prof.html",atividade=at,resultados=rows)
+
+@app.route("/jogos/<int:atividade_id>/duplicar",methods=["POST"])
+def jogos_duplicar(atividade_id):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor(); a=cur.execute("SELECT * FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone()
+    if a:
+        codigo=_codigo_jogo(cur); cur.execute("INSERT INTO jogos_atividades(titulo,tipo,disciplina,turma_id,escola_id,criado_por,configuracao_json,codigo) VALUES(?,?,?,?,?,?,?,?)",(a['titulo']+' (cópia)',a['tipo'],a['disciplina'],a['turma_id'],a['escola_id'],session['usuario_id'],a['configuracao_json'],codigo)); banco.commit()
+    banco.close(); return redirect(url_for('jogos'))
+
+@app.route("/jogos/<int:atividade_id>/excluir",methods=["POST"])
+def jogos_excluir(atividade_id):
+    if "usuario_id" not in session: return redirect("/login")
+    banco=conectar_banco(); garantir_tabelas_jogos(banco); banco.execute("DELETE FROM jogos_atividades WHERE id=?",(atividade_id,)); banco.commit(); banco.close(); flash("Atividade excluída.","success"); return redirect(url_for('jogos'))
+
+@app.route("/jogos/<int:atividade_id>/qr.png")
+def jogos_qr(atividade_id):
+    if "usuario_id" not in session: abort(401)
+    import io, qrcode
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); a=banco.execute("SELECT codigo FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone(); banco.close()
+    if not a: abort(404)
+    url=url_for('jogos_jogar',codigo=a['codigo'],_external=True)
+    img=qrcode.make(url); bio=io.BytesIO(); img.save(bio,format='PNG'); bio.seek(0)
+    return send_file(bio,mimetype='image/png',max_age=0)
+
 @app.route("/jogar", methods=["GET","POST"])
 def jogos_entrar():
     codigo=(request.values.get("codigo") or "").strip()
@@ -5409,19 +5479,27 @@ def jogos_entrar():
     return render_template("jogos_entrar.html", codigo=codigo)
 
 
+@app.route("/jogar/<codigo>/status")
+def jogos_status_publico(codigo):
+    banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); a=banco.execute("SELECT sala_status FROM jogos_atividades WHERE codigo=?",(codigo,)).fetchone(); banco.close()
+    return {"status":a["sala_status"] if a else "inexistente"}
+
 @app.route("/jogar/<codigo>", methods=["GET","POST"])
 def jogos_jogar(codigo):
     banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor()
     at=cur.execute("SELECT * FROM jogos_atividades WHERE codigo=? AND ativo=1",(codigo,)).fetchone()
-    if not at: banco.close(); flash("Código de jogo não encontrado.","erro"); return redirect(url_for("jogos_entrar"))
+    if not at: banco.close(); flash("Código de jogo não encontrado ou sala encerrada.","erro"); return redirect(url_for("jogos_entrar"))
     config=json.loads(at["configuracao_json"] or "{}")
+    if at["sala_status"] == "fechada":
+        banco.close(); return render_template("jogos_sala_fechada.html",atividade=at,codigo=codigo), 403
     if at["tipo"] == "wordwall":
         nome=(request.values.get("nome") or "").strip()
         if request.method == "POST" and nome:
             cur.execute("INSERT INTO jogos_partidas(atividade_id) VALUES(?)",(at["id"],)); partida=cur.lastrowid
             cur.execute("""INSERT INTO jogos_participacoes(partida_id,atividade_id,nome_participante,pontos,acertos,total,respostas_json)
                 VALUES(?,?,?,?,?,?,?)""",(partida,at["id"],nome,0,0,0,'[]'))
-            banco.commit(); banco.close()
+            banco.commit(); status=at["sala_status"]; banco.close()
+            if status != "iniciada": return render_template("jogos_aguardando.html",atividade=at,codigo=codigo,nome=nome)
             return render_template("jogos_wordwall.html",atividade=at,config=config,nome=nome)
         banco.close()
         return render_template("jogos_wordwall_entrar.html",atividade=at,codigo=codigo)
