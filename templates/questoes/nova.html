@@ -263,6 +263,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const blocoResposta = document.getElementById("blocoRespostaEsperada");
     const blocoCriterios = document.getElementById("blocoCriterios");
     const blocoLinhasResposta = document.getElementById("blocoLinhasResposta");
+    // Pesquisa de descritores mantendo o select original como fonte de dados e valor enviado.
+    const buscaDescritor = document.createElement("input");
+    buscaDescritor.type = "text";
+    buscaDescritor.id = "buscaDescritorMatriz";
+    buscaDescritor.autocomplete = "off";
+    buscaDescritor.placeholder = "Pesquise pelo código ou descrição do descritor";
+    buscaDescritor.setAttribute("aria-label", "Pesquisar descritores por código ou descrição");
+    const listaDescritores = document.createElement("div");
+    listaDescritores.className = "bncc-sugestoes";
+    listaDescritores.setAttribute("role", "listbox");
+    listaDescritores.setAttribute("aria-label", "Resultados de descritores");
+    const campoDescritor = document.createElement("div");
+    campoDescritor.className = "bncc-busca-wrap";
+    campoDescritor.append(buscaDescritor, listaDescritores);
+    descritor.parentNode.insertBefore(campoDescritor, descritor);
+    descritor.style.display = "none";
+    let opcoesDescritor = [];
+    function fecharDescritores() { listaDescritores.classList.remove("ativo"); }
+    function atualizarBuscaDescritor() {
+        const selecionada = opcoesDescritor.find(item => item.valor === descritor.value);
+        buscaDescritor.value = selecionada ? selecionada.texto : "";
+        buscaDescritor.disabled = descritor.disabled;
+        fecharDescritores();
+    }
+    function mostrarDescritores() {
+        if (buscaDescritor.disabled) return;
+        const normalizar = texto => String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const termo = normalizar(buscaDescritor.value.trim());
+        const encontrados = opcoesDescritor.filter(item => normalizar(item.texto).includes(termo)).slice(0, 60);
+        listaDescritores.replaceChildren();
+        if (!encontrados.length) {
+            const aviso = document.createElement("div"); aviso.className = "bncc-vazio";
+            aviso.textContent = "Nenhum descritor encontrado para esta pesquisa.";
+            listaDescritores.appendChild(aviso);
+        }
+        encontrados.forEach(item => {
+            const botao = document.createElement("button");
+            botao.type = "button"; botao.className = "bncc-sugestao";
+            const titulo = document.createElement("strong"); titulo.textContent = item.texto;
+            botao.appendChild(titulo);
+            botao.addEventListener("click", () => {
+                descritor.value = item.valor;
+                buscaDescritor.value = item.texto;
+                descritor.dispatchEvent(new Event("change", {bubbles:true}));
+                fecharDescritores();
+            });
+            listaDescritores.appendChild(botao);
+        });
+        listaDescritores.classList.add("ativo");
+    }
+    buscaDescritor.addEventListener("input", () => { descritor.value = ""; mostrarDescritores(); });
+    buscaDescritor.addEventListener("focus", mostrarDescritores);
+    buscaDescritor.addEventListener("keydown", evento => {
+        if (evento.key === "Escape") fecharDescritores();
+        if (evento.key === "Enter" && listaDescritores.classList.contains("ativo")) {
+            const primeiro = listaDescritores.querySelector("button");
+            if (primeiro) { evento.preventDefault(); primeiro.click(); }
+        }
+    });
+    document.addEventListener("click", evento => { if (!campoDescritor.contains(evento.target)) fecharDescritores(); });
     const disciplina = document.getElementById("disciplinaQuestao");
     const editor = document.getElementById("editorEnunciado");
     const enunciadoTexto = document.getElementById("enunciadoQuestao");
@@ -778,6 +838,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const sistema = document.getElementById("sistemaMatriz");
     const matriz = document.getElementById("matrizReferencia");
     const descritor = document.getElementById("descritorSaeb");
+    // Pesquisa de descritores mantendo o select original como fonte de dados e valor enviado.
+    const buscaDescritor = document.createElement("input");
+    buscaDescritor.type = "text";
+    buscaDescritor.id = "buscaDescritorMatriz";
+    buscaDescritor.autocomplete = "off";
+    buscaDescritor.placeholder = "Pesquise pelo código ou descrição do descritor";
+    buscaDescritor.setAttribute("aria-label", "Pesquisar descritores por código ou descrição");
+    const listaDescritores = document.createElement("div");
+    listaDescritores.className = "bncc-sugestoes";
+    listaDescritores.setAttribute("role", "listbox");
+    listaDescritores.setAttribute("aria-label", "Resultados de descritores");
+    const campoDescritor = document.createElement("div");
+    campoDescritor.className = "bncc-busca-wrap";
+    campoDescritor.append(buscaDescritor, listaDescritores);
+    descritor.parentNode.insertBefore(campoDescritor, descritor);
+    descritor.style.display = "none";
+    let opcoesDescritor = [];
+    function fecharDescritores() { listaDescritores.classList.remove("ativo"); }
+    function atualizarBuscaDescritor() {
+        const selecionada = opcoesDescritor.find(item => item.valor === descritor.value);
+        buscaDescritor.value = selecionada ? selecionada.texto : "";
+        buscaDescritor.disabled = descritor.disabled;
+        fecharDescritores();
+    }
+    function mostrarDescritores() {
+        if (buscaDescritor.disabled) return;
+        const normalizar = texto => String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const termo = normalizar(buscaDescritor.value.trim());
+        const encontrados = opcoesDescritor.filter(item => normalizar(item.texto).includes(termo)).slice(0, 60);
+        listaDescritores.replaceChildren();
+        if (!encontrados.length) {
+            const aviso = document.createElement("div"); aviso.className = "bncc-vazio";
+            aviso.textContent = "Nenhum descritor encontrado para esta pesquisa.";
+            listaDescritores.appendChild(aviso);
+        }
+        encontrados.forEach(item => {
+            const botao = document.createElement("button");
+            botao.type = "button"; botao.className = "bncc-sugestao";
+            const titulo = document.createElement("strong"); titulo.textContent = item.texto;
+            botao.appendChild(titulo);
+            botao.addEventListener("click", () => {
+                descritor.value = item.valor;
+                buscaDescritor.value = item.texto;
+                descritor.dispatchEvent(new Event("change", {bubbles:true}));
+                fecharDescritores();
+            });
+            listaDescritores.appendChild(botao);
+        });
+        listaDescritores.classList.add("ativo");
+    }
+    buscaDescritor.addEventListener("input", () => { descritor.value = ""; mostrarDescritores(); });
+    buscaDescritor.addEventListener("focus", mostrarDescritores);
+    buscaDescritor.addEventListener("keydown", evento => {
+        if (evento.key === "Escape") fecharDescritores();
+        if (evento.key === "Enter" && listaDescritores.classList.contains("ativo")) {
+            const primeiro = listaDescritores.querySelector("button");
+            if (primeiro) { evento.preventDefault(); primeiro.click(); }
+        }
+    });
+    document.addEventListener("click", evento => { if (!campoDescritor.contains(evento.target)) fecharDescritores(); });
     const disciplina = document.getElementById("disciplinaQuestao");
     const etapa = document.getElementById("etapaEnsino");
     const ano = document.getElementById("anoSerie");
@@ -806,6 +926,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selecionado && [...select.options].some(op => op.value === String(selecionado))) {
             select.value = String(selecionado);
         }
+        if (select === descritor) {
+            opcoesDescritor = [...select.options].filter(op => op.value).map(op => ({valor:op.value, texto:op.textContent}));
+            atualizarBuscaDescritor();
+        }
     }
     function contextoValido() {
         return sistema.value && disciplina.value && etapa.value && ano.value;
@@ -829,7 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!contextoValido()) {
             preencher(matriz, [], "Selecione a matriz, o componente, a etapa e o ano/série");
             preencher(descritor, [], "Selecione primeiro a matriz de referência");
-            matriz.disabled = true; descritor.disabled = true;
+            matriz.disabled = true; descritor.disabled = true; atualizarBuscaDescritor();
             ajuda.textContent = sistema.value ? "Selecione componente, etapa e ano/série." : "Selecione a matriz de avaliação.";
             return;
         }
@@ -839,7 +963,7 @@ document.addEventListener("DOMContentLoaded", () => {
             preencher(matriz, dados.matrizes || [], "Selecione a matriz de referência", restaurar ? iniciais.matriz : "");
             matriz.disabled = !(dados.matrizes || []).length;
             preencher(descritor, [], "Selecione primeiro a matriz de referência");
-            descritor.disabled = true;
+            descritor.disabled = true; atualizarBuscaDescritor();
             ajuda.textContent = dados.mensagem || ((dados.matrizes || []).length ? "Selecione a matriz de referência." : "Nenhuma matriz disponível.");
             if ((restaurar && matriz.value) || (dados.matrizes || []).length === 1) {
                 if (!matriz.value && dados.matrizes.length === 1) matriz.value = String(dados.matrizes[0].id);
@@ -852,13 +976,14 @@ document.addEventListener("DOMContentLoaded", () => {
     async function carregarDescritores(restaurar = false) {
         if (!matriz.value) {
             preencher(descritor, [], "Selecione primeiro a matriz de referência");
-            descritor.disabled = true; return;
+            descritor.disabled = true; atualizarBuscaDescritor(); return;
         }
         ajuda.textContent = "Carregando descritores...";
         try {
             const dados = await consultar(matriz.value);
             preencher(descritor, dados.descritores || [], "Selecione o descritor", restaurar ? iniciais.descritor : "");
             descritor.disabled = !(dados.descritores || []).length;
+            atualizarBuscaDescritor();
             ajuda.textContent = (dados.descritores || []).length
                 ? `${dados.descritores.length} descritor(es) encontrado(s).`
                 : (dados.mensagem || "Nenhum descritor encontrado.");
