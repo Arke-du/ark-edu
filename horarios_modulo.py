@@ -1,5 +1,6 @@
 """Horários escolares da ARK EDUS: acesso isolado por instituição e professor."""
 import sqlite3
+import re
 from flask import Blueprint, request, session, redirect, render_template, flash, abort
 
 horarios_bp = Blueprint('horarios', __name__, url_prefix='/horarios')
@@ -21,6 +22,7 @@ def instalar(conectar):
       UNIQUE(turma_id, dia, periodo_id, ano_letivo));
     CREATE INDEX IF NOT EXISTS idx_horarios_prof ON horarios_aulas(professor_id,ano_letivo,dia);
     ''')
+    db.executescript("""CREATE TABLE IF NOT EXISTS horarios_intervalos (id INTEGER PRIMARY KEY AUTOINCREMENT, escola_id INTEGER NOT NULL, turno TEXT NOT NULL, nome TEXT NOT NULL, inicio TEXT NOT NULL, fim TEXT NOT NULL); CREATE TABLE IF NOT EXISTS horarios_cargas (escola_id INTEGER NOT NULL, turma_id INTEGER NOT NULL, componente_id INTEGER NOT NULL, professor_id INTEGER NOT NULL, quantidade INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(escola_id,turma_id,componente_id,professor_id));""")
     db.commit(); db.close()
 
 def registrar(app, conectar, obter_escola):
@@ -35,6 +37,52 @@ def registrar(app, conectar, obter_escola):
         if cargo != 'Administrador Geral' and not escola:
             abort(403)
         return cargo, int(escola) if escola else None, int(session['usuario_id'])
+
+    def vinculos(db, escola, usuario=None):
+        sql = """SELECT pc.professor_id,pc.turma_id,pc.componente_id,c.nome AS componente,u.nome AS professor_nome
+                 FROM professor_componentes pc JOIN componentes_curriculares c ON c.id=pc.componente_id
+                 JOIN usuarios u ON u.id=pc.professor_id WHERE pc.escola_id=? AND c.ativo=1"""
+        args=[escola]
+        if usuario is not None:
+            sql+=' AND pc.professor_id=?';args.append(usuario)
+        return [dict(x) for x in db.execute(sql,args).fetchall()]
+
+    @horarios_bp.route('/configurar', methods=['POST'])
+    def configurar():
+        cargo,escola,usuario=contexto()
+        if cargo not in GESTORES:abort(403)
+        if cargo=='Administrador Geral':escola=request.form.get('escola_id',type=int) or escola
+        turno=request.form.get('turno','')
+        if turno not in ('Matutino','Vespertino','Noturno','Integral') or not escola:abort(400)
+        total=request.form.get('total',type=int)
+        if total is None or not 1<=total<=10:abort(400)
+        db=conectar();db.row_factory=sqlite3.Row
+        for n in range(1,total+1):
+            inicio=request.form.get(f'inicio_{n}','');fim=request.form.get(f'fim_{n}','')
+            if not re.fullmatch(r'\d{2}:\d{2}',inicio) or not re.fullmatch(r'\d{2}:\d{2}',fim) or inicio>=fim:db.close();abort(400)
+            db.execute('INSERT INTO horarios_periodos(escola_id,turno,numero,inicio,fim) VALUES(?,?,?,?,?) ON CONFLICT(escola_id,turno,numero) DO UPDATE SET inicio=excluded.inicio,fim=excluded.fim',(escola,turno,n,inicio,fim))
+        db.execute('DELETE FROM horarios_periodos WHERE escola_id=? AND turno=? AND numero>? AND id NOT IN (SELECT periodo_id FROM horarios_aulas)',(escola,turno,total))
+        db.execute('DELETE FROM horarios_intervalos WHERE escola_id=? AND turno=?',(escola,turno))
+        for n in range(1,4):
+            inicio=request.form.get(f'intervalo_inicio_{n}','');fim=request.form.get(f'intervalo_fim_{n}','')
+            if inicio and fim:
+                if inicio>=fim:db.close();abort(400)
+                db.execute('INSERT INTO horarios_intervalos(escola_id,turno,nome,inicio,fim) VALUES(?,?,?,?,?)',(escola,turno,request.form.get(f'intervalo_nome_{n}') or 'Intervalo',inicio,fim))
+        db.commit();db.close();flash('Configuração do turno salva.','success')
+        return redirect('/horarios/?escola_id='+str(escola))
+
+    @horarios_bp.route('/cargas', methods=['POST'])
+    def cargas():
+        cargo,escola,usuario=contexto()
+        if cargo not in GESTORES:abort(403)
+        if cargo=='Administrador Geral':escola=request.form.get('escola_id',type=int) or escola
+        turma=request.form.get('turma_id',type=int);prof=request.form.get('professor_id',type=int);comp=request.form.get('componente_id',type=int);quant=request.form.get('quantidade',type=int)
+        if not all((escola,turma,prof,comp)) or quant is None or not 0<=quant<=30:abort(400)
+        db=conectar();db.row_factory=sqlite3.Row
+        if not any(v['turma_id']==turma and v['professor_id']==prof and v['componente_id']==comp for v in vinculos(db,escola,usuario if cargo=='Professor Autônomo' else None)):db.close();abort(403)
+        if cargo=='Coordenador' and not db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,turma)).fetchone():db.close();abort(403)
+        db.execute('INSERT INTO horarios_cargas VALUES(?,?,?,?,?) ON CONFLICT(escola_id,turma_id,componente_id,professor_id) DO UPDATE SET quantidade=excluded.quantidade',(escola,turma,comp,prof,quant))
+        db.commit();db.close();flash('Carga horária salva.','success');return redirect('/horarios/?escola_id='+str(escola))
 
     @horarios_bp.route('/', methods=['GET'])
     def index():
@@ -72,8 +120,12 @@ def registrar(app, conectar, obter_escola):
             sql += ' AND a.professor_id=?'; params.append(usuario)
         sql += ' ORDER BY a.dia,p.inicio'
         aulas = db.execute(sql,params).fetchall()
+        vinculos=vinculos(db,escola,usuario if cargo=='Professor Autônomo' else None) if gestor else []
+        if cargo=='Coordenador':vinculos=[v for v in vinculos if v['turma_id'] in {t['id'] for t in turmas}]
+        cargas=[dict(r) for r in db.execute('SELECT * FROM horarios_cargas WHERE escola_id=?',(escola,)).fetchall()]
+        intervalos=db.execute('SELECT * FROM horarios_intervalos WHERE escola_id=? ORDER BY turno,inicio',(escola,)).fetchall()
         db.close()
-        return render_template('horarios/index.html',gestor=gestor,escolas=escolas,escola=escola,turmas=turmas,professores=professores,periodos=periodos,aulas=aulas,ano=ano,selecionada=turma_id)
+        return render_template('horarios/index.html',vinculos=vinculos,cargas=cargas,intervalos=intervalos,gestor=gestor,escolas=escolas,escola=escola,turmas=turmas,professores=professores,periodos=periodos,aulas=aulas,ano=ano,selecionada=turma_id)
 
     @horarios_bp.route('/periodos',methods=['POST'])
     def periodo():
@@ -105,6 +157,9 @@ def registrar(app, conectar, obter_escola):
         u=db.execute('SELECT id FROM usuarios WHERE id=? AND escola_id=?',(professor,escola)).fetchone()
         if not t or not p or not u or t['turno'].lower()!=p['turno'].lower(): db.close();abort(400)
         if cargo=='Professor Autônomo' and professor!=usuario: db.close();abort(403)
+        if not any(v['turma_id']==turma and v['professor_id']==professor and v['componente'].casefold()==componente.casefold() for v in vinculos(db,escola)):
+            db.close();flash('A disciplina e o professor devem estar vinculados a esta turma no cadastro de usuários.','error');return redirect('/horarios/painel?escola_id='+str(escola)+'&ano='+str(ano))
+
         if cargo=='Coordenador':
             permitido=db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,turma)).fetchone()
             if not permitido: db.close();abort(403)
@@ -142,13 +197,17 @@ def registrar(app, conectar, obter_escola):
         if cargo == 'Administrador Geral':
             escola = request.args.get('escola_id', type=int) or escola
         ano = request.args.get('ano', type=int) or int(session.get('ano_letivo_visualizado') or 2026)
-        turmas, periodos, aulas, professores = [], [], [], []
+        turmas, periodos, aulas, professores, vinculacoes, cargas, intervalos = [], [], [], [], [], [], []
         if escola:
             turmas = db.execute('SELECT id,nome,ano,turno FROM turmas WHERE escola_id=? ORDER BY ano,nome',(escola,)).fetchall()
             if cargo == 'Coordenador':
                 turmas = [t for t in turmas if db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,t['id'])).fetchone()]
             periodos = db.execute('SELECT * FROM horarios_periodos WHERE escola_id=? ORDER BY turno,numero',(escola,)).fetchall()
             professores = db.execute('SELECT id,nome FROM usuarios WHERE escola_id=? ORDER BY nome',(escola,)).fetchall()
+            vinculacoes=vinculos(db,escola,usuario if cargo=='Professor Autônomo' else None)
+            if cargo=='Coordenador':vinculacoes=[v for v in vinculacoes if v['turma_id'] in {t['id'] for t in turmas}]
+            cargas=[dict(r) for r in db.execute('SELECT * FROM horarios_cargas WHERE escola_id=?',(escola,)).fetchall()]
+            intervalos=[dict(r) for r in db.execute('SELECT * FROM horarios_intervalos WHERE escola_id=?',(escola,)).fetchall()]
             sql = """SELECT a.*,p.numero,p.turno AS periodo_turno,p.inicio,p.fim,u.nome AS professor_nome
                      FROM horarios_aulas a JOIN horarios_periodos p ON p.id=a.periodo_id
                      JOIN usuarios u ON u.id=a.professor_id WHERE a.escola_id=? AND a.ano_letivo=?"""
@@ -163,6 +222,6 @@ def registrar(app, conectar, obter_escola):
             aulas = db.execute(sql,params).fetchall()
         db.close()
         return render_template('horarios/painel.html',gestor=gestor,escolas=escolas,escola=escola,
-                               turmas=turmas,periodos=periodos,aulas=aulas,professores=professores,ano=ano)
+                               turmas=turmas,periodos=periodos,aulas=aulas,professores=professores,ano=ano,vinculacoes=vinculacoes,cargas=cargas,intervalos=intervalos)
 
     app.register_blueprint(horarios_bp)
