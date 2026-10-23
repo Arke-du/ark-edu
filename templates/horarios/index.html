@@ -11,7 +11,7 @@
 <div class="h-card h-no-print"><form method="get" class="h-grid">
 {% if escolas %}<div><label>Instituição</label><select name="escola_id" required><option value="">Selecione</option>{% for e in escolas %}<option value="{{e.id}}" {% if escola==e.id %}selected{% endif %}>{{e.nome_instituicao}}</option>{% endfor %}</select></div>{% endif %}
 <div><label>Ano letivo</label><input name="ano" type="number" value="{{ano}}" min="2020" max="2100"></div>
-{% if gestor %}<div><label>Turma</label><select name="turma_id"><option value="">Todas as turmas</option>{% for t in turmas %}<option value="{{t.id}}" {% if selecionada==t.id %}selected{% endif %}>{{t.ano}} {{t.nome}} · {{t.turno}}</option>{% endfor %}</select></div>{% endif %}
+{% if gestor %}<div><label>Turma</label><select name="turma_id"><option value="">Todas as turmas</option>{% for t in turmas %}<option value="{{t.id}}" {% if selecionada==t.id %}selected{% endif %}>{{t.nome if t.nome|lower.startswith(t.ano|lower) else t.ano ~ ' ' ~ t.nome}} · {{t.turno}}</option>{% endfor %}</select></div>{% endif %}
 <div style="align-self:end"><button class="h-btn">Consultar</button></div></form></div>
 {% if gestor and escola %}
 <section class="h-card h-no-print"><h2>⚙️ Configuração dos turnos</h2><p class="h-small">Defina a quantidade de aulas, início e fim de cada período e até três intervalos. Salve antes de abrir o editor.</p>
@@ -21,7 +21,7 @@
 <script>
 const horariosConfig=[{% for p in periodos %}{turno:{{p.turno|tojson}},numero:{{p.numero}},inicio:{{p.inicio|tojson}},fim:{{p.fim|tojson}}},{% endfor %}];
 const vinculosCarga=[{% for v in vinculos %}{turma_id:{{v.turma_id}},professor_id:{{v.professor_id}},componente_id:{{v.componente_id}},componente:{{v.componente|tojson}},professor:{{v.professor_nome|tojson}}},{% endfor %}];
-const turmasCarga=[{% for t in turmas %}{id:{{t.id}},nome:{{(t.nome if t.nome|lower in t.ano|lower else t.ano ~ ' ' ~ t.nome)|tojson}}},{% endfor %}];
+const turmasCarga=[{% for t in turmas %}{id:{{t.id}},nome:{{(t.nome if t.nome|lower.startswith(t.ano|lower) else t.ano ~ ' ' ~ t.nome)|tojson}}},{% endfor %}];
 const cargasAtuais=[{% for c in cargas %}{turma_id:{{c.turma_id}},professor_id:{{c.professor_id}},componente_id:{{c.componente_id}},quantidade:{{c.quantidade}}},{% endfor %}];
 const vc=document.getElementById('vinculoCarga');if(vc)vinculosCarga.forEach((v,i)=>{let opt=document.createElement('option');opt.value=i;opt.textContent=(turmasCarga.find(t=>t.id===v.turma_id)?.nome||v.turma_id)+' · '+v.componente+' · '+v.professor;vc.appendChild(opt)});
 function selecionarVinculoCarga(){let v=vinculosCarga[+vc.value];if(!v)return;document.getElementById('cargaTurma').value=v.turma_id;document.getElementById('cargaProfessor').value=v.professor_id;document.getElementById('cargaComponente').value=v.componente_id;document.getElementById('cargaQuantidade').value=cargasAtuais.find(c=>c.turma_id===v.turma_id&&c.professor_id===v.professor_id&&c.componente_id===v.componente_id)?.quantidade||2;}

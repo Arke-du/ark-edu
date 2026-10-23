@@ -39,12 +39,23 @@ def registrar(app, conectar, obter_escola):
         return cargo, int(escola) if escola else None, int(session['usuario_id'])
 
     def vinculos(db, escola, usuario=None):
-        sql = """SELECT pc.professor_id,pc.turma_id,pc.componente_id,c.nome AS componente,u.nome AS professor_nome
-                 FROM professor_componentes pc JOIN componentes_curriculares c ON c.id=pc.componente_id
-                 JOIN usuarios u ON u.id=pc.professor_id WHERE pc.escola_id=? AND c.ativo=1"""
-        args=[escola]
+        # O cadastro de usuários utiliza professor_vinculos; professor_componentes
+        # permanece como fonte legada para instalações anteriores.
+        sql = """SELECT DISTINCT v.professor_id, v.turma_id, v.componente_id,
+                        c.nome AS componente, u.nome AS professor_nome
+                 FROM (
+                   SELECT professor_id,turma_id,componente_id FROM professor_vinculos
+                   UNION
+                   SELECT professor_id,turma_id,componente_id FROM professor_componentes
+                 ) v
+                 JOIN turmas t ON t.id=v.turma_id AND t.escola_id=?
+                 JOIN componentes_curriculares c ON c.id=v.componente_id
+                      AND c.escola_id=? AND c.ativo=1
+                 JOIN usuarios u ON u.id=v.professor_id AND u.ativo=1
+                 WHERE 1=1"""
+        args=[escola,escola]
         if usuario is not None:
-            sql+=' AND pc.professor_id=?';args.append(usuario)
+            sql+=' AND v.professor_id=?'; args.append(usuario)
         return [dict(x) for x in db.execute(sql,args).fetchall()]
 
     @horarios_bp.route('/configurar', methods=['POST'])
@@ -96,11 +107,11 @@ def registrar(app, conectar, obter_escola):
             db.close(); return render_template('horarios/index.html', gestor=gestor, escolas=escolas, escola=None, turmas=[], professores=[], periodos=[], aulas=[], vinculos=[], cargas=[], intervalos=[], ano=2026, selecionada=None)
         ano = request.args.get('ano', type=int) or int(session.get('ano_letivo_visualizado') or 2026)
         turmas = db.execute('SELECT id,nome,ano,turno FROM turmas WHERE escola_id=? ORDER BY ano,nome',(escola,)).fetchall()
-        professores = db.execute("SELECT id,nome FROM usuarios WHERE escola_id=? AND (id IN (SELECT professor_id FROM professor_componentes WHERE escola_id=?) OR cargo_id IN (SELECT id FROM cargos WHERE nome IN ('Professor','Professor Autônomo'))) ORDER BY nome",(escola,escola)).fetchall()
+        professores = db.execute("SELECT DISTINCT u.id,u.nome FROM usuarios u JOIN (SELECT professor_id,turma_id FROM professor_vinculos UNION SELECT professor_id,turma_id FROM professor_componentes) v ON v.professor_id=u.id JOIN turmas t ON t.id=v.turma_id WHERE t.escola_id=? AND u.ativo=1 ORDER BY u.nome",(escola,)).fetchall()
         periodos = db.execute('SELECT * FROM horarios_periodos WHERE escola_id=? ORDER BY turno,numero',(escola,)).fetchall()
         turma_id = request.args.get('turma_id', type=int)
         if not turma_id and gestor and turmas: turma_id = turmas[0]['id']
-        if turma_id and not any(t['id']==turma_id for t in turmas): abort(403)
+        if turma_id and not any(t['id']==turma_id for t in turmas): db.close();abort(403)
         if cargo == 'Coordenador':
             allowed = {r['turma_id'] for r in db.execute('SELECT turma_id FROM coordenador_turmas WHERE usuario_id=?',(usuario,))}
             turmas = [t for t in turmas if t['id'] in allowed]
@@ -164,9 +175,8 @@ def registrar(app, conectar, obter_escola):
             permitido=db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,turma)).fetchone()
             if not permitido: db.close();abort(403)
         choque=db.execute('''SELECT 1 FROM horarios_aulas a JOIN horarios_periodos x ON x.id=a.periodo_id
-          WHERE a.professor_id=? AND a.ano_letivo=? AND a.dia=? AND a.escola_id=?
-          AND x.inicio < ? AND x.fim > ? AND NOT(a.turma_id=? AND a.periodo_id=?)''',
-          (professor,ano,dia,escola,p['fim'],p['inicio'],turma,periodo)).fetchone()
+          WHERE a.professor_id=? AND a.ano_letivo=? AND a.dia=? AND x.inicio < ? AND x.fim > ? AND NOT(a.turma_id=? AND a.periodo_id=?)''',
+          (professor,ano,dia,p['fim'],p['inicio'],turma,periodo)).fetchone()
         if choque: db.close();flash('Conflito: professor já possui aula nesse horário.','error');return redirect('/horarios/?turma_id='+str(turma)+'&escola_id='+str(escola))
         db.execute('''INSERT INTO horarios_aulas(escola_id,turma_id,dia,periodo_id,professor_id,componente,ano_letivo)
            VALUES(?,?,?,?,?,?,?) ON CONFLICT(turma_id,dia,periodo_id,ano_letivo)
@@ -203,9 +213,11 @@ def registrar(app, conectar, obter_escola):
             if cargo == 'Coordenador':
                 turmas = [t for t in turmas if db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,t['id'])).fetchone()]
             periodos = db.execute('SELECT * FROM horarios_periodos WHERE escola_id=? ORDER BY turno,numero',(escola,)).fetchall()
-            professores = db.execute('SELECT id,nome FROM usuarios WHERE escola_id=? ORDER BY nome',(escola,)).fetchall()
-            vinculacoes=vinculos(db,escola,usuario if cargo=='Professor Autônomo' else None)
+            professores = db.execute('SELECT DISTINCT u.id,u.nome FROM usuarios u JOIN (SELECT professor_id,turma_id FROM professor_vinculos UNION SELECT professor_id,turma_id FROM professor_componentes) v ON v.professor_id=u.id JOIN turmas t ON t.id=v.turma_id WHERE t.escola_id=? AND u.ativo=1 ORDER BY u.nome',(escola,)).fetchall()
+            vinculacoes=vinculos(db,escola,usuario if cargo in ('Professor','Professor Autônomo') else None)
             if cargo=='Coordenador':vinculacoes=[v for v in vinculacoes if v['turma_id'] in {t['id'] for t in turmas}]
+            if cargo in ('Professor','Professor Autônomo'):
+                turmas=[t for t in turmas if t['id'] in {v['turma_id'] for v in vinculacoes}]
             cargas=[dict(r) for r in db.execute('SELECT * FROM horarios_cargas WHERE escola_id=?',(escola,)).fetchall()]
             intervalos=[dict(r) for r in db.execute('SELECT * FROM horarios_intervalos WHERE escola_id=?',(escola,)).fetchall()]
             sql = """SELECT a.*,p.numero,p.turno AS periodo_turno,p.inicio,p.fim,u.nome AS professor_nome
