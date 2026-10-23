@@ -18929,9 +18929,6 @@ def aplicar_cabecalhos_seguranca(resposta):
 
 criar_tabelas()
 
-from horarios_modulo import registrar as registrar_horarios
-registrar_horarios(app, conectar_banco, obter_escola_usuario)
-
 # Migração defensiva para bancos persistentes criados por versões antigas.
 # IMPORTANTE: apenas cria estruturas ausentes; nunca apaga tabelas nem dados.
 def garantir_schema_persistente_critico():
@@ -25600,6 +25597,11 @@ backup_manager.iniciar_agendador()
 # =========================================================
 from saas_arkedu import init_saas
 init_saas(app, conectar_banco, sincronizar_ano_letivo_instituicao)
+
+
+# Horários de aulas: módulo independente reconstruído.
+from horarios_novo import init_horarios
+init_horarios(app, conectar_banco)
 
 if __name__ == "__main__":
     app.run(

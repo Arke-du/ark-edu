@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
     const sistema = document.getElementById("sistemaMatriz");
     const matriz = document.getElementById("matrizReferencia");

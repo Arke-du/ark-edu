@@ -470,10 +470,6 @@
             {% endif %}
 
 
-            {% if session.get('usuario_cargo') in ['Administrador Geral','Administrador da Instituição','Coordenador','Professor Autônomo','Professor'] %}
-            <a href="/horarios/" class="{% if request.path.startswith('/horarios') %}ativo-menu{% endif %}"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 2v6M17 2v6M3 11h18"></path></svg><span>{% if session.get('usuario_cargo') == 'Professor' %}Meus Horários{% else %}Horários de Aulas{% endif %}</span></a>
-            {% endif %}
-
             <!-- Turmas -->
 
             {% if permissao_modulo("Turmas") %}
@@ -553,6 +549,14 @@
 
             {% endif %}
 
+
+            <!-- Horários -->
+            {% if session.get('usuario_cargo') in ['Administrador Geral', 'Administrador da Instituição', 'Coordenador', 'Professor Autônomo', 'Professor'] %}
+            <a href="{{ url_for('horarios_novo.index') }}" class="{% if request.path.startswith('/horarios') %}ativo-menu{% endif %}">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M8 2V6M16 2V6M3 10H21M8 14H10M14 14H16M8 18H10"></path></svg>
+                <span>Horários</span>
+            </a>
+            {% endif %}
 
             <!-- ARK PLAY / Jogos -->
 

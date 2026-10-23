@@ -16,6 +16,12 @@
 
 </div>
 
+<div class="card" style="padding:18px;margin:15px 0;border-left:4px solid #087fd0">
+  <h3>▦ Matriz de aulas por componente curricular</h3>
+  <p>Configure a quantidade semanal de aulas de cada componente por turma para utilizar no editor de horários.</p>
+  <a class="btn btn-primary" href="{{ url_for('horarios_novo.matriz', escola_id=escola['id']) }}">Configurar matriz de aulas</a>
+</div>
+
 <form
     method="POST"
     enctype="multipart/form-data"
