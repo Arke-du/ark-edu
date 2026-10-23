@@ -93,7 +93,7 @@ def registrar(app, conectar, obter_escola):
         if cargo == 'Administrador Geral':
             escola = request.args.get('escola_id', type=int) or escola
         if not escola:
-            db.close(); return render_template('horarios/index.html', gestor=gestor, escolas=escolas, escola=None, turmas=[], professores=[], periodos=[], aulas=[], ano=2026, selecionada=None)
+            db.close(); return render_template('horarios/index.html', gestor=gestor, escolas=escolas, escola=None, turmas=[], professores=[], periodos=[], aulas=[], vinculos=[], cargas=[], intervalos=[], ano=2026, selecionada=None)
         ano = request.args.get('ano', type=int) or int(session.get('ano_letivo_visualizado') or 2026)
         turmas = db.execute('SELECT id,nome,ano,turno FROM turmas WHERE escola_id=? ORDER BY ano,nome',(escola,)).fetchall()
         professores = db.execute("SELECT id,nome FROM usuarios WHERE escola_id=? AND (id IN (SELECT professor_id FROM professor_componentes WHERE escola_id=?) OR cargo_id IN (SELECT id FROM cargos WHERE nome IN ('Professor','Professor Autônomo'))) ORDER BY nome",(escola,escola)).fetchall()
