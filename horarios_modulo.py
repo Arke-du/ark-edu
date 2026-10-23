@@ -118,7 +118,7 @@ def registrar(app, conectar, obter_escola):
            DO UPDATE SET professor_id=excluded.professor_id,componente=excluded.componente''',
            (escola,turma,dia,periodo,professor,componente,ano))
         db.commit();db.close();flash('Aula salva.','success')
-        return redirect('/horarios/?turma_id='+str(turma)+'&escola_id='+str(escola)+'&ano='+str(ano))
+        return redirect('/horarios/painel?escola_id='+str(escola)+'&ano='+str(ano)) if request.form.get('return_to')=='painel' else redirect('/horarios/?turma_id='+str(turma)+'&escola_id='+str(escola)+'&ano='+str(ano))
 
     @horarios_bp.route('/aulas/<int:aula_id>/excluir',methods=['POST'])
     def excluir(aula_id):
@@ -132,4 +132,37 @@ def registrar(app, conectar, obter_escola):
         if cargo=='Coordenador' and not db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,a['turma_id'])).fetchone():db.close();abort(403)
         db.execute('DELETE FROM horarios_aulas WHERE id=?',(aula_id,));db.commit();db.close()
         flash('Aula removida.','success');return redirect('/horarios/?turma_id='+str(a['turma_id'])+'&escola_id='+str(a['escola_id']))
+
+    @horarios_bp.route('/painel')
+    def painel():
+        cargo, escola, usuario = contexto()
+        gestor = cargo in GESTORES
+        db = conectar(); db.row_factory = sqlite3.Row
+        escolas = db.execute('SELECT id,nome_instituicao FROM escolas ORDER BY nome_instituicao').fetchall() if cargo == 'Administrador Geral' else []
+        if cargo == 'Administrador Geral':
+            escola = request.args.get('escola_id', type=int) or escola
+        ano = request.args.get('ano', type=int) or int(session.get('ano_letivo_visualizado') or 2026)
+        turmas, periodos, aulas, professores = [], [], [], []
+        if escola:
+            turmas = db.execute('SELECT id,nome,ano,turno FROM turmas WHERE escola_id=? ORDER BY ano,nome',(escola,)).fetchall()
+            if cargo == 'Coordenador':
+                turmas = [t for t in turmas if db.execute('SELECT 1 FROM coordenador_turmas WHERE usuario_id=? AND turma_id=?',(usuario,t['id'])).fetchone()]
+            periodos = db.execute('SELECT * FROM horarios_periodos WHERE escola_id=? ORDER BY turno,numero',(escola,)).fetchall()
+            professores = db.execute('SELECT id,nome FROM usuarios WHERE escola_id=? ORDER BY nome',(escola,)).fetchall()
+            sql = """SELECT a.*,p.numero,p.turno AS periodo_turno,p.inicio,p.fim,u.nome AS professor_nome
+                     FROM horarios_aulas a JOIN horarios_periodos p ON p.id=a.periodo_id
+                     JOIN usuarios u ON u.id=a.professor_id WHERE a.escola_id=? AND a.ano_letivo=?"""
+            params = [escola,ano]
+            if cargo in ('Professor','Professor Autônomo'):
+                sql += ' AND a.professor_id=?';params.append(usuario)
+            if cargo == 'Coordenador':
+                allowed=[t['id'] for t in turmas]
+                if not allowed: sql+=' AND 1=0'
+                else:
+                    sql+=' AND a.turma_id IN ('+','.join('?' for _ in allowed)+')';params.extend(allowed)
+            aulas = db.execute(sql,params).fetchall()
+        db.close()
+        return render_template('horarios/painel.html',gestor=gestor,escolas=escolas,escola=escola,
+                               turmas=turmas,periodos=periodos,aulas=aulas,professores=professores,ano=ano)
+
     app.register_blueprint(horarios_bp)

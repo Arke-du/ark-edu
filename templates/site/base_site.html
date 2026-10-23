@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ARK EDUS — Avaliações inteligentes{% endblock %}</title>
+  <meta name="description" content="{% block description %}Crie avaliações, corrija cartões-resposta e acompanhe resultados com relatórios completos para professores e instituições.{% endblock %}">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ARK EDUS — Avaliações inteligentes">
+  <meta property="og:description" content="Avaliações, correção automática e relatórios completos em um só lugar.">
+  <link rel="icon" href="{{ url_for('static', filename='img/logo-arkedus.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+  <div class="site-container nav-wrap">
+    <a class="brand" href="{{ url_for('site_inicio') }}" aria-label="ARK EDUS — início">
+      <img src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt="ARK EDUS">
+      <span>ARK EDUS</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰</button>
+    <nav id="main-nav" class="main-nav">
+      <a href="{{ url_for('site_inicio') }}">Início</a>
+      <a href="{{ url_for('site_recursos') }}">Recursos</a>
+      <a href="{{ url_for('site_professores') }}">Professores</a>
+      <a href="{{ url_for('site_instituicoes') }}">Instituições</a>
+      <a href="{{ url_for('site_planos') }}">Planos</a>
+      <a href="{{ url_for('site_contato') }}">Contato</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="{{ url_for('login') }}">Entrar</a>
+      <a class="btn btn-primary" href="{{ url_for('cadastro_professor_autonomo') }}">Começar grátis</a>
+    </div>
+  </div>
+</header>
+
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+  {% if mensagens %}<div class="site-container flashes">{% for categoria,mensagem in mensagens %}<div class="flash {{ categoria }}">{{ mensagem }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
+
+<main>{% block content %}{% endblock %}</main>
+
+<footer class="site-footer">
+  <div class="site-container footer-grid">
+    <div><a class="brand footer-brand" href="{{ url_for('site_inicio') }}"><img src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt=""><span>ARK EDUS</span></a><p>Tecnologia para transformar avaliações em decisões pedagógicas.</p></div>
+    <div><h3>Produto</h3><a href="{{ url_for('site_recursos') }}">Recursos</a><a href="{{ url_for('site_planos') }}">Planos</a><a href="{{ url_for('login') }}">Entrar</a></div>
+    <div><h3>Soluções</h3><a href="{{ url_for('site_professores') }}">Para professores</a><a href="{{ url_for('site_instituicoes') }}">Para instituições</a><a href="{{ url_for('site_contato') }}">Fale conosco</a></div>
+    <div><h3>Legal</h3><a href="{{ url_for('site_termos') }}">Termos de uso</a><a href="{{ url_for('site_privacidade') }}">Privacidade</a><a href="{{ url_for('site_sobre') }}">Sobre</a></div>
+  </div>
+  <div class="site-container footer-bottom"><span>© {{ now_year or 2026 }} ARK EDUS. Todos os direitos reservados.</span></div>
+</footer>
+<script src="{{ url_for('static', filename='js/site.js') }}"></script>
+</body>
+</html>
