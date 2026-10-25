@@ -143,9 +143,9 @@ body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size);
 @media screen{
  .sheet .question{position:relative}
  .sheet .question:hover{outline:1px dashed #93c5fd}
- .sheet .question:hover>.question-tools{display:flex}
- .question-tools{position:absolute;right:0;top:-19px;z-index:15;gap:3px;background:#eff6ff;border:1px solid #93c5fd;padding:2px}
- .question-tools button{font:10px Arial;padding:2px 5px;cursor:pointer}
+ .sheet .question:hover>.question-tools,.sheet .question.ark-selected>.question-tools,.sheet .question:focus-within>.question-tools{display:flex}
+ .question-tools{position:absolute;right:0;top:0;transform:translateY(-100%);z-index:150;gap:3px;background:#eff6ff;border:1px solid #93c5fd;padding:2px}
+ .question-tools button{font:10px Arial;padding:5px 7px;cursor:pointer}.question-tools:hover{display:flex!important}.question-tools:focus-within{display:flex!important}
 }
 @media print{.editor-panel,.question-tools,.page-label{display:none!important}}
 
@@ -804,8 +804,13 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     if(statement){
       const children=Array.from(statement.childNodes).filter(n => !(n.nodeType===3 && !n.textContent.trim()));
       if(children.length>1 || (children.length===1 && children[0].nodeType===1)){
-        children.forEach(node => {
-          const wrap=document.createElement('div'); wrap.className='statement'; wrap.appendChild(node.cloneNode(true)); normalizeRichContent(wrap); if(wrap.textContent.trim() || wrap.querySelector('img,table,svg,canvas')) pieces.push(wrap);
+        children.forEach((node,childIndex) => {
+          const wrap=document.createElement('div'); wrap.className='statement';
+          wrap.appendChild(node.cloneNode(true));normalizeRichContent(wrap);
+          const key='fragment:'+(question.dataset.questionId||question.dataset.arkIndex)+':'+childIndex;
+          wrap.dataset.richFragmentKey=key;
+          if(settings.rich?.[key]?.html!==undefined)wrap.innerHTML=settings.rich[key].html;
+          if(wrap.textContent.trim() || wrap.querySelector('img,table,svg,canvas'))pieces.push(wrap);
         });
       } else { const st=normalizeRichContent(statement.cloneNode(true)); if(st.textContent.trim() || st.querySelector('img,table,svg,canvas')) pieces.push(st); }
     }
@@ -1035,14 +1040,12 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         // Nunca salvar um fragmento como se fosse o enunciado completo.
         // Isso duplicava o comando e apagava alternativas após Enter.
         const renderedStatements=pages.querySelectorAll('.question[data-ark-index="'+idx+'"] .statement');
-        if(el.classList.contains('statement') && renderedStatements.length!==1){
-          el.title='Enunciado dividido em blocos: ajuste o espaçamento pelo painel lateral';
-          return;
-        }
+        // Fragmentos também são editáveis: as alterações são armazenadas
+        // por bloco e nunca substituem o enunciado inteiro por um fragmento.
         const originParts=Array.from(origin?.querySelectorAll('.statement,.alt-text')||[]);
         const partIndex=el.classList.contains('statement')?0:originParts.findIndex(part=>part.classList.contains('alt-text') && part.textContent.trim()===el.textContent.trim());
-        if(partIndex<0)return;
-        const key=(origin?.dataset.questionId||idx)+':'+partIndex;
+        if(partIndex<0 && !el.dataset.richFragmentKey)return;
+        const key=el.dataset.richFragmentKey || (origin?.dataset.questionId||idx)+':'+partIndex;
         el.dataset.richKey=key;
         el.dataset.before=String(settings.rich?.[key]?.before||0);
         el.dataset.after=String(settings.rich?.[key]?.after||0);
@@ -1195,6 +1198,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const label=document.createElement('span');label.className='qr2-mini-label';label.textContent=i+1;
       b.append(paper,label);b.classList.toggle('active',i===activePage);
       b.setAttribute('aria-label',`Ir para página ${i+1}`);
+      b.addEventListener('pointerdown',e=>{
+        if(e.button!==0)return;
+        e.preventDefault();
+        goToPage(i);
+      });
       b.onclick=()=>goToPage(i);thumbnails.appendChild(b);
     });
     pages.scrollTop=Math.min(oldScroll,Math.max(0,pages.scrollHeight-pages.clientHeight));
