@@ -22554,6 +22554,12 @@ def baixar_modelos_zip(aplicacao_id):
             return jsonify(erro="Selecione provas e/ou cartões-resposta."), 400
         colunas = 2 if str(dados.get('colunas')) == '2' else 1
         request_session = dict(session)
+        # Mantém o nome cadastrado na plataforma, sanitizado para arquivos ZIP/PDF.
+        titulo_original = str(aplicacao['prova_nome'] or f'Avaliacao_{aplicacao_id}')
+        titulo_limpo = unicodedata.normalize('NFKD', titulo_original)
+        titulo_limpo = ''.join(c for c in titulo_limpo if not unicodedata.combining(c))
+        titulo_limpo = re.sub(r'[^A-Za-z0-9._ -]+', '', titulo_limpo)
+        titulo_limpo = re.sub(r'\s+', ' ', titulo_limpo).strip(' ._-')[:110] or f'Avaliacao_{aplicacao_id}'
         arquivo = BytesIO()
         with zipfile.ZipFile(arquivo,'w',zipfile.ZIP_DEFLATED) as z:
             for n in modelos:
@@ -22562,7 +22568,7 @@ def baixar_modelos_zip(aplicacao_id):
                     html = render_template('aplicacoes/modelo_pdf.html', aplicacao=aplicacao,
                                            questoes=questoes, modelo=n, colunas=colunas)
                     pdf = HTML(string=html, base_url=request.url_root).write_pdf()
-                    z.writestr(f'Prova_Modelo_{n}.pdf',pdf)
+                    z.writestr(f'{titulo_limpo} - Modelo {n} - Prova.pdf',pdf)
                 if cartoes:
                     # Reutiliza o gerador original para não alterar os dados do QR.
                     with app.test_request_context(f'/aplicacoes/{aplicacao_id}/cartoes?modelo={n}'):
@@ -22571,10 +22577,10 @@ def baixar_modelos_zip(aplicacao_id):
                     if not isinstance(html_cartoes,str):
                         return jsonify(erro="Não foi possível gerar os cartões-resposta."), 500
                     pdf = HTML(string=html_cartoes, base_url=request.url_root).write_pdf()
-                    z.writestr(f'Cartoes_Resposta_Modelo_{n}.pdf',pdf)
+                    z.writestr(f'{titulo_limpo} - Modelo {n} - Cartoes-resposta.pdf',pdf)
         arquivo.seek(0)
         return send_file(arquivo, mimetype='application/zip', as_attachment=True,
-                         download_name=f'ARK_EDUS_Aplicacao_{aplicacao_id}_Modelos.zip')
+                         download_name=f'{titulo_limpo} - Modelos.zip')
     except Exception:
         app.logger.exception('Erro ao exportar modelos da aplicação %s', aplicacao_id)
         return jsonify(erro="Falha ao gerar os PDFs. Consulte os logs do servidor."), 500
