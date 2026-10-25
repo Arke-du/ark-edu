@@ -465,23 +465,59 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   <select id="arkModelCount" style="width:100%;padding:12px;margin:8px 0 18px;border:1px solid #ccd8e5;border-radius:8px">
   {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
   </select>
-  <p style="font-size:13px">Modelos existentes: {% for n in range(1,(aplicacao.quantidade_modelos or 1)|int+1) %}<a href="{{url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=n)}}" style="margin-right:8px">Modelo {{n}}</a>{% endfor %}</p>
-  <p style="font-size:12px;color:#6a788a">O download conjunto de provas e cartões em ZIP ainda não está disponível nesta versão.</p>
-  <div style="display:flex;gap:12px;justify-content:flex-end"><button id="arkModelCancel" type="button">Fechar</button><button id="arkModelGenerate" type="button" style="background:#1265db;color:white;padding:10px 18px;border:0;border-radius:8px">Salvar modelos</button></div>
+  <p style="font-size:13px;font-weight:700">Selecione os modelos para baixar:</p>
+  <div id="arkModelChoices" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0"></div>
+  <p style="font-size:13px;font-weight:700">Arquivos do ZIP</p>
+  <label style="display:block;margin:8px 0"><input type="checkbox" id="arkDownloadProvas" checked> Provas em PDF</label>
+  <label style="display:block;margin:8px 0"><input type="checkbox" id="arkDownloadCartoes" checked> Cartões-resposta em PDF (por aluno)</label>
+  <p id="arkModelMessage" style="font-size:12px;color:#52657a">Os modelos registrados ficam disponíveis para downloads futuros.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end">
+    <button id="arkModelCancel" type="button">Fechar</button>
+    <button id="arkModelGenerate" type="button" style="background:#1265db;color:white;padding:10px 18px;border:0;border-radius:8px">Salvar quantidade</button>
+    <button id="arkModelDownload" type="button" style="background:#0b714c;color:white;padding:10px 18px;border:0;border-radius:8px">Baixar ZIP</button>
+  </div>
 </dialog>
 <script>
 (function(){
-  document.getElementById('qr2PrintAction').addEventListener('click',()=>{
-    document.getElementById('arkModelDialog').showModal();
-  });
   const dialog=document.getElementById('arkModelDialog');
+  const modelCount=document.getElementById('arkModelCount');
+  const modelChoices=document.getElementById('arkModelChoices');
+  const modelMessage=document.getElementById('arkModelMessage');
+  let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
+  function drawModels(){
+    modelChoices.replaceChildren();
+    for(let i=1;i<=registeredModels;i++){
+      const label=document.createElement('label');label.style.cssText='display:flex;gap:8px;align-items:center;padding:9px;border:1px solid #cbd5e1;border-radius:8px';
+      const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=i;checkbox.checked=true;checkbox.className='ark-model-choice';
+      label.append(checkbox,document.createTextNode('Modelo '+i));modelChoices.append(label);
+    }
+  }
+  drawModels();
+  document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
   document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
   document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
-    const quantity=Number(document.getElementById('arkModelCount').value);
-    const response=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:quantity})});
-    const data=await response.json();
-    if(!response.ok){alert(data.erro||'Não foi possível registrar os modelos.');return;}
-    location.reload();
+    const button=document.getElementById('arkModelGenerate');button.disabled=true;
+    try{
+      const response=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:Number(modelCount.value)})});
+      const data=await response.json();
+      if(!response.ok)throw Error(data.erro||'Não foi possível registrar os modelos.');
+      registeredModels=data.quantidade;modelCount.value=registeredModels;drawModels();
+      modelMessage.textContent='Modelos registrados com sucesso. Selecione os PDFs e baixe o ZIP.';
+    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
+  });
+  document.getElementById('arkModelDownload').addEventListener('click',async()=>{
+    const modelos=[...document.querySelectorAll('.ark-model-choice:checked')].map(el=>Number(el.value));
+    const provas=document.getElementById('arkDownloadProvas').checked;
+    const cartoes=document.getElementById('arkDownloadCartoes').checked;
+    if(!modelos.length||(!provas&&!cartoes)){modelMessage.textContent='Selecione ao menos um modelo e um tipo de arquivo.';return;}
+    const button=document.getElementById('arkModelDownload');button.disabled=true;modelMessage.textContent='Gerando PDFs e preparando ZIP...';
+    try{
+      const response=await fetch({{ url_for('baixar_modelos_zip',aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelos,provas,cartoes,colunas:Number(document.getElementById('qr2Columns').value)})});
+      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(err.erro||'Erro ao gerar ZIP.');}
+      const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;
+      link.download='ARK_EDUS_Aplicacao_{{ aplicacao.id }}_Modelos.zip';document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),10000);modelMessage.textContent='ZIP preparado com sucesso.';
+    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
   });
   const source = document.getElementById('examSource');
   const questionsSource = document.getElementById('questionsSource');

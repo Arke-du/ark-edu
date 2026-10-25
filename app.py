@@ -22507,6 +22507,77 @@ def gerar_modelos_na_impressao(aplicacao_id):
         banco.close()
 
 
+@app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
+def baixar_modelos_zip(aplicacao_id):
+    """Exporta PDFs separados, preservando os gabaritos e QR Codes por aluno."""
+    import zipfile
+    from weasyprint import HTML
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cursor = banco.cursor()
+        cursor.execute("""
+            SELECT a.*, p.nome AS prova_nome, p.disciplina, p.professor_id,
+                   COALESCE(p.peso_total,10) AS peso_total,
+                   COALESCE(p.tem_nota,0) AS tem_nota,
+                   t.nome AS turma_nome, e.nome_instituicao, e.logo, e.cidade, e.estado,
+                   COALESCE(pr.nome,'Não informado') AS professor_nome
+            FROM aplicacoes a
+            JOIN provas p ON p.id=a.prova_id
+            JOIN turmas t ON t.id=a.turma_id
+            LEFT JOIN escolas e ON e.id=a.escola_id
+            LEFT JOIN professores pr ON pr.id=p.professor_id
+            WHERE a.id=?
+        """, (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao or not _pode_gerenciar_prova(cursor, aplicacao['prova_id'], exigir_edicao=False):
+            return jsonify(erro="Aplicação não encontrada ou acesso negado."), 403
+        dados = request.get_json(silent=True) or {}
+        modelos = dados.get('modelos', [])
+        if not isinstance(modelos,list) or not modelos:
+            return jsonify(erro="Selecione pelo menos um modelo."), 400
+        try:
+            modelos = sorted(set(int(n) for n in modelos))
+        except (TypeError, ValueError):
+            return jsonify(erro="Modelos inválidos."), 400
+        limite = max(1,int(aplicacao['quantidade_modelos'] or 1))
+        if any(n < 1 or n > limite for n in modelos):
+            return jsonify(erro="Um dos modelos não foi gerado nesta aplicação."), 400
+        provas = dados.get('provas') is True
+        cartoes = dados.get('cartoes') is True
+        if not provas and not cartoes:
+            return jsonify(erro="Selecione provas e/ou cartões-resposta."), 400
+        colunas = 2 if str(dados.get('colunas')) == '2' else 1
+        request_session = dict(session)
+        arquivo = BytesIO()
+        with zipfile.ZipFile(arquivo,'w',zipfile.ZIP_DEFLATED) as z:
+            for n in modelos:
+                if provas:
+                    questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, n)
+                    html = render_template('aplicacoes/modelo_pdf.html', aplicacao=aplicacao,
+                                           questoes=questoes, modelo=n, colunas=colunas)
+                    pdf = HTML(string=html, base_url=request.url_root).write_pdf()
+                    z.writestr(f'Prova_Modelo_{n}.pdf',pdf)
+                if cartoes:
+                    # Reutiliza o gerador original para não alterar os dados do QR.
+                    with app.test_request_context(f'/aplicacoes/{aplicacao_id}/cartoes?modelo={n}'):
+                        session.update(dict(request_session))
+                        html_cartoes = cartoes_aplicacao()
+                    if not isinstance(html_cartoes,str):
+                        return jsonify(erro="Não foi possível gerar os cartões-resposta."), 500
+                    pdf = HTML(string=html_cartoes, base_url=request.url_root).write_pdf()
+                    z.writestr(f'Cartoes_Resposta_Modelo_{n}.pdf',pdf)
+        arquivo.seek(0)
+        return send_file(arquivo, mimetype='application/zip', as_attachment=True,
+                         download_name=f'ARK_EDUS_Aplicacao_{aplicacao_id}_Modelos.zip')
+    except Exception:
+        app.logger.exception('Erro ao exportar modelos da aplicação %s', aplicacao_id)
+        return jsonify(erro="Falha ao gerar os PDFs. Consulte os logs do servidor."), 500
+    finally:
+        banco.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/modelo/<int:modelo>")
 def imprimir_modelo_aplicacao(aplicacao_id, modelo):
     _garantir_tabelas_aplicacoes()
@@ -22629,6 +22700,11 @@ def cartoes_aplicacao(aplicacao_id):
                 item = dict(linha)
                 item["modelo"] = (indice % quantidade_modelos) + 1
                 alunos.append(item)
+
+        # Filtragem por modelo para exportação separada sem alterar os QR Codes.
+        filtro_modelo = request.args.get("modelo", type=int)
+        if filtro_modelo is not None:
+            alunos = [aluno for aluno in alunos if int(aluno["modelo"]) == filtro_modelo]
 
         cartoes = []
         for aluno in alunos:
