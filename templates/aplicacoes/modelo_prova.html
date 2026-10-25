@@ -294,6 +294,15 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 #qr2ModelSelect{background:#fff;color:#12345a;border:1px solid #b6c6d8;border-radius:7px;padding:8px;max-width:145px}
 @media print{.qr2-model-label,#qr2ModelSelect{display:none!important}}
 </style>
+<style>
+.qr2-top-actions button,.qr2-top-actions a{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:8px;font-weight:700;transition:background .15s,border-color .15s}
+.qr2-top-actions button:hover,.qr2-top-actions a:hover{filter:brightness(1.12)}
+.ark-action-icon{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.ark-save-toast{position:fixed;right:22px;top:90px;z-index:10000;max-width:410px;background:#fff;color:#0c2b51;border:1px solid #cbdff5;border-left:5px solid #0b65d8;border-radius:11px;box-shadow:0 16px 44px #001c3b30;padding:16px 14px 16px 19px;display:flex;align-items:center;gap:15px;font:600 14px Arial,sans-serif}
+.ark-save-toast[hidden]{display:none!important}.ark-save-toast.error{border-left-color:#dc2626}
+.ark-save-toast button{background:#eef4fb;color:#0c2b51;border:0;border-radius:6px;cursor:pointer;padding:4px 9px;font-size:18px}
+@media print{.ark-save-toast{display:none!important}}
+</style>
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
 <div class="qr2-appbar" id="qr2Appbar">
@@ -302,9 +311,9 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   <div class="qr2-top-actions">
     <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
     <button type="button" id="arkReset">↺ Restaurar</button>
-    <button type="button" id="arkSave">▣ Salvar</button>
+    <button type="button" id="arkSave"><svg class="ark-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h14l2 2v14H4zM7 4v7h10V4M7 20v-7h10v7"/></svg> Salvar</button>
     
-    <button type="button" class="qr2-print" id="qr2PrintAction">▣ Imprimir / Gerar PDF</button>
+    <button type="button" class="qr2-print" id="qr2PrintAction"><svg class="ark-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg> Imprimir / Gerar PDF</button>
   </div>
 </div>
 <div class="qr2-workspace" id="qr2Workspace">
@@ -481,6 +490,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   @media(max-width:480px){
   #arkModelChoices{grid-template-columns:1fr}.ark-modal-footer{justify-content:stretch}.ark-modal-btn{flex:1;justify-content:center}}
 </style>
+<div id="arkSaveToast" class="ark-save-toast" role="status" aria-live="polite" hidden><span id="arkSaveToastText"></span><button type="button" id="arkSaveToastClose" aria-label="Fechar aviso">×</button></div>
 <dialog id="arkModelDialog" aria-labelledby="arkModelTitle">
   <div class="ark-modal-header">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
@@ -494,13 +504,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     </select>
     <label class="ark-field-label">Modelos para download</label>
     <div id="arkModelChoices"></div>
-    <p class="ark-field-label">O ZIP conterá somente os PDFs das provas selecionadas.</p>
+    <p class="ark-field-label">Para obter um PDF idêntico à pré-visualização, use “Imprimir prévia” e escolha “Salvar como PDF” no navegador. O ZIP do servidor ainda utiliza outro renderizador.</p>
     <p id="arkModelMessage" role="status" aria-live="polite">Os modelos ficam disponíveis para novos downloads.</p>
   </div>
   <div class="ark-modal-footer">
     <button id="arkModelCancel" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Fechar</button>
     <button id="arkModelGenerate" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Salvar modelos</button>
-    <button id="arkModelDownload" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar ZIP</button>
+    <button id="arkPreviewPrint" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Imprimir prévia / PDF</button>
+    <button id="arkModelDownload" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar ZIP (antigo)</button>
   </div>
 </dialog>
 <script>
@@ -521,6 +532,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   drawModels();
   document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
   document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
+  document.getElementById('arkPreviewPrint').addEventListener('click',()=>{
+    dialog.close();
+    // O navegador imprime o próprio DOM paginado do editor, sem reconstruir o cabeçalho.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+  });
   document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
     const button=document.getElementById('arkModelGenerate');button.disabled=true;
     try{
@@ -594,7 +610,19 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   Object.keys(controls).forEach(k=>controls[k].addEventListener('input',()=>{
     const value=Number(controls[k].value);if(!Number.isFinite(value))return;const limits={gap:[0,18],font:[8,15],line:[1.15,1.5],margin:[10,25],altGap:[0,6]};settings[k]=Math.max(limits[k][0],Math.min(limits[k][1],value));applySettings();repaginate();status.textContent='Alterações ainda não salvas';
   }));
-  document.getElementById('arkSave').addEventListener('click',()=>{try{localStorage.setItem(settingKey,JSON.stringify(settings));status.textContent='✓ Ajustes salvos neste navegador';}catch(e){status.textContent='Não foi possível salvar. Verifique as permissões do navegador.';}});
+  const arkSaveToast=document.getElementById('arkSaveToast');
+  const arkSaveToastText=document.getElementById('arkSaveToastText');
+  document.getElementById('arkSaveToastClose').addEventListener('click',()=>arkSaveToast.hidden=true);
+  function arkNotify(message,error=false){arkSaveToastText.textContent=message;arkSaveToast.classList.toggle('error',error);arkSaveToast.hidden=false;}
+  document.getElementById('arkSave').addEventListener('click',()=>{
+    try{
+      if(document.activeElement?.matches?.('.qr2-editable'))document.activeElement.blur();
+      if(typeof activeRich!=='undefined' && activeRich?.isConnected && typeof persistRich==='function')persistRich(activeRich);
+      localStorage.setItem(settingKey,JSON.stringify(settings));
+      status.textContent='✓ Ajustes salvos neste navegador';
+      arkNotify('Alterações da pré-impressão salvas com sucesso neste navegador.');
+    }catch(e){status.textContent='Não foi possível salvar.';arkNotify('Não foi possível salvar. Verifique as permissões do navegador.',true);}
+  });
   document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{},rich:{}};columns=settings.columns;columnPicker.value=String(columns);document.documentElement.style.setProperty('--columns',String(columns));document.body.classList.toggle('layout-2',columns===2);document.body.classList.toggle('layout-1',columns===1);instructionsToggle.checked=true;localStorage.removeItem(settingKey);applySettings();repaginate();status.textContent='Padrão restaurado';});
   const inspector=document.getElementById('arkInspector');
   const questionGap=document.getElementById('arkQuestionGap');
