@@ -1015,7 +1015,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         el.dataset.after=String(settings.rich?.[key]?.after||0);
         el.contentEditable='true';el.spellcheck=true;el.classList.add('qr2-editable');
         el.addEventListener('focus',()=>{
-          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página. Use 'Manter questão junta' para evitar alternativas isoladas.';
+          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página. Use a opção Manter questão junta para evitar alternativas isoladas.';
           document.getElementById('arkRichBefore').value=el.dataset.before;
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
