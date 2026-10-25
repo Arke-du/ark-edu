@@ -529,8 +529,12 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     // O elemento .pages É a área rolável. Calcular a posição relativa a ela,
     // e não à .qr2-main, que contém também a barra de ferramentas.
     const target=sheets[activePage];
-    const y=target.getBoundingClientRect().top-pages.getBoundingClientRect().top+pages.scrollTop;
-    pages.scrollTo({top:Math.max(0,y-12),behavior:'auto'});
+    // offsetTop é relativo ao contêiner de layout, não necessariamente à área rolável.
+    // A diferença dos retângulos considera zoom, margens e páginas anteriores.
+    const pageRect=target.getBoundingClientRect();
+    const scrollerRect=pages.getBoundingClientRect();
+    const y=pages.scrollTop+pageRect.top-scrollerRect.top;
+    pages.scrollTop=Math.max(0,y-20);
   }
   document.getElementById('arkPrevPage').onclick=()=>goToPage(activePage-1);
   document.getElementById('arkNextPage').onclick=()=>goToPage(activePage+1);
@@ -844,14 +848,22 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
           }
           // Inserir uma quebra real e visível sem reconstruir a página enquanto
           // o usuário digita. O cursor continua no trecho editado.
-          document.execCommand('insertHTML',false,'<br><span class="qr2-manual-line">&#8203;</span>');
+          // Insere uma quebra de linha no ponto exato do cursor sem usar execCommand.
+          const selection=window.getSelection();
+          if(!selection || !selection.rangeCount || !el.contains(selection.anchorNode))return;
+          const range=selection.getRangeAt(0);
+          range.deleteContents();
+          const br=document.createElement('br');
+          range.insertNode(br);
+          range.setStartAfter(br);range.collapse(true);
+          selection.removeAllRanges();selection.addRange(range);
           el.dataset.arkChanged='yes';persistRich(el);
         });
         el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
         el.addEventListener('blur',()=>{
           if(el.dataset.arkChanged==='yes')persistRich(el);
           // Aguarda o término da interação com a barra de formatação.
-          setTimeout(()=>{if(!document.activeElement?.closest('#qr2RichTools'))repaginate();},180);
+          setTimeout(()=>{if(document.activeElement===el)return;if(!document.activeElement?.closest('#qr2RichTools'))repaginate();},180);
         });
       });
     });
@@ -874,6 +886,8 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   };
 
   function paginate(){
+    // Nunca substitua nós contenteditable enquanto o cursor está dentro deles.
+    if(document.activeElement?.matches?.('.qr2-editable')){return;}
     // Restaura o conteúdo editado apenas na cópia de impressão, sem alterar o banco de questões.
     Array.from(questionsSource.querySelectorAll(':scope > .question')).forEach((q,i)=>{
       q.querySelectorAll('.statement,.alt-text').forEach((part,j)=>{
@@ -941,7 +955,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   }
 
   let timer;
-  function repaginate(){ clearTimeout(timer); timer=setTimeout(paginate,60); }
+  function repaginate(){ clearTimeout(timer); timer=setTimeout(()=>{if(document.activeElement?.matches?.('.qr2-editable'))return;paginate();},100); }
   function afterReady(){
     paginate();
     /* A prévia fica aberta para ajustes antes da impressão. */
@@ -964,7 +978,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   });
   source.addEventListener('load',e=>{ if(e.target?.tagName==='IMG') repaginate(); },true);
   window.addEventListener('resize',repaginate);
-  window.addEventListener('beforeprint',()=>{clearTimeout(timer);paginate();});
+  window.addEventListener('beforeprint',()=>{clearTimeout(timer);if(activeRich?.isConnected)persistRich(activeRich);if(document.activeElement?.matches?.('.qr2-editable'))document.activeElement.blur();paginate();});
 })();
 </script>
 </body>
@@ -973,6 +987,6 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 <style>
 /* Quebras manuais criadas pelo Enter devem ocupar altura na folha e no PDF. */
 .qr2-manual-line{display:inline;white-space:pre-wrap}
-.qr2-editable{white-space:normal}
+.qr2-editable{white-space:pre-wrap;overflow-wrap:break-word}
 @media print{.qr2-manual-line{white-space:pre-wrap}}
 </style>
