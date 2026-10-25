@@ -303,12 +303,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
     <button type="button" id="arkReset">↺ Restaurar</button>
     <button type="button" id="arkSave">▣ Salvar</button>
-    <label for="qr2ModelSelect" class="qr2-model-label">Modelo</label>
-    <select id="qr2ModelSelect" aria-label="Selecionar modelo da prova">
-      {% for n in range(1, (aplicacao.quantidade_modelos or 1)|int + 1) %}
-      <option value="{{ url_for('imprimir_modelo_aplicacao', aplicacao_id=aplicacao.id, modelo=n) }}" {% if n == modelo %}selected{% endif %}>Modelo {{ n }}</option>
-      {% endfor %}
-    </select>
+    
     <button type="button" class="qr2-print" id="qr2PrintAction">▣ Imprimir / Gerar PDF</button>
   </div>
 </div>
@@ -463,17 +458,30 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </div>
 
 
+<dialog id="arkModelDialog" style="border:0;border-radius:16px;padding:28px;max-width:520px;width:calc(100% - 32px);box-shadow:0 20px 80px #001a3855;font:15px Arial;color:#0b2c54">
+  <h2 style="margin:0 0 8px">Modelos da avaliação</h2>
+  <p>Defina quantos modelos ficarão disponíveis nesta aplicação. Modelos já criados não serão excluídos.</p>
+  <label for="arkModelCount">Quantidade de modelos</label>
+  <select id="arkModelCount" style="width:100%;padding:12px;margin:8px 0 18px;border:1px solid #ccd8e5;border-radius:8px">
+  {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
+  </select>
+  <p style="font-size:13px">Modelos existentes: {% for n in range(1,(aplicacao.quantidade_modelos or 1)|int+1) %}<a href="{{url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=n)}}" style="margin-right:8px">Modelo {{n}}</a>{% endfor %}</p>
+  <p style="font-size:12px;color:#6a788a">O download conjunto de provas e cartões em ZIP ainda não está disponível nesta versão.</p>
+  <div style="display:flex;gap:12px;justify-content:flex-end"><button id="arkModelCancel" type="button">Fechar</button><button id="arkModelGenerate" type="button" style="background:#1265db;color:white;padding:10px 18px;border:0;border-radius:8px">Salvar modelos</button></div>
+</dialog>
 <script>
 (function(){
-  const modelSelect=document.getElementById('qr2ModelSelect');
-  modelSelect.addEventListener('change',()=>{
-    const target=modelSelect.value;
-    if(target) window.location.assign(target);
-  });
   document.getElementById('qr2PrintAction').addEventListener('click',()=>{
-    // A seleção de modelo preserva o vínculo entre prova, gabarito e cartão-resposta.
-    document.activeElement?.blur?.();
-    window.print();
+    document.getElementById('arkModelDialog').showModal();
+  });
+  const dialog=document.getElementById('arkModelDialog');
+  document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
+  document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
+    const quantity=Number(document.getElementById('arkModelCount').value);
+    const response=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:quantity})});
+    const data=await response.json();
+    if(!response.ok){alert(data.erro||'Não foi possível registrar os modelos.');return;}
+    location.reload();
   });
   const source = document.getElementById('examSource');
   const questionsSource = document.getElementById('questionsSource');

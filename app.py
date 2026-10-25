@@ -22409,7 +22409,7 @@ def nova_aplicacao(prova_id):
         alunos = cursor.fetchall()
 
         if request.method == "POST":
-            quantidade_modelos = request.form.get("quantidade_modelos", "1")
+            quantidade_modelos = "1"
             try:
                 quantidade_modelos = max(1, min(4, int(quantidade_modelos)))
             except ValueError:
@@ -22465,6 +22465,44 @@ def nova_aplicacao(prova_id):
         banco.rollback()
         flash(f"Não foi possível criar a aplicação: {erro}", "erro")
         return redirect(f"/provas/{prova_id}/aplicacoes")
+    finally:
+        banco.close()
+
+
+@app.route("/aplicacoes/<int:aplicacao_id>/modelos/gerar", methods=["POST"])
+def gerar_modelos_na_impressao(aplicacao_id):
+    """Define a quantidade uma única vez; não reduz modelos já emitidos."""
+    from flask import jsonify
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cursor = banco.cursor()
+        cursor.execute("SELECT prova_id, quantidade_modelos FROM aplicacoes WHERE id=?", (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao or not _pode_gerenciar_prova(cursor, aplicacao["prova_id"], exigir_edicao=False):
+            return jsonify(erro="Aplicação não encontrada ou acesso negado."), 403
+        try:
+            quantidade = int((request.get_json(silent=True) or {}).get("quantidade", 1))
+        except (TypeError, ValueError):
+            return jsonify(erro="Quantidade inválida."), 400
+        if not 1 <= quantidade <= 4:
+            return jsonify(erro="Escolha de 1 a 4 modelos."), 400
+        atual = max(1, int(aplicacao["quantidade_modelos"] or 1))
+        quantidade = max(atual, quantidade)
+        cursor.execute("UPDATE aplicacoes SET quantidade_modelos=? WHERE id=?", (quantidade, aplicacao_id))
+        # Preserva a distribuição dos alunos que já receberam modelos e
+        # atribui os novos somente a alunos ainda no modelo padrão.
+        cursor.execute("SELECT id, modelo FROM aplicacao_alunos WHERE aplicacao_id=? ORDER BY id", (aplicacao_id,))
+        alunos = cursor.fetchall()
+        if atual == 1 and quantidade > 1:
+            for indice, aluno in enumerate(alunos):
+                cursor.execute("UPDATE aplicacao_alunos SET modelo=? WHERE id=?", ((indice % quantidade)+1, aluno["id"]))
+        banco.commit()
+        return jsonify(quantidade=quantidade, modelos=list(range(1, quantidade+1)))
+    except Exception:
+        banco.rollback()
+        raise
     finally:
         banco.close()
 
