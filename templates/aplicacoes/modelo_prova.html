@@ -294,7 +294,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
 <div class="qr2-appbar" id="qr2Appbar">
-  <div class="qr2-brand"><img class="qr2-official-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="ARK EDUS — logo oficial"><small>QR2</small></div>
+  <div class="qr2-brand"><img class="qr2-official-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="ARK EDUS — logo oficial"></div>
   <div class="qr2-editor-title">Editor de pré-impressão <span>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</span></div>
   <div class="qr2-top-actions">
     <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
@@ -504,8 +504,34 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   questionAlign.addEventListener('change',()=>changeQuestion({align:questionAlign.value}));
   questionBreak.addEventListener('change',()=>changeQuestion({breakBefore:questionBreak.checked}));
   document.getElementById('arkQuestionReset').addEventListener('click',()=>{if(selectedQuestion===null)return;delete settings.questions[selectedQuestion];selectQuestion(selectedQuestion);status.textContent='Alterações ainda não salvas';repaginate();});
-  function updatePageNavigation(){const sheets=Array.from(pages.querySelectorAll('.sheet'));activePage=Math.max(0,Math.min(activePage,sheets.length-1));sheets.forEach((sheet,i)=>{sheet.dataset.current=String(i===activePage);const label=document.createElement('span');label.className='page-label';label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);});document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;document.getElementById('arkPrevPage').disabled=activePage===0;document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;}
-  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();document.querySelectorAll('.ark-thumb').forEach((b,j)=>b.classList.toggle('active',j===activePage));const target=pages.children[activePage];if(target){const viewport=pages.closest('.qr2-main');const scrollArea=pages.parentElement;const scroller=scrollArea && scrollArea.scrollHeight>scrollArea.clientHeight ? scrollArea : viewport; if(scroller){const top=target.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-16;scroller.scrollTo({top:Math.max(0,top),behavior:'smooth'});}else target.scrollIntoView({behavior:'smooth',block:'start'});}}
+  function updatePageNavigation(){
+    const sheets=Array.from(pages.querySelectorAll('.sheet'));
+    activePage=Math.max(0,Math.min(activePage,sheets.length-1));
+    sheets.forEach((sheet,i)=>{
+      sheet.dataset.current=String(i===activePage);
+      sheet.querySelectorAll(':scope > .page-label').forEach(label=>label.remove());
+      const label=document.createElement('span');label.className='page-label';
+      label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);
+    });
+    document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;
+    document.getElementById('arkPrevPage').disabled=activePage===0;
+    document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;
+  }
+  function goToPage(i){
+    const sheets=Array.from(pages.querySelectorAll('.sheet'));
+    if(!sheets.length)return;
+    activePage=Math.max(0,Math.min(Number(i)||0,sheets.length-1));
+    updatePageNavigation();
+    document.querySelectorAll('.ark-thumb').forEach((b,j)=>{
+      b.classList.toggle('active',j===activePage);
+      b.setAttribute('aria-current',j===activePage?'page':'false');
+    });
+    // O elemento .pages É a área rolável. Calcular a posição relativa a ela,
+    // e não à .qr2-main, que contém também a barra de ferramentas.
+    const target=sheets[activePage];
+    const y=target.getBoundingClientRect().top-pages.getBoundingClientRect().top+pages.scrollTop;
+    pages.scrollTo({top:Math.max(0,y-12),behavior:'auto'});
+  }
   document.getElementById('arkPrevPage').onclick=()=>goToPage(activePage-1);
   document.getElementById('arkNextPage').onclick=()=>goToPage(activePage+1);
 
@@ -809,7 +835,19 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
         });
-        el.addEventListener('keydown',e=>{if(e.key==='Enter' && e.ctrlKey){e.preventDefault();settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};persistRich(el);repaginate();}});el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
+        el.addEventListener('keydown',e=>{
+          if(e.key!=='Enter')return;
+          e.preventDefault();
+          if(e.ctrlKey){
+            settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};
+            persistRich(el);repaginate();return;
+          }
+          // Inserir uma quebra real e visível sem reconstruir a página enquanto
+          // o usuário digita. O cursor continua no trecho editado.
+          document.execCommand('insertHTML',false,'<br><span class="qr2-manual-line">&#8203;</span>');
+          el.dataset.arkChanged='yes';persistRich(el);
+        });
+        el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
         el.addEventListener('blur',()=>{
           if(el.dataset.arkChanged==='yes')persistRich(el);
           // Aguarda o término da interação com a barra de formatação.
@@ -931,3 +969,10 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </script>
 </body>
 </html>
+
+<style>
+/* Quebras manuais criadas pelo Enter devem ocupar altura na folha e no PDF. */
+.qr2-manual-line{display:inline;white-space:pre-wrap}
+.qr2-editable{white-space:normal}
+@media print{.qr2-manual-line{white-space:pre-wrap}}
+</style>
