@@ -22509,7 +22509,7 @@ def gerar_modelos_na_impressao(aplicacao_id):
 
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
 def baixar_modelos_zip(aplicacao_id):
-    """Exporta PDFs separados, preservando os gabaritos e QR Codes por aluno."""
+    """Exporta somente PDFs de provas; cartões permanecem na rota original da aplicação."""
     import zipfile
     try:
         from weasyprint import HTML
@@ -22548,12 +22548,10 @@ def baixar_modelos_zip(aplicacao_id):
         limite = max(1,int(aplicacao['quantidade_modelos'] or 1))
         if any(n < 1 or n > limite for n in modelos):
             return jsonify(erro="Um dos modelos não foi gerado nesta aplicação."), 400
-        provas = dados.get('provas') is True
-        cartoes = dados.get('cartoes') is True
-        if not provas and not cartoes:
-            return jsonify(erro="Selecione provas e/ou cartões-resposta."), 400
+        # A exportação desta rota é exclusivamente de provas.
+        # Os cartões-resposta são gerados pela rota original /aplicacoes/<id>/cartoes.
+        provas = True
         colunas = 2 if str(dados.get('colunas')) == '2' else 1
-        request_session = dict(session)
         # Mantém o nome cadastrado na plataforma, sanitizado para arquivos ZIP/PDF.
         titulo_original = str(aplicacao['prova_nome'] or f'Avaliacao_{aplicacao_id}')
         titulo_limpo = unicodedata.normalize('NFKD', titulo_original)
@@ -22569,15 +22567,6 @@ def baixar_modelos_zip(aplicacao_id):
                                            questoes=questoes, modelo=n, colunas=colunas)
                     pdf = HTML(string=html, base_url=request.url_root).write_pdf()
                     z.writestr(f'{titulo_limpo} - Modelo {n} - Prova.pdf',pdf)
-                if cartoes:
-                    # Reutiliza o gerador original para não alterar os dados do QR.
-                    with app.test_request_context(f'/aplicacoes/{aplicacao_id}/cartoes?modelo={n}'):
-                        session.update(dict(request_session))
-                        html_cartoes = cartoes_aplicacao(aplicacao_id)
-                    if not isinstance(html_cartoes,str):
-                        return jsonify(erro="Não foi possível gerar os cartões-resposta."), 500
-                    pdf = HTML(string=html_cartoes, base_url=request.url_root).write_pdf()
-                    z.writestr(f'{titulo_limpo} - Modelo {n} - Cartoes-resposta.pdf',pdf)
         arquivo.seek(0)
         return send_file(arquivo, mimetype='application/zip', as_attachment=True,
                          download_name=f'{titulo_limpo} - Modelos.zip')

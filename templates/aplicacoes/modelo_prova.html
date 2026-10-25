@@ -484,19 +484,17 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 <dialog id="arkModelDialog" aria-labelledby="arkModelTitle">
   <div class="ark-modal-header">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
-    <div><h2 id="arkModelTitle">Modelos da avaliação</h2><small>Impressão e cartões-resposta • ARK EDUS</small></div>
+    <div><h2 id="arkModelTitle">Modelos da avaliação</h2><small>Impressão de provas • ARK EDUS</small></div>
   </div>
   <div class="ark-modal-body">
-    <p>Gere os modelos da aplicação e baixe as provas e os cartões-resposta em PDFs separados. Os modelos registrados permanecem disponíveis.</p>
+    <p>Gere os modelos da aplicação e baixe apenas as provas em PDF. Os cartões-resposta continuam disponíveis na tela de aplicações.</p>
     <label class="ark-field-label" for="arkModelCount">Quantidade de modelos</label>
     <select id="arkModelCount">
     {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
     </select>
     <label class="ark-field-label">Modelos para download</label>
     <div id="arkModelChoices"></div>
-    <label class="ark-field-label">Arquivos incluídos no ZIP</label>
-    <label class="ark-file-choice"><input type="checkbox" id="arkDownloadProvas" checked> Provas em PDF</label>
-    <label class="ark-file-choice" style="margin-top:8px"><input type="checkbox" id="arkDownloadCartoes" checked> Cartões-resposta em PDF (por aluno)</label>
+    <p class="ark-field-label">O ZIP conterá somente os PDFs das provas selecionadas.</p>
     <p id="arkModelMessage" role="status" aria-live="polite">Os modelos ficam disponíveis para novos downloads.</p>
   </div>
   <div class="ark-modal-footer">
@@ -543,12 +541,10 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       }catch(err){modelMessage.textContent=err.message;return;}
     }
     const modelos=[...document.querySelectorAll('.ark-model-choice:checked')].map(el=>Number(el.value));
-    const provas=document.getElementById('arkDownloadProvas').checked;
-    const cartoes=document.getElementById('arkDownloadCartoes').checked;
-    if(!modelos.length||(!provas&&!cartoes)){modelMessage.textContent='Selecione ao menos um modelo e um tipo de arquivo.';return;}
-    const button=document.getElementById('arkModelDownload');button.disabled=true;modelMessage.textContent='Gerando PDFs e preparando ZIP...';
+    if(!modelos.length){modelMessage.textContent='Selecione ao menos um modelo.';return;}
+    const button=document.getElementById('arkModelDownload');button.disabled=true;modelMessage.textContent='Gerando provas em PDF e preparando ZIP...';
     try{
-      const response=await fetch({{ url_for('baixar_modelos_zip',aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelos,provas,cartoes,colunas:Number(document.getElementById('qr2Columns').value)})});
+      const response=await fetch({{ url_for('baixar_modelos_zip',aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelos,provas:true,colunas:Number(document.getElementById('qr2Columns').value)})});
       if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(err.erro||'Erro ao gerar ZIP.');}
       const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;
       link.download='ARK_EDUS_Aplicacao_{{ aplicacao.id }}_Modelos.zip';document.body.append(link);link.click();link.remove();
