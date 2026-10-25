@@ -549,7 +549,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     const timeout=setTimeout(()=>{
       if(finished)return;
       button.disabled=false;
-      modelMessage.textContent='A impressão não abriu automaticamente. Clique novamente ou use “Imprimir modelo atual”.';
+      modelMessage.textContent='Não foi possível abrir a impressão. Verifique se o navegador bloqueou a impressão e tente novamente.';
     },12000);
     function onReady(event){
       if(event.source!==frame.contentWindow || event.origin!==location.origin || event.data?.type!=='ark-print-ready')return;
@@ -557,7 +557,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       clearTimeout(timeout);finished=true;button.disabled=false;
       modelMessage.textContent='Abrindo a impressão do Modelo '+modelo+' — escolha Salvar como PDF.';
       try{frame.contentWindow.focus();frame.contentWindow.print();}
-      catch(e){modelMessage.textContent='O navegador bloqueou a impressão automática. Use “Imprimir modelo atual”.';}
+      catch(e){modelMessage.textContent='O navegador bloqueou a impressão. Verifique as permissões do navegador e tente novamente.';}
     }
     window.addEventListener('message',onReady);
     frame.addEventListener('error',()=>{clearTimeout(timeout);button.disabled=false;window.removeEventListener('message',onReady);modelMessage.textContent='Falha ao carregar o modelo.';},{once:true});
@@ -567,11 +567,6 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   drawModels();
   document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
   document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
-  document.getElementById('arkPreviewPrint').addEventListener('click',()=>{
-    dialog.close();
-    // O navegador imprime o próprio DOM paginado do editor, sem reconstruir o cabeçalho.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
-  });
   document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
     const button=document.getElementById('arkModelGenerate');button.disabled=true;
     try{
