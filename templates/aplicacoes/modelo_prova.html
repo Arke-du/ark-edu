@@ -106,6 +106,10 @@ body.layout-2 .question-grid{gap:0}
 .statement .text-left,.alt-text .text-left,
 .statement .ql-align-left,.alt-text .ql-align-left {text-align:left!important;text-align-last:left!important}
 .statement .ql-align-justify,.alt-text .ql-align-justify{text-align:justify!important}
+/* Preserva parágrafos vazios inseridos manualmente e espaçamentos do editor rico. */
+.qr2-manual-empty-line{min-height:1em!important;display:block!important}
+.statement [style*="line-height"],.alt-text [style*="line-height"]{line-height:inherit}
+.statement p[style*="line-height"],.statement div[style*="line-height"],.alt-text p[style*="line-height"],.alt-text div[style*="line-height"]{line-height:revert-layer}
 /* Controles da pré-impressão, independentes do conteúdo salvo das questões. */
 :root{--ark-question-gap:3.45mm;--ark-line-height:1.245;--ark-font-size:10.9pt;--ark-content-inset:13mm;--ark-alt-gap:.35mm}
 .sheet-content{inset:var(--ark-content-inset)}
@@ -313,7 +317,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       <button type="button" id="arkPrevPage" title="Página anterior">‹</button>
       <span id="arkPageCount">Página 1 de 1</span>
       <button type="button" id="arkNextPage" title="Próxima página">›</button>
-      <select id="arkGoPage" aria-label="Ir para página"></select>
+      
       <span class="qr2-ribbon-divider"></span>
       <button type="button" id="qr2ZoomOut" title="Diminuir zoom">−</button>
       <span id="qr2ZoomValue">100%</span>
@@ -500,11 +504,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   questionAlign.addEventListener('change',()=>changeQuestion({align:questionAlign.value}));
   questionBreak.addEventListener('change',()=>changeQuestion({breakBefore:questionBreak.checked}));
   document.getElementById('arkQuestionReset').addEventListener('click',()=>{if(selectedQuestion===null)return;delete settings.questions[selectedQuestion];selectQuestion(selectedQuestion);status.textContent='Alterações ainda não salvas';repaginate();});
-  function updatePageNavigation(){const sheets=Array.from(pages.querySelectorAll('.sheet'));activePage=Math.max(0,Math.min(activePage,sheets.length-1));const sel=document.getElementById('arkGoPage');sel.innerHTML='';sheets.forEach((sheet,i)=>{sheet.dataset.current=String(i===activePage);const label=document.createElement('span');label.className='page-label';label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);const option=document.createElement('option');option.value=i;option.textContent=`${i+1}`;sel.appendChild(option);});sel.value=activePage;document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;document.getElementById('arkPrevPage').disabled=activePage===0;document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;}
-  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();document.querySelectorAll('.ark-thumb').forEach((b,j)=>b.classList.toggle('active',j===activePage));pages.children[activePage]?.scrollIntoView({behavior:'smooth',block:'start'});}
+  function updatePageNavigation(){const sheets=Array.from(pages.querySelectorAll('.sheet'));activePage=Math.max(0,Math.min(activePage,sheets.length-1));sheets.forEach((sheet,i)=>{sheet.dataset.current=String(i===activePage);const label=document.createElement('span');label.className='page-label';label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);});document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;document.getElementById('arkPrevPage').disabled=activePage===0;document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;}
+  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();document.querySelectorAll('.ark-thumb').forEach((b,j)=>b.classList.toggle('active',j===activePage));const target=pages.children[activePage];if(target){const viewport=pages.closest('.qr2-main');const scrollArea=pages.parentElement;const scroller=scrollArea && scrollArea.scrollHeight>scrollArea.clientHeight ? scrollArea : viewport; if(scroller){const top=target.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-16;scroller.scrollTo({top:Math.max(0,top),behavior:'smooth'});}else target.scrollIntoView({behavior:'smooth',block:'start'});}}
   document.getElementById('arkPrevPage').onclick=()=>goToPage(activePage-1);
   document.getElementById('arkNextPage').onclick=()=>goToPage(activePage+1);
-  document.getElementById('arkGoPage').onchange=e=>goToPage(Number(e.target.value));
+
   let qr2Zoom=100;
   function applyQr2Zoom(){
     const value=document.getElementById('qr2ZoomValue');value.textContent=qr2Zoom+'%';
@@ -577,7 +581,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
          apagava todas antes da paginação, por isso as discursivas saíam sem pauta. */
       if(el.classList && (el.classList.contains('discursive-line') || el.classList.contains('discursive-space'))){ return; }
       const hasVisual=el.querySelector('img,table,svg,canvas');
-      if(!hasVisual && !el.textContent.trim()){ el.remove(); return; }
+      if(!hasVisual && !el.textContent.trim()){ if(el.closest('.statement,.alt-text') && (el.matches('p,div') || el.querySelector('br'))) {el.classList.add('qr2-manual-empty-line');return;} el.remove(); return; }
       if(!hasVisual){
         const h=parseFloat(getComputedStyle(el).height||'0');
         if(h>120){ el.style.setProperty('height','auto','important'); el.style.setProperty('min-height','0','important'); }
@@ -711,18 +715,9 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     const pieces=splitPieces(question);
     let part=makePart(question,false);
     slot.appendChild(part);
-    // Mantém questões completas quando elas cabem em uma coluna vazia.
-    // Questões maiores continuam usando a divisão inteligente existente.
-    const probe=question.cloneNode(true);
-    probe.style.marginBottom='0';slot.appendChild(probe);
-    const wholeFits=fits(slot);
-    probe.remove();
-    if(!wholeFits && slotHasContent(slot) && slot.children.length>1){
-      const emptyHeight=slot.clientHeight;
-      const requiredHeight=question.scrollHeight;
-      if(requiredHeight<=emptyHeight){slot.removeChild(part);slot=advanceSlot();part=makePart(question,false);slot.appendChild(part);}
-    }
-
+    // Fluxo contínuo: não deslocar uma questão inteira só porque não cabe
+    // no espaço restante. O conteúdo é colocado em sequência e dividido em
+    // blocos legíveis; somente uma quebra manual obriga nova página.
     if(!fits(slot)){
       slot.removeChild(part);
       slot=advanceSlot();
@@ -809,12 +804,12 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         el.dataset.after=String(settings.rich?.[key]?.after||0);
         el.contentEditable='true';el.spellcheck=true;el.classList.add('qr2-editable');
         el.addEventListener('focus',()=>{
-          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — use Ctrl+Enter para inserir uma quebra de linha.';
+          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página.';
           document.getElementById('arkRichBefore').value=el.dataset.before;
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
         });
-        el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
+        el.addEventListener('keydown',e=>{if(e.key==='Enter' && e.ctrlKey){e.preventDefault();settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};persistRich(el);repaginate();}});el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
         el.addEventListener('blur',()=>{
           if(el.dataset.arkChanged==='yes')persistRich(el);
           // Aguarda o término da interação com a barra de formatação.
@@ -878,7 +873,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       gapBtn.onclick=()=>{const v=prompt('Espaço após esta questão (mm, de 0 a 18):',settings.questions[idx]?.gap??settings.gap);if(v===null)return;const n=Number(v.replace(',','.'));if(!Number.isFinite(n)||n<0||n>18)return;settings.questions[idx]={...(settings.questions[idx]||{}),gap:n};status.textContent='Alterações ainda não salvas';repaginate();};
       const breakBtn=document.createElement('button');breakBtn.type='button';breakBtn.textContent=settings.questions[idx]?.breakBefore?'Remover quebra':'Nova página';
       breakBtn.onclick=()=>{settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:!settings.questions[idx]?.breakBefore};status.textContent='Alterações ainda não salvas';repaginate();};
-      tools.append(gapBtn,breakBtn);el.prepend(tools);el.addEventListener('click',e=>{if(e.target.closest('button'))return;selectQuestion(idx);});if(Number(idx)===selectedQuestion)el.classList.add('ark-selected');
+      const upBtn=document.createElement('button');upBtn.type='button';upBtn.textContent='↑ Aproximar';upBtn.title='Reduzir o espaço após a questão anterior';upBtn.disabled=Number(idx)===0;upBtn.onclick=()=>{const prev=Number(idx)-1;settings.questions[prev]={...(settings.questions[prev]||{}),gap:0};settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:false};status.textContent='Espaço reduzido — salve as alterações';repaginate();};tools.append(upBtn,gapBtn,breakBtn);el.prepend(tools);el.addEventListener('click',e=>{if(e.target.closest('button'))return;selectQuestion(idx);});if(Number(idx)===selectedQuestion)el.classList.add('ark-selected');
     });
 
     /* Remove colunas/páginas finais realmente vazias. */
