@@ -22587,8 +22587,9 @@ def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
             browser.close()
 
 
+@app.route("/aplicacoes/<int:aplicacao_id>/modelos/pdf/<int:modelo>", methods=["POST"])
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
-def baixar_modelos_zip(aplicacao_id):
+def baixar_modelos_zip(aplicacao_id, modelo=None):
     """Exporta somente PDFs de provas; cartões permanecem na rota original da aplicação."""
     import zipfile
     _garantir_tabelas_aplicacoes()
@@ -22613,7 +22614,7 @@ def baixar_modelos_zip(aplicacao_id):
         if not aplicacao or not _pode_gerenciar_prova(cursor, aplicacao['prova_id'], exigir_edicao=False):
             return jsonify(erro="Aplicação não encontrada ou acesso negado."), 403
         dados = request.get_json(silent=True) or {}
-        modelos = dados.get('modelos', [])
+        modelos = [modelo] if modelo is not None else dados.get('modelos', [])
         if not isinstance(modelos,list) or not modelos:
             return jsonify(erro="Selecione pelo menos um modelo."), 400
         try:
@@ -22646,6 +22647,9 @@ def baixar_modelos_zip(aplicacao_id):
                                            server_settings=_ark_configuracao_salva(cursor, aplicacao_id))
                     pdf = _ark_pdf_previsualizacao(html, request.url_root, request.cookies.get("session"))
                     z.writestr(f'{titulo_limpo} - Modelo {n} - Prova.pdf', pdf)
+                    if modelo is not None:
+                        return send_file(BytesIO(pdf), mimetype='application/pdf', as_attachment=True,
+                                         download_name=f'{titulo_limpo} - Modelo {n} - Prova.pdf')
         arquivo.seek(0)
         return send_file(arquivo, mimetype='application/zip', as_attachment=True,
                          download_name=f'{titulo_limpo} - Modelos.zip')

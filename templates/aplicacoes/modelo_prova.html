@@ -478,7 +478,10 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   .ark-modal-body p{margin:0 0 15px;color:#4d6581;line-height:1.5}
   .ark-field-label{display:block;font-weight:700;font-size:13px;margin:14px 0 8px;color:#14375f}
   #arkModelCount{width:100%;padding:12px 14px;border:1px solid #cbd8e8;border-radius:9px;color:#102d52;background:#fff;font:inherit}
-  #arkModelChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0 18px}
+  #arkModelChoices{display:grid;grid-template-columns:1fr;gap:9px;margin:10px 0 18px}
+  .ark-model-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d7e2ef;border-radius:9px;padding:10px 12px;background:#f9fbff;color:#0c2a50;font-weight:700}
+  .ark-model-item button{background:#1264d8;color:white;border:0;border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:700}
+  .ark-model-item button:disabled{opacity:.55;cursor:wait}
   #arkModelChoices label,.ark-file-choice{display:flex;align-items:center;gap:9px;border:1px solid #d7e2ef;border-radius:9px;padding:11px 12px;font-weight:600;background:#f9fbff}
   #arkModelDialog input[type=checkbox]{accent-color:#0879cf;width:16px;height:16px}
   #arkModelMessage{font-size:12px;min-height:18px;margin:14px 0 4px;color:#4d6581}
@@ -502,7 +505,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <select id="arkModelCount">
     {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
     </select>
-    <label class="ark-field-label">Modelos para download</label>
+    <label class="ark-field-label">Provas disponíveis para baixar</label>
     <div id="arkModelChoices"></div>
     <p class="ark-field-label">Os PDFs são compostos a partir da mesma pré-visualização e das configurações salvas na aplicação.</p>
     <p id="arkModelMessage" role="status" aria-live="polite">Os modelos ficam disponíveis para novos downloads.</p>
@@ -511,7 +514,6 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <button id="arkModelCancel" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Fechar</button>
     <button id="arkModelGenerate" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Salvar modelos</button>
     <button id="arkPreviewPrint" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Imprimir modelo atual</button>
-    <button id="arkModelDownload" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar provas em ZIP</button>
   </div>
 </dialog>
 <script>
@@ -521,13 +523,32 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const modelChoices=document.getElementById('arkModelChoices');
   const modelMessage=document.getElementById('arkModelMessage');
   let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
+  const pdfUrlPrefix={{ url_for('baixar_modelo_pdf',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
   function drawModels(){
     modelChoices.replaceChildren();
     for(let i=1;i<=registeredModels;i++){
-      const label=document.createElement('label');
-      const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=i;checkbox.checked=true;checkbox.className='ark-model-choice';
-      label.append(checkbox,document.createTextNode('Modelo '+i));modelChoices.append(label);
+      const item=document.createElement('div');item.className='ark-model-item';
+      const title=document.createElement('span');title.textContent='Modelo '+i;
+      const button=document.createElement('button');button.type='button';button.textContent='↓ Baixar PDF';
+      button.addEventListener('click',()=>downloadModel(i,button));
+      item.append(title,button);modelChoices.append(item);
     }
+  }
+  async function downloadModel(modelo,button){
+    button.disabled=true;button.textContent='Gerando PDF...';
+    modelMessage.textContent='Preparando PDF do Modelo '+modelo+'...';
+    try{
+      const response=await fetch(pdfUrlPrefix+modelo,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({colunas:Number(document.getElementById('qr2Columns').value)})});
+      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(err.erro||'Falha ao gerar PDF. Verifique os logs do Render.');}
+      const blob=await response.blob();const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');link.href=url;
+      const disposition=response.headers.get('Content-Disposition')||'';
+      const match=disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      link.download=match?decodeURIComponent(match[1]):'ARK_EDUS_Modelo_'+modelo+'.pdf';
+      document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      modelMessage.textContent='Download do Modelo '+modelo+' iniciado.';
+    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;button.textContent='↓ Baixar PDF';}
   }
   drawModels();
   document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
@@ -544,27 +565,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const data=await response.json();
       if(!response.ok)throw Error(data.erro||'Não foi possível registrar os modelos.');
       registeredModels=data.quantidade;modelCount.value=registeredModels;drawModels();
-      modelMessage.textContent='Modelos registrados com sucesso. Selecione os PDFs e baixe o ZIP.';
-    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
-  });
-  document.getElementById('arkModelDownload').addEventListener('click',async()=>{
-    if(Number(modelCount.value)>registeredModels){
-      modelMessage.textContent='Registrando os novos modelos...';
-      try{
-        const saved=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:Number(modelCount.value)})});
-        const data=await saved.json();if(!saved.ok)throw Error(data.erro||'Falha ao salvar modelos.');
-        registeredModels=data.quantidade;drawModels();
-      }catch(err){modelMessage.textContent=err.message;return;}
-    }
-    const modelos=[...document.querySelectorAll('.ark-model-choice:checked')].map(el=>Number(el.value));
-    if(!modelos.length){modelMessage.textContent='Selecione ao menos um modelo.';return;}
-    const button=document.getElementById('arkModelDownload');button.disabled=true;modelMessage.textContent='Gerando provas em PDF e preparando ZIP...';
-    try{
-      const response=await fetch({{ url_for('baixar_modelos_zip',aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelos,provas:true,colunas:Number(document.getElementById('qr2Columns').value)})});
-      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(err.erro||'Erro ao gerar ZIP.');}
-      const blob=await response.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;
-      link.download='ARK_EDUS_Aplicacao_{{ aplicacao.id }}_Modelos.zip';document.body.append(link);link.click();link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),10000);modelMessage.textContent='ZIP preparado com sucesso.';
+      modelMessage.textContent='Modelos registrados. Clique em Baixar PDF ao lado do modelo desejado.';
     }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
   });
   const source = document.getElementById('examSource');
