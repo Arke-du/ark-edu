@@ -302,7 +302,7 @@ mail = Mail(app)
 
 print("=" * 60)
 print("MAIL_USERNAME:", app.config.get("MAIL_USERNAME"))
-print("MAIL_PASSWORD:", app.config.get("MAIL_PASSWORD"))
+print("MAIL_PASSWORD: [CONFIGURADA]" if app.config.get("MAIL_PASSWORD") else "MAIL_PASSWORD: [NÃO CONFIGURADA]")
 print("MAIL_DEFAULT_SENDER:", app.config.get("MAIL_DEFAULT_SENDER"))
 print("=" * 60)
 
@@ -22564,7 +22564,7 @@ def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
     import json as _json
     # O navegador precisa estar instalado no ambiente de execução.
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
+        browser = p.chromium.launch(headless=True, timeout=60000, args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'])
         try:
             page = browser.new_page(viewport={'width': 1600, 'height': 1100},
                                     device_scale_factor=1)
@@ -22577,9 +22577,9 @@ def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
                 if host:
                     page.context.add_cookies([{'name': 'session', 'value': session_cookie,
                                                'domain': host, 'path': '/', 'httpOnly': True}])
-            page.set_content(html, wait_until='load', timeout=45000)
-            page.evaluate('document.fonts.ready')
-            page.wait_for_function("""() => document.querySelectorAll('#pages .sheet').length > 0""", timeout=30000)
+            page.set_content(html, wait_until='domcontentloaded', timeout=45000)
+            page.evaluate('() => document.fonts.ready')
+            page.wait_for_function("""() => document.querySelectorAll('#pages .sheet').length > 0 && document.querySelector('#arkThumbnails')?.children.length > 0""", timeout=60000)
             page.wait_for_timeout(350)
             return page.pdf(format='A4', print_background=True,
                             prefer_css_page_size=True, margin={'top':'0','right':'0','bottom':'0','left':'0'})
