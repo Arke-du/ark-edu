@@ -22706,6 +22706,7 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
             modelo=modelo,
             layout_colunas=layout_colunas,
             auto_imprimir=auto_imprimir,
+            impressao_incorporada=request.args.get("incorporado") == "1",
             server_settings=_ark_configuracao_salva(cursor, aplicacao_id)
         )
     finally:

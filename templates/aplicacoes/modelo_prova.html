@@ -547,23 +547,47 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     registeredModels=data.quantidade;
     if(!silent)modelMessage.textContent='Modelos salvos com sucesso.';
   }
-  function openModelPrint(modelo){
-    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
-    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
-    // Abrir sincronamente no clique impede bloqueio de pop-ups após await.
-    // A aba temporária chama print() após concluir a paginação e carregar imagens.
-    const popup=window.open('about:blank','_blank');
-    if(!popup){
-      modelMessage.textContent='O navegador bloqueou a janela de impressão. Autorize pop-ups para este site.';
-      return;
+  // A impressão é executada no documento paginado, dentro de um iframe
+  // de mesma origem. Nenhuma aba intermediária ou segundo clique.
+  let printFrame=null;
+  let printRequest=0;
+  const printFrameId='arkDirectPrintFrame';
+  window.addEventListener('message',event=>{
+    if(event.origin!==window.location.origin || !printFrame ||
+       event.source!==printFrame.contentWindow || !event.data ||
+       event.data.type!=='ark:print-ready')return;
+    try{
+      modelMessage.textContent='Abrindo a impressão do Modelo '+event.data.modelo+'…';
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    }catch(error){
+      modelMessage.textContent='Não foi possível abrir a impressão: '+error.message;
     }
-    popup.document.write('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>ARK EDUS — Preparando impressão</title><body style="font:16px Arial;padding:30px">Preparando impressão da avaliação…</body></html>');
-    popup.document.close();
-    modelMessage.textContent='Abrindo impressão do Modelo '+modelo+'…';
-    saveModels(true).then(()=>{popup.location.replace(url);}).catch(error=>{
-      popup.document.body.textContent='Não foi possível salvar os modelos: '+error.message;
-      modelMessage.textContent='Falha ao salvar os modelos: '+error.message;
-    });
+  });
+  async function openModelPrint(modelo){
+    const requestId=++printRequest;
+    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+    modelMessage.textContent='Preparando o Modelo '+modelo+' para impressão…';
+    try{
+      // A rota valida a quantidade cadastrada. Salvar antes de carregá-la
+      // evita redirecionamentos para /provas nos novos modelos.
+      if(registeredModels!==Number(modelCount.value))await saveModels(true);
+      if(requestId!==printRequest)return;
+      if(printFrame){printFrame.remove();printFrame=null;}
+      const frame=document.createElement('iframe');
+      frame.id=printFrameId;
+      frame.title='Impressão da avaliação';
+      frame.setAttribute('aria-hidden','true');
+      frame.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;';
+      printFrame=frame;
+      frame.addEventListener('error',()=>{
+        modelMessage.textContent='Não foi possível carregar o documento de impressão.';
+      });
+      document.body.appendChild(frame);
+      frame.src=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1&incorporado=1';
+    }catch(error){
+      modelMessage.textContent='Falha ao preparar impressão: '+error.message;
+    }
   }
   document.getElementById('qr2PrintAction').addEventListener('click',()=>{drawModels();dialog.showModal();});
   modelCount.addEventListener('change',drawModels);
@@ -579,6 +603,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const pages = document.getElementById('pages');
   let columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
+  const embeddedPrint = {{ 'true' if impressao_incorporada|default(false) else 'false' }};
   const settingKey='ark-print-layout-shared-v3-{{ aplicacao.id }}';
   const configUrl={{ url_for('ark_impressao_configuracao',aplicacao_id=aplicacao.id)|tojson }};
   const defaults={gap:6,font:12,line:1.15,margin:12,altGap:2,showInstructions:true,rich:{},questions:{},columns:columns};
@@ -1154,11 +1179,16 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     // A janela de exportação só imprime depois que a paginação terminou.
     if(autoPrint && !window.__arkPrinted){
       window.__arkPrinted=true;
-      window.addEventListener('afterprint',()=>{
-        // Fechar apenas a aba temporária aberta pelo botão, nunca o editor.
-        if(window.opener)window.close();
-      },{once:true});
-      setTimeout(()=>{window.focus();window.print();},350);
+      if(embeddedPrint && window.parent!==window){
+        // O pai aciona print() no iframe que contém a versão já paginada.
+        // Evita abrir aba nova e evita imprimir antes do layout terminar.
+        setTimeout(()=>window.parent.postMessage({type:'ark:print-ready',modelo:{{ modelo|int }}},window.location.origin),150);
+      }else{
+        window.addEventListener('afterprint',()=>{
+          if(window.opener)window.close();
+        },{once:true});
+        setTimeout(()=>{window.focus();window.print();},350);
+      }
     }
   }
   function waitImages(){
