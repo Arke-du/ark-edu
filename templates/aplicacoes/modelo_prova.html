@@ -67,8 +67,8 @@ body.layout-2 .question-grid{gap:0}
 .question-title{margin:0 0 .75mm;font-family:Arial,Helvetica,sans-serif;font-size:11.25pt;line-height:1.2;font-weight:800;color:#0f172a;break-after:avoid;page-break-after:avoid}
 .question-value{font-size:8.7pt;font-weight:600}
 .statement{margin:0 0 .8mm;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
-.statement p,.statement div{ text-align:justify!important; text-align-last:left!important; text-justify:inter-word!important; hyphens:none!important }
-.statement span{ text-align:inherit!important; text-justify:inherit!important }
+.statement p,.statement div{ text-justify:inter-word; hyphens:none!important }
+.statement span{ text-justify:inherit }
 .statement p{margin:0 0 .45mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
@@ -85,12 +85,50 @@ body.layout-2 .question-grid{gap:0}
 .alternative{display:flex;align-items:flex-start;gap:1.2mm;min-height:4.1mm;break-inside:avoid;page-break-inside:avoid}
 .alt-letter{display:inline-block;flex:0 0 auto;min-width:6.5mm;padding-top:.1mm;font-family:Arial,Helvetica,sans-serif;font-size:11.2pt;font-weight:700;line-height:1.26}.alt-letter::before{content:"("}.alt-letter::after{content:")"}
 .alt-text{padding-top:0;white-space:pre-line;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none}
-.alt-text p,.alt-text div{ text-align:justify!important; text-align-last:left!important; text-justify:inter-word!important; hyphens:none!important }
-.alt-text span{ text-align:inherit!important; text-justify:inherit!important }
+.alt-text p,.alt-text div{ text-justify:inter-word; hyphens:none!important }
+.alt-text span{ text-justify:inherit }
 .discursive-space{margin-top:.8mm;width:100%}
 .discursive-space + .discursive-space{margin-top:0}
 .discursive-line{display:block;width:100%;height:7mm;min-height:7mm;border-bottom:1px solid #334155!important;break-inside:avoid;page-break-inside:avoid}
 .model-tag{font-weight:800}
+
+/* Alinhamentos registrados no editor rico prevalecem sobre o padrão justificado. */
+.statement [style*="text-align: center"],.alt-text [style*="text-align: center"],
+.statement [style*="text-align:center"],.alt-text [style*="text-align:center"],
+.statement .text-center,.alt-text .text-center,
+.statement .ql-align-center,.alt-text .ql-align-center {text-align:center!important;text-align-last:center!important}
+.statement [style*="text-align: right"],.alt-text [style*="text-align: right"],
+.statement [style*="text-align:right"],.alt-text [style*="text-align:right"],
+.statement .text-right,.alt-text .text-right,
+.statement .ql-align-right,.alt-text .ql-align-right {text-align:right!important;text-align-last:right!important}
+.statement [style*="text-align: left"],.alt-text [style*="text-align: left"],
+.statement [style*="text-align:left"],.alt-text [style*="text-align:left"],
+.statement .text-left,.alt-text .text-left,
+.statement .ql-align-left,.alt-text .ql-align-left {text-align:left!important;text-align-last:left!important}
+.statement .ql-align-justify,.alt-text .ql-align-justify{text-align:justify!important}
+/* Controles da pré-impressão, independentes do conteúdo salvo das questões. */
+:root{--ark-question-gap:3.45mm;--ark-line-height:1.245;--ark-font-size:10.9pt;--ark-content-inset:9.2mm}
+.sheet-content{inset:var(--ark-content-inset)}
+.question,.question.has-image,.question.long-text,.question.discursive-question{margin-bottom:var(--ark-question-gap)}
+.statement,.alt-text{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
+body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
+.question[data-custom-gap]{margin-bottom:var(--custom-gap)!important}
+.question[data-break-before="true"]{break-before:page}
+.editor-panel{position:sticky;top:0;z-index:1001;background:#f8fafc;border-bottom:1px solid #cbd5e1;padding:12px 20px;font:13px Arial,sans-serif}
+.editor-controls{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:center}
+.editor-controls label{display:flex;gap:5px;align-items:center;font-weight:600}
+.editor-controls input,.editor-controls select{max-width:90px;padding:6px;border:1px solid #cbd5e1;border-radius:5px}
+.editor-controls button{padding:7px 12px;border:1px solid #b7c6d9;border-radius:6px;background:white;cursor:pointer}
+.editor-note{text-align:center;margin:8px 0 0;color:#64748b}
+.question-tools{display:none}
+@media screen{
+ .sheet .question{position:relative}
+ .sheet .question:hover{outline:1px dashed #93c5fd}
+ .sheet .question:hover>.question-tools{display:flex}
+ .question-tools{position:absolute;right:0;top:-19px;z-index:15;gap:3px;background:#eff6ff;border:1px solid #93c5fd;padding:2px}
+ .question-tools button{font:10px Arial;padding:2px 5px;cursor:pointer}
+}
+@media print{.editor-panel,.question-tools{display:none!important}}
 
 /* Mantém palavras inteiras nos enunciados e alternativas ao imprimir/exportar. */
 .statement, .statement p, .statement div, .statement span,
@@ -149,6 +187,18 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
 </style>
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
+<div class="editor-panel" id="printEditor">
+ <div class="editor-controls">
+  <strong>Organizar impressão</strong>
+  <label>Entre questões <input id="arkGap" type="number" min="0" max="18" step="0.5" value="3.45"> mm</label>
+  <label>Fonte <input id="arkFont" type="number" min="8" max="15" step="0.25" value="10.9"> pt</label>
+  <label>Entrelinhas <select id="arkLine"><option value="1.15">1,15</option><option value="1.245" selected>1,245</option><option value="1.4">1,4</option><option value="1.5">1,5</option></select></label>
+  <label>Margem interna <input id="arkMargin" type="number" min="7" max="20" step="0.5" value="9.2"> mm</label>
+  <button type="button" id="arkReset">Restaurar</button>
+  <button type="button" id="arkSave">Salvar ajustes neste navegador</button>
+ </div>
+ <p class="editor-note">Passe o mouse sobre uma questão para ajustar seu espaço individual ou iniciar uma nova página. A prévia é repaginada automaticamente.</p>
+</div>
 <div class="toolbar">
   <span class="layout-info">Layout selecionado: <strong>{{ layout_colunas|default(1) }} coluna{% if layout_colunas|default(1)|int == 2 %}s{% endif %}</strong></span>
   <button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
@@ -240,6 +290,23 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   const pages = document.getElementById('pages');
   const columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
+  const settingKey='ark-print-layout-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
+  const defaults={gap:3.45,font:10.9,line:1.245,margin:9.2,questions:{}};
+  let settings={...defaults,questions:{}};
+  try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{}};}catch(e){}
+  const controls={gap:document.getElementById('arkGap'),font:document.getElementById('arkFont'),line:document.getElementById('arkLine'),margin:document.getElementById('arkMargin')};
+  function applySettings(){
+    Object.keys(controls).forEach(k=>{controls[k].value=settings[k]});
+    const st=document.documentElement.style;
+    st.setProperty('--ark-question-gap',settings.gap+'mm');st.setProperty('--ark-font-size',settings.font+'pt');
+    st.setProperty('--ark-line-height',settings.line);st.setProperty('--ark-content-inset',settings.margin+'mm');
+  }
+  applySettings();
+  Object.keys(controls).forEach(k=>controls[k].addEventListener('change',()=>{
+    settings[k]=Number(controls[k].value);applySettings();repaginate();
+  }));
+  document.getElementById('arkSave').addEventListener('click',()=>{localStorage.setItem(settingKey,JSON.stringify(settings));alert('Ajustes salvos neste navegador.');});
+  document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{}};localStorage.removeItem(settingKey);applySettings();repaginate();});
   let slots = [];
   let slotIndex = 0;
 
@@ -316,6 +383,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   function makePart(question, continuation){
     const part = document.createElement('section');
     part.className = question.className + ' question-part';
+    part.dataset.arkIndex=question.dataset.arkIndex;
     const title = question.querySelector(':scope > .question-title');
     // Quando a questão passar para outra coluna/página, o conteúdo continua
     // diretamente, sem repetir o título e sem exibir a palavra “continuação”.
@@ -508,7 +576,29 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
     pages.innerHTML=''; slots=[]; slotIndex=0;
     createSheet(true);
     const questions=Array.from(questionsSource.querySelectorAll(':scope > .question'));
-    questions.forEach(placeQuestion);
+    questions.forEach((question,i)=>{
+      const opts=settings.questions[i]||{};
+      question.dataset.arkIndex=i;
+      if(opts.gap!==undefined){question.dataset.customGap='true';question.style.setProperty('--custom-gap',opts.gap+'mm');}
+      else {delete question.dataset.customGap;question.style.removeProperty('--custom-gap');}
+      if(opts.breakBefore)question.dataset.breakBefore='true';else delete question.dataset.breakBefore;
+      if(opts.breakBefore && i>0 && slotHasContent(currentSlot())){
+        while(slotIndex%columns!==0)advanceSlot();
+        if(slotIndex%columns===0)advanceSlot();
+      }
+      placeQuestion(question);
+    });
+    pages.querySelectorAll('.question').forEach(el=>{
+      if(el.classList.contains('question-continuation'))return;
+      const idx=el.dataset.arkIndex;
+      if(idx===undefined)return;
+      const tools=document.createElement('div');tools.className='question-tools';
+      const gapBtn=document.createElement('button');gapBtn.textContent='Espaço após';gapBtn.type='button';
+      gapBtn.onclick=()=>{const v=prompt('Espaço após esta questão (mm, de 0 a 18):',settings.questions[idx]?.gap??settings.gap);if(v===null)return;const n=Number(v.replace(',','.'));if(!Number.isFinite(n)||n<0||n>18)return;settings.questions[idx]={...(settings.questions[idx]||{}),gap:n};repaginate();};
+      const breakBtn=document.createElement('button');breakBtn.type='button';breakBtn.textContent=settings.questions[idx]?.breakBefore?'Remover quebra':'Nova página';
+      breakBtn.onclick=()=>{settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:!settings.questions[idx]?.breakBefore};repaginate();};
+      tools.append(gapBtn,breakBtn);el.prepend(tools);
+    });
 
     /* Remove colunas/páginas finais realmente vazias. */
     Array.from(pages.querySelectorAll('.sheet')).reverse().forEach((sheet, idx) => {
@@ -523,7 +613,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   function repaginate(){ clearTimeout(timer); timer=setTimeout(paginate,60); }
   function afterReady(){
     paginate();
-    if(autoPrint){ setTimeout(() => window.print(), 280); }
+    /* A prévia fica aberta para ajustes antes da impressão. */
   }
   function waitImages(){
     const imgs=Array.from(source.querySelectorAll('img'));
