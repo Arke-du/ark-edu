@@ -74,7 +74,7 @@ body.layout-2 .question-grid{gap:0}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
 .statement figure>*:not(img),.statement .image>*:not(img){height:auto!important;min-height:0!important}
 .statement p:empty,.statement div:empty{display:none!important}
-.statement br+br{display:none}
+.statement br[data-ark-manual-break]{display:block;content:"";margin-top:1.5mm}
 .statement table{max-width:100%!important;height:auto!important;border-collapse:collapse}
 .statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;object-fit:contain;margin:.8mm auto}
 .question-image{display:block;width:auto;max-width:100%;max-height:92mm;height:auto;margin:.8mm auto 1mm;object-fit:contain}
@@ -813,9 +813,10 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     if(qimg) pieces.push(qimg.cloneNode(true));
     const alternatives=question.querySelector(':scope > .alternatives');
     if(alternatives){
-      alternatives.querySelectorAll(':scope > .alternative').forEach(alt => {
-        const wrap=document.createElement('div'); wrap.className='alternatives'; wrap.appendChild(alt.cloneNode(true)); pieces.push(wrap);
-      });
+      // Mantém A/B/C/D na mesma coluna sempre que o conjunto couber.
+      const group=alternatives.cloneNode(true);
+      group.classList.add('ark-alternatives-group');
+      pieces.push(group);
     }
     const disc=question.querySelector(':scope > .discursive-space');
     if(disc){
@@ -990,6 +991,21 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       slot.appendChild(part);
       part.appendChild(piece);
       setAdaptiveImageLimit(piece,slot);
+      // Se nem a coluna vazia comportar todas as alternativas, dividir
+      // entre alternativas, sem cortar o conteúdo ou causar sobreposição.
+      if(piece.classList?.contains('ark-alternatives-group') && !fits(slot)){
+        part.removeChild(piece);
+        for(const alt of Array.from(piece.children)){
+          const one=document.createElement('div');one.className='alternatives';
+          one.appendChild(alt.cloneNode(true));part.appendChild(one);
+          if(!fits(slot)){
+            part.removeChild(one);slot=advanceSlot();
+            part=makePart(question,true);part.classList.add('question-continuation');
+            slot.appendChild(part);part.appendChild(one);
+          }
+        }
+        continue;
+      }
 
       /* Se uma imagem ainda for alta demais para uma coluna vazia, reduz ao limite seguro. */
       if(!fits(slot)){
@@ -1048,6 +1064,16 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
           selectQuestion(idx);
         });
         el.addEventListener('keydown',e=>{
+          if(e.key==='Backspace'){
+            const sel=window.getSelection();
+            if(sel?.isCollapsed && sel.anchorNode?.nodeType===1){
+              const prev=sel.anchorNode.childNodes[sel.anchorOffset-1];
+              if(prev?.nodeName==='BR' && prev.hasAttribute('data-ark-manual-break')){
+                e.preventDefault();prev.remove();persistRich(el);return;
+              }
+            }
+            e.preventDefault();return;
+          }
           if(e.key!=='Enter')return;
           if(e.ctrlKey || e.altKey){
             e.preventDefault();
