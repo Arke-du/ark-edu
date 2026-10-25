@@ -57,6 +57,7 @@ body.layout-2 .question-grid{gap:0}
 .instructions ol{margin:0;padding-left:5.5mm;font-size:8.1pt;line-height:1.15}
 .instructions li{margin:.3mm 0}
 
+@media print{.qr2-editable,.question.ark-selected{outline:none!important}.question-tools{display:none!important}}
 /* Questões: economia vem de margens e paginação inteligente, não de esmagar conteúdo. */
 .question{margin:0 0 3.45mm;padding:0;min-width:0}
 .question:last-child{margin-bottom:0}
@@ -66,14 +67,14 @@ body.layout-2 .question-grid{gap:0}
 .question.question-part{margin-bottom:2.85mm}
 .question-title{margin:0 0 .75mm;font-family:Arial,Helvetica,sans-serif;font-size:11.25pt;line-height:1.2;font-weight:900;color:#000!important;text-transform:uppercase;break-after:avoid;page-break-after:avoid}
 .question-value{font-size:8.7pt;font-weight:600}
-.statement{margin:0 0 .8mm;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
+.statement{overflow-wrap:anywhere;word-break:normal;margin:0 0 .8mm;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
 .statement p,.statement div{ text-justify:inter-word; hyphens:none!important }
 .statement span{ text-justify:inherit }
-.statement p{margin:0 0 .45mm}
+.statement p{margin:0 0 1.1mm}
 .statement figure{box-sizing:border-box;max-width:100%!important;margin:.7mm auto!important;padding:0!important;border:0!important;overflow:visible!important;break-inside:avoid;page-break-inside:avoid}
 .statement figure,.statement .image,.statement .image_resized{height:auto!important;min-height:0!important;max-height:none!important}
 .statement figure>*:not(img),.statement .image>*:not(img){height:auto!important;min-height:0!important}
-.statement p:empty,.statement div:empty{display:none!important}
+.statement p:empty:not(.qr2-manual-empty-line),.statement div:empty:not(.qr2-manual-empty-line){display:none!important}
 .statement br[data-ark-manual-break]{display:block;content:"";margin-top:1.5mm}
 .statement table{max-width:100%!important;height:auto!important;border-collapse:collapse}
 .statement figure img,.statement>img{display:block;max-width:100%!important;height:auto!important;object-fit:contain;margin:.8mm auto}
@@ -966,6 +967,38 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 
     for(let i=0;i<pieces.length;i++){
       const piece=pieces[i];
+      // Protege o comando final da questão junto às alternativas. O comando
+      // curto e as alternativas são medidos como um único conjunto antes
+      // de posicionar o comando, evitando deixá-lo órfão no rodapé.
+      const following=pieces[i+1];
+      const isShortCommand=piece.classList?.contains('statement') &&
+        (piece.textContent||'').trim().length<=240 &&
+        following?.classList?.contains('ark-alternatives-group');
+      if(isShortCommand && slotHasContent(slot)){
+        const probe=document.createElement('div');
+        probe.className='ark-command-options-probe';
+        probe.append(piece.cloneNode(true),following.cloneNode(true));
+        part.appendChild(probe);
+        const fitsRemaining=fits(slot);
+        probe.remove();
+        if(!fitsRemaining){
+          // Só transfere o comando quando ambos cabem numa coluna vazia.
+          // Caso contrário, conserva o fluxo normal e permite a divisão.
+          const emptyProbe=makePart(question,true);
+          emptyProbe.append(probe);
+          const old=Array.from(slot.childNodes);
+          slot.replaceChildren(emptyProbe);
+          const fitsEmpty=fits(slot);
+          slot.replaceChildren(...old);
+          if(fitsEmpty){
+            part.classList.remove('smart-compact','micro-compact');
+            slot=advanceSlot();
+            part=makePart(question,true);
+            part.classList.add('question-continuation');
+            slot.appendChild(part);
+          }
+        }
+      }
       part.appendChild(piece);
       // Sempre garante um tamanho mínimo legível ANTES de decidir se o bloco cabe.
       // Antes, a ampliação só acontecia quando a questão estourava a página; por isso
