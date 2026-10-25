@@ -536,27 +536,31 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   }
   let printFrame=null;
   function downloadModel(modelo,button){
-    // Carrega o modelo em um iframe invisível na própria página.
-    // A página interna chama window.print() após finalizar a paginação/imagens.
-    // Assim o diálogo de impressão abre sem navegar para uma nova aba.
     const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
     const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
     if(printFrame){printFrame.remove();printFrame=null;}
     const frame=document.createElement('iframe');
-    frame.setAttribute('title','Impressão do modelo '+modelo);
-    frame.setAttribute('aria-hidden','true');
-    frame.style.cssText='position:fixed;left:-20000px;top:0;width:1000px;height:1400px;border:0;opacity:0;pointer-events:none;';
+    frame.title='Impressão do modelo '+modelo;
+    frame.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;';
     printFrame=frame;
     button.disabled=true;
-    modelMessage.textContent='Preparando o Modelo '+modelo+' para impressão...';
-    frame.addEventListener('load',()=>{
+    modelMessage.textContent='Preparando Modelo '+modelo+'...';
+    let finished=false;
+    const timeout=setTimeout(()=>{
+      if(finished)return;
       button.disabled=false;
-      modelMessage.textContent='Selecione “Salvar como PDF” na janela de impressão.';
-    },{once:true});
-    frame.addEventListener('error',()=>{
-      button.disabled=false;
-      modelMessage.textContent='Não foi possível carregar o modelo para impressão.';
-    },{once:true});
+      modelMessage.textContent='A impressão não abriu automaticamente. Clique novamente ou use “Imprimir modelo atual”.';
+    },12000);
+    function onReady(event){
+      if(event.source!==frame.contentWindow || event.origin!==location.origin || event.data?.type!=='ark-print-ready')return;
+      window.removeEventListener('message',onReady);
+      clearTimeout(timeout);finished=true;button.disabled=false;
+      modelMessage.textContent='Abrindo a impressão do Modelo '+modelo+' — escolha Salvar como PDF.';
+      try{frame.contentWindow.focus();frame.contentWindow.print();}
+      catch(e){modelMessage.textContent='O navegador bloqueou a impressão automática. Use “Imprimir modelo atual”.';}
+    }
+    window.addEventListener('message',onReady);
+    frame.addEventListener('error',()=>{clearTimeout(timeout);button.disabled=false;window.removeEventListener('message',onReady);modelMessage.textContent='Falha ao carregar o modelo.';},{once:true});
     frame.src=url;
     document.body.appendChild(frame);
   }
@@ -766,7 +770,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       if(!hasVisual && !el.textContent.trim()){ if(el.closest('.statement,.alt-text') && (el.matches('p,div') || el.querySelector('br'))) {el.classList.add('qr2-manual-empty-line');return;} el.remove(); return; }
       if(!hasVisual){
         const h=parseFloat(getComputedStyle(el).height||'0');
-        if(h>120){ el.style.setProperty('height','auto','important'); el.style.setProperty('min-height','0','important'); }
+        if(h>60){ el.style.setProperty('height','auto','important'); el.style.setProperty('min-height','0','important'); }
       }
     });
     return root;
@@ -886,7 +890,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     // Em questões objetivas, tenta manter ao menos comando + primeira alternativa no início.
     if(!question.classList.contains('discursive-question') && pieces.length>1 && !secondHasVisual){
       const hasAlt=pieces.some(p=>p.classList?.contains('alternatives'));
-      if(hasAlt) n=Math.min(2,pieces.length);
+      if(hasAlt){
+        const firstAlt=pieces.findIndex(p=>p.classList?.contains('alternatives'));
+        if(firstAlt>=0 && firstAlt<=3)n=Math.min(firstAlt+1,pieces.length);
+        else n=Math.min(2,pieces.length);
+      }
     }
     return n;
   }
@@ -979,9 +987,18 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const idx=q.dataset.arkIndex;
       if(idx===undefined)return;
       q.querySelectorAll('.statement,.alt-text').forEach((el,j)=>{
-        // A paginação pode dividir enunciados: os fragmentos não são editáveis separadamente.
         const origin=questionsSource.querySelectorAll(':scope > .question')[Number(idx)];
-        const key=(origin?.dataset.questionId||idx)+':'+j;
+        // Nunca salvar um fragmento como se fosse o enunciado completo.
+        // Isso duplicava o comando e apagava alternativas após Enter.
+        const renderedStatements=pages.querySelectorAll('.question[data-ark-index="'+idx+'"] .statement');
+        if(el.classList.contains('statement') && renderedStatements.length!==1){
+          el.title='Enunciado dividido em blocos: ajuste o espaçamento pelo painel lateral';
+          return;
+        }
+        const originParts=Array.from(origin?.querySelectorAll('.statement,.alt-text')||[]);
+        const partIndex=el.classList.contains('statement')?0:originParts.findIndex(part=>part.classList.contains('alt-text') && part.textContent.trim()===el.textContent.trim());
+        if(partIndex<0)return;
+        const key=(origin?.dataset.questionId||idx)+':'+partIndex;
         el.dataset.richKey=key;
         el.dataset.before=String(settings.rich?.[key]?.before||0);
         el.dataset.after=String(settings.rich?.[key]?.after||0);
@@ -1122,7 +1139,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     // Apenas a aba aberta para exportação imprime automaticamente.
     if(autoPrint && !window.__arkPrinted){
       window.__arkPrinted=true;
-      setTimeout(()=>window.print(),700);
+      if(window.parent!==window){
+        window.parent.postMessage({type:'ark-print-ready'},location.origin);
+      }else{
+        setTimeout(()=>window.print(),450);
+      }
     }
   }
   function waitImages(){
