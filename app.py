@@ -22469,6 +22469,45 @@ def nova_aplicacao(prova_id):
         banco.close()
 
 
+def _ark_print_settings_table(cursor):
+    cursor.execute("""CREATE TABLE IF NOT EXISTS ark_print_settings (
+        aplicacao_id INTEGER PRIMARY KEY, dados TEXT NOT NULL,
+        atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+
+
+@app.route('/aplicacoes/<int:aplicacao_id>/impressao/configuracao', methods=['GET', 'POST'])
+def ark_impressao_configuracao(aplicacao_id):
+    """Configuração comum aos modelos, persistida na aplicação."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cursor = banco.cursor()
+        cursor.execute('SELECT prova_id FROM aplicacoes WHERE id=?', (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao or not _pode_gerenciar_prova(cursor, aplicacao['prova_id'], exigir_edicao=False):
+            return jsonify(erro='Aplicação não encontrada ou acesso negado.'), 403
+        _ark_print_settings_table(cursor)
+        if request.method == 'GET':
+            cursor.execute('SELECT dados FROM ark_print_settings WHERE aplicacao_id=?', (aplicacao_id,))
+            row = cursor.fetchone()
+            return jsonify(configuracao=json.loads(row['dados']) if row else None)
+        dados = request.get_json(silent=True)
+        if not isinstance(dados, dict):
+            return jsonify(erro='Configuração inválida.'), 400
+        if len(json.dumps(dados, ensure_ascii=False)) > 1000000:
+            return jsonify(erro='Configuração muito grande.'), 413
+        cursor.execute('''INSERT INTO ark_print_settings (aplicacao_id,dados)
+                        VALUES (?,?) ON CONFLICT(aplicacao_id) DO UPDATE SET
+                        dados=excluded.dados, atualizado_em=CURRENT_TIMESTAMP''',
+                       (aplicacao_id, json.dumps(dados, ensure_ascii=False)))
+        banco.commit()
+        return jsonify(salvo=True)
+    finally:
+        banco.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/gerar", methods=["POST"])
 def gerar_modelos_na_impressao(aplicacao_id):
     """Define a quantidade uma única vez; não reduz modelos já emitidos."""
@@ -22507,15 +22546,51 @@ def gerar_modelos_na_impressao(aplicacao_id):
         banco.close()
 
 
+def _ark_configuracao_salva(cursor, aplicacao_id):
+    _ark_print_settings_table(cursor)
+    cursor.execute('SELECT dados FROM ark_print_settings WHERE aplicacao_id=?', (aplicacao_id,))
+    reg = cursor.fetchone()
+    if not reg:
+        return None
+    try:
+        return json.loads(reg['dados'])
+    except (ValueError, TypeError):
+        return None
+
+
+def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
+    """Imprime o DOM final da pré-visualização, não um template simplificado."""
+    from playwright.sync_api import sync_playwright
+    import json as _json
+    # O navegador precisa estar instalado no ambiente de execução.
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
+        try:
+            page = browser.new_page(viewport={'width': 1600, 'height': 1100},
+                                    device_scale_factor=1)
+            # Evita chamadas de rede externas desnecessárias; URLs de imagens
+            # são incorporadas no HTML quando fornecidas pela plataforma.
+            html = html.replace('<head>', '<head><base href="' + base_url + '">', 1)
+            if session_cookie:
+                from urllib.parse import urlsplit
+                host = urlsplit(base_url).hostname
+                if host:
+                    page.context.add_cookies([{'name': 'session', 'value': session_cookie,
+                                               'domain': host, 'path': '/', 'httpOnly': True}])
+            page.set_content(html, wait_until='load', timeout=45000)
+            page.evaluate('document.fonts.ready')
+            page.wait_for_function("""() => document.querySelectorAll('#pages .sheet').length > 0""", timeout=30000)
+            page.wait_for_timeout(350)
+            return page.pdf(format='A4', print_background=True,
+                            prefer_css_page_size=True, margin={'top':'0','right':'0','bottom':'0','left':'0'})
+        finally:
+            browser.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
 def baixar_modelos_zip(aplicacao_id):
     """Exporta somente PDFs de provas; cartões permanecem na rota original da aplicação."""
     import zipfile
-    try:
-        from weasyprint import HTML
-    except (ImportError, OSError) as exc:
-        app.logger.exception('WeasyPrint indisponível no servidor')
-        return jsonify(erro='O gerador de PDF não está disponível no servidor. Verifique a instalação do WeasyPrint e suas bibliotecas nativas.'), 503
     _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -22563,16 +22638,20 @@ def baixar_modelos_zip(aplicacao_id):
             for n in modelos:
                 if provas:
                     questoes = _questoes_modelo_aplicacao(cursor, aplicacao_id, n)
-                    html = render_template('aplicacoes/modelo_pdf.html', aplicacao=aplicacao,
-                                           questoes=questoes, modelo=n, colunas=colunas)
-                    pdf = HTML(string=html, base_url=request.url_root).write_pdf()
-                    z.writestr(f'{titulo_limpo} - Modelo {n} - Prova.pdf',pdf)
+                    # Renderiza o MESMO template usado no editor, com o motor Chromium.
+                    # A paginação em JS é concluída antes de imprimir cada PDF.
+                    html = render_template('aplicacoes/modelo_prova.html', aplicacao=aplicacao,
+                                           questoes=questoes, modelo=n, layout_colunas=colunas,
+                                           auto_imprimir=False,
+                                           server_settings=_ark_configuracao_salva(cursor, aplicacao_id))
+                    pdf = _ark_pdf_previsualizacao(html, request.url_root, request.cookies.get("session"))
+                    z.writestr(f'{titulo_limpo} - Modelo {n} - Prova.pdf', pdf)
         arquivo.seek(0)
         return send_file(arquivo, mimetype='application/zip', as_attachment=True,
                          download_name=f'{titulo_limpo} - Modelos.zip')
     except Exception:
         app.logger.exception('Erro ao exportar modelos da aplicação %s', aplicacao_id)
-        return jsonify(erro="Falha ao gerar os PDFs. Consulte os logs do servidor."), 500
+        return jsonify(erro="Falha ao gerar PDFs no navegador do servidor. Verifique Chromium/Playwright nos logs."), 500
     finally:
         banco.close()
 
@@ -22622,7 +22701,8 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
             questoes=questoes,
             modelo=modelo,
             layout_colunas=layout_colunas,
-            auto_imprimir=auto_imprimir
+            auto_imprimir=auto_imprimir,
+            server_settings=_ark_configuracao_salva(cursor, aplicacao_id)
         )
     finally:
         banco.close()

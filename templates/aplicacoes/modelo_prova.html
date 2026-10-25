@@ -443,7 +443,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   {% set tipo_normalizado = (q.tipo_questao or '')|trim|lower|replace('-', '_') %}
   {# Reconhecimento tolerante: cadastros antigos podem ter rótulos diferentes. #}
   {% set discursiva = ('discurs' in tipo_normalizado) or ('dissert' in tipo_normalizado) or ('resposta' in tipo_normalizado) or ('numer' in tipo_normalizado) %}
-  <section class="question{% if discursiva %} discursive-question{% endif %}" data-block="question" data-number="{{ loop.index }}">
+  <section class="question{% if discursiva %} discursive-question{% endif %}" data-block="question" data-number="{{ loop.index }}" data-question-id="{{ q.id }}">
     <h2 class="question-title">Questão {{ '%02d'|format(loop.index) }}{% if (aplicacao.tem_nota|default(0)|int) == 1 %}<span class="question-value"> — Valor: {{ '%.2f'|format(q.peso|float)|replace('.', ',') }} ponto{% if (q.peso|float) != 1 %}s{% endif %}</span>{% endif %}</h2>
     <div class="statement">{% if q.enunciado_html %}{{ q.enunciado_html|embutir_imagens_html|safe }}{% else %}{{ q.enunciado }}{% endif %}</div>
     {% if q.imagem %}<img class="question-image" src="{{ q.imagem|imagem_data_uri }}" alt="Imagem da questão {{ loop.index }}">{% endif %}
@@ -504,14 +504,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     </select>
     <label class="ark-field-label">Modelos para download</label>
     <div id="arkModelChoices"></div>
-    <p class="ark-field-label">Para obter um PDF idêntico à pré-visualização, use “Imprimir prévia” e escolha “Salvar como PDF” no navegador. O ZIP do servidor ainda utiliza outro renderizador.</p>
+    <p class="ark-field-label">Os PDFs são compostos a partir da mesma pré-visualização e das configurações salvas na aplicação.</p>
     <p id="arkModelMessage" role="status" aria-live="polite">Os modelos ficam disponíveis para novos downloads.</p>
   </div>
   <div class="ark-modal-footer">
     <button id="arkModelCancel" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Fechar</button>
     <button id="arkModelGenerate" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Salvar modelos</button>
-    <button id="arkPreviewPrint" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Imprimir prévia / PDF</button>
-    <button id="arkModelDownload" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar ZIP (antigo)</button>
+    <button id="arkPreviewPrint" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Imprimir modelo atual</button>
+    <button id="arkModelDownload" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar provas em ZIP</button>
   </div>
 </dialog>
 <script>
@@ -572,11 +572,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const pages = document.getElementById('pages');
   let columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
-  const settingKey='ark-print-layout-v2-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
+  const settingKey='ark-print-layout-shared-v3-{{ aplicacao.id }}';
+  const configUrl={{ url_for('ark_impressao_configuracao',aplicacao_id=aplicacao.id)|tojson }};
   const defaults={gap:6,font:12,line:1.15,margin:12,altGap:2,showInstructions:true,rich:{},questions:{},columns:columns};
   let selectedQuestion=null;let activePage=0;
   let settings={...defaults,questions:{}};
-  try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{},rich:stored.rich||{}};}catch(e){}
+  const initialServerSettings={{ (server_settings|default(none))|tojson }};
+  if(initialServerSettings && typeof initialServerSettings==='object')settings={...defaults,...initialServerSettings,questions:initialServerSettings.questions||{},rich:initialServerSettings.rich||{}};
+  try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored && !initialServerSettings) settings={...defaults,...stored,questions:stored.questions||{},rich:stored.rich||{}};}catch(e){}
   columns=Number(settings.columns)===2?2:1;
   document.documentElement.style.setProperty('--columns',String(columns));
   const columnPicker=document.getElementById('qr2Columns');
@@ -619,8 +622,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       if(document.activeElement?.matches?.('.qr2-editable'))document.activeElement.blur();
       if(typeof activeRich!=='undefined' && activeRich?.isConnected && typeof persistRich==='function')persistRich(activeRich);
       localStorage.setItem(settingKey,JSON.stringify(settings));
-      status.textContent='✓ Ajustes salvos neste navegador';
-      arkNotify('Alterações da pré-impressão salvas com sucesso neste navegador.');
+      status.textContent='Salvando no servidor...';
+      fetch(configUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)})
+        .then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.erro||'Erro ao salvar');
+          status.textContent='✓ Alterações salvas na aplicação';arkNotify('Pré-impressão salva na ARK EDUS e compartilhada entre modelos.');})
+        .catch(e=>{status.textContent='Falha ao salvar no servidor';arkNotify('Não foi possível salvar no servidor: '+e.message,true);});
     }catch(e){status.textContent='Não foi possível salvar.';arkNotify('Não foi possível salvar. Verifique as permissões do navegador.',true);}
   });
   document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{},rich:{}};columns=settings.columns;columnPicker.value=String(columns);document.documentElement.style.setProperty('--columns',String(columns));document.body.classList.toggle('layout-2',columns===2);document.body.classList.toggle('layout-1',columns===1);instructionsToggle.checked=true;localStorage.removeItem(settingKey);applySettings();repaginate();status.textContent='Padrão restaurado';});
@@ -963,7 +969,8 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       if(idx===undefined)return;
       q.querySelectorAll('.statement,.alt-text').forEach((el,j)=>{
         // A paginação pode dividir enunciados: os fragmentos não são editáveis separadamente.
-        const key=idx+':'+j;
+        const origin=questionsSource.querySelectorAll(':scope > .question')[Number(idx)];
+        const key=(origin?.dataset.questionId||idx)+':'+j;
         el.dataset.richKey=key;
         el.dataset.before=String(settings.rich?.[key]?.before||0);
         el.dataset.after=String(settings.rich?.[key]?.after||0);
@@ -1023,7 +1030,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     // Restaura o conteúdo editado apenas na cópia de impressão, sem alterar o banco de questões.
     Array.from(questionsSource.querySelectorAll(':scope > .question')).forEach((q,i)=>{
       q.querySelectorAll('.statement,.alt-text').forEach((part,j)=>{
-        const key=i+':'+j;
+        const key=(q.dataset.questionId||i)+':'+j;
         if(!part.dataset.arkOriginalHtml)part.dataset.arkOriginalHtml=part.innerHTML;
         part.innerHTML=settings.rich?.[key]?.html??part.dataset.arkOriginalHtml;
         part.style.marginTop=(settings.rich?.[key]?.before||0)+'mm';
@@ -1115,7 +1122,18 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     });
     paginate();
   }
-  window.addEventListener('load',()=>{
+  window.addEventListener('load',async()=>{
+    try {
+      const response=await fetch(configUrl,{credentials:'same-origin'});
+      if(response.ok){const data=await response.json();if(data.configuracao){
+        settings={...defaults,...data.configuracao,questions:data.configuracao.questions||{},rich:data.configuracao.rich||{}};
+        columns=Number(settings.columns)===2?2:1;columnPicker.value=String(columns);
+        document.documentElement.style.setProperty('--columns',String(columns));
+        document.body.classList.toggle('layout-2',columns===2);
+        document.body.classList.toggle('layout-1',columns===1);
+        instructionsToggle.checked=settings.showInstructions!==false;applySettings();
+      }}
+    }catch(e){console.warn('Configuração do servidor indisponível',e);}
     if(document.fonts && document.fonts.ready){ document.fonts.ready.then(waitImages); }
     else waitImages();
   });

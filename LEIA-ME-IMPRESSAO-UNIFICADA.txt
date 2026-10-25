@@ -1,0 +1,14 @@
+ARK EDUS — Revisão de impressão (versão de integração)
+
+Esta versão substitui o template simplificado de PDF por uma tentativa de renderização
+no Chromium do MESMO template da pré-impressão. As configurações são salvas em
+ark_print_settings, tabela criada automaticamente no SQLite da aplicação.
+
+ATENÇÃO: a hospedagem precisa instalar Chromium para Playwright. Após pip install -r
+requirements.txt, executar: python -m playwright install chromium
+Em hospedagem Linux podem ser necessárias bibliotecas de sistema (playwright install-deps).
+
+Não publicar sem testar em homologação: modelo 1 e modelo 2, cabeçalho, paginação,
+cartões-resposta e leitura dos QR Codes. Os cartões continuam na rota original.
+A sincronização por ID foi aplicada às edições ricas, mas configurações individuais
+por posição e o comportamento de paginação com Enter exigem testes adicionais.
