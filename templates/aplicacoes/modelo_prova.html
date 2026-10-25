@@ -213,6 +213,50 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 .question.smart-compact .statement,.question.micro-compact .statement{line-height:var(--ark-line-height)!important}
 @media print{.exam-header,.instructions,.meta-grid,.meta-item,.logo-box{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
+
+/* QR2 — ambiente de pré-impressão em três painéis, fiel à folha impressa. */
+@media screen{
+ html,body{height:100%;overflow:hidden}
+ body{background:#e9edf3;font:14px Arial,Helvetica,sans-serif}
+ .qr2-appbar{height:65px;display:flex;align-items:center;gap:22px;padding:0 22px;background:#0b2342;color:#fff;position:relative;z-index:1003}
+ .qr2-brand{display:flex;align-items:center;gap:9px;min-width:185px;border-right:1px solid #37506d;height:40px}
+ .qr2-brand strong{font-size:19px;letter-spacing:.2px}.qr2-brand small{font-size:11px;align-self:flex-end;margin:0 12px 7px -67px}
+ .qr2-mark{font-size:28px;color:#4ea0ff}.qr2-editor-title{font-weight:700;font-size:16px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .qr2-editor-title span{font-size:12px;font-weight:400;color:#c7d6ea;margin-left:16px}
+ .qr2-top-actions{display:flex;gap:7px;align-items:center}.qr2-top-actions a,.qr2-top-actions button{color:white;text-decoration:none;background:transparent;border:1px solid #4c617b;border-radius:6px;padding:10px 12px;font:600 12px Arial;cursor:pointer;white-space:nowrap}
+ .qr2-top-actions .qr2-print{background:#1867ef;border-color:#1867ef;padding:11px 17px}
+ .qr2-workspace{display:grid;grid-template-columns:190px minmax(0,1fr) 300px;height:calc(100vh - 65px);min-height:0}
+ .qr2-left,.qr2-right{background:#fff;overflow-y:auto;min-height:0}.qr2-left{border-right:1px solid #d6dce5}.qr2-right{border-left:1px solid #d6dce5}
+ .qr2-side-heading{padding:18px 16px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#14253d;display:flex;justify-content:space-between}
+ .qr2-side-foot{font-size:11px;color:#64748b;padding:14px 18px}
+ .qr2-main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+ .qr2-ribbon{height:61px;flex:none;background:#f8fafc;border-bottom:1px solid #d6dce5;display:flex;align-items:center;justify-content:center;gap:9px;padding:9px 12px;white-space:nowrap}
+ .qr2-ribbon-label{font-weight:700;font-size:12px}.qr2-ribbon select{max-width:160px;padding:10px;border:1px solid #cbd5e1;border-radius:7px;background:white;color:#183353;font-weight:700}
+ .qr2-ribbon button{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:17px}.qr2-ribbon-divider{height:28px;width:1px;background:#cbd5e1;margin:0 5px}
+ #arkPageCount,#qr2ZoomValue{font-size:12px;font-weight:700;color:#334155}
+ .qr2-main>.pages{display:flex;flex-direction:column;align-items:center;overflow-y:auto;overflow-x:auto;min-height:0;flex:1;gap:24px;padding:24px 20px 45px;scroll-behavior:smooth}
+ .qr2-main .sheet{scroll-margin-top:20px;box-shadow:0 4px 19px #17253b26}
+ .qr2-right.editor-panel{position:static;padding:0;box-shadow:none;border-bottom:0;font:13px Arial;display:block}
+ .qr2-section{padding:17px 18px;border-bottom:1px solid #e2e8f0;display:flex;flex-direction:column;gap:11px}
+ .qr2-section h3{font-size:13px;margin:0;color:#14253d}.qr2-section p{font-size:11px;line-height:1.4;color:#64748b;margin:0}
+ .qr2-section label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#334155;font-weight:600}
+ .qr2-section input:not([type=checkbox]),.qr2-section select{width:100%;max-width:none;border:1px solid #cbd5e1;border-radius:6px;padding:9px 10px;background:white;color:#17253b;font:13px Arial}
+ .qr2-field{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#64748b;font-size:12px}.qr2-field strong{color:#14253d}
+ .qr2-right .editor-inspector{display:flex;position:static;background:#eff6ff;border:0;border-bottom:1px solid #dbeafe;border-radius:0;align-items:stretch;margin:0;padding:17px 18px}
+ .qr2-right .editor-inspector[hidden]{display:none}.qr2-right .editor-inspector label{max-width:none}.qr2-check{flex-direction:row!important;align-items:center}.qr2-check input{width:auto!important}
+ #arkQuestionReset{border:1px solid #bfdbfe;border-radius:6px;background:#fff;padding:10px;color:#16478b;cursor:pointer}
+ .editor-status{padding:12px 18px;font-size:12px;color:#17603d}
+ .ark-page-thumbnails{display:flex;flex-direction:column;align-items:center;gap:17px;margin:0;padding:18px 12px;flex-wrap:nowrap}
+ .ark-thumb{width:128px;height:168px;border:1px solid #cbd5e1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px;background:#fff;cursor:pointer;color:#183353}
+ .ark-thumb.active{border:2px solid #2563eb;box-shadow:0 0 0 2px #bfdbfe}.ark-thumb .qr2-mini-paper{display:block;width:89px;height:125px;background:repeating-linear-gradient(to bottom,#fff 0px,#fff 8px,#cbd5e1 9px,#fff 10px);border:1px solid #d9e0e8;position:relative}
+ .ark-thumb .qr2-mini-paper::before{content:'';position:absolute;top:6px;left:6px;right:6px;height:13px;background:#e2e8f0;border:1px solid #94a3b8}
+ .ark-thumb .qr2-mini-label{font-size:12px;font-weight:700}
+ .toolbar{display:none!important}
+}
+@media screen and (max-width:1100px){.qr2-workspace{grid-template-columns:125px minmax(0,1fr) 255px}.qr2-editor-title span{display:none}.qr2-brand{min-width:155px}.qr2-ribbon{justify-content:flex-start;overflow-x:auto}.ark-thumb{width:100px}}
+@media screen and (max-width:750px){html,body{overflow:auto}.qr2-appbar{height:auto;min-height:65px;flex-wrap:wrap;padding:12px}.qr2-workspace{height:auto;grid-template-columns:1fr}.qr2-left{display:none}.qr2-main>.pages{max-height:75vh}.qr2-right{max-height:none}.qr2-top-actions{flex-wrap:wrap}.qr2-brand{border:0}}
+@media print{.qr2-appbar,.qr2-left,.qr2-right,.qr2-ribbon,.qr2-side-foot{display:none!important}.qr2-workspace,.qr2-main{display:block!important;height:auto!important;overflow:visible!important}.qr2-main>.pages{display:block!important;height:auto!important;overflow:visible!important;padding:0!important;margin:0!important;gap:0!important}}
+
 @page{size:A4 portrait;margin:0}
 @media print{
   html,body{width:210mm!important;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -226,39 +270,68 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </style>
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
-<div class="editor-panel" id="printEditor">
- <div class="editor-heading">
-  <div><h1>Editor de impressão · Modo Equilibrado</h1><p>Ajuste as folhas A4 antes de gerar o PDF. O conteúdo original das questões não será alterado.</p></div>
-  <div class="editor-actions">
-   <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar às aplicações</a>
-   <button type="button" id="arkReset">Restaurar padrão</button>
-   <button type="button" id="arkSave">Salvar ajustes</button>
-   <button type="button" class="primary" onclick="window.print()">Imprimir / Salvar PDF</button>
+<div class="qr2-appbar" id="qr2Appbar">
+  <div class="qr2-brand"><span class="qr2-mark">◈</span><strong>ARK EDUS</strong><small>QR2</small></div>
+  <div class="qr2-editor-title">Editor de pré-impressão <span>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</span></div>
+  <div class="qr2-top-actions">
+    <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
+    <button type="button" id="arkReset">↺ Restaurar</button>
+    <button type="button" id="arkSave">▣ Salvar</button>
+    <button type="button" class="qr2-print" onclick="window.print()">▣ Imprimir / Gerar PDF</button>
   </div>
- </div>
- <div class="editor-controls">
-  <label>Modo de impressão<select id="arkPreset"><option value="balanced">Equilibrado (padrão)</option><option value="compact">Compacto</option><option value="expanded">Ampliado</option><option value="custom">Personalizado</option></select></label>
-  <label>Espaço entre questões (mm)<input id="arkGap" type="number" min="0" max="18" step="0.5" value="6"></label>
-  <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="12"></label>
-  <label>Entrelinhas<select id="arkLine"><option value="1.15" selected>Equilibrado · 1,15</option><option value="1.245">Normal · 1,245</option><option value="1.4">Confortável · 1,4</option><option value="1.5">Amplo · 1,5</option></select></label>
-  <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="18"></label>
-  <label>Espaço entre alternativas (mm)<input id="arkAltGap" type="number" min="0" max="6" step="0.25" value="2"></label>
- </div>
- <p class="editor-note">Passe o mouse sobre uma questão para ajustar o espaço depois dela ou iniciar outra página. A prévia é atualizada automaticamente. Modo Equilibrado: Arial 12 pt, margens de 18 mm e espaçamento de 6 mm entre questões.</p>
- <div class="editor-inspector" id="arkInspector" hidden>
-  <strong id="arkSelectedName">Questão</strong>
-  <label>Espaço após (mm)<input id="arkQuestionGap" type="number" min="0" max="18" step="0.5"></label>
-  <label>Alinhamento do enunciado<select id="arkQuestionAlign"><option value="original">Original do cadastro</option><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option><option value="justify">Justificado</option></select></label>
-  <label><input id="arkQuestionBreak" type="checkbox"> Iniciar em nova página</label>
-  <button type="button" id="arkQuestionReset">Limpar ajustes desta questão</button>
- </div>
- <div class="page-nav"><button type="button" id="arkPrevPage">← Página anterior</button><span id="arkPageCount">Página 1 de 1</span><button type="button" id="arkNextPage">Próxima página →</button><label>Ir para página <select id="arkGoPage"></select></label></div>
- <div class="ark-page-thumbnails" id="arkThumbnails" aria-label="Miniaturas das páginas"></div>
- <div class="editor-status" id="arkStatus" role="status" aria-live="polite"></div>
 </div>
-<div class="toolbar">
-  <span class="layout-info">Layout selecionado: <strong>{{ layout_colunas|default(1) }} coluna{% if layout_colunas|default(1)|int == 2 %}s{% endif %}</strong></span>
-  <button class="print" onclick="window.print()">Salvar em PDF / Imprimir</button>
+<div class="qr2-workspace" id="qr2Workspace">
+  <aside class="qr2-left" aria-label="Páginas da avaliação">
+    <div class="qr2-side-heading">Páginas <span id="qr2PageTotal">—</span></div>
+    <div class="ark-page-thumbnails" id="arkThumbnails" aria-label="Miniaturas das páginas"></div>
+    <div class="qr2-side-foot">Selecione uma página para visualizá-la.</div>
+  </aside>
+  <main class="qr2-main">
+    <div class="qr2-ribbon">
+      <span class="qr2-ribbon-label">Modo de impressão</span>
+      <select id="arkPreset" aria-label="Modo de impressão"><option value="balanced">Equilibrado</option><option value="compact">Compacto</option><option value="expanded">Ampliado</option><option value="custom">Personalizado</option></select>
+      <span class="qr2-ribbon-divider"></span>
+      <button type="button" id="arkPrevPage" title="Página anterior">‹</button>
+      <span id="arkPageCount">Página 1 de 1</span>
+      <button type="button" id="arkNextPage" title="Próxima página">›</button>
+      <select id="arkGoPage" aria-label="Ir para página"></select>
+      <span class="qr2-ribbon-divider"></span>
+      <button type="button" id="qr2ZoomOut" title="Diminuir zoom">−</button>
+      <span id="qr2ZoomValue">100%</span>
+      <button type="button" id="qr2ZoomIn" title="Aumentar zoom">+</button>
+    </div>
+    <div id="pages" class="pages" aria-label="Pré-visualização da avaliação"></div>
+  </main>
+  <aside class="qr2-right editor-panel" id="printEditor" aria-label="Configurações de impressão">
+    <div class="qr2-side-heading">Configurações de impressão</div>
+    <div class="qr2-section"><h3>Distribuição e formatação</h3>
+      <p>Equilibrado: leitura confortável e bom aproveitamento do papel.</p>
+      <label>Espaço entre questões (mm)<input id="arkGap" type="number" min="0" max="18" step="0.5" value="6"></label>
+      <label>Espaço entre alternativas (mm)<input id="arkAltGap" type="number" min="0" max="6" step="0.25" value="2"></label>
+    </div>
+    <div class="qr2-section"><h3>Configurações da página</h3>
+      <div class="qr2-field"><span>Tamanho do papel</span><strong>A4 (210 × 297 mm)</strong></div>
+      <div class="qr2-field"><span>Orientação</span><strong>Retrato</strong></div>
+      <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="18"></label>
+    </div>
+    <div class="qr2-section"><h3>Fonte e espaçamento</h3>
+      <div class="qr2-field"><span>Fonte</span><strong>Arial</strong></div>
+      <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="12"></label>
+      <label>Entrelinhas<select id="arkLine"><option value="1.15">1,15</option><option value="1.245">1,245</option><option value="1.4">1,4</option><option value="1.5">1,5</option></select></label>
+    </div>
+    <div class="qr2-section"><h3>Layout da prova</h3>
+      <div class="qr2-field"><span>Colunas</span><strong>{{ layout_colunas|default(1) }}</strong></div>
+      <p>O layout de colunas segue a configuração da aplicação.</p>
+    </div>
+    <div class="qr2-section editor-inspector" id="arkInspector" hidden>
+      <h3 id="arkSelectedName">Questão selecionada</h3>
+      <label>Espaço após (mm)<input id="arkQuestionGap" type="number" min="0" max="18" step="0.5"></label>
+      <label>Alinhamento do enunciado<select id="arkQuestionAlign"><option value="original">Original do cadastro</option><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option><option value="justify">Justificado</option></select></label>
+      <label class="qr2-check"><input id="arkQuestionBreak" type="checkbox"> Iniciar em nova página</label>
+      <button type="button" id="arkQuestionReset">Limpar ajustes desta questão</button>
+    </div>
+    <div class="editor-status" id="arkStatus" role="status" aria-live="polite"></div>
+  </aside>
 </div>
 
 {% set ufs = {'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA','Ceará':'CE','Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO','Maranhão':'MA','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG','Pará':'PA','Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI','Rio de Janeiro':'RJ','Rio Grande do Norte':'RN','Rio Grande do Sul':'RS','Rondônia':'RO','Roraima':'RR','Santa Catarina':'SC','São Paulo':'SP','Sergipe':'SE','Tocantins':'TO'} %}
@@ -338,7 +411,6 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   </div>
 </div>
 
-<div id="pages" class="pages" aria-label="Pré-visualização da avaliação"></div>
 
 <script>
 (function(){
@@ -387,10 +459,18 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   questionBreak.addEventListener('change',()=>changeQuestion({breakBefore:questionBreak.checked}));
   document.getElementById('arkQuestionReset').addEventListener('click',()=>{if(selectedQuestion===null)return;delete settings.questions[selectedQuestion];selectQuestion(selectedQuestion);status.textContent='Alterações ainda não salvas';repaginate();});
   function updatePageNavigation(){const sheets=Array.from(pages.querySelectorAll('.sheet'));activePage=Math.max(0,Math.min(activePage,sheets.length-1));const sel=document.getElementById('arkGoPage');sel.innerHTML='';sheets.forEach((sheet,i)=>{sheet.dataset.current=String(i===activePage);const label=document.createElement('span');label.className='page-label';label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);const option=document.createElement('option');option.value=i;option.textContent=`${i+1}`;sel.appendChild(option);});sel.value=activePage;document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;document.getElementById('arkPrevPage').disabled=activePage===0;document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;}
-  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();pages.children[activePage]?.scrollIntoView({behavior:'smooth',block:'start'});}
+  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();document.querySelectorAll('.ark-thumb').forEach((b,j)=>b.classList.toggle('active',j===activePage));pages.children[activePage]?.scrollIntoView({behavior:'smooth',block:'start'});}
   document.getElementById('arkPrevPage').onclick=()=>goToPage(activePage-1);
   document.getElementById('arkNextPage').onclick=()=>goToPage(activePage+1);
   document.getElementById('arkGoPage').onchange=e=>goToPage(Number(e.target.value));
+  let qr2Zoom=100;
+  function applyQr2Zoom(){
+    const value=document.getElementById('qr2ZoomValue');value.textContent=qr2Zoom+'%';
+    pages.querySelectorAll('.sheet').forEach(sheet=>{sheet.style.zoom=(qr2Zoom/100).toString();});
+  }
+  document.getElementById('qr2ZoomOut').onclick=()=>{qr2Zoom=Math.max(60,qr2Zoom-10);applyQr2Zoom();};
+  document.getElementById('qr2ZoomIn').onclick=()=>{qr2Zoom=Math.min(130,qr2Zoom+10);applyQr2Zoom();};
+
   let slots = [];
   let slotIndex = 0;
 
@@ -704,11 +784,13 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       }
     });
     updatePageNavigation();
+    if(typeof applyQr2Zoom==='function')applyQr2Zoom();
+    document.getElementById('qr2PageTotal').textContent=pages.querySelectorAll('.sheet').length;
     const thumbnails=document.getElementById('arkThumbnails');
     thumbnails.replaceChildren();
     Array.from(pages.querySelectorAll('.sheet')).forEach((sheet,i)=>{
       const b=document.createElement('button');b.type='button';b.className='ark-thumb';
-      b.textContent=`Página ${i+1}`;b.setAttribute('aria-label',`Ir para página ${i+1}`);
+      b.innerHTML=`<span class="qr2-mini-paper" aria-hidden="true"></span><span class="qr2-mini-label">${i+1}</span>`;b.classList.toggle('active',i===activePage);b.setAttribute('aria-label',`Ir para página ${i+1}`);
       b.onclick=()=>goToPage(i);thumbnails.appendChild(b);
     });
   }
