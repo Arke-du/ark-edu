@@ -534,17 +534,31 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       item.append(title,button);modelChoices.append(item);
     }
   }
+  let printFrame=null;
   function downloadModel(modelo,button){
-    // Imprime no navegador do usuário: não depende de Chromium, Playwright
-    // ou de workers do Render. A impressão usa o próprio editor paginado.
+    // Carrega o modelo em um iframe invisível na própria página.
+    // A página interna chama window.print() após finalizar a paginação/imagens.
+    // Assim o diálogo de impressão abre sem navegar para uma nova aba.
     const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
     const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
-    const novaAba=window.open(url,'_blank');
-    if(!novaAba){
-      modelMessage.textContent='Permita pop-ups para abrir o modelo e salvar como PDF.';
-      return;
-    }
-    modelMessage.textContent='Modelo '+modelo+' aberto. Na janela de impressão, selecione “Salvar como PDF”.';
+    if(printFrame){printFrame.remove();printFrame=null;}
+    const frame=document.createElement('iframe');
+    frame.setAttribute('title','Impressão do modelo '+modelo);
+    frame.setAttribute('aria-hidden','true');
+    frame.style.cssText='position:fixed;left:-20000px;top:0;width:1000px;height:1400px;border:0;opacity:0;pointer-events:none;';
+    printFrame=frame;
+    button.disabled=true;
+    modelMessage.textContent='Preparando o Modelo '+modelo+' para impressão...';
+    frame.addEventListener('load',()=>{
+      button.disabled=false;
+      modelMessage.textContent='Selecione “Salvar como PDF” na janela de impressão.';
+    },{once:true});
+    frame.addEventListener('error',()=>{
+      button.disabled=false;
+      modelMessage.textContent='Não foi possível carregar o modelo para impressão.';
+    },{once:true});
+    frame.src=url;
+    document.body.appendChild(frame);
   }
   drawModels();
   document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
