@@ -523,49 +523,85 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const modelMessage=document.getElementById('arkModelMessage');
   let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
   const modelPrintPrefix={{ url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
+  // Pré-carrega cada modelo para que o clique do usuário invoque print() imediatamente.
+  // A chamada síncrona é importante: navegadores podem bloquear impressão disparada
+  // após await, postMessage, setTimeout ou o carregamento de um iframe novo.
+  const preparedFrames=new Map();
+  function clearPrepared(){
+    for(const state of preparedFrames.values())state.frame.remove();
+    preparedFrames.clear();
+  }
+  function prepareModel(modelo){
+    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
+    const previous=preparedFrames.get(modelo);
+    if(previous && previous.url===url)return previous;
+    if(previous)previous.frame.remove();
+    const frame=document.createElement('iframe');
+    frame.title='Documento pronto para imprimir: Modelo '+modelo;
+    // Não usar iframe 1x1: o layout HTML depende da largura da viewport.
+    frame.style.cssText='position:fixed;left:-12000px;top:0;width:1000px;height:1400px;border:0;pointer-events:none;';
+    const state={frame,url,ready:false,error:false};
+    preparedFrames.set(modelo,state);
+    frame.addEventListener('load',()=>{
+      try{
+        const doc=frame.contentDocument;
+        if(!doc || !doc.querySelector('.sheet')){
+          // O template sinaliza quando a paginação terminou.
+          return;
+        }
+      }catch(e){state.error=true;}
+    });
+    frame.addEventListener('error',()=>{state.error=true;});
+    frame.src=url;
+    document.body.appendChild(frame);
+    return state;
+  }
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin || event.data?.type!=='ark-print-ready')return;
+    for(const [modelo,state] of preparedFrames){
+      if(event.source===state.frame.contentWindow){
+        state.ready=true;
+        const button=modelChoices.querySelector('[data-print-model="'+modelo+'"]');
+        if(button){button.disabled=false;button.textContent='Imprimir / Salvar PDF';}
+        break;
+      }
+    }
+  });
   function drawModels(){
-    modelChoices.replaceChildren();
+    clearPrepared();modelChoices.replaceChildren();
     for(let i=1;i<=registeredModels;i++){
       const item=document.createElement('div');item.className='ark-model-item';
       const title=document.createElement('span');title.textContent='Modelo '+i;
-      const button=document.createElement('button');button.type='button';button.textContent='Imprimir / Salvar PDF';
-      button.addEventListener('click',()=>downloadModel(i,button));
+      const button=document.createElement('button');button.type='button';
+      button.dataset.printModel=i;
+      button.textContent='Preparando impressão...';button.disabled=true;
+      button.addEventListener('click',()=>printPrepared(i));
       item.append(title,button);modelChoices.append(item);
+      prepareModel(i);
     }
   }
-  let printFrame=null;
-  function downloadModel(modelo,button){
-    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
-    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
-    if(printFrame){printFrame.remove();printFrame=null;}
-    const frame=document.createElement('iframe');
-    frame.title='Impressão do modelo '+modelo;
-    frame.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;';
-    printFrame=frame;
-    button.disabled=true;
-    modelMessage.textContent='Preparando Modelo '+modelo+'...';
-    let finished=false;
-    const timeout=setTimeout(()=>{
-      if(finished)return;
-      button.disabled=false;
-      modelMessage.textContent='Não foi possível abrir a impressão. Verifique se o navegador bloqueou a impressão e tente novamente.';
-    },12000);
-    function onReady(event){
-      if(event.source!==frame.contentWindow || event.origin!==location.origin || event.data?.type!=='ark-print-ready')return;
-      window.removeEventListener('message',onReady);
-      clearTimeout(timeout);finished=true;button.disabled=false;
-      modelMessage.textContent='Abrindo a impressão do Modelo '+modelo+' — escolha Salvar como PDF.';
-      try{frame.contentWindow.focus();frame.contentWindow.print();}
-      catch(e){modelMessage.textContent='O navegador bloqueou a impressão. Verifique as permissões do navegador e tente novamente.';}
+  function printPrepared(modelo){
+    const state=preparedFrames.get(modelo);
+    if(!state?.ready){
+      modelMessage.textContent='O Modelo '+modelo+' ainda está sendo preparado. Aguarde alguns segundos.';
+      return;
     }
-    window.addEventListener('message',onReady);
-    frame.addEventListener('error',()=>{clearTimeout(timeout);button.disabled=false;window.removeEventListener('message',onReady);modelMessage.textContent='Falha ao carregar o modelo.';},{once:true});
-    frame.src=url;
-    document.body.appendChild(frame);
+    // Executado diretamente dentro do evento de clique, sem chamadas assíncronas.
+    try{
+      state.frame.contentWindow.focus();
+      state.frame.contentWindow.print();
+      modelMessage.textContent='Impressão do Modelo '+modelo+' solicitada. Selecione “Salvar como PDF” no navegador.';
+    }catch(error){
+      modelMessage.textContent='O navegador impediu a impressão. Verifique as permissões e tente novamente.';
+    }
   }
-  drawModels();
-  document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
+  document.getElementById('qr2Columns').addEventListener('change',()=>{
+    if(dialog.open)drawModels();
+  });
+  document.getElementById('qr2PrintAction').addEventListener('click',()=>{drawModels();dialog.showModal();});
   document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
+  dialog.addEventListener('close',clearPrepared);
   document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
     const button=document.getElementById('arkModelGenerate');button.disabled=true;
     try{
