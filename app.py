@@ -22511,7 +22511,11 @@ def gerar_modelos_na_impressao(aplicacao_id):
 def baixar_modelos_zip(aplicacao_id):
     """Exporta PDFs separados, preservando os gabaritos e QR Codes por aluno."""
     import zipfile
-    from weasyprint import HTML
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError) as exc:
+        app.logger.exception('WeasyPrint indisponível no servidor')
+        return jsonify(erro='O gerador de PDF não está disponível no servidor. Verifique a instalação do WeasyPrint e suas bibliotecas nativas.'), 503
     _garantir_tabelas_aplicacoes()
     banco = conectar_banco()
     banco.row_factory = sqlite3.Row
@@ -22563,7 +22567,7 @@ def baixar_modelos_zip(aplicacao_id):
                     # Reutiliza o gerador original para não alterar os dados do QR.
                     with app.test_request_context(f'/aplicacoes/{aplicacao_id}/cartoes?modelo={n}'):
                         session.update(dict(request_session))
-                        html_cartoes = cartoes_aplicacao()
+                        html_cartoes = cartoes_aplicacao(aplicacao_id)
                     if not isinstance(html_cartoes,str):
                         return jsonify(erro="Não foi possível gerar os cartões-resposta."), 500
                     pdf = HTML(string=html_cartoes, base_url=request.url_root).write_pdf()

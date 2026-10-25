@@ -458,23 +458,50 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </div>
 
 
-<dialog id="arkModelDialog" style="border:0;border-radius:16px;padding:28px;max-width:520px;width:calc(100% - 32px);box-shadow:0 20px 80px #001a3855;font:15px Arial;color:#0b2c54">
-  <h2 style="margin:0 0 8px">Modelos da avaliação</h2>
-  <p>Defina quantos modelos ficarão disponíveis nesta aplicação. Modelos já criados não serão excluídos.</p>
-  <label for="arkModelCount">Quantidade de modelos</label>
-  <select id="arkModelCount" style="width:100%;padding:12px;margin:8px 0 18px;border:1px solid #ccd8e5;border-radius:8px">
-  {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
-  </select>
-  <p style="font-size:13px;font-weight:700">Selecione os modelos para baixar:</p>
-  <div id="arkModelChoices" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0"></div>
-  <p style="font-size:13px;font-weight:700">Arquivos do ZIP</p>
-  <label style="display:block;margin:8px 0"><input type="checkbox" id="arkDownloadProvas" checked> Provas em PDF</label>
-  <label style="display:block;margin:8px 0"><input type="checkbox" id="arkDownloadCartoes" checked> Cartões-resposta em PDF (por aluno)</label>
-  <p id="arkModelMessage" style="font-size:12px;color:#52657a">Os modelos registrados ficam disponíveis para downloads futuros.</p>
-  <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end">
-    <button id="arkModelCancel" type="button">Fechar</button>
-    <button id="arkModelGenerate" type="button" style="background:#1265db;color:white;padding:10px 18px;border:0;border-radius:8px">Salvar quantidade</button>
-    <button id="arkModelDownload" type="button" style="background:#0b714c;color:white;padding:10px 18px;border:0;border-radius:8px">Baixar ZIP</button>
+<style>
+  #arkModelDialog{border:1px solid #dce5f0;border-radius:18px;padding:0;max-width:560px;width:calc(100% - 32px);box-shadow:0 24px 90px #09234555;font:14px Arial,sans-serif;color:#102d52;overflow:hidden}
+  #arkModelDialog::backdrop{background:rgba(6,22,43,.55);backdrop-filter:blur(2px)}
+  .ark-modal-header{display:flex;align-items:center;gap:12px;background:#0a2547;color:white;padding:20px 24px}
+  .ark-modal-header svg{width:24px;height:24px;stroke:#7bd2ed;fill:none;stroke-width:1.8}
+  .ark-modal-header h2{font-size:19px;margin:0 0 3px;font-weight:750;color:white}
+  .ark-modal-header small{font-size:12px;color:#c6d7ea}
+  .ark-modal-body{padding:22px 24px 12px}
+  .ark-modal-body p{margin:0 0 15px;color:#4d6581;line-height:1.5}
+  .ark-field-label{display:block;font-weight:700;font-size:13px;margin:14px 0 8px;color:#14375f}
+  #arkModelCount{width:100%;padding:12px 14px;border:1px solid #cbd8e8;border-radius:9px;color:#102d52;background:#fff;font:inherit}
+  #arkModelChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0 18px}
+  #arkModelChoices label,.ark-file-choice{display:flex;align-items:center;gap:9px;border:1px solid #d7e2ef;border-radius:9px;padding:11px 12px;font-weight:600;background:#f9fbff}
+  #arkModelDialog input[type=checkbox]{accent-color:#0879cf;width:16px;height:16px}
+  #arkModelMessage{font-size:12px;min-height:18px;margin:14px 0 4px;color:#4d6581}
+  .ark-modal-footer{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;padding:16px 24px 20px;border-top:1px solid #e3eaf3;background:#f7faff}
+  .ark-modal-btn{display:inline-flex;align-items:center;gap:8px;border-radius:9px;padding:11px 15px;font:700 13px Arial,sans-serif;cursor:pointer;border:1px solid #cbd8e8;background:white;color:#163b67}
+  .ark-modal-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+  .ark-modal-btn.primary{background:#0967d2;border-color:#0967d2;color:white}
+  .ark-modal-btn:disabled{opacity:.6;cursor:wait}
+  @media(max-width:480px){#arkModelChoices{grid-template-columns:1fr}.ark-modal-footer{justify-content:stretch}.ark-modal-btn{flex:1;justify-content:center}}
+</style>
+<dialog id="arkModelDialog" aria-labelledby="arkModelTitle">
+  <div class="ark-modal-header">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
+    <div><h2 id="arkModelTitle">Modelos da avaliação</h2><small>Impressão e cartões-resposta • ARK EDUS</small></div>
+  </div>
+  <div class="ark-modal-body">
+    <p>Gere os modelos da aplicação e baixe as provas e os cartões-resposta em PDFs separados. Os modelos registrados permanecem disponíveis.</p>
+    <label class="ark-field-label" for="arkModelCount">Quantidade de modelos</label>
+    <select id="arkModelCount">
+    {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
+    </select>
+    <label class="ark-field-label">Modelos para download</label>
+    <div id="arkModelChoices"></div>
+    <label class="ark-field-label">Arquivos incluídos no ZIP</label>
+    <label class="ark-file-choice"><input type="checkbox" id="arkDownloadProvas" checked> Provas em PDF</label>
+    <label class="ark-file-choice" style="margin-top:8px"><input type="checkbox" id="arkDownloadCartoes" checked> Cartões-resposta em PDF (por aluno)</label>
+    <p id="arkModelMessage" role="status" aria-live="polite">Os modelos ficam disponíveis para novos downloads.</p>
+  </div>
+  <div class="ark-modal-footer">
+    <button id="arkModelCancel" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Fechar</button>
+    <button id="arkModelGenerate" class="ark-modal-btn" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Salvar modelos</button>
+    <button id="arkModelDownload" class="ark-modal-btn primary" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>Baixar ZIP</button>
   </div>
 </dialog>
 <script>
@@ -487,7 +514,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   function drawModels(){
     modelChoices.replaceChildren();
     for(let i=1;i<=registeredModels;i++){
-      const label=document.createElement('label');label.style.cssText='display:flex;gap:8px;align-items:center;padding:9px;border:1px solid #cbd5e1;border-radius:8px';
+      const label=document.createElement('label');
       const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=i;checkbox.checked=true;checkbox.className='ark-model-choice';
       label.append(checkbox,document.createTextNode('Modelo '+i));modelChoices.append(label);
     }
@@ -506,6 +533,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
   });
   document.getElementById('arkModelDownload').addEventListener('click',async()=>{
+    if(Number(modelCount.value)>registeredModels){
+      modelMessage.textContent='Registrando os novos modelos...';
+      try{
+        const saved=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:Number(modelCount.value)})});
+        const data=await saved.json();if(!saved.ok)throw Error(data.erro||'Falha ao salvar modelos.');
+        registeredModels=data.quantidade;drawModels();
+      }catch(err){modelMessage.textContent=err.message;return;}
+    }
     const modelos=[...document.querySelectorAll('.ark-model-choice:checked')].map(el=>Number(el.value));
     const provas=document.getElementById('arkDownloadProvas').checked;
     const cartoes=document.getElementById('arkDownloadCartoes').checked;
