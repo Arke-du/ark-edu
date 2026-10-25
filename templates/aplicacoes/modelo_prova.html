@@ -64,7 +64,7 @@ body.layout-2 .question-grid{gap:0}
 .question.long-text{margin-bottom:3.25mm}
 .question.discursive-question{margin-bottom:4mm}
 .question.question-part{margin-bottom:2.85mm}
-.question-title{margin:0 0 .75mm;font-family:Arial,Helvetica,sans-serif;font-size:11.25pt;line-height:1.2;font-weight:800;color:#0f172a;break-after:avoid;page-break-after:avoid}
+.question-title{margin:0 0 .75mm;font-family:Arial,Helvetica,sans-serif;font-size:11.25pt;line-height:1.2;font-weight:900;color:#000!important;text-transform:uppercase;break-after:avoid;page-break-after:avoid}
 .question-value{font-size:8.7pt;font-weight:600}
 .statement{margin:0 0 .8mm;text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none;font-family:Arial,Helvetica,sans-serif;font-size:10.9pt;line-height:1.245;min-width:0;orphans:2;widows:2}
 .statement p,.statement div{ text-justify:inter-word; hyphens:none!important }
@@ -211,7 +211,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
 .instructions-columns{column-gap:7mm}
 .instructions-columns > * + *{border-left:1px solid #333;padding-left:4mm}
 /* Valor base da fonte e espaçamento respeitado também em layout de duas colunas. */
-:root{--ark-question-gap:6mm;--ark-line-height:1.15;--ark-font-size:12pt;--ark-content-inset:12mm;--ark-alt-gap:2mm}
+:root{--ark-question-gap:3mm;--ark-line-height:1.15;--ark-font-size:12pt;--ark-content-inset:12mm;--ark-alt-gap:2mm}
 body{color:#000;font-family:Arial,Helvetica,sans-serif}
 .statement,.alt-text,body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size)!important;line-height:var(--ark-line-height)!important}
 .question.smart-compact .statement,.question.micro-compact .statement{line-height:var(--ark-line-height)!important}
@@ -376,7 +376,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       <label>Espaço antes do trecho (mm)<input type="number" id="arkRichBefore" min="0" max="20" step="0.5" value="0"></label>
       <label>Espaço depois do trecho (mm)<input type="number" id="arkRichAfter" min="0" max="20" step="0.5" value="0"></label>
       <button type="button" id="arkRichApplySpace" class="qr2-secondary-action">Aplicar espaçamento ao trecho</button>
-      <p id="arkRichHint">Selecione um texto para habilitar a edição.</p>
+      <p id="arkRichHint">Clique no texto para selecionar, alinhar ou inserir uma quebra com Enter. A digitação está bloqueada.</p>
     </div>
     <div class="qr2-section editor-inspector" id="arkInspector" hidden>
       <h3 id="arkSelectedName">Questão selecionada</h3>
@@ -598,7 +598,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const embeddedPrint = {{ 'true' if impressao_incorporada|default(false) else 'false' }};
   const settingKey='ark-print-layout-shared-v3-{{ aplicacao.id }}';
   const configUrl={{ url_for('ark_impressao_configuracao',aplicacao_id=aplicacao.id)|tojson }};
-  const defaults={gap:6,font:12,line:1.15,margin:12,altGap:2,showInstructions:true,rich:{},questions:{},columns:columns};
+  const defaults={gap:3,font:12,line:1.15,margin:12,altGap:2,showInstructions:true,rich:{},questions:{},columns:columns};
   let selectedQuestion=null;let activePage=0;
   let settings={...defaults,questions:{}};
   const initialServerSettings={{ (server_settings|default(none))|tojson }};
@@ -617,7 +617,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     document.body.classList.toggle('layout-1',columns===1);
     repaginate();status.textContent='Alterações ainda não salvas';
   });
-  const presets={balanced:{gap:6,font:12,line:1.15,margin:12,altGap:2},compact:{gap:3,font:12,line:1.15,margin:12,altGap:.5},expanded:{gap:9,font:12,line:1.4,margin:20,altGap:3}};
+  const presets={balanced:{gap:3,font:12,line:1.15,margin:12,altGap:2},compact:{gap:3,font:12,line:1.15,margin:12,altGap:.5},expanded:{gap:9,font:12,line:1.4,margin:20,altGap:3}};
   const preset=document.getElementById('arkPreset');
   preset.addEventListener('change',()=>{if(!presets[preset.value])return;settings={...settings,...presets[preset.value]};applySettings();repaginate();status.textContent='Alterações ainda não salvas';});
   const status=document.getElementById('arkStatus');
@@ -1030,9 +1030,19 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         el.dataset.richKey=key;
         el.dataset.before=String(settings.rich?.[key]?.before||0);
         el.dataset.after=String(settings.rich?.[key]?.after||0);
-        el.contentEditable='true';el.spellcheck=true;el.classList.add('qr2-editable');
+        el.contentEditable='true';el.spellcheck=false;el.classList.add('qr2-editable');
+        // Modo de diagramação: o texto original não pode ser reescrito.
+        // Apenas quebras de linha e formatação visual são autorizadas.
+        el.addEventListener('beforeinput',e=>{
+          const permitted=['insertParagraph','insertLineBreak','formatJustifyCenter','formatJustifyFull','formatJustifyLeft','formatJustifyRight'];
+          if(!permitted.includes(e.inputType))e.preventDefault();
+        });
+        el.addEventListener('paste',e=>e.preventDefault());
+        el.addEventListener('drop',e=>e.preventDefault());
+        el.addEventListener('compositionstart',e=>e.preventDefault());
+
         el.addEventListener('focus',()=>{
-          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página. Use a opção Manter questão junta para evitar alternativas isoladas.';
+          activeRich=el;document.getElementById('arkRichHint').textContent='Formatando questão '+(Number(idx)+1)+' — selecione o texto e use alinhamento. Enter insere uma quebra de linha, sem alterar as palavras. Ctrl+Enter inicia nova página.';
           document.getElementById('arkRichBefore').value=el.dataset.before;
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
@@ -1046,9 +1056,10 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
             // A nova página é aplicada ao sair do campo para preservar o cursor.
             el.blur();repaginate();return;
           }
-          // Enter normal usa a edição nativa do navegador, como em um editor
-          // de texto: cria um parágrafo na posição do cursor e permite Backspace.
-          // O evento input salva o HTML e mantém a seleção intacta.
+          // Enter cria apenas uma quebra visual, sem permitir digitação.
+          e.preventDefault();
+          document.execCommand('insertHTML',false,'<br data-ark-manual-break="1">');
+          el.dataset.arkChanged='yes';persistRich(el);
         });
         el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
         el.addEventListener('blur',()=>{
