@@ -290,6 +290,9 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   .discursive-space{display:block!important;width:100%!important}
   .discursive-line{display:block!important;border-bottom:1px solid #334155!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+.qr2-model-label{font-size:12px;font-weight:700;color:#dbeafe;white-space:nowrap}
+#qr2ModelSelect{background:#fff;color:#12345a;border:1px solid #b6c6d8;border-radius:7px;padding:8px;max-width:145px}
+@media print{.qr2-model-label,#qr2ModelSelect{display:none!important}}
 </style>
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
@@ -300,7 +303,13 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
     <button type="button" id="arkReset">↺ Restaurar</button>
     <button type="button" id="arkSave">▣ Salvar</button>
-    <button type="button" class="qr2-print" onclick="window.print()">▣ Imprimir / Gerar PDF</button>
+    <label for="qr2ModelSelect" class="qr2-model-label">Modelo</label>
+    <select id="qr2ModelSelect" aria-label="Selecionar modelo da prova">
+      {% for n in range(1, (aplicacao.quantidade_modelos or 1)|int + 1) %}
+      <option value="{{ url_for('imprimir_modelo_aplicacao', aplicacao_id=aplicacao.id, modelo=n) }}" {% if n == modelo %}selected{% endif %}>Modelo {{ n }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="qr2-print" id="qr2PrintAction">▣ Imprimir / Gerar PDF</button>
   </div>
 </div>
 <div class="qr2-workspace" id="qr2Workspace">
@@ -456,6 +465,16 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 
 <script>
 (function(){
+  const modelSelect=document.getElementById('qr2ModelSelect');
+  modelSelect.addEventListener('change',()=>{
+    const target=modelSelect.value;
+    if(target) window.location.assign(target);
+  });
+  document.getElementById('qr2PrintAction').addEventListener('click',()=>{
+    // A seleção de modelo preserva o vínculo entre prova, gabarito e cartão-resposta.
+    document.activeElement?.blur?.();
+    window.print();
+  });
   const source = document.getElementById('examSource');
   const questionsSource = document.getElementById('questionsSource');
   const pages = document.getElementById('pages');

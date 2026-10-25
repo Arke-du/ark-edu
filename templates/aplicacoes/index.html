@@ -860,28 +860,15 @@
                     <div class="ap-actions-main">
 
                         <div class="ap-models">
-                            {% for modelo in range(
-                                1,
-                                (aplicacao.quantidade_modelos or 1) + 1
-                            ) %}
-                            <button class="ap-btn ap-btn-model"
-                                    type="button"
-                                    onclick="abrirLayoutAplicacao('{{ url_for('imprimir_modelo_aplicacao', aplicacao_id=aplicacao.id, modelo=modelo) }}', 'Modelo {{ modelo }}')">
-
-                                <svg class="ap-btn-icon"
-                                     viewBox="0 0 24 24"
-                                     fill="none"
-                                     stroke="currentColor"
-                                     stroke-width="2">
-                                    <path d="M6 2H14L18 6V22H6Z"></path>
-                                    <path d="M14 2V6H18"></path>
-                                    <path d="M12 10V17"></path>
-                                    <path d="M9 14L12 17L15 14"></path>
+                            <a class="ap-btn ap-btn-model"
+                               href="{{ url_for('imprimir_modelo_aplicacao', aplicacao_id=aplicacao.id, modelo=1) }}"
+                               aria-label="Abrir editor de impressão da aplicação">
+                                <svg class="ap-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                    <path d="M6 14h12v7H6z"/>
                                 </svg>
-
-                                Baixar modelo {{ modelo }}
-                            </button>
-                            {% endfor %}
+                                Impressão
+                            </a>
                         </div>
 
                         <a class="ap-btn"
@@ -1065,32 +1052,6 @@
 
     </div>
 </div>
-<div class="ap-layout-overlay" id="apLayoutOverlay" hidden>
-    <div class="ap-layout-modal" role="dialog" aria-modal="true" aria-labelledby="apLayoutTitle">
-        <div class="ap-layout-head">
-            <div><strong id="apLayoutTitle">Como deseja baixar a prova?</strong><span id="apLayoutModel">Escolha o layout deste modelo. A opção vale somente para esta impressão.</span></div>
-            <button type="button" class="ap-layout-close" onclick="fecharLayoutAplicacao()" aria-label="Fechar">×</button>
-        </div>
-        <div class="ap-layout-body">
-            <div class="ap-layout-options">
-                <label class="ap-layout-option">
-                    <input type="radio" name="apLayoutColumns" value="1" checked>
-                    <span><strong>1 coluna</strong><small>Mais espaço horizontal para imagens, textos e questões discursivas.</small></span>
-                </label>
-                <label class="ap-layout-option">
-                    <input type="radio" name="apLayoutColumns" value="2">
-                    <span><strong>2 colunas</strong><small>Usa melhor a folha em questões curtas e reduz a quantidade de páginas.</small></span>
-                </label>
-            </div>
-            <p class="ap-layout-note">Nos dois modos, o ARK EDUS compacta cabeçalho, margens e espaços entre questões e continua a questão em pontos seguros quando necessário, evitando grandes áreas em branco.</p>
-        </div>
-        <div class="ap-layout-footer">
-            <button type="button" class="ap-btn" onclick="fecharLayoutAplicacao()">Cancelar</button>
-            <button type="button" class="ap-btn ap-btn-primary" onclick="baixarModeloComLayout()">Continuar para PDF</button>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 
@@ -1192,38 +1153,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 
-<script>
-let apModeloUrl='';
-function abrirLayoutAplicacao(url, modelo){
-    apModeloUrl=url;
-    const overlay=document.getElementById('apLayoutOverlay');
-    const label=document.getElementById('apLayoutModel');
-    if(label) label.textContent='Escolha o layout para '+modelo+'. A opção vale somente para esta impressão.';
-    const one=document.querySelector('input[name="apLayoutColumns"][value="1"]');
-    if(one) one.checked=true;
-    if(overlay) overlay.hidden=false;
-}
-function fecharLayoutAplicacao(){
-    const overlay=document.getElementById('apLayoutOverlay');
-    if(overlay) overlay.hidden=true;
-}
-function baixarModeloComLayout(){
-    if(!apModeloUrl){
-        alert('Não foi possível localizar o modelo da prova. Atualize a página e tente novamente.');
-        return;
-    }
-    const selecionado=document.querySelector('input[name="apLayoutColumns"]:checked');
-    const colunas=selecionado ? selecionado.value : '1';
-    const separador=apModeloUrl.includes('?') ? '&' : '?';
-    const url=apModeloUrl+separador+'colunas='+encodeURIComponent(colunas)+'&imprimir=1';
 
-    // Navega na mesma aba. Isso evita bloqueio de pop-up dos navegadores,
-    // que fazia o botão "Continuar para PDF" parecer não funcionar.
-    fecharLayoutAplicacao();
-    window.location.assign(url);
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape') fecharLayoutAplicacao();});
-document.getElementById('apLayoutOverlay')?.addEventListener('click',e=>{if(e.target.id==='apLayoutOverlay') fecharLayoutAplicacao();});
-</script>
 
 {% endblock %}
