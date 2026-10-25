@@ -107,13 +107,18 @@ body.layout-2 .question-grid{gap:0}
 .statement .ql-align-left,.alt-text .ql-align-left {text-align:left!important;text-align-last:left!important}
 .statement .ql-align-justify,.alt-text .ql-align-justify{text-align:justify!important}
 /* Controles da pré-impressão, independentes do conteúdo salvo das questões. */
-:root{--ark-question-gap:3.45mm;--ark-line-height:1.245;--ark-font-size:10.9pt;--ark-content-inset:13mm}
+:root{--ark-question-gap:3.45mm;--ark-line-height:1.245;--ark-font-size:10.9pt;--ark-content-inset:13mm;--ark-alt-gap:.35mm}
 .sheet-content{inset:var(--ark-content-inset)}
 .question,.question.has-image,.question.long-text,.question.discursive-question{margin-bottom:var(--ark-question-gap)}
 .statement,.alt-text{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
 body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
 .question[data-custom-gap]{margin-bottom:var(--custom-gap)!important}
 .question[data-break-before="true"]{break-before:page}
+.alternatives{gap:var(--ark-alt-gap)!important}
+.question[data-align="left"] .statement{text-align:left!important;text-align-last:left!important}
+.question[data-align="center"] .statement{text-align:center!important;text-align-last:center!important}
+.question[data-align="right"] .statement{text-align:right!important;text-align-last:right!important}
+.question[data-align="justify"] .statement{text-align:justify!important;text-align-last:left!important}
 /* Painel de pré-impressão: controles acessíveis e separados da folha. */
 .editor-panel{position:sticky;top:0;z-index:1001;background:#f8fafc;border-bottom:1px solid #cbd5e1;padding:14px max(16px,calc((100vw - 1200px)/2));font:13px Arial,sans-serif;box-shadow:0 3px 12px #0f172a12}
 .editor-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
@@ -130,6 +135,7 @@ body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size);
 .pages{gap:22px;padding:24px 12px 40px}
 @media(max-width:750px){.editor-panel{position:relative}.editor-controls{gap:8px}.sheet{transform-origin:top center}}
 .question-tools{display:none}
+@media screen{.sheet .question.ark-selected{outline:2px solid #2563eb!important;outline-offset:3px}.sheet .question{cursor:pointer}.sheet[data-current="true"]{box-shadow:0 0 0 3px #60a5fa,0 8px 26px #0f172a25}.page-label{position:absolute;bottom:4mm;right:13mm;font:10px Arial;color:#64748b;z-index:22}.editor-inspector{display:flex;gap:12px;align-items:end;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:10px;margin-top:10px}.editor-inspector label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700}.editor-inspector input,.editor-inspector select{padding:7px;border:1px solid #b7c6d9;border-radius:6px;max-width:145px}.editor-inspector[hidden]{display:none}.page-nav{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}.page-nav button{border:1px solid #b7c6d9;border-radius:6px;background:white;padding:7px 10px;cursor:pointer}.page-nav button:disabled{opacity:.4;cursor:default}}
 @media screen{
  .sheet .question{position:relative}
  .sheet .question:hover{outline:1px dashed #93c5fd}
@@ -137,7 +143,7 @@ body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size);
  .question-tools{position:absolute;right:0;top:-19px;z-index:15;gap:3px;background:#eff6ff;border:1px solid #93c5fd;padding:2px}
  .question-tools button{font:10px Arial;padding:2px 5px;cursor:pointer}
 }
-@media print{.editor-panel,.question-tools{display:none!important}}
+@media print{.editor-panel,.question-tools,.page-label{display:none!important}}
 
 /* Mantém palavras inteiras nos enunciados e alternativas ao imprimir/exportar. */
 .statement, .statement p, .statement div, .statement span,
@@ -211,8 +217,17 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="10.9"></label>
   <label>Entrelinhas<select id="arkLine"><option value="1.15">Compacto · 1,15</option><option value="1.245" selected>Normal · 1,245</option><option value="1.4">Confortável · 1,4</option><option value="1.5">Amplo · 1,5</option></select></label>
   <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="13"></label>
+  <label>Espaço entre alternativas (mm)<input id="arkAltGap" type="number" min="0" max="6" step="0.25" value="0.35"></label>
  </div>
  <p class="editor-note">Passe o mouse sobre uma questão para ajustar o espaço depois dela ou iniciar outra página. A prévia é atualizada automaticamente. Margem padrão: 13 mm.</p>
+ <div class="editor-inspector" id="arkInspector" hidden>
+  <strong id="arkSelectedName">Questão</strong>
+  <label>Espaço após (mm)<input id="arkQuestionGap" type="number" min="0" max="18" step="0.5"></label>
+  <label>Alinhamento do enunciado<select id="arkQuestionAlign"><option value="original">Original do cadastro</option><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option><option value="justify">Justificado</option></select></label>
+  <label><input id="arkQuestionBreak" type="checkbox"> Iniciar em nova página</label>
+  <button type="button" id="arkQuestionReset">Limpar ajustes desta questão</button>
+ </div>
+ <div class="page-nav"><button type="button" id="arkPrevPage">← Página anterior</button><span id="arkPageCount">Página 1 de 1</span><button type="button" id="arkNextPage">Próxima página →</button><label>Ir para página <select id="arkGoPage"></select></label></div>
  <div class="editor-status" id="arkStatus" role="status" aria-live="polite"></div>
 </div>
 <div class="toolbar">
@@ -307,23 +322,44 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   const columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
   const settingKey='ark-print-layout-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
-  const defaults={gap:3.45,font:10.9,line:1.245,margin:13,questions:{}};
+  const defaults={gap:3.45,font:10.9,line:1.245,margin:13,altGap:.35,questions:{}};
+  let selectedQuestion=null;let activePage=0;
   let settings={...defaults,questions:{}};
   try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{}};}catch(e){}
   const status=document.getElementById('arkStatus');
-  const controls={gap:document.getElementById('arkGap'),font:document.getElementById('arkFont'),line:document.getElementById('arkLine'),margin:document.getElementById('arkMargin')};
+  const controls={gap:document.getElementById('arkGap'),font:document.getElementById('arkFont'),line:document.getElementById('arkLine'),margin:document.getElementById('arkMargin'),altGap:document.getElementById('arkAltGap')};
   function applySettings(){
     Object.keys(controls).forEach(k=>{controls[k].value=settings[k]});
     const st=document.documentElement.style;
     st.setProperty('--ark-question-gap',settings.gap+'mm');st.setProperty('--ark-font-size',settings.font+'pt');
-    st.setProperty('--ark-line-height',settings.line);st.setProperty('--ark-content-inset',settings.margin+'mm');
+    st.setProperty('--ark-line-height',settings.line);st.setProperty('--ark-content-inset',settings.margin+'mm');st.setProperty('--ark-alt-gap',settings.altGap+'mm');
   }
   applySettings();
   Object.keys(controls).forEach(k=>controls[k].addEventListener('change',()=>{
-    const value=Number(controls[k].value);if(!Number.isFinite(value))return;const limits={gap:[0,18],font:[8,15],line:[1.15,1.5],margin:[10,25]};settings[k]=Math.max(limits[k][0],Math.min(limits[k][1],value));applySettings();repaginate();status.textContent='Alterações ainda não salvas';
+    const value=Number(controls[k].value);if(!Number.isFinite(value))return;const limits={gap:[0,18],font:[8,15],line:[1.15,1.5],margin:[10,25],altGap:[0,6]};settings[k]=Math.max(limits[k][0],Math.min(limits[k][1],value));applySettings();repaginate();status.textContent='Alterações ainda não salvas';
   }));
   document.getElementById('arkSave').addEventListener('click',()=>{try{localStorage.setItem(settingKey,JSON.stringify(settings));status.textContent='✓ Ajustes salvos neste navegador';}catch(e){status.textContent='Não foi possível salvar. Verifique as permissões do navegador.';}});
   document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{}};localStorage.removeItem(settingKey);applySettings();repaginate();status.textContent='Padrão restaurado';});
+  const inspector=document.getElementById('arkInspector');
+  const questionGap=document.getElementById('arkQuestionGap');
+  const questionAlign=document.getElementById('arkQuestionAlign');
+  const questionBreak=document.getElementById('arkQuestionBreak');
+  function selectQuestion(idx){
+    selectedQuestion=Number(idx);const opts=settings.questions[selectedQuestion]||{};
+    inspector.hidden=false;document.getElementById('arkSelectedName').textContent='Questão '+String(selectedQuestion+1).padStart(2,'0');
+    questionGap.value=opts.gap??settings.gap;questionAlign.value=opts.align||'original';questionBreak.checked=!!opts.breakBefore;
+    pages.querySelectorAll('.question').forEach(q=>q.classList.toggle('ark-selected',Number(q.dataset.arkIndex)===selectedQuestion));
+  }
+  function changeQuestion(patch){if(selectedQuestion===null)return;settings.questions[selectedQuestion]={...(settings.questions[selectedQuestion]||{}),...patch};status.textContent='Alterações ainda não salvas';repaginate();}
+  questionGap.addEventListener('change',()=>{const n=Number(questionGap.value);if(Number.isFinite(n)&&n>=0&&n<=18)changeQuestion({gap:n});});
+  questionAlign.addEventListener('change',()=>changeQuestion({align:questionAlign.value}));
+  questionBreak.addEventListener('change',()=>changeQuestion({breakBefore:questionBreak.checked}));
+  document.getElementById('arkQuestionReset').addEventListener('click',()=>{if(selectedQuestion===null)return;delete settings.questions[selectedQuestion];selectQuestion(selectedQuestion);status.textContent='Alterações ainda não salvas';repaginate();});
+  function updatePageNavigation(){const sheets=Array.from(pages.querySelectorAll('.sheet'));activePage=Math.max(0,Math.min(activePage,sheets.length-1));const sel=document.getElementById('arkGoPage');sel.innerHTML='';sheets.forEach((sheet,i)=>{sheet.dataset.current=String(i===activePage);const label=document.createElement('span');label.className='page-label';label.textContent=`Página ${i+1} de ${sheets.length}`;sheet.appendChild(label);const option=document.createElement('option');option.value=i;option.textContent=`${i+1}`;sel.appendChild(option);});sel.value=activePage;document.getElementById('arkPageCount').textContent=`Página ${activePage+1} de ${sheets.length}`;document.getElementById('arkPrevPage').disabled=activePage===0;document.getElementById('arkNextPage').disabled=activePage>=sheets.length-1;}
+  function goToPage(i){activePage=Math.max(0,Math.min(i,pages.children.length-1));updatePageNavigation();pages.children[activePage]?.scrollIntoView({behavior:'smooth',block:'start'});}
+  document.getElementById('arkPrevPage').onclick=()=>goToPage(activePage-1);
+  document.getElementById('arkNextPage').onclick=()=>goToPage(activePage+1);
+  document.getElementById('arkGoPage').onchange=e=>goToPage(Number(e.target.value));
   let slots = [];
   let slotIndex = 0;
 
@@ -522,6 +558,17 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
     const pieces=splitPieces(question);
     let part=makePart(question,false);
     slot.appendChild(part);
+    // Mantém questões completas quando elas cabem em uma coluna vazia.
+    // Questões maiores continuam usando a divisão inteligente existente.
+    const probe=question.cloneNode(true);
+    probe.style.marginBottom='0';slot.appendChild(probe);
+    const wholeFits=fits(slot);
+    probe.remove();
+    if(!wholeFits && slotHasContent(slot) && slot.children.length>1){
+      const emptyHeight=slot.clientHeight;
+      const requiredHeight=question.scrollHeight;
+      if(requiredHeight<=emptyHeight){slot.removeChild(part);slot=advanceSlot();part=makePart(question,false);slot.appendChild(part);}
+    }
 
     if(!fits(slot)){
       slot.removeChild(part);
@@ -599,9 +646,10 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
       if(opts.gap!==undefined){question.dataset.customGap='true';question.style.setProperty('--custom-gap',opts.gap+'mm');}
       else {delete question.dataset.customGap;question.style.removeProperty('--custom-gap');}
       if(opts.breakBefore)question.dataset.breakBefore='true';else delete question.dataset.breakBefore;
+      if(opts.align && opts.align!=='original')question.dataset.align=opts.align;else delete question.dataset.align;
       if(opts.breakBefore && i>0 && slotHasContent(currentSlot())){
-        while(slotIndex%columns!==0)advanceSlot();
-        if(slotIndex%columns===0)advanceSlot();
+        const currentSheet=Math.floor(slotIndex/columns);
+        while(Math.floor(slotIndex/columns)===currentSheet)advanceSlot();
       }
       placeQuestion(question);
     });
@@ -614,7 +662,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
       gapBtn.onclick=()=>{const v=prompt('Espaço após esta questão (mm, de 0 a 18):',settings.questions[idx]?.gap??settings.gap);if(v===null)return;const n=Number(v.replace(',','.'));if(!Number.isFinite(n)||n<0||n>18)return;settings.questions[idx]={...(settings.questions[idx]||{}),gap:n};status.textContent='Alterações ainda não salvas';repaginate();};
       const breakBtn=document.createElement('button');breakBtn.type='button';breakBtn.textContent=settings.questions[idx]?.breakBefore?'Remover quebra':'Nova página';
       breakBtn.onclick=()=>{settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:!settings.questions[idx]?.breakBefore};status.textContent='Alterações ainda não salvas';repaginate();};
-      tools.append(gapBtn,breakBtn);el.prepend(tools);
+      tools.append(gapBtn,breakBtn);el.prepend(tools);el.addEventListener('click',e=>{if(e.target.closest('button'))return;selectQuestion(idx);});if(Number(idx)===selectedQuestion)el.classList.add('ark-selected');
     });
 
     /* Remove colunas/páginas finais realmente vazias. */
@@ -624,6 +672,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
         if(cols.every(c => !c.children.length) && pages.children.length>1) sheet.remove();
       }
     });
+    updatePageNavigation();
   }
 
   let timer;
@@ -650,7 +699,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   });
   source.addEventListener('load',e=>{ if(e.target?.tagName==='IMG') repaginate(); },true);
   window.addEventListener('resize',repaginate);
-  window.addEventListener('beforeprint',paginate);
+  window.addEventListener('beforeprint',()=>{clearTimeout(timer);paginate();});
 })();
 </script>
 </body>
