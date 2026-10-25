@@ -161,8 +161,8 @@ body.layout-2 .statement, body.layout-2 .alt-text {
 .discursive-question .statement figure img,
 .discursive-question .statement>img{max-width:100%!important;height:auto!important;object-fit:contain!important;margin-left:auto!important;margin-right:auto!important}
 
-body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:10.25pt;line-height:1.22}
-body.layout-2 .statement,body.layout-2 .alt-text{text-align:justify;text-align-last:left;text-justify:inter-word;hyphens:none}
+body.layout-2 .statement,body.layout-2 .alt-text,body.layout-2 .alt-letter{font-family:Arial,Helvetica,sans-serif;font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
+body.layout-2 .statement,body.layout-2 .alt-text{text-justify:inter-word;hyphens:none}
 body.layout-2 .question-title{font-family:Arial,Helvetica,sans-serif;font-size:10.95pt;line-height:1.2}
 body.layout-2 .alt-letter{min-width:6.5mm}
 body.layout-2 .question{margin-bottom:3.05mm}
@@ -181,13 +181,37 @@ body.layout-2 .discursive-line{height:6.5mm;min-height:6.5mm}
 /* Compressão adaptativa em dois estágios: primeiro espaços; só depois fonte, e sempre discretamente. */
 .question.micro-compact{margin-bottom:1.25mm}
 .question.micro-compact .question-title{font-size:10.95pt;margin-bottom:.32mm;line-height:1.17}
-.question.micro-compact .statement,.question.micro-compact .alt-text{font-size:10.65pt;line-height:1.19}
+.question.micro-compact .statement,.question.micro-compact .alt-text{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
 .question.micro-compact .statement{margin-bottom:.35mm}
 .question.micro-compact .alternatives{gap:.1mm}
 .question.micro-compact .alternative{min-height:3.55mm}
 body.layout-2 .question.micro-compact .question-title{font-size:10.55pt}
-body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-compact .alt-text,body.layout-2 .question.micro-compact .alt-letter{font-size:9.95pt;line-height:1.18}
+body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-compact .alt-text,body.layout-2 .question.micro-compact .alt-letter{font-size:var(--ark-font-size);line-height:var(--ark-line-height)}
 .question-continuation{margin-top:0!important}
+
+
+.ark-page-thumbnails{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ark-thumb{border:1px solid #9ca3af;border-radius:6px;background:white;padding:7px 10px;cursor:pointer;font:12px Arial}
+.ark-thumb:hover{background:#e8f1ff}
+@media print{.ark-page-thumbnails{display:none!important}}
+/* QR2: cabeçalho de alto contraste, idêntico na tela e no PDF. */
+.exam-header{border:1px solid #000!important;color:#000!important}
+.logo-box{border-right:1px solid #333!important}
+.school-name,.exam-title,.meta-item,.meta-label,.line-field,.instructions-title,.instructions ol{color:#000!important}
+.meta-grid{border-top:1px solid #333!important;border-bottom:1px solid #333!important}
+.meta-item{border-right:1px solid #333!important}
+.meta-item:last-child{border-right:0!important}
+.exam-title{border-top:1px solid #333!important}
+.line{border-bottom:1px solid #333!important}
+.instructions{border:1px solid #000!important;border-left:1px solid #000!important;color:#000!important}
+.instructions-columns{column-gap:7mm}
+.instructions-columns > * + *{border-left:1px solid #333;padding-left:4mm}
+/* Valor base da fonte e espaçamento respeitado também em layout de duas colunas. */
+:root{--ark-question-gap:6mm;--ark-line-height:1.15;--ark-font-size:12pt;--ark-content-inset:18mm;--ark-alt-gap:2mm}
+body{color:#000;font-family:Arial,Helvetica,sans-serif}
+.statement,.alt-text,body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size)!important;line-height:var(--ark-line-height)!important}
+.question.smart-compact .statement,.question.micro-compact .statement{line-height:var(--ark-line-height)!important}
+@media print{.exam-header,.instructions,.meta-grid,.meta-item,.logo-box{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
 @page{size:A4 portrait;margin:0}
 @media print{
@@ -204,7 +228,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
 <body class="layout-{{ layout_colunas|default(1) }}">
 <div class="editor-panel" id="printEditor">
  <div class="editor-heading">
-  <div><h1>Organizar impressão</h1><p>Ajuste as folhas A4 antes de gerar o PDF. O conteúdo original das questões não será alterado.</p></div>
+  <div><h1>Editor de impressão · Modo Equilibrado</h1><p>Ajuste as folhas A4 antes de gerar o PDF. O conteúdo original das questões não será alterado.</p></div>
   <div class="editor-actions">
    <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar às aplicações</a>
    <button type="button" id="arkReset">Restaurar padrão</button>
@@ -213,13 +237,14 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   </div>
  </div>
  <div class="editor-controls">
-  <label>Espaço entre questões (mm)<input id="arkGap" type="number" min="0" max="18" step="0.5" value="3.45"></label>
-  <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="10.9"></label>
-  <label>Entrelinhas<select id="arkLine"><option value="1.15">Compacto · 1,15</option><option value="1.245" selected>Normal · 1,245</option><option value="1.4">Confortável · 1,4</option><option value="1.5">Amplo · 1,5</option></select></label>
-  <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="13"></label>
-  <label>Espaço entre alternativas (mm)<input id="arkAltGap" type="number" min="0" max="6" step="0.25" value="0.35"></label>
+  <label>Modo de impressão<select id="arkPreset"><option value="balanced">Equilibrado (padrão)</option><option value="compact">Compacto</option><option value="expanded">Ampliado</option><option value="custom">Personalizado</option></select></label>
+  <label>Espaço entre questões (mm)<input id="arkGap" type="number" min="0" max="18" step="0.5" value="6"></label>
+  <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="12"></label>
+  <label>Entrelinhas<select id="arkLine"><option value="1.15" selected>Equilibrado · 1,15</option><option value="1.245">Normal · 1,245</option><option value="1.4">Confortável · 1,4</option><option value="1.5">Amplo · 1,5</option></select></label>
+  <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="18"></label>
+  <label>Espaço entre alternativas (mm)<input id="arkAltGap" type="number" min="0" max="6" step="0.25" value="2"></label>
  </div>
- <p class="editor-note">Passe o mouse sobre uma questão para ajustar o espaço depois dela ou iniciar outra página. A prévia é atualizada automaticamente. Margem padrão: 13 mm.</p>
+ <p class="editor-note">Passe o mouse sobre uma questão para ajustar o espaço depois dela ou iniciar outra página. A prévia é atualizada automaticamente. Modo Equilibrado: Arial 12 pt, margens de 18 mm e espaçamento de 6 mm entre questões.</p>
  <div class="editor-inspector" id="arkInspector" hidden>
   <strong id="arkSelectedName">Questão</strong>
   <label>Espaço após (mm)<input id="arkQuestionGap" type="number" min="0" max="18" step="0.5"></label>
@@ -228,6 +253,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   <button type="button" id="arkQuestionReset">Limpar ajustes desta questão</button>
  </div>
  <div class="page-nav"><button type="button" id="arkPrevPage">← Página anterior</button><span id="arkPageCount">Página 1 de 1</span><button type="button" id="arkNextPage">Próxima página →</button><label>Ir para página <select id="arkGoPage"></select></label></div>
+ <div class="ark-page-thumbnails" id="arkThumbnails" aria-label="Miniaturas das páginas"></div>
  <div class="editor-status" id="arkStatus" role="status" aria-live="polite"></div>
 </div>
 <div class="toolbar">
@@ -321,21 +347,26 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
   const pages = document.getElementById('pages');
   const columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
-  const settingKey='ark-print-layout-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
-  const defaults={gap:3.45,font:10.9,line:1.245,margin:13,altGap:.35,questions:{}};
+  const settingKey='ark-print-layout-v2-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
+  const defaults={gap:6,font:12,line:1.15,margin:18,altGap:2,questions:{}};
   let selectedQuestion=null;let activePage=0;
   let settings={...defaults,questions:{}};
   try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{}};}catch(e){}
+  const presets={balanced:{gap:6,font:12,line:1.15,margin:18,altGap:2},compact:{gap:3,font:12,line:1.15,margin:15,altGap:.5},expanded:{gap:9,font:12,line:1.4,margin:20,altGap:3}};
+  const preset=document.getElementById('arkPreset');
+  preset.addEventListener('change',()=>{if(!presets[preset.value])return;settings={...settings,...presets[preset.value]};applySettings();repaginate();status.textContent='Alterações ainda não salvas';});
   const status=document.getElementById('arkStatus');
   const controls={gap:document.getElementById('arkGap'),font:document.getElementById('arkFont'),line:document.getElementById('arkLine'),margin:document.getElementById('arkMargin'),altGap:document.getElementById('arkAltGap')};
   function applySettings(){
     Object.keys(controls).forEach(k=>{controls[k].value=settings[k]});
+    const matching=Object.keys(presets).find(name=>Object.keys(presets[name]).every(key=>Number(settings[key])===presets[name][key]));
+    preset.value=matching||'custom';
     const st=document.documentElement.style;
     st.setProperty('--ark-question-gap',settings.gap+'mm');st.setProperty('--ark-font-size',settings.font+'pt');
     st.setProperty('--ark-line-height',settings.line);st.setProperty('--ark-content-inset',settings.margin+'mm');st.setProperty('--ark-alt-gap',settings.altGap+'mm');
   }
   applySettings();
-  Object.keys(controls).forEach(k=>controls[k].addEventListener('change',()=>{
+  Object.keys(controls).forEach(k=>controls[k].addEventListener('input',()=>{
     const value=Number(controls[k].value);if(!Number.isFinite(value))return;const limits={gap:[0,18],font:[8,15],line:[1.15,1.5],margin:[10,25],altGap:[0,6]};settings[k]=Math.max(limits[k][0],Math.min(limits[k][1],value));applySettings();repaginate();status.textContent='Alterações ainda não salvas';
   }));
   document.getElementById('arkSave').addEventListener('click',()=>{try{localStorage.setItem(settingKey,JSON.stringify(settings));status.textContent='✓ Ajustes salvos neste navegador';}catch(e){status.textContent='Não foi possível salvar. Verifique as permissões do navegador.';}});
@@ -673,6 +704,13 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
       }
     });
     updatePageNavigation();
+    const thumbnails=document.getElementById('arkThumbnails');
+    thumbnails.replaceChildren();
+    Array.from(pages.querySelectorAll('.sheet')).forEach((sheet,i)=>{
+      const b=document.createElement('button');b.type='button';b.className='ark-thumb';
+      b.textContent=`Página ${i+1}`;b.setAttribute('aria-label',`Ir para página ${i+1}`);
+      b.onclick=()=>goToPage(i);thumbnails.appendChild(b);
+    });
   }
 
   let timer;
