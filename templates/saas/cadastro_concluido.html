@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="5;url={{ url_for('login') }}">
+    <title>Cadastro concluído | ARK EDUS</title>
+    <style>
+        *{box-sizing:border-box}
+        body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#f4f7fc,#e8f5fb);font-family:Inter,Arial,sans-serif;color:#102a56}
+        .card{width:min(520px,100%);background:#fff;border:1px solid #dce7f3;border-radius:24px;padding:42px;text-align:center;box-shadow:0 24px 60px rgba(13,46,89,.14)}
+        .icone{width:76px;height:76px;margin:0 auto 22px;border-radius:50%;display:grid;place-items:center;background:#e9f9ef;color:#159447;font-size:40px;font-weight:900}
+        h1{margin:0 0 14px;font-size:31px;color:#0b376c}
+        p{margin:0 0 12px;color:#66758b;line-height:1.65;font-size:16px}
+        .destaque{margin:22px 0;padding:16px;border-radius:14px;background:#eef6ff;color:#153e75;font-weight:700}
+        .btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;border-radius:12px;background:#0b376c;color:#fff;text-decoration:none;font-weight:800}
+        .contador{margin-top:18px;font-size:13px;color:#8491a3}
+    </style>
+</head>
+<body>
+    <main class="card" role="status" aria-live="polite">
+        <div class="icone" aria-hidden="true">✓</div>
+        <h1>Cadastro realizado com sucesso!</h1>
+        <p>Sua conta de professor autônomo foi criada.</p>
+        <div class="destaque">Você recebeu 7 dias de acesso completo ao Plano Professor.</div>
+        <p>Agora você já pode entrar na plataforma com o e-mail e a senha cadastrados.</p>
+        <a class="btn" href="{{ url_for('login') }}">Ir para a tela de login</a>
+        <div class="contador">Você será direcionado automaticamente em 5 segundos.</div>
+    </main>
+</body>
+</html>

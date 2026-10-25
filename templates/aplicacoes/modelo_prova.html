@@ -1094,34 +1094,58 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         el.addEventListener('compositionstart',e=>e.preventDefault());
 
         el.addEventListener('focus',()=>{
-          activeRich=el;document.getElementById('arkRichHint').textContent='Formatando questão '+(Number(idx)+1)+' — selecione o texto e use alinhamento. Enter insere uma quebra de linha, sem alterar as palavras. Ctrl+Enter inicia nova página.';
+          activeRich=el;document.getElementById('arkRichHint').textContent='Formatando questão '+(Number(idx)+1)+' — selecione o texto e use alinhamento. Enter quebra a linha no cursor; Backspace remove uma quebra manual. Ctrl+Enter inicia nova página.';
           document.getElementById('arkRichBefore').value=el.dataset.before;
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
         });
+        // O cursor funciona como no Word para QUEBRAS, mas nunca apaga palavras.
+        // Manipulamos Range diretamente: execCommand pode mover o cursor para
+        // fora da questão e gerar parágrafos que quebram a paginação.
+        function insertManualBreak(){
+          const sel=window.getSelection();
+          if(!sel || !sel.rangeCount)return false;
+          const range=sel.getRangeAt(0);
+          if(!el.contains(range.commonAncestorContainer))return false;
+          range.collapse(true);
+          const br=document.createElement('br');br.dataset.arkManualBreak='1';
+          range.insertNode(br);
+          range.setStartAfter(br);range.collapse(true);
+          sel.removeAllRanges();sel.addRange(range);
+          el.dataset.arkChanged='yes';persistRich(el);
+          return true;
+        }
+        function removeManualBreak(){
+          const sel=window.getSelection();
+          if(!sel || !sel.isCollapsed || !sel.rangeCount)return false;
+          const r=sel.getRangeAt(0);let br=null;
+          if(r.startContainer.nodeType===1){
+            br=r.startContainer.childNodes[r.startOffset-1];
+          }else if(r.startContainer.nodeType===3 && r.startOffset===0){
+            let n=r.startContainer.previousSibling;
+            while(n && n.nodeType===3 && !n.textContent)n=n.previousSibling;
+            br=n;
+          }
+          if(br?.nodeName!=='BR' || !br.hasAttribute('data-ark-manual-break'))return false;
+          const parent=br.parentNode;const pos=Array.prototype.indexOf.call(parent.childNodes,br);
+          br.remove();const next=document.createRange();next.setStart(parent,pos);next.collapse(true);
+          sel.removeAllRanges();sel.addRange(next);
+          el.dataset.arkChanged='yes';persistRich(el);return true;
+        }
         el.addEventListener('keydown',e=>{
           if(e.key==='Backspace'){
-            const sel=window.getSelection();
-            if(sel?.isCollapsed && sel.anchorNode?.nodeType===1){
-              const prev=sel.anchorNode.childNodes[sel.anchorOffset-1];
-              if(prev?.nodeName==='BR' && prev.hasAttribute('data-ark-manual-break')){
-                e.preventDefault();prev.remove();persistRich(el);return;
-              }
-            }
+            e.preventDefault();removeManualBreak();return;
+          }
+          if(e.key==='Delete'){
             e.preventDefault();return;
           }
           if(e.key!=='Enter')return;
-          if(e.ctrlKey || e.altKey){
-            e.preventDefault();
-            settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};
-            persistRich(el);
-            // A nova página é aplicada ao sair do campo para preservar o cursor.
-            el.blur();repaginate();return;
-          }
-          // Enter cria apenas uma quebra visual, sem permitir digitação.
           e.preventDefault();
-          document.execCommand('insertHTML',false,'<br data-ark-manual-break="1">');
-          el.dataset.arkChanged='yes';persistRich(el);
+          if(e.ctrlKey || e.altKey){
+            settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};
+            persistRich(el);el.blur();repaginate();return;
+          }
+          insertManualBreak();
         });
         el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
         el.addEventListener('blur',()=>{
