@@ -895,6 +895,25 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     classifyQuestion(question);
     let slot=currentSlot();
     const pieces=splitPieces(question);
+    // A opção 'Manter junta' impede alternativas órfãs quando a questão
+    // inteira cabe numa coluna vazia; questões longas continuam divisíveis.
+    if(settings.questions[question.dataset.arkIndex]?.keepTogether && slotHasContent(slot)){
+      const probe=makePart(question,false);
+      pieces.forEach(piece=>probe.appendChild(piece.cloneNode(true)));
+      slot.appendChild(probe);
+      const fitsHere=fits(slot);
+      probe.remove();
+      if(!fitsHere){
+        // Medição na coluna vazia sem alterar o fluxo até confirmar que cabe.
+        const existing=Array.from(slot.childNodes);
+        slot.replaceChildren();
+        slot.appendChild(probe);
+        const fitsEmpty=fits(slot);
+        probe.remove();
+        slot.replaceChildren(...existing);
+        if(fitsEmpty)slot=advanceSlot();
+      }
+    }
     let part=makePart(question,false);
     slot.appendChild(part);
     // Fluxo contínuo: não deslocar uma questão inteira só porque não cabe
@@ -996,14 +1015,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         el.dataset.after=String(settings.rich?.[key]?.after||0);
         el.contentEditable='true';el.spellcheck=true;el.classList.add('qr2-editable');
         el.addEventListener('focus',()=>{
-          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página.';
+          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — Enter cria uma nova linha. Ctrl+Enter inicia a questão em uma nova página. Use 'Manter questão junta' para evitar alternativas isoladas.';
           document.getElementById('arkRichBefore').value=el.dataset.before;
           document.getElementById('arkRichAfter').value=el.dataset.after;
           selectQuestion(idx);
         });
         el.addEventListener('keydown',e=>{
           if(e.key!=='Enter')return;
-          if(e.ctrlKey){
+          if(e.ctrlKey || e.altKey){
             e.preventDefault();
             settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:true};
             persistRich(el);
@@ -1084,7 +1103,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       gapBtn.onclick=()=>{const v=prompt('Espaço após esta questão (mm, de 0 a 18):',settings.questions[idx]?.gap??settings.gap);if(v===null)return;const n=Number(v.replace(',','.'));if(!Number.isFinite(n)||n<0||n>18)return;settings.questions[idx]={...(settings.questions[idx]||{}),gap:n};status.textContent='Alterações ainda não salvas';repaginate();};
       const breakBtn=document.createElement('button');breakBtn.type='button';breakBtn.textContent=settings.questions[idx]?.breakBefore?'Remover quebra':'Nova página';
       breakBtn.onclick=()=>{settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:!settings.questions[idx]?.breakBefore};status.textContent='Alterações ainda não salvas';repaginate();};
-      const upBtn=document.createElement('button');upBtn.type='button';upBtn.textContent='↑ Aproximar';upBtn.title='Reduzir o espaço após a questão anterior';upBtn.disabled=Number(idx)===0;upBtn.onclick=()=>{const prev=Number(idx)-1;settings.questions[prev]={...(settings.questions[prev]||{}),gap:0};settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:false};status.textContent='Espaço reduzido — salve as alterações';repaginate();};tools.append(upBtn,gapBtn,breakBtn);el.prepend(tools);el.addEventListener('click',e=>{if(e.target.closest('button'))return;selectQuestion(idx);});if(Number(idx)===selectedQuestion)el.classList.add('ark-selected');
+      const keepBtn=document.createElement('button');keepBtn.type='button';
+      keepBtn.textContent=settings.questions[idx]?.keepTogether?'✓ Manter junta':'Manter questão junta';
+      keepBtn.title='Evitar que alternativas fiquem sozinhas na página seguinte, quando houver espaço em uma coluna';
+      keepBtn.onclick=()=>{settings.questions[idx]={...(settings.questions[idx]||{}),keepTogether:!settings.questions[idx]?.keepTogether};status.textContent='Organização alterada — clique em Salvar';repaginate();};
+      const upBtn=document.createElement('button');upBtn.type='button';upBtn.textContent='↑ Aproximar';upBtn.title='Reduzir o espaço após a questão anterior';upBtn.disabled=Number(idx)===0;upBtn.onclick=()=>{const prev=Number(idx)-1;settings.questions[prev]={...(settings.questions[prev]||{}),gap:0};settings.questions[idx]={...(settings.questions[idx]||{}),breakBefore:false};status.textContent='Espaço reduzido — salve as alterações';repaginate();};tools.append(upBtn,gapBtn,keepBtn,breakBtn);el.prepend(tools);el.addEventListener('click',e=>{if(e.target.closest('button'))return;selectQuestion(idx);});if(Number(idx)===selectedQuestion)el.classList.add('ark-selected');
     });
 
     /* Remove colunas/páginas finais realmente vazias. */
