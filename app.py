@@ -22587,7 +22587,7 @@ def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
             browser.close()
 
 
-@app.route("/aplicacoes/<int:aplicacao_id>/modelos/pdf/<int:modelo>", methods=["POST"])
+@app.route("/aplicacoes/<int:aplicacao_id>/modelos/pdf/<int:modelo>", methods=["POST"], endpoint="baixar_modelo_pdf")
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
 def baixar_modelos_zip(aplicacao_id, modelo=None):
     """Exporta somente PDFs de provas; cartões permanecem na rota original da aplicação."""
