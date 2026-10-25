@@ -523,32 +523,28 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const modelChoices=document.getElementById('arkModelChoices');
   const modelMessage=document.getElementById('arkModelMessage');
   let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
-  const pdfUrlPrefix={{ url_for('baixar_modelo_pdf',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
+  const modelPrintPrefix={{ url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
   function drawModels(){
     modelChoices.replaceChildren();
     for(let i=1;i<=registeredModels;i++){
       const item=document.createElement('div');item.className='ark-model-item';
       const title=document.createElement('span');title.textContent='Modelo '+i;
-      const button=document.createElement('button');button.type='button';button.textContent='↓ Baixar PDF';
+      const button=document.createElement('button');button.type='button';button.textContent='Imprimir / Salvar PDF';
       button.addEventListener('click',()=>downloadModel(i,button));
       item.append(title,button);modelChoices.append(item);
     }
   }
-  async function downloadModel(modelo,button){
-    button.disabled=true;button.textContent='Gerando PDF...';
-    modelMessage.textContent='Preparando PDF do Modelo '+modelo+'...';
-    try{
-      const response=await fetch(pdfUrlPrefix+modelo,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({colunas:Number(document.getElementById('qr2Columns').value)})});
-      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(err.erro||'Falha ao gerar PDF. Verifique os logs do Render.');}
-      const blob=await response.blob();const url=URL.createObjectURL(blob);
-      const link=document.createElement('a');link.href=url;
-      const disposition=response.headers.get('Content-Disposition')||'';
-      const match=disposition.match(/filename\*=UTF-8''([^;]+)/i);
-      link.download=match?decodeURIComponent(match[1]):'ARK_EDUS_Modelo_'+modelo+'.pdf';
-      document.body.append(link);link.click();link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
-      modelMessage.textContent='Download do Modelo '+modelo+' iniciado.';
-    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;button.textContent='↓ Baixar PDF';}
+  function downloadModel(modelo,button){
+    // Imprime no navegador do usuário: não depende de Chromium, Playwright
+    // ou de workers do Render. A impressão usa o próprio editor paginado.
+    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
+    const novaAba=window.open(url,'_blank');
+    if(!novaAba){
+      modelMessage.textContent='Permita pop-ups para abrir o modelo e salvar como PDF.';
+      return;
+    }
+    modelMessage.textContent='Modelo '+modelo+' aberto. Na janela de impressão, selecione “Salvar como PDF”.';
   }
   drawModels();
   document.getElementById('qr2PrintAction').addEventListener('click',()=>dialog.showModal());
@@ -565,7 +561,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const data=await response.json();
       if(!response.ok)throw Error(data.erro||'Não foi possível registrar os modelos.');
       registeredModels=data.quantidade;modelCount.value=registeredModels;drawModels();
-      modelMessage.textContent='Modelos registrados. Clique em Baixar PDF ao lado do modelo desejado.';
+      modelMessage.textContent='Modelos registrados. Abra o modelo desejado e escolha Salvar como PDF na impressão.';
     }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
   });
   const source = document.getElementById('examSource');
@@ -1109,7 +1105,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   function repaginate(){ clearTimeout(timer); timer=setTimeout(()=>{if(document.activeElement?.matches?.('.qr2-editable'))return;paginate();},100); }
   function afterReady(){
     paginate();
-    /* A prévia fica aberta para ajustes antes da impressão. */
+    // Apenas a aba aberta para exportação imprime automaticamente.
+    if(autoPrint && !window.__arkPrinted){
+      window.__arkPrinted=true;
+      setTimeout(()=>window.print(),700);
+    }
   }
   function waitImages(){
     const imgs=Array.from(source.querySelectorAll('img'));

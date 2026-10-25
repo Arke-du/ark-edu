@@ -1,0 +1,9 @@
+ARK EDUS - exportacao sem Chromium no servidor
+
+Na pre-impressao, selecione a quantidade de modelos e clique em Imprimir / Salvar PDF ao lado de cada modelo. Uma nova aba abre a prova correspondente, pagina com o editor original e abre a impressao do navegador. Selecione Salvar como PDF.
+
+A exportacao individual nao depende de Playwright/Chromium no Render. O cartao-resposta permanece na tela de aplicacoes. Os modelos continuam vindo da funcao _questoes_modelo_aplicacao, que conserva o mapeamento de questoes e alternativas.
+
+Limitacao: o arquivo PDF e salvo pela caixa de impressao do navegador, nao baixado automaticamente. Configuracoes do navegador (cabecalhos/rodapes, escala) podem alterar o resultado; usar escala 100%, sem cabecalhos e rodapes.
+
+A rota antiga de exportacao por servidor foi mantida por compatibilidade, mas a interface nao a utiliza.
