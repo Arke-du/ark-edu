@@ -1302,11 +1302,7 @@
                 <div class="montagem-estatistica">
                     <span>Status</span>
                     <strong>
-                        {% if prova["status"] == "finalizada" %}
-                            Finalizada
-                        {% else %}
-                            Rascunho
-                        {% endif %}
+                        {{ "Agendada" if prova["status"] == "agendada" else "Rascunho" }}
                     </strong>
                 </div>
 
@@ -1321,13 +1317,6 @@
                 </div>
             </section>
 
-            <section class="montagem-painel montagem-painel-acoes">
-                <form method="POST" action="/provas/{{ prova['id'] }}/finalizar">
-                    <button type="submit" class="montagem-btn montagem-btn-principal">
-                        Finalizar avaliação
-                    </button>
-                </form>
-            </section>
         </aside>
     </div>
 </div>

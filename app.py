@@ -10976,6 +10976,13 @@ def montar_prova(prova_id):
             flash("Esta avaliação está finalizada e disponível somente para visualização.", "aviso")
             return redirect(f"/prova/{prova_id}")
 
+        _sincronizar_status_prova(cursor, prova_id)
+        cursor.execute("SELECT * FROM provas WHERE id = ?", (prova_id,))
+        status_atualizado = cursor.fetchone()
+        # Preserva os demais campos do registro usado pelo template.
+        prova = dict(prova)
+        prova["status"] = status_atualizado["status"]
+
         normalizar_ordem_questoes_prova(cursor, prova_id)
         redistribuir_pesos_automaticos(cursor, prova_id)
         banco.commit()
@@ -11755,62 +11762,8 @@ def remover_questao_prova(prova_id, vinculo_id):
     methods=["POST"]
 )
 def finalizar_prova(prova_id):
-    banco = conectar_banco()
-    banco.row_factory = sqlite3.Row
-    cursor = banco.cursor()
-
-    try:
-        if not _pode_gerenciar_prova(
-            cursor,
-            prova_id,
-            exigir_edicao=True
-        ):
-            return _redirecionar_acesso_negado_prova()
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM prova_questoes
-            WHERE prova_id = ?
-        """, (prova_id,))
-        total = cursor.fetchone()["total"]
-
-        if total <= 0:
-            flash(
-                "Adicione pelo menos uma questão antes de finalizar.",
-                "aviso"
-            )
-            return redirect(f"/provas/{prova_id}/montar")
-
-        cursor.execute("""
-            UPDATE provas
-            SET
-                quantidade = ?,
-                status = 'agendada',
-                atualizado_em = ?
-            WHERE id = ?
-        """, (
-            total,
-            datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
-            prova_id
-        ))
-
-        banco.commit()
-        flash("Avaliação finalizada e agendada com sucesso.", "sucesso")
-
-        return redirect(f"/prova/{prova_id}")
-
-    except sqlite3.Error as erro:
-        banco.rollback()
-        flash(
-            f"Não foi possível finalizar a avaliação: {erro}",
-            "erro"
-        )
-        return redirect(f"/provas/{prova_id}/montar")
-
-    finally:
-        banco.close()
+    # Compatibilidade com formulários antigos: não altera o status manualmente.
+    return redirect(f"/provas/{prova_id}/montar")
 
 @app.route("/prova/<int:prova_id>")
 @app.route("/provas/<int:prova_id>")
@@ -22213,54 +22166,16 @@ def _tipo_discursivo_aplicacao(tipo):
 
 
 def _sincronizar_status_prova(cursor, prova_id):
-    """Recalcula o status da prova sem alterar avaliações em rascunho."""
-    cursor.execute("""
-        SELECT LOWER(TRIM(COALESCE(status, 'rascunho'))) AS status
-        FROM provas
-        WHERE id = ?
-    """, (prova_id,))
-    prova = cursor.fetchone()
-
-    if not prova:
+    """Rascunho sem aplicações; agendada com pelo menos uma aplicação."""
+    cursor.execute("SELECT id FROM provas WHERE id = ?", (prova_id,))
+    if cursor.fetchone() is None:
         return None
-
-    status_atual = prova["status"] or "rascunho"
-    if status_atual == "rascunho":
-        return "rascunho"
-
+    cursor.execute("SELECT COUNT(*) AS total FROM aplicacoes WHERE prova_id = ?", (prova_id,))
+    novo_status = "agendada" if cursor.fetchone()["total"] else "rascunho"
     cursor.execute("""
-        SELECT
-            COUNT(*) AS total_aplicacoes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'corrigida'
-                     THEN 1 ELSE 0 END) AS corrigidas,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'em correção'
-                          OR LOWER(TRIM(COALESCE(status, ''))) = 'aguardando correção'
-                     THEN 1 ELSE 0 END) AS em_correcao
-        FROM aplicacoes
-        WHERE prova_id = ?
-    """, (prova_id,))
-    resumo = cursor.fetchone()
-
-    total = int(resumo["total_aplicacoes"] or 0)
-    corrigidas = int(resumo["corrigidas"] or 0)
-    em_correcao = int(resumo["em_correcao"] or 0)
-
-    if total > 0 and corrigidas == total:
-        novo_status = "finalizada"
-    elif em_correcao > 0:
-        novo_status = "em_correcao"
-    else:
-        novo_status = "agendada"
-
-    cursor.execute("""
-        UPDATE provas
-        SET status = ?, atualizado_em = ?
-        WHERE id = ?
-    """, (
-        novo_status,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        prova_id
-    ))
+        UPDATE provas SET status = ?, atualizado_em = ?
+        WHERE id = ? AND LOWER(TRIM(COALESCE(status, ''))) <> ?
+    """, (novo_status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id, novo_status))
     return novo_status
 
 
@@ -22540,6 +22455,7 @@ def nova_aplicacao(prova_id):
                     VALUES (?, ?, ?)
                 """, (aplicacao_id, aluno_id, modelo))
 
+            _sincronizar_status_prova(cursor, prova_id)
             banco.commit()
             flash("Aplicação criada com sucesso.", "sucesso")
             return redirect(f"/provas/{prova_id}/aplicacoes")
@@ -24418,6 +24334,7 @@ def excluir_aplicacao(aplicacao_id):
         if cursor.rowcount == 0:
             raise RuntimeError("A aplicação não foi excluída.")
 
+        _sincronizar_status_prova(cursor, prova_id)
         banco.commit()
 
         # Exclui os arquivos somente depois de confirmar a transação.
