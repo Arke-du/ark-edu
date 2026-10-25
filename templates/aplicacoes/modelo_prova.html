@@ -207,7 +207,7 @@ body.layout-2 .question.micro-compact .statement,body.layout-2 .question.micro-c
 .instructions-columns{column-gap:7mm}
 .instructions-columns > * + *{border-left:1px solid #333;padding-left:4mm}
 /* Valor base da fonte e espaçamento respeitado também em layout de duas colunas. */
-:root{--ark-question-gap:6mm;--ark-line-height:1.15;--ark-font-size:12pt;--ark-content-inset:18mm;--ark-alt-gap:2mm}
+:root{--ark-question-gap:6mm;--ark-line-height:1.15;--ark-font-size:12pt;--ark-content-inset:12mm;--ark-alt-gap:2mm}
 body{color:#000;font-family:Arial,Helvetica,sans-serif}
 .statement,.alt-text,body.layout-2 .statement,body.layout-2 .alt-text{font-size:var(--ark-font-size)!important;line-height:var(--ark-line-height)!important}
 .question.smart-compact .statement,.question.micro-compact .statement{line-height:var(--ark-line-height)!important}
@@ -257,6 +257,25 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 @media screen and (max-width:750px){html,body{overflow:auto}.qr2-appbar{height:auto;min-height:65px;flex-wrap:wrap;padding:12px}.qr2-workspace{height:auto;grid-template-columns:1fr}.qr2-left{display:none}.qr2-main>.pages{max-height:75vh}.qr2-right{max-height:none}.qr2-top-actions{flex-wrap:wrap}.qr2-brand{border:0}}
 @media print{.qr2-appbar,.qr2-left,.qr2-right,.qr2-ribbon,.qr2-side-foot{display:none!important}.qr2-workspace,.qr2-main{display:block!important;height:auto!important;overflow:visible!important}.qr2-main>.pages{display:block!important;height:auto!important;overflow:visible!important;padding:0!important;margin:0!important;gap:0!important}}
 
+
+/* QR2: identidade oficial, miniaturas reais e edição direta. */
+@media screen{
+.qr2-brand{min-width:185px}.qr2-official-logo{display:block;width:135px;height:38px;object-fit:contain;filter:brightness(0) invert(1)}
+.qr2-brand small{position:static;align-self:flex-end;margin:0 0 2px -28px;font-size:10px}
+.ark-thumb .qr2-mini-paper{width:102px;height:144px;overflow:hidden;position:relative;background:#fff;border:1px solid #cbd5e1;display:block}
+.ark-thumb .qr2-mini-paper::before{display:none!important}
+.ark-thumb{width:132px;height:180px;padding:7px}
+.ark-thumb .qr2-mini-paper>.sheet{position:absolute!important;top:0;left:0;zoom:0.128!important;transform:none!important;box-shadow:none!important;pointer-events:none!important;overflow:hidden!important}
+.qr2-editable{cursor:text;outline:1px dashed transparent;min-height:1em}
+.qr2-editable:hover{outline-color:#93c5fd}
+.qr2-editable p:empty,.qr2-editable div:empty{display:block!important;min-height:1em!important}
+.qr2-editable:focus{outline:2px solid #2563eb!important;outline-offset:2px;background:#eff6ff}
+.qr2-format-actions{display:flex;flex-wrap:wrap;gap:5px}
+.qr2-format-actions button,.qr2-secondary-action{background:#fff;border:1px solid #cbd5e1;border-radius:5px;padding:7px 10px;cursor:pointer;color:#102744}
+.qr2-format-actions button:hover,.qr2-secondary-action:hover{background:#dbeafe}
+}
+@media print{.qr2-editable,.qr2-editable:focus{outline:none!important;background:transparent!important}}
+
 @page{size:A4 portrait;margin:0}
 @media print{
   html,body{width:210mm!important;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -271,7 +290,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
 </head>
 <body class="layout-{{ layout_colunas|default(1) }}">
 <div class="qr2-appbar" id="qr2Appbar">
-  <div class="qr2-brand"><span class="qr2-mark">◈</span><strong>ARK EDUS</strong><small>QR2</small></div>
+  <div class="qr2-brand"><img class="qr2-official-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="ARK EDUS — logo oficial"><small>QR2</small></div>
   <div class="qr2-editor-title">Editor de pré-impressão <span>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</span></div>
   <div class="qr2-top-actions">
     <a id="arkBack" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar</a>
@@ -312,12 +331,32 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <div class="qr2-section"><h3>Configurações da página</h3>
       <div class="qr2-field"><span>Tamanho do papel</span><strong>A4 (210 × 297 mm)</strong></div>
       <div class="qr2-field"><span>Orientação</span><strong>Retrato</strong></div>
-      <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="18"></label>
+      <label>Margens da folha (mm)<input id="arkMargin" type="number" min="10" max="25" step="0.5" value="12"></label>
     </div>
     <div class="qr2-section"><h3>Fonte e espaçamento</h3>
       <div class="qr2-field"><span>Fonte</span><strong>Arial</strong></div>
       <label>Tamanho da fonte (pt)<input id="arkFont" type="number" min="8" max="15" step="0.25" value="12"></label>
       <label>Entrelinhas<select id="arkLine"><option value="1.15">1,15</option><option value="1.245">1,245</option><option value="1.4">1,4</option><option value="1.5">1,5</option></select></label>
+    </div>
+    <div class="qr2-section"><h3>Elementos da prova</h3>
+      <label class="qr2-check"><input type="checkbox" id="arkShowInstructions" checked> Exibir instruções para realizar a avaliação</label>
+      <p>Ao ocultar as instruções, as questões ocupam o espaço liberado na primeira página.</p>
+    </div>
+    <div class="qr2-section" id="qr2RichTools"><h3>Editar texto da prova</h3>
+      <p>Clique em um enunciado ou alternativa na folha. Edite o texto diretamente e utilize as ferramentas abaixo.</p>
+      <div class="qr2-format-actions">
+        <button type="button" data-cmd="bold" title="Negrito"><b>N</b></button>
+        <button type="button" data-cmd="italic" title="Itálico"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Sublinhado"><u>S</u></button>
+        <button type="button" data-cmd="justifyLeft" title="À esquerda">☰</button>
+        <button type="button" data-cmd="justifyCenter" title="Centralizar">≡</button>
+        <button type="button" data-cmd="justifyRight" title="À direita">☷</button>
+        <button type="button" data-cmd="justifyFull" title="Justificar">▤</button>
+      </div>
+      <label>Espaço antes do trecho (mm)<input type="number" id="arkRichBefore" min="0" max="20" step="0.5" value="0"></label>
+      <label>Espaço depois do trecho (mm)<input type="number" id="arkRichAfter" min="0" max="20" step="0.5" value="0"></label>
+      <button type="button" id="arkRichApplySpace" class="qr2-secondary-action">Aplicar espaçamento ao trecho</button>
+      <p id="arkRichHint">Selecione um texto para habilitar a edição.</p>
     </div>
     <div class="qr2-section"><h3>Layout da prova</h3>
       <div class="qr2-field"><span>Colunas</span><strong>{{ layout_colunas|default(1) }}</strong></div>
@@ -420,11 +459,11 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const columns = Number({{ layout_colunas|default(1)|int }}) === 2 ? 2 : 1;
   const autoPrint = {{ 'true' if auto_imprimir|default(false) else 'false' }};
   const settingKey='ark-print-layout-v2-{{ aplicacao.id }}-{{ modelo }}-{{ layout_colunas|default(1) }}';
-  const defaults={gap:6,font:12,line:1.15,margin:18,altGap:2,questions:{}};
+  const defaults={gap:6,font:12,line:1.15,margin:12,altGap:2,showInstructions:true,rich:{},questions:{}};
   let selectedQuestion=null;let activePage=0;
   let settings={...defaults,questions:{}};
-  try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{}};}catch(e){}
-  const presets={balanced:{gap:6,font:12,line:1.15,margin:18,altGap:2},compact:{gap:3,font:12,line:1.15,margin:15,altGap:.5},expanded:{gap:9,font:12,line:1.4,margin:20,altGap:3}};
+  try {const stored=JSON.parse(localStorage.getItem(settingKey)||'null');if(stored) settings={...defaults,...stored,questions:stored.questions||{},rich:stored.rich||{}};}catch(e){}
+  const presets={balanced:{gap:6,font:12,line:1.15,margin:12,altGap:2},compact:{gap:3,font:12,line:1.15,margin:12,altGap:.5},expanded:{gap:9,font:12,line:1.4,margin:20,altGap:3}};
   const preset=document.getElementById('arkPreset');
   preset.addEventListener('change',()=>{if(!presets[preset.value])return;settings={...settings,...presets[preset.value]};applySettings();repaginate();status.textContent='Alterações ainda não salvas';});
   const status=document.getElementById('arkStatus');
@@ -437,12 +476,15 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     st.setProperty('--ark-question-gap',settings.gap+'mm');st.setProperty('--ark-font-size',settings.font+'pt');
     st.setProperty('--ark-line-height',settings.line);st.setProperty('--ark-content-inset',settings.margin+'mm');st.setProperty('--ark-alt-gap',settings.altGap+'mm');
   }
+  const instructionsToggle=document.getElementById('arkShowInstructions');
+  instructionsToggle.checked=settings.showInstructions!==false;
+  instructionsToggle.addEventListener('change',()=>{settings.showInstructions=instructionsToggle.checked;repaginate();status.textContent='Alterações ainda não salvas';});
   applySettings();
   Object.keys(controls).forEach(k=>controls[k].addEventListener('input',()=>{
     const value=Number(controls[k].value);if(!Number.isFinite(value))return;const limits={gap:[0,18],font:[8,15],line:[1.15,1.5],margin:[10,25],altGap:[0,6]};settings[k]=Math.max(limits[k][0],Math.min(limits[k][1],value));applySettings();repaginate();status.textContent='Alterações ainda não salvas';
   }));
   document.getElementById('arkSave').addEventListener('click',()=>{try{localStorage.setItem(settingKey,JSON.stringify(settings));status.textContent='✓ Ajustes salvos neste navegador';}catch(e){status.textContent='Não foi possível salvar. Verifique as permissões do navegador.';}});
-  document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{}};localStorage.removeItem(settingKey);applySettings();repaginate();status.textContent='Padrão restaurado';});
+  document.getElementById('arkReset').addEventListener('click',()=>{settings={...defaults,questions:{},rich:{}};instructionsToggle.checked=true;localStorage.removeItem(settingKey);applySettings();repaginate();status.textContent='Padrão restaurado';});
   const inspector=document.getElementById('arkInspector');
   const questionGap=document.getElementById('arkQuestionGap');
   const questionAlign=document.getElementById('arkQuestionAlign');
@@ -487,7 +529,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const header = source.querySelector('[data-block="header"]');
       const instructions = source.querySelector('[data-block="instructions"]');
       if(header) fixed.appendChild(header.cloneNode(true));
-      if(instructions) fixed.appendChild(instructions.cloneNode(true));
+      if(instructions && settings.showInstructions!==false) fixed.appendChild(instructions.cloneNode(true));
       content.appendChild(fixed);
     }
 
@@ -746,7 +788,69 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     }
   }
 
+  let activeRich=null;
+  function persistRich(el){
+    if(!el || !el.dataset.richKey)return;
+    const key=el.dataset.richKey;
+    settings.rich=settings.rich||{};
+    settings.rich[key]={html:el.innerHTML,before:Number(el.dataset.before||0),after:Number(el.dataset.after||0)};
+    status.textContent='Texto alterado — clique em Salvar';
+  }
+  function installInlineEditors(){
+    pages.querySelectorAll('.question').forEach(q=>{
+      if(q.classList.contains('question-continuation'))return;
+      const idx=q.dataset.arkIndex;
+      if(idx===undefined)return;
+      q.querySelectorAll('.statement,.alt-text').forEach((el,j)=>{
+        // A paginação pode dividir enunciados: os fragmentos não são editáveis separadamente.
+        const key=idx+':'+j;
+        el.dataset.richKey=key;
+        el.dataset.before=String(settings.rich?.[key]?.before||0);
+        el.dataset.after=String(settings.rich?.[key]?.after||0);
+        el.contentEditable='true';el.spellcheck=true;el.classList.add('qr2-editable');
+        el.addEventListener('focus',()=>{
+          activeRich=el;document.getElementById('arkRichHint').textContent='Editando questão '+(Number(idx)+1)+' — use Ctrl+Enter para inserir uma quebra de linha.';
+          document.getElementById('arkRichBefore').value=el.dataset.before;
+          document.getElementById('arkRichAfter').value=el.dataset.after;
+          selectQuestion(idx);
+        });
+        el.addEventListener('input',()=>{el.dataset.arkChanged='yes';persistRich(el);});
+        el.addEventListener('blur',()=>{
+          if(el.dataset.arkChanged==='yes')persistRich(el);
+          // Aguarda o término da interação com a barra de formatação.
+          setTimeout(()=>{if(!document.activeElement?.closest('#qr2RichTools'))repaginate();},180);
+        });
+      });
+    });
+  }
+  document.querySelectorAll('#qr2RichTools [data-cmd]').forEach(btn=>{
+    btn.addEventListener('mousedown',e=>e.preventDefault());
+    btn.addEventListener('click',()=>{
+      if(!activeRich || !activeRich.isConnected)return;
+      activeRich.focus();document.execCommand(btn.dataset.cmd,false,null);
+      persistRich(activeRich);
+    });
+  });
+  document.getElementById('arkRichApplySpace').onclick=()=>{
+    if(!activeRich || !activeRich.isConnected)return;
+    const before=Math.max(0,Math.min(20,Number(document.getElementById('arkRichBefore').value)||0));
+    const after=Math.max(0,Math.min(20,Number(document.getElementById('arkRichAfter').value)||0));
+    activeRich.dataset.before=before;activeRich.dataset.after=after;
+    activeRich.style.marginTop=before+'mm';activeRich.style.marginBottom=after+'mm';
+    persistRich(activeRich);repaginate();
+  };
+
   function paginate(){
+    // Restaura o conteúdo editado apenas na cópia de impressão, sem alterar o banco de questões.
+    Array.from(questionsSource.querySelectorAll(':scope > .question')).forEach((q,i)=>{
+      q.querySelectorAll('.statement,.alt-text').forEach((part,j)=>{
+        const key=i+':'+j;
+        if(!part.dataset.arkOriginalHtml)part.dataset.arkOriginalHtml=part.innerHTML;
+        part.innerHTML=settings.rich?.[key]?.html??part.dataset.arkOriginalHtml;
+        part.style.marginTop=(settings.rich?.[key]?.before||0)+'mm';
+        part.style.marginBottom=(settings.rich?.[key]?.after||0)+'mm';
+      });
+    });
     normalizeRichContent(source);
     pages.innerHTML=''; slots=[]; slotIndex=0;
     createSheet(true);
@@ -764,6 +868,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       }
       placeQuestion(question);
     });
+    installInlineEditors();
     pages.querySelectorAll('.question').forEach(el=>{
       if(el.classList.contains('question-continuation'))return;
       const idx=el.dataset.arkIndex;
@@ -790,7 +895,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     thumbnails.replaceChildren();
     Array.from(pages.querySelectorAll('.sheet')).forEach((sheet,i)=>{
       const b=document.createElement('button');b.type='button';b.className='ark-thumb';
-      b.innerHTML=`<span class="qr2-mini-paper" aria-hidden="true"></span><span class="qr2-mini-label">${i+1}</span>`;b.classList.toggle('active',i===activePage);b.setAttribute('aria-label',`Ir para página ${i+1}`);
+      const paper=document.createElement('span');paper.className='qr2-mini-paper';
+      const copy=sheet.cloneNode(true);copy.removeAttribute('style');copy.querySelectorAll('[contenteditable]').forEach(n=>n.removeAttribute('contenteditable'));
+      copy.querySelectorAll('.question-tools,.page-label').forEach(n=>n.remove());
+      copy.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+      paper.appendChild(copy);
+      const label=document.createElement('span');label.className='qr2-mini-label';label.textContent=i+1;
+      b.append(paper,label);b.classList.toggle('active',i===activePage);
+      b.setAttribute('aria-label',`Ir para página ${i+1}`);
       b.onclick=()=>goToPage(i);thumbnails.appendChild(b);
     });
   }
