@@ -523,94 +523,56 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const modelMessage=document.getElementById('arkModelMessage');
   let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
   const modelPrintPrefix={{ url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
-  // Pré-carrega cada modelo para que o clique do usuário invoque print() imediatamente.
-  // A chamada síncrona é importante: navegadores podem bloquear impressão disparada
-  // após await, postMessage, setTimeout ou o carregamento de um iframe novo.
-  const preparedFrames=new Map();
-  function clearPrepared(){
-    for(const state of preparedFrames.values())state.frame.remove();
-    preparedFrames.clear();
-  }
-  function prepareModel(modelo){
-    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
-    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
-    const previous=preparedFrames.get(modelo);
-    if(previous && previous.url===url)return previous;
-    if(previous)previous.frame.remove();
-    const frame=document.createElement('iframe');
-    frame.title='Documento pronto para imprimir: Modelo '+modelo;
-    // Não usar iframe 1x1: o layout HTML depende da largura da viewport.
-    frame.style.cssText='position:fixed;left:-12000px;top:0;width:1000px;height:1400px;border:0;pointer-events:none;';
-    const state={frame,url,ready:false,error:false};
-    preparedFrames.set(modelo,state);
-    frame.addEventListener('load',()=>{
-      try{
-        const doc=frame.contentDocument;
-        if(!doc || !doc.querySelector('.sheet')){
-          // O template sinaliza quando a paginação terminou.
-          return;
-        }
-      }catch(e){state.error=true;}
-    });
-    frame.addEventListener('error',()=>{state.error=true;});
-    frame.src=url;
-    document.body.appendChild(frame);
-    return state;
-  }
-  window.addEventListener('message',event=>{
-    if(event.origin!==location.origin || event.data?.type!=='ark-print-ready')return;
-    for(const [modelo,state] of preparedFrames){
-      if(event.source===state.frame.contentWindow){
-        state.ready=true;
-        const button=modelChoices.querySelector('[data-print-model="'+modelo+'"]');
-        if(button){button.disabled=false;button.textContent='Imprimir / Salvar PDF';}
-        break;
-      }
-    }
-  });
+  // O clique abre imediatamente uma janela de impressão. Não esperar iframes
+  // ocultos: sua paginação pesada podia deixar os botões bloqueados indefinidamente.
   function drawModels(){
-    clearPrepared();modelChoices.replaceChildren();
-    for(let i=1;i<=registeredModels;i++){
+    modelChoices.replaceChildren();
+    const total=Number(modelCount.value);
+    for(let i=1;i<=total;i++){
       const item=document.createElement('div');item.className='ark-model-item';
       const title=document.createElement('span');title.textContent='Modelo '+i;
       const button=document.createElement('button');button.type='button';
-      button.dataset.printModel=i;
-      button.textContent='Preparando impressão...';button.disabled=true;
-      button.addEventListener('click',()=>printPrepared(i));
+      button.textContent='Imprimir / Salvar PDF';
+      button.addEventListener('click',()=>openModelPrint(i));
       item.append(title,button);modelChoices.append(item);
-      prepareModel(i);
     }
   }
-  function printPrepared(modelo){
-    const state=preparedFrames.get(modelo);
-    if(!state?.ready){
-      modelMessage.textContent='O Modelo '+modelo+' ainda está sendo preparado. Aguarde alguns segundos.';
+  async function saveModels(silent=false){
+    const response=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({quantidade:Number(modelCount.value)})
+    });
+    const data=await response.json();
+    if(!response.ok)throw Error(data.erro||'Não foi possível registrar os modelos.');
+    registeredModels=data.quantidade;
+    if(!silent)modelMessage.textContent='Modelos salvos com sucesso.';
+  }
+  function openModelPrint(modelo){
+    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+    const url=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
+    // Abrir sincronamente no clique impede bloqueio de pop-ups após await.
+    // A aba temporária chama print() após concluir a paginação e carregar imagens.
+    const popup=window.open('about:blank','_blank');
+    if(!popup){
+      modelMessage.textContent='O navegador bloqueou a janela de impressão. Autorize pop-ups para este site.';
       return;
     }
-    // Executado diretamente dentro do evento de clique, sem chamadas assíncronas.
-    try{
-      state.frame.contentWindow.focus();
-      state.frame.contentWindow.print();
-      modelMessage.textContent='Impressão do Modelo '+modelo+' solicitada. Selecione “Salvar como PDF” no navegador.';
-    }catch(error){
-      modelMessage.textContent='O navegador impediu a impressão. Verifique as permissões e tente novamente.';
-    }
+    popup.document.write('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>ARK EDUS — Preparando impressão</title><body style="font:16px Arial;padding:30px">Preparando impressão da avaliação…</body></html>');
+    popup.document.close();
+    modelMessage.textContent='Abrindo impressão do Modelo '+modelo+'…';
+    saveModels(true).then(()=>{popup.location.replace(url);}).catch(error=>{
+      popup.document.body.textContent='Não foi possível salvar os modelos: '+error.message;
+      modelMessage.textContent='Falha ao salvar os modelos: '+error.message;
+    });
   }
-  document.getElementById('qr2Columns').addEventListener('change',()=>{
-    if(dialog.open)drawModels();
-  });
   document.getElementById('qr2PrintAction').addEventListener('click',()=>{drawModels();dialog.showModal();});
+  modelCount.addEventListener('change',drawModels);
   document.getElementById('arkModelCancel').addEventListener('click',()=>dialog.close());
-  dialog.addEventListener('close',clearPrepared);
   document.getElementById('arkModelGenerate').addEventListener('click',async()=>{
     const button=document.getElementById('arkModelGenerate');button.disabled=true;
-    try{
-      const response=await fetch({{ url_for('gerar_modelos_na_impressao', aplicacao_id=aplicacao.id)|tojson }},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantidade:Number(modelCount.value)})});
-      const data=await response.json();
-      if(!response.ok)throw Error(data.erro||'Não foi possível registrar os modelos.');
-      registeredModels=data.quantidade;modelCount.value=registeredModels;drawModels();
-      modelMessage.textContent='Modelos registrados. Abra o modelo desejado e escolha Salvar como PDF na impressão.';
-    }catch(err){modelMessage.textContent=err.message;}finally{button.disabled=false;}
+    try{await saveModels();drawModels();}
+    catch(err){modelMessage.textContent=err.message;}
+    finally{button.disabled=false;}
   });
   const source = document.getElementById('examSource');
   const questionsSource = document.getElementById('questionsSource');
@@ -1166,14 +1128,14 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   function repaginate(){ clearTimeout(timer); timer=setTimeout(()=>{if(document.activeElement?.matches?.('.qr2-editable'))return;paginate();},100); }
   function afterReady(){
     paginate();
-    // Apenas a aba aberta para exportação imprime automaticamente.
+    // A janela de exportação só imprime depois que a paginação terminou.
     if(autoPrint && !window.__arkPrinted){
       window.__arkPrinted=true;
-      if(window.parent!==window){
-        window.parent.postMessage({type:'ark-print-ready'},location.origin);
-      }else{
-        setTimeout(()=>window.print(),450);
-      }
+      window.addEventListener('afterprint',()=>{
+        // Fechar apenas a aba temporária aberta pelo botão, nunca o editor.
+        if(window.opener)window.close();
+      },{once:true});
+      setTimeout(()=>{window.focus();window.print();},350);
     }
   }
   function waitImages(){
