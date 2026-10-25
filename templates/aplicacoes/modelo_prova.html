@@ -500,7 +500,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     <div><h2 id="arkModelTitle">Modelos da avaliação</h2><small>Impressão de provas • ARK EDUS</small></div>
   </div>
   <div class="ark-modal-body">
-    <p>Gere os modelos da aplicação e baixe apenas as provas em PDF. Os cartões-resposta continuam disponíveis na tela de aplicações.</p>
+    <p>Selecione a quantidade de modelos e clique em Baixar PDF para receber a prova. Os cartões-resposta continuam disponíveis na tela de aplicações.</p>
     <label class="ark-field-label" for="arkModelCount">Quantidade de modelos</label>
     <select id="arkModelCount">
     {% for n in range(1,5) %}<option value="{{n}}" {% if n == (aplicacao.quantidade_modelos or 1)|int %}selected{% endif %}>{{n}} modelo{% if n>1 %}s{% endif %}</option>{% endfor %}
@@ -523,8 +523,9 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   const modelMessage=document.getElementById('arkModelMessage');
   let registeredModels={{ (aplicacao.quantidade_modelos or 1)|int }};
   const modelPrintPrefix={{ url_for('imprimir_modelo_aplicacao',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
-  // O clique abre imediatamente uma janela de impressão. Não esperar iframes
-  // ocultos: sua paginação pesada podia deixar os botões bloqueados indefinidamente.
+  // O PDF é gerado no servidor e entregue como anexo: não depende de popup,
+  // iframe invisível ou window.print() fora do gesto do usuário.
+  const modelPdfPrefix={{ url_for('baixar_modelo_pdf',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
   function drawModels(){
     modelChoices.replaceChildren();
     const total=Number(modelCount.value);
@@ -532,8 +533,8 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
       const item=document.createElement('div');item.className='ark-model-item';
       const title=document.createElement('span');title.textContent='Modelo '+i;
       const button=document.createElement('button');button.type='button';
-      button.textContent='Imprimir / Salvar PDF';
-      button.addEventListener('click',()=>openModelPrint(i));
+      button.textContent='Baixar PDF';
+      button.addEventListener('click',()=>downloadModel(i,button));
       item.append(title,button);modelChoices.append(item);
     }
   }
@@ -547,47 +548,38 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     registeredModels=data.quantidade;
     if(!silent)modelMessage.textContent='Modelos salvos com sucesso.';
   }
-  // A impressão é executada no documento paginado, dentro de um iframe
-  // de mesma origem. Nenhuma aba intermediária ou segundo clique.
-  let printFrame=null;
-  let printRequest=0;
-  const printFrameId='arkDirectPrintFrame';
-  window.addEventListener('message',event=>{
-    if(event.origin!==window.location.origin || !printFrame ||
-       event.source!==printFrame.contentWindow || !event.data ||
-       event.data.type!=='ark:print-ready')return;
+  async function downloadModel(modelo,button){
+    if(button.disabled)return;
+    button.disabled=true;
+    const label=button.textContent;
+    button.textContent='Gerando PDF…';
+    modelMessage.textContent='Gerando o PDF do Modelo '+modelo+'…';
     try{
-      modelMessage.textContent='Abrindo a impressão do Modelo '+event.data.modelo+'…';
-      printFrame.contentWindow.focus();
-      printFrame.contentWindow.print();
+      if(registeredModels<Number(modelCount.value))await saveModels(true);
+      const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+      const url=modelPdfPrefix+modelo+'?colunas='+colunas;
+      // Download via fetch para exibir erro real, sem navegar para página JSON.
+      const response=await fetch(url,{credentials:'same-origin'});
+      if(!response.ok){
+        const detail=await response.json().catch(()=>({}));
+        throw Error(detail.erro||'Erro HTTP '+response.status+' ao gerar o PDF.');
+      }
+      const blob=await response.blob();
+      if(!blob.size)throw Error('O servidor retornou um PDF vazio.');
+      const disposition=response.headers.get('Content-Disposition')||'';
+      let filename='Modelo '+modelo+' - Prova.pdf';
+      const encoded=disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plain=disposition.match(/filename="([^"]+)"/i);
+      if(encoded){try{filename=decodeURIComponent(encoded[1]);}catch(_){}}
+      else if(plain)filename=plain[1];
+      const objectUrl=URL.createObjectURL(blob);
+      const link=document.createElement('a');link.href=objectUrl;link.download=filename;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      modelMessage.textContent='Download do Modelo '+modelo+' iniciado.';
     }catch(error){
-      modelMessage.textContent='Não foi possível abrir a impressão: '+error.message;
-    }
-  });
-  async function openModelPrint(modelo){
-    const requestId=++printRequest;
-    const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
-    modelMessage.textContent='Preparando o Modelo '+modelo+' para impressão…';
-    try{
-      // A rota valida a quantidade cadastrada. Salvar antes de carregá-la
-      // evita redirecionamentos para /provas nos novos modelos.
-      if(registeredModels!==Number(modelCount.value))await saveModels(true);
-      if(requestId!==printRequest)return;
-      if(printFrame){printFrame.remove();printFrame=null;}
-      const frame=document.createElement('iframe');
-      frame.id=printFrameId;
-      frame.title='Impressão da avaliação';
-      frame.setAttribute('aria-hidden','true');
-      frame.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;';
-      printFrame=frame;
-      frame.addEventListener('error',()=>{
-        modelMessage.textContent='Não foi possível carregar o documento de impressão.';
-      });
-      document.body.appendChild(frame);
-      frame.src=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1&incorporado=1';
-    }catch(error){
-      modelMessage.textContent='Falha ao preparar impressão: '+error.message;
-    }
+      modelMessage.textContent='Não foi possível baixar o Modelo '+modelo+': '+error.message;
+    }finally{button.disabled=false;button.textContent=label;}
   }
   document.getElementById('qr2PrintAction').addEventListener('click',()=>{drawModels();dialog.showModal();});
   modelCount.addEventListener('change',drawModels);

@@ -22587,7 +22587,7 @@ def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
             browser.close()
 
 
-@app.route("/aplicacoes/<int:aplicacao_id>/modelos/pdf/<int:modelo>", methods=["POST"], endpoint="baixar_modelo_pdf")
+@app.route("/aplicacoes/<int:aplicacao_id>/modelos/pdf/<int:modelo>", methods=["GET", "POST"], endpoint="baixar_modelo_pdf")
 @app.route("/aplicacoes/<int:aplicacao_id>/modelos/zip", methods=["POST"])
 def baixar_modelos_zip(aplicacao_id, modelo=None):
     """Exporta somente PDFs de provas; cartões permanecem na rota original da aplicação."""
@@ -22627,7 +22627,7 @@ def baixar_modelos_zip(aplicacao_id, modelo=None):
         # A exportação desta rota é exclusivamente de provas.
         # Os cartões-resposta são gerados pela rota original /aplicacoes/<id>/cartoes.
         provas = True
-        colunas = 2 if str(dados.get('colunas')) == '2' else 1
+        colunas = 2 if str(request.args.get('colunas', dados.get('colunas'))) == '2' else 1
         # Mantém o nome cadastrado na plataforma, sanitizado para arquivos ZIP/PDF.
         titulo_original = str(aplicacao['prova_nome'] or f'Avaliacao_{aplicacao_id}')
         titulo_limpo = unicodedata.normalize('NFKD', titulo_original)
@@ -22655,7 +22655,7 @@ def baixar_modelos_zip(aplicacao_id, modelo=None):
                          download_name=f'{titulo_limpo} - Modelos.zip')
     except Exception:
         app.logger.exception('Erro ao exportar modelos da aplicação %s', aplicacao_id)
-        return jsonify(erro="Falha ao gerar PDFs no navegador do servidor. Verifique Chromium/Playwright nos logs."), 500
+        return jsonify(erro="Não foi possível gerar o PDF no servidor. Verifique a instalação do Chromium e os logs do Render."), 500
     finally:
         banco.close()
 
