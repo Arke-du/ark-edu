@@ -1116,7 +1116,7 @@
         <div class="ic-list-head">
             <div>
                 <h2>Acompanhamento da turma</h2>
-                <p>Todos os alunos da aplicação aparecem aqui. A situação é atualizada conforme os cartões são importados.</p>
+                <p>Todos os alunos da aplicação aparecem aqui. A situação é atualizada conforme os cartões são importados ou as respostas são lançadas manualmente.</p>
             </div>
             <div class="ic-filters">
                 <button type="button" class="ic-filter active" data-filter="todos">Todos</button>
@@ -1155,6 +1155,8 @@
                         <small>
                             {% if item.status_lista == 'Ausente' %}
                                 Aluno marcado como ausente
+                            {% elif item.status_lista == 'Processado' %}
+                                Correção manual registrada
                             {% else %}
                                 Aguardando importação do cartão
                             {% endif %}
@@ -1163,7 +1165,7 @@
                 </div>
 
                 <div class="ic-meta">
-                    {% if item.importacao_id %}
+                    {% if item.importacao_id or item.status_lista == 'Processado' %}
                         <span>Modelo {{ item.modelo_importacao or item.modelo_aluno or '—' }}</span>
                         {% if item.total_objetivas %}
                             <span>{{ item.acertos_objetivos }}/{{ item.total_objetivas }} corretas</span>
@@ -1204,6 +1206,8 @@
                                 data-importacao-id="{{ item.importacao_id }}">
                             Excluir
                         </button>
+                    {% elif item.status_lista == 'Processado' %}
+                        <a class="ic-btn ic-btn-secondary" href="{{ url_for('lancar_objetivas_manual', aplicacao_id=aplicacao.id, aluno_id=item.aluno_id) }}">Ver e editar</a>
                     {% elif item.status_lista == 'Ausente' %}
                         <button type="button"
                                 class="ic-btn ic-btn-secondary ic-attendance"
@@ -1222,6 +1226,8 @@
                 <div class="ic-message">
                     {% if item.mensagem %}
                         {{ item.mensagem }}
+                    {% elif item.status_lista == 'Processado' %}
+                        Respostas lançadas manualmente e correção registrada.
                     {% elif item.status_lista == 'Pendente' %}
                         O cartão deste aluno ainda não foi importado.
                     {% elif item.status_lista == 'Ausente' %}

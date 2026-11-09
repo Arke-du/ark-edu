@@ -23866,10 +23866,12 @@ def importar_cartoes_aplicacao(aplicacao_id):
                 ai.mensagem,
                 CASE
                     WHEN aa.status = 'Ausente' THEN 'Ausente'
-                    WHEN ai.id IS NULL THEN 'Pendente'
                     WHEN ai.status = 'Revisão necessária'
                         THEN 'Revisão necessária'
-                    ELSE 'Processado'
+                    WHEN COALESCE(aa.objetiva_corrigida, 0) = 1
+                        THEN 'Processado'
+                    WHEN ai.id IS NOT NULL THEN 'Processado'
+                    ELSE 'Pendente'
                 END AS status_lista
             FROM aplicacao_alunos aa
             INNER JOIN alunos al ON al.id = aa.aluno_id
