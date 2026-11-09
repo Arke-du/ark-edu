@@ -22166,12 +22166,40 @@ def _tipo_discursivo_aplicacao(tipo):
 
 
 def _sincronizar_status_prova(cursor, prova_id):
-    """Rascunho sem aplicações; agendada com pelo menos uma aplicação."""
+    """Consolida o estado real das aplicações, sem rebaixar provas corrigidas.
+
+    Uma prova só está finalizada quando TODAS as suas aplicações foram
+    corrigidas. Aplicações agendadas não podem esconder outras em correção.
+    """
     cursor.execute("SELECT id FROM provas WHERE id = ?", (prova_id,))
     if cursor.fetchone() is None:
         return None
-    cursor.execute("SELECT COUNT(*) AS total FROM aplicacoes WHERE prova_id = ?", (prova_id,))
-    novo_status = "agendada" if cursor.fetchone()["total"] else "rascunho"
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) IN
+                ('corrigida', 'corrigido', 'finalizada') THEN 1 ELSE 0 END)
+                AS concluidas,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) IN
+                ('agendada', 'aguardando aplicação', 'aguardando aplicacao')
+                THEN 1 ELSE 0 END) AS agendadas
+        FROM aplicacoes WHERE prova_id = ?
+    """, (prova_id,))
+    resumo = cursor.fetchone()
+    total = int(resumo["total"] or 0)
+    concluidas = int(resumo["concluidas"] or 0)
+    agendadas = int(resumo["agendadas"] or 0)
+
+    if total == 0:
+        novo_status = "rascunho"
+    elif concluidas == total:
+        novo_status = "finalizada"
+    elif agendadas == total:
+        novo_status = "agendada"
+    else:
+        novo_status = "em_correcao"
+
     cursor.execute("""
         UPDATE provas SET status = ?, atualizado_em = ?
         WHERE id = ? AND LOWER(TRIM(COALESCE(status, ''))) <> ?
