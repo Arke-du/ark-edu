@@ -22975,6 +22975,73 @@ def _decodificar_qr_cartao(caminho_imagem):
         app.logger.exception("Falha ao decodificar QR do cartão: %s", caminho_imagem)
     return None
 
+def _identificar_cartao_por_codigo_impresso(caminho_imagem, cursor, aplicacao_id, prova_id):
+    """Recuperação conservadora por código da prova + matrícula impressos.
+
+    Somente aceita uma correspondência única na aplicação corrente. Falhas de
+    OCR nunca resultam em atribuição por ordem ou por nome aproximado.
+    Requer o executável tesseract no ambiente de execução.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    from PIL import Image, ImageOps, ImageEnhance
+
+    if not shutil.which("tesseract"):
+        return None
+    try:
+        with Image.open(caminho_imagem) as origem:
+            imagem = ImageOps.exif_transpose(origem).convert("L")
+            largura, altura = imagem.size
+            # Dados impressos no cabeçalho, acima das instruções.
+            cabecalho = imagem.crop((int(largura * .025), int(altura * .15),
+                                      int(largura * .78), int(altura * .35)))
+            cabecalho = ImageEnhance.Contrast(cabecalho).enhance(2)
+            cabecalho = cabecalho.resize((cabecalho.width * 2, cabecalho.height * 2))
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as arquivo:
+                temporario = arquivo.name
+            try:
+                cabecalho.save(temporario)
+                resultado = subprocess.run(
+                    ["tesseract", temporario, "stdout", "--psm", "6"],
+                    capture_output=True, text=True, timeout=12, check=False
+                )
+                texto = resultado.stdout or ""
+            finally:
+                _remover_arquivo_silenciosamente(temporario)
+
+        # Não basta encontrar o código: deve ser o da prova desta aplicação.
+        codigos = re.findall(r"(?im)c[oó0]digo\s*[:.]?\s*([0-9Oo]{4,8})", texto)
+        if len(codigos) != 1:
+            return None
+        codigo = codigos[0].replace("O", "0").replace("o", "0")
+        if int(codigo) != int(prova_id):
+            return None
+        matriculas = re.findall(r"(?im)matr[ií]cula\s*[:.]?\s*(\d{3,12})", texto)
+        if len(matriculas) != 1:
+            return None
+        matricula = matriculas[0]
+        cursor.execute("""
+            SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
+            FROM aplicacao_alunos aa
+            JOIN alunos al ON al.id = aa.aluno_id
+            WHERE aa.aplicacao_id = ? AND TRIM(CAST(al.matricula AS TEXT)) = ?
+        """, (aplicacao_id, matricula))
+        candidatos = cursor.fetchall()
+        if len(candidatos) != 1:
+            return None
+        aluno_id = int(candidatos[0]["aluno_id"])
+        modelo = int(candidatos[0]["modelo"])
+        if modelo < 1:
+            return None
+        return (f"CODIGO:{int(prova_id):06d}|PROVA:{prova_id}|"
+                f"ALUNO:{aluno_id}|APLICACAO:{aplicacao_id}|"
+                f"MODELO:{modelo}|FOLHA:OBJETIVAS|VERSAO:1")
+    except Exception as erro:
+        app.logger.warning("Leitura do código impresso não concluída: %s", erro)
+        return None
+
+
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
     """Converte PDF em imagens lógicas de cartões, não apenas em páginas.
 
@@ -23316,7 +23383,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         else:
                             qr_texto = _decodificar_qr_cartao(caminho)
                         if not qr_texto:
-                            raise ValueError("QR Code não identificado.")
+                            qr_texto = _identificar_cartao_por_codigo_impresso(
+                                caminho, cursor, aplicacao_id, aplicacao["prova_id"]
+                            )
+                        if not qr_texto:
+                            raise ValueError(
+                                "QR Code não identificado e código/matrícula impressos "
+                                "não puderam ser validados. Conferir cartão manualmente."
+                            )
 
                         dados_qr = {}
                         for parte in qr_texto.split("|"):
