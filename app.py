@@ -22976,49 +22976,57 @@ def _decodificar_qr_cartao(caminho_imagem):
     return None
 
 def _identificar_cartao_por_codigo_impresso(caminho_imagem, cursor, aplicacao_id, prova_id):
-    """Recuperação conservadora por código da prova + matrícula impressos.
+    """Fallback conservador: código impresso e matrícula única da aplicação.
 
-    Somente aceita uma correspondência única na aplicação corrente. Falhas de
-    OCR nunca resultam em atribuição por ordem ou por nome aproximado.
-    Requer o executável tesseract no ambiente de execução.
+    O código impresso é registrado para diagnóstico, mas pode representar uma
+    numeração pública distinta do ID interno da prova. A associação é feita
+    SOMENTE por matrícula exata e única na aplicação selecionada.
     """
     import shutil
     import subprocess
     import tempfile
-    from PIL import Image, ImageOps, ImageEnhance
+    from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 
     if not shutil.which("tesseract"):
+        app.logger.error("OCR_CARTAO: executável tesseract ausente no servidor")
         return None
+
+    def ler_regiao(imagem, area, psm=6):
+        largura, altura = imagem.size
+        recorte = imagem.crop(tuple(int(valor * (largura if i % 2 == 0 else altura))
+                                    for i, valor in enumerate(area)))
+        recorte = ImageOps.autocontrast(recorte)
+        recorte = recorte.resize((recorte.width * 3, recorte.height * 3), Image.Resampling.LANCZOS)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as arquivo:
+            temporario = arquivo.name
+        try:
+            recorte.save(temporario)
+            resultado = subprocess.run(
+                ["tesseract", temporario, "stdout", "--psm", str(psm)],
+                capture_output=True, text=True, timeout=12, check=False
+            )
+            if resultado.returncode:
+                app.logger.warning("OCR_CARTAO: tesseract falhou: %s", resultado.stderr[:250])
+            return resultado.stdout or ""
+        finally:
+            _remover_arquivo_silenciosamente(temporario)
+
     try:
         with Image.open(caminho_imagem) as origem:
             imagem = ImageOps.exif_transpose(origem).convert("L")
-            largura, altura = imagem.size
-            # Dados impressos no cabeçalho, acima das instruções.
-            cabecalho = imagem.crop((int(largura * .025), int(altura * .15),
-                                      int(largura * .78), int(altura * .35)))
-            cabecalho = ImageEnhance.Contrast(cabecalho).enhance(2)
-            cabecalho = cabecalho.resize((cabecalho.width * 2, cabecalho.height * 2))
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as arquivo:
-                temporario = arquivo.name
-            try:
-                cabecalho.save(temporario)
-                resultado = subprocess.run(
-                    ["tesseract", temporario, "stdout", "--psm", "6"],
-                    capture_output=True, text=True, timeout=12, check=False
-                )
-                texto = resultado.stdout or ""
-            finally:
-                _remover_arquivo_silenciosamente(temporario)
-
-        # Não basta encontrar o código: deve ser o da prova desta aplicação.
-        codigos = re.findall(r"(?im)c[oó0]digo\s*[:.]?\s*([0-9Oo]{4,8})", texto)
-        if len(codigos) != 1:
-            return None
-        codigo = codigos[0].replace("O", "0").replace("o", "0")
-        if int(codigo) != int(prova_id):
-            return None
-        matriculas = re.findall(r"(?im)matr[ií]cula\s*[:.]?\s*(\d{3,12})", texto)
+            # Cabeçalho: matrícula à direita, código da prova logo abaixo.
+            texto = ler_regiao(imagem, (.025, .15, .77, .35))
+            matriculas = re.findall(r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{3,12})", texto)
+            if not matriculas:
+                # Segunda tentativa, apenas a área da matrícula.
+                texto += "\n" + ler_regiao(imagem, (.38, .175, .76, .245), 6)
+                matriculas = re.findall(r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{3,12})", texto)
+        normalizar = lambda v: v.translate(str.maketrans({"O":"0", "o":"0", "I":"1", "l":"1"}))
+        matriculas = sorted(set(normalizar(v) for v in matriculas))
+        codigos = sorted(set(normalizar(v) for v in re.findall(
+            r"(?im)c[oó0]digo\s*[:.]?\s*([0-9OoIl]{4,8})", texto)))
         if len(matriculas) != 1:
+            app.logger.warning("OCR_CARTAO: matrícula ausente ou ambígua; quantidade=%s; aplicação=%s", len(matriculas), aplicacao_id)
             return None
         matricula = matriculas[0]
         cursor.execute("""
@@ -23029,16 +23037,18 @@ def _identificar_cartao_por_codigo_impresso(caminho_imagem, cursor, aplicacao_id
         """, (aplicacao_id, matricula))
         candidatos = cursor.fetchall()
         if len(candidatos) != 1:
+            app.logger.warning("OCR_CARTAO: matrícula %s encontrou %s aluno(s) na aplicação %s", matricula, len(candidatos), aplicacao_id)
             return None
         aluno_id = int(candidatos[0]["aluno_id"])
-        modelo = int(candidatos[0]["modelo"])
+        modelo = int(candidatos[0]["modelo"] or 1)
         if modelo < 1:
             return None
+        app.logger.info("OCR_CARTAO: identificação confirmada por matrícula; aplicação=%s aluno=%s código_impresso=%s", aplicacao_id, aluno_id, ','.join(codigos) if codigos else 'ilegível')
         return (f"CODIGO:{int(prova_id):06d}|PROVA:{prova_id}|"
                 f"ALUNO:{aluno_id}|APLICACAO:{aplicacao_id}|"
                 f"MODELO:{modelo}|FOLHA:OBJETIVAS|VERSAO:1")
-    except Exception as erro:
-        app.logger.warning("Leitura do código impresso não concluída: %s", erro)
+    except Exception:
+        app.logger.exception("OCR_CARTAO: falha inesperada ao identificar cartão")
         return None
 
 
