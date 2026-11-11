@@ -25737,3 +25737,8 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     )
+
+
+# Limpeza diária conservadora das imagens de cartões já corrigidos (15 dias).
+from limpeza_cartoes import iniciar_rotina_automatica
+iniciar_rotina_automatica(DB_PATH, app.config["UPLOAD_FOLDER"])
