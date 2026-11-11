@@ -23015,30 +23015,51 @@ def _identificar_cartao_por_codigo_impresso(caminho_imagem, cursor, aplicacao_id
         with Image.open(caminho_imagem) as origem:
             imagem = ImageOps.exif_transpose(origem).convert("L")
             # Cabeçalho: matrícula à direita, código da prova logo abaixo.
+            # A matrícula está na metade direita da PRIMEIRA linha do quadro.
+            # OCR de página inteira frequentemente separa o rótulo e o número.
             texto = ler_regiao(imagem, (.025, .15, .77, .35))
-            matriculas = re.findall(r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{3,12})", texto)
-            if not matriculas:
-                # Segunda tentativa, apenas a área da matrícula.
-                texto += "\n" + ler_regiao(imagem, (.38, .175, .76, .245), 6)
-                matriculas = re.findall(r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{3,12})", texto)
+            regioes_matricula = (
+                (.53, .183, .73, .235),
+                (.48, .175, .75, .255),
+                (.52, .17, .70, .22),
+            )
+            leituras = [ler_regiao(imagem, regiao, psm=7) for regiao in regioes_matricula]
         normalizar = lambda v: v.translate(str.maketrans({"O":"0", "o":"0", "I":"1", "l":"1"}))
-        matriculas = sorted(set(normalizar(v) for v in matriculas))
+        # Aceitar apenas matrícula EXISTENTE e ÚNICA nesta aplicação.
+        cursor.execute("""
+            SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo,
+                   TRIM(CAST(al.matricula AS TEXT)) AS matricula
+            FROM aplicacao_alunos aa JOIN alunos al ON al.id = aa.aluno_id
+            WHERE aa.aplicacao_id = ?
+        """, (aplicacao_id,))
+        inscritos = cursor.fetchall()
+        por_matricula = {}
+        for inscrito in inscritos:
+            numero = normalizar(str(inscrito["matricula"] or "").strip())
+            if numero:
+                por_matricula.setdefault(numero, []).append(inscrito)
+        # Primeiro procurar um número isolado na área da matrícula.
+        # Exigir pelo menos 4 dígitos evita confundir o modelo ou ano letivo.
+        candidatos_lidos = []
+        for leitura in leituras:
+            candidatos_lidos.extend(re.findall(r"(?<!\d)\d{4,8}(?!\d)", normalizar(leitura)))
+        # Fallback para cabeçalho completo, se o OCR mantiver rótulo e valor juntos.
+        candidatos_lidos.extend(re.findall(
+            r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{4,8})", texto))
+        encontrados = {numero for valor in candidatos_lidos
+                      if (numero := normalizar(valor)) in por_matricula
+                      and len(por_matricula[numero]) == 1}
+        if len(encontrados) != 1:
+            app.logger.warning(
+                "OCR_CARTAO: matrícula não identificada unicamente; aplicação=%s; "
+                "leituras=%r; candidatos=%r; correspondências=%r",
+                aplicacao_id, [v.strip()[:50] for v in leituras],
+                candidatos_lidos[:10], sorted(encontrados))
+            return None
+        matricula = next(iter(encontrados))
+        candidatos = por_matricula[matricula]
         codigos = sorted(set(normalizar(v) for v in re.findall(
             r"(?im)c[oó0]digo\s*[:.]?\s*([0-9OoIl]{4,8})", texto)))
-        if len(matriculas) != 1:
-            app.logger.warning("OCR_CARTAO: matrícula ausente ou ambígua; quantidade=%s; aplicação=%s", len(matriculas), aplicacao_id)
-            return None
-        matricula = matriculas[0]
-        cursor.execute("""
-            SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo
-            FROM aplicacao_alunos aa
-            JOIN alunos al ON al.id = aa.aluno_id
-            WHERE aa.aplicacao_id = ? AND TRIM(CAST(al.matricula AS TEXT)) = ?
-        """, (aplicacao_id, matricula))
-        candidatos = cursor.fetchall()
-        if len(candidatos) != 1:
-            app.logger.warning("OCR_CARTAO: matrícula %s encontrou %s aluno(s) na aplicação %s", matricula, len(candidatos), aplicacao_id)
-            return None
         aluno_id = int(candidatos[0]["aluno_id"])
         modelo = int(candidatos[0]["modelo"] or 1)
         if modelo < 1:
@@ -23095,30 +23116,29 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             caminho_base = os.path.join(pasta_destino, nome_base + ".png")
             pixmap.save(caminho_base)
 
-            imagem = cv2.imread(caminho_base)
-            if imagem is None:
-                numero_logico += 1
-                caminhos.append((caminho_base, numero_logico))
-                continue
-
-            altura, largura = imagem.shape[:2]
+            # Não carregar a imagem inteira com OpenCV quando não há divisão.
+            # Isso evita uma cópia RGB adicional por página no Render (512 MB).
+            from PIL import Image
+            with Image.open(caminho_base) as arquivo_imagem:
+                largura, altura = arquivo_imagem.size
             proporcao_atual = altura / float(max(1, largura))
             altura_cartao_estimada = int(round(largura * proporcao_mediana))
-
-            # Só divide outlier claro do MESMO PDF. Isso evita confundir uma
-            # fotografia A4 normal com duas folhas.
             dividir = bool(
                 documento.page_count > 1
                 and proporcao_atual > proporcao_mediana * 1.25
                 and altura >= altura_cartao_estimada * 1.25
                 and altura_cartao_estimada >= 300
             )
-
             if not dividir:
                 numero_logico += 1
                 caminhos.append((caminho_base, numero_logico))
+                del pixmap
                 continue
-
+            imagem = cv2.imread(caminho_base)
+            if imagem is None:
+                numero_logico += 1
+                caminhos.append((caminho_base, numero_logico))
+                continue
             segmentos = []
             inicio = 0
             # Primeiro(s) segmento(s) têm a altura típica das demais páginas.
