@@ -1,0 +1,9 @@
+ARK EDUS - Restauracao de leitura pelo QR Code (V5)
+Base: ARK_EDUS_TESSERACT_RENDER_V4.zip
+- Removida tentativa de identificar cartoes por OCR/Tesseract e matricula impressa.
+- Restaurado erro original quando QR nao for identificado.
+- Preservadas correcoes anteriores de status de provas, lancamentos manuais e otimizacao de memoria da conversao PDF.
+- Removidos arquivos Docker V4; restauradas configuracoes de build.sh e render.yaml do ZIP original.
+- Nenhum arquivo de banco de dados incluido ou alterado.
+ATENCAO: Fazer deploy somente apos confirmar backup e revisar configuracoes do Render.
+TESTE: primeiro um cartao com QR legivel, na aplicacao correta. A restauracao nao garante que QR ilegivel seja reconhecido.

@@ -22975,104 +22975,6 @@ def _decodificar_qr_cartao(caminho_imagem):
         app.logger.exception("Falha ao decodificar QR do cartão: %s", caminho_imagem)
     return None
 
-def _identificar_cartao_por_codigo_impresso(caminho_imagem, cursor, aplicacao_id, prova_id):
-    """Fallback conservador: código impresso e matrícula única da aplicação.
-
-    O código impresso é registrado para diagnóstico, mas pode representar uma
-    numeração pública distinta do ID interno da prova. A associação é feita
-    SOMENTE por matrícula exata e única na aplicação selecionada.
-    """
-    import shutil
-    import subprocess
-    import tempfile
-    from PIL import Image, ImageOps, ImageEnhance, ImageFilter
-
-    if not shutil.which("tesseract"):
-        app.logger.error("OCR_CARTAO: executável tesseract ausente no servidor")
-        return None
-
-    def ler_regiao(imagem, area, psm=6):
-        largura, altura = imagem.size
-        recorte = imagem.crop(tuple(int(valor * (largura if i % 2 == 0 else altura))
-                                    for i, valor in enumerate(area)))
-        recorte = ImageOps.autocontrast(recorte)
-        recorte = recorte.resize((recorte.width * 3, recorte.height * 3), Image.Resampling.LANCZOS)
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as arquivo:
-            temporario = arquivo.name
-        try:
-            recorte.save(temporario)
-            resultado = subprocess.run(
-                ["tesseract", temporario, "stdout", "--psm", str(psm)],
-                capture_output=True, text=True, timeout=12, check=False
-            )
-            if resultado.returncode:
-                app.logger.warning("OCR_CARTAO: tesseract falhou: %s", resultado.stderr[:250])
-            return resultado.stdout or ""
-        finally:
-            _remover_arquivo_silenciosamente(temporario)
-
-    try:
-        with Image.open(caminho_imagem) as origem:
-            imagem = ImageOps.exif_transpose(origem).convert("L")
-            # Cabeçalho: matrícula à direita, código da prova logo abaixo.
-            # A matrícula está na metade direita da PRIMEIRA linha do quadro.
-            # OCR de página inteira frequentemente separa o rótulo e o número.
-            texto = ler_regiao(imagem, (.025, .15, .77, .35))
-            regioes_matricula = (
-                (.53, .183, .73, .235),
-                (.48, .175, .75, .255),
-                (.52, .17, .70, .22),
-            )
-            leituras = [ler_regiao(imagem, regiao, psm=7) for regiao in regioes_matricula]
-        normalizar = lambda v: v.translate(str.maketrans({"O":"0", "o":"0", "I":"1", "l":"1"}))
-        # Aceitar apenas matrícula EXISTENTE e ÚNICA nesta aplicação.
-        cursor.execute("""
-            SELECT aa.aluno_id, COALESCE(aa.modelo, 1) AS modelo,
-                   TRIM(CAST(al.matricula AS TEXT)) AS matricula
-            FROM aplicacao_alunos aa JOIN alunos al ON al.id = aa.aluno_id
-            WHERE aa.aplicacao_id = ?
-        """, (aplicacao_id,))
-        inscritos = cursor.fetchall()
-        por_matricula = {}
-        for inscrito in inscritos:
-            numero = normalizar(str(inscrito["matricula"] or "").strip())
-            if numero:
-                por_matricula.setdefault(numero, []).append(inscrito)
-        # Primeiro procurar um número isolado na área da matrícula.
-        # Exigir pelo menos 4 dígitos evita confundir o modelo ou ano letivo.
-        candidatos_lidos = []
-        for leitura in leituras:
-            candidatos_lidos.extend(re.findall(r"(?<!\d)\d{4,8}(?!\d)", normalizar(leitura)))
-        # Fallback para cabeçalho completo, se o OCR mantiver rótulo e valor juntos.
-        candidatos_lidos.extend(re.findall(
-            r"(?im)matr[ií1l]cula\s*[:.]?\s*([0-9OoIl]{4,8})", texto))
-        encontrados = {numero for valor in candidatos_lidos
-                      if (numero := normalizar(valor)) in por_matricula
-                      and len(por_matricula[numero]) == 1}
-        if len(encontrados) != 1:
-            app.logger.warning(
-                "OCR_CARTAO: matrícula não identificada unicamente; aplicação=%s; "
-                "leituras=%r; candidatos=%r; correspondências=%r",
-                aplicacao_id, [v.strip()[:50] for v in leituras],
-                candidatos_lidos[:10], sorted(encontrados))
-            return None
-        matricula = next(iter(encontrados))
-        candidatos = por_matricula[matricula]
-        codigos = sorted(set(normalizar(v) for v in re.findall(
-            r"(?im)c[oó0]digo\s*[:.]?\s*([0-9OoIl]{4,8})", texto)))
-        aluno_id = int(candidatos[0]["aluno_id"])
-        modelo = int(candidatos[0]["modelo"] or 1)
-        if modelo < 1:
-            return None
-        app.logger.info("OCR_CARTAO: identificação confirmada por matrícula; aplicação=%s aluno=%s código_impresso=%s", aplicacao_id, aluno_id, ','.join(codigos) if codigos else 'ilegível')
-        return (f"CODIGO:{int(prova_id):06d}|PROVA:{prova_id}|"
-                f"ALUNO:{aluno_id}|APLICACAO:{aplicacao_id}|"
-                f"MODELO:{modelo}|FOLHA:OBJETIVAS|VERSAO:1")
-    except Exception:
-        app.logger.exception("OCR_CARTAO: falha inesperada ao identificar cartão")
-        return None
-
-
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
     """Converte PDF em imagens lógicas de cartões, não apenas em páginas.
 
@@ -23413,14 +23315,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         else:
                             qr_texto = _decodificar_qr_cartao(caminho)
                         if not qr_texto:
-                            qr_texto = _identificar_cartao_por_codigo_impresso(
-                                caminho, cursor, aplicacao_id, aplicacao["prova_id"]
-                            )
-                        if not qr_texto:
-                            raise ValueError(
-                                "QR Code não identificado e código/matrícula impressos "
-                                "não puderam ser validados. Conferir cartão manualmente."
-                            )
+                            raise ValueError("QR Code não identificado.")
 
                         dados_qr = {}
                         for parte in qr_texto.split("|"):
