@@ -22897,82 +22897,66 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Decodifica o QR do cartão sem abrir subprocessos.
-
-    O fluxo anterior criava um novo processo Python/OpenCV para CADA página.
-    Em PDFs com dezenas de cartões isso acumulava custo de inicialização e o
-    Gunicorn podia encerrar o worker no meio de ``subprocess.communicate()``,
-    causando HTTP 500. Aqui usamos ZXing-C++ diretamente no processo web e
-    apenas em recortes pequenos do canto superior direito, onde o QR é impresso.
-    As tentativas são limitadas e rápidas; página difícil retorna ``None`` e a
-    importação continua/revisão é criada, sem derrubar o lote inteiro.
-    """
+    """Lê QR do cartão com tentativas progressivas e memória limitada."""
     try:
-        from PIL import Image, ImageOps, ImageEnhance
+        from PIL import Image, ImageOps, ImageEnhance, ImageFilter
         import numpy as np
         import zxingcpp
-    except Exception:
-        app.logger.exception("Dependências do leitor rápido de QR indisponíveis")
+    except ImportError:
+        app.logger.exception("QR_CARTAO: biblioteca zxingcpp/Pillow/numpy indisponível")
+        return None
+
+    def ler(imagem, etapa):
+        try:
+            resultados = zxingcpp.read_barcodes(np.asarray(imagem))
+        except Exception:
+            app.logger.exception("QR_CARTAO: falha no decodificador, etapa=%s", etapa)
+            return None
+        for resultado in resultados or ():
+            texto = str(getattr(resultado, "text", "") or "").strip()
+            if texto and "APLICACAO:" in texto.upper() and "ALUNO:" in texto.upper():
+                app.logger.info("QR_CARTAO: reconhecido na etapa=%s", etapa)
+                return texto
         return None
 
     try:
-        with Image.open(caminho_imagem) as im:
-            im = ImageOps.exif_transpose(im).convert("RGB")
-            w, h = im.size
-
-            # QR dos cartões ARK EDUS: canto superior direito. Os recortes
-            # cobrem pequenas variações de scanner sem processar a folha toda.
+        with Image.open(caminho_imagem) as original:
+            imagem = ImageOps.exif_transpose(original).convert("RGB")
+            largura, altura = imagem.size
+            # Região real do QR impresso no canto superior direito.
             recortes = [
-                (0.68, 0.015, 0.88, 0.205),
-                (0.70, 0.020, 0.86, 0.185),
-                (0.64, 0.000, 0.92, 0.245),
+                (0.78, 0.015, 0.99, 0.19),
+                (0.68, 0.00, 1.00, 0.26),
+                (0.60, 0.00, 1.00, 0.32),
             ]
-
-            def ler(img_pil):
-                arr = np.asarray(img_pil)
-                try:
-                    resultados = zxingcpp.read_barcodes(arr)
-                except Exception:
-                    resultados = []
-                for item in resultados or []:
-                    texto = str(getattr(item, "text", "") or "").strip()
+            for indice, (x1, y1, x2, y2) in enumerate(recortes, 1):
+                regiao = imagem.crop((int(largura*x1), int(altura*y1),
+                                      int(largura*x2), int(altura*y2)))
+                # Evita arrays gigantes em PDFs de scanner.
+                limite = 1400
+                fator = min(4.0, limite/max(regiao.size))
+                ampliada = regiao.resize(
+                    (max(1,int(regiao.width*fator)), max(1,int(regiao.height*fator))),
+                    Image.Resampling.LANCZOS)
+                for nome, candidata in (
+                    ("rgb", ampliada),
+                    ("cinza", ImageOps.grayscale(ampliada)),
+                    ("contraste", ImageEnhance.Contrast(ImageOps.grayscale(ampliada)).enhance(2.0)),
+                    ("nitidez", ImageOps.grayscale(ampliada).filter(ImageFilter.SHARPEN)),
+                ):
+                    texto = ler(candidata, f"recorte{indice}_{nome}")
                     if texto:
                         return texto
-                return None
-
-            for x1r, y1r, x2r, y2r in recortes:
-                crop = im.crop((
-                    max(0, int(w * x1r)), max(0, int(h * y1r)),
-                    min(w, int(w * x2r)), min(h, int(h * y2r)),
-                ))
-                if crop.width < 20 or crop.height < 20:
-                    continue
-
-                # 1) original ampliado; 2) contraste; 3) escala de cinza.
-                # Sem loops extensos de OpenCV e sem subprocessos.
-                base = crop.resize(
-                    (crop.width * 3, crop.height * 3),
-                    Image.Resampling.LANCZOS
-                )
-                candidatos = [
-                    base,
-                    ImageEnhance.Contrast(base).enhance(1.6),
-                    ImageOps.grayscale(base),
-                ]
-                for cand in candidatos:
-                    texto = ler(cand)
-                    if texto:
-                        return texto
-
-                # Scanner eventualmente gira a página. Testamos só rotações
-                # ortogonais do mesmo recorte, ainda com custo pequeno.
-                for angulo in (90, 180, 270):
-                    texto = ler(base.rotate(angulo, expand=True))
-                    if texto:
-                        return texto
-
+                if indice == 2:
+                    for angulo in (90, 180, 270):
+                        texto = ler(ampliada.rotate(angulo, expand=True),
+                                    f"recorte{indice}_rot{angulo}")
+                        if texto:
+                            return texto
+            app.logger.warning("QR_CARTAO: não decodificado após recortes; imagem=%sx%s",
+                               largura, altura)
     except Exception:
-        app.logger.exception("Falha ao decodificar QR do cartão: %s", caminho_imagem)
+        app.logger.exception("QR_CARTAO: erro ao abrir/processar cartão")
     return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):

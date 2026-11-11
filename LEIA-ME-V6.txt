@@ -1,0 +1,2 @@
+V6 - QR Code: recortes ampliados e alinhados à posição do QR; segunda leitura com contraste, nitidez e rotações; logs por etapa. Sem Tesseract. Banco de dados não incluído nem alterado.
+Verificar que zxingcpp está instalado no Render e testar com um cartão antes de processar o lote.
