@@ -23149,12 +23149,33 @@ def importar_cartoes_aplicacao(aplicacao_id):
         banco.commit()
 
         if request.method == "POST":
+            # Reutiliza imagens de falhas anteriores, sem exigir reenvio do PDF.
+            # Somente registros Erro e arquivos dentro da pasta desta aplicação.
+            reprocessar = request.form.get("acao") == "reprocessar_erros"
             arquivos = [
                 arquivo for arquivo in request.files.getlist("arquivos")
                 if arquivo and arquivo.filename
             ]
+            pendencias = []
+            if reprocessar:
+                arquivos = []
+                cursor.execute("""
+                    SELECT id, nome_arquivo, caminho_arquivo
+                    FROM aplicacao_importacoes
+                    WHERE aplicacao_id = ? AND status = 'Erro'
+                    ORDER BY id ASC LIMIT 10
+                """, (aplicacao_id,))
+                pasta_segura = os.path.realpath(os.path.join(
+                    app.config["UPLOAD_FOLDER"], "aplicacoes", str(aplicacao_id)
+                ))
+                for registro in cursor.fetchall():
+                    caminho_salvo = os.path.realpath(registro["caminho_arquivo"] or "")
+                    if (os.path.commonpath((pasta_segura, caminho_salvo)) == pasta_segura
+                            and os.path.isfile(caminho_salvo)
+                            and os.path.splitext(caminho_salvo)[1].lower() in (".png", ".jpg", ".jpeg")):
+                        pendencias.append(dict(registro))
 
-            if not arquivos:
+            if not arquivos and not pendencias:
                 flash("Selecione pelo menos um PDF ou uma imagem.", "erro")
                 return redirect(url_for(
                     "importar_cartoes_aplicacao",
@@ -23172,17 +23193,23 @@ def importar_cartoes_aplicacao(aplicacao_id):
             descartados = 0
             erros_importacao = []
 
-            for arquivo in arquivos:
-                nome_original = secure_filename(arquivo.filename)
-                extensao = os.path.splitext(nome_original)[1].lower()
+            for fonte in (pendencias if reprocessar else arquivos):
+                registro_erro_id = fonte["id"] if reprocessar else None
+                nome_original = (fonte["nome_arquivo"] if reprocessar
+                                 else secure_filename(fonte.filename))
+                extensao = (os.path.splitext(fonte["caminho_arquivo"])[1].lower()
+                            if reprocessar else os.path.splitext(nome_original)[1].lower())
 
                 if extensao not in extensoes_permitidas:
                     descartados += 1
                     continue
 
-                nome_temporario = f"{uuid.uuid4().hex}_{nome_original}"
-                caminho_temporario = os.path.join(pasta, nome_temporario)
-                arquivo.save(caminho_temporario)
+                if reprocessar:
+                    caminho_temporario = fonte["caminho_arquivo"]
+                else:
+                    nome_temporario = f"{uuid.uuid4().hex}_{nome_original}"
+                    caminho_temporario = os.path.join(pasta, nome_temporario)
+                    fonte.save(caminho_temporario)
 
                 try:
                     if extensao == ".pdf":
@@ -23193,8 +23220,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                     else:
                         paginas = [(caminho_temporario, None)]
                 except Exception as erro:
-                    print(f"ERRO AO ABRIR {arquivo.filename}: {erro}")
-                    _remover_arquivo_silenciosamente(caminho_temporario)
+                    print(f"ERRO AO ABRIR {nome_original}: {erro}")
+                    if not reprocessar:
+                        _remover_arquivo_silenciosamente(caminho_temporario)
                     descartados += 1
                     continue
 
@@ -23787,6 +23815,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         cursor.execute(
                             "RELEASE SAVEPOINT importar_pagina"
                         )
+                        if registro_erro_id is not None:
+                            cursor.execute("""
+                                UPDATE aplicacao_importacoes
+                                SET status = 'Recuperado',
+                                    mensagem = 'Recuperado em nova tentativa; ver importação mais recente.'
+                                WHERE id = ? AND aplicacao_id = ? AND status = 'Erro'
+                            """, (registro_erro_id, aplicacao_id))
+
                         # Salva CADA cartão imediatamente. Assim, mesmo que um
                         # PDF grande demore, uma página seguinte falhe ou o
                         # servidor reinicie, os cartões já corrigidos não voltam
@@ -23801,7 +23837,7 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             "RELEASE SAVEPOINT importar_pagina"
                         )
                         print(
-                            f"ERRO AO IMPORTAR {arquivo.filename}"
+                            f"ERRO AO IMPORTAR {nome_original}"
                             f"{f' PÁGINA {numero_pagina}' if numero_pagina else ''}: "
                             f"{erro}"
                         )
@@ -23817,19 +23853,26 @@ def importar_cartoes_aplicacao(aplicacao_id):
                             nome_exibicao_erro = f"{nome_original} · página {numero_pagina}"
                         caminho = _otimizar_imagem_cartao(caminho)
                         try:
-                            cursor.execute("""
-                                INSERT INTO aplicacao_importacoes
-                                (aplicacao_id, aluno_id, modelo, nome_arquivo,
-                                 caminho_arquivo, status, mensagem, qr_texto,
-                                 tipo_folha, revisado, revisado_em)
-                                VALUES (?, NULL, NULL, ?, ?, 'Erro', ?, NULL,
-                                        'OBJETIVAS', 0, NULL)
-                            """, (
+                            if registro_erro_id is not None:
+                                cursor.execute("""
+                                    UPDATE aplicacao_importacoes
+                                    SET mensagem = ?
+                                    WHERE id = ? AND aplicacao_id = ? AND status = 'Erro'
+                                """, (erro_texto[:1000], registro_erro_id, aplicacao_id))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO aplicacao_importacoes
+                                    (aplicacao_id, aluno_id, modelo, nome_arquivo,
+                                     caminho_arquivo, status, mensagem, qr_texto,
+                                     tipo_folha, revisado, revisado_em)
+                                    VALUES (?, NULL, NULL, ?, ?, 'Erro', ?, NULL,
+                                            'OBJETIVAS', 0, NULL)
+                                """, (
                                 aplicacao_id,
                                 nome_exibicao_erro,
                                 caminho,
-                                erro_texto[:1000]
-                            ))
+                                    erro_texto[:1000]
+                                ))
                             banco.commit()
                         except Exception:
                             app.logger.exception(
@@ -23841,7 +23884,8 @@ def importar_cartoes_aplicacao(aplicacao_id):
             banco.commit()
 
             mensagem_flash = (
-                f"Importação concluída: {importados} corrigido(s), "
+                ("Nova tentativa concluída: " if reprocessar else "Importação concluída: ") +
+                f" {importados} corrigido(s), "
                 f"{revisoes} para revisão e {descartados} descartado(s)."
             )
             if erros_importacao:
@@ -23924,11 +23968,18 @@ def importar_cartoes_aplicacao(aplicacao_id):
             )
         }
 
+        cursor.execute("""
+            SELECT COUNT(*) FROM aplicacao_importacoes
+            WHERE aplicacao_id = ? AND status = 'Erro'
+        """, (aplicacao_id,))
+        total_erros_reprocessaveis = cursor.fetchone()[0]
+
         return render_template(
             "aplicacoes/importar.html",
             aplicacao=aplicacao,
             alunos_cartoes=alunos_cartoes,
-            resumo=resumo
+            resumo=resumo,
+            total_erros_reprocessaveis=total_erros_reprocessaveis
         )
 
     finally:

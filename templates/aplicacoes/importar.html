@@ -1112,6 +1112,17 @@
         </form>
     </section>
 
+    {% if total_erros_reprocessaveis %}
+    <section class="ic-card" style="padding:20px 24px;margin-bottom:20px;">
+        <h2 style="margin:0 0 8px;font-size:18px;">Recuperação de cartões com erro</h2>
+        <p style="margin:0 0 12px;">{{ total_erros_reprocessaveis }} cartão(ões) com falha registrado(s). Tente novamente sem reenviar o PDF. São processados até 10 por tentativa; os resultados já corrigidos são mantidos.</p>
+        <form method="post">
+            <input type="hidden" name="acao" value="reprocessar_erros">
+            <button class="ic-btn ic-btn-primary" type="submit">Reprocessar cartões com erro</button>
+        </form>
+    </section>
+    {% endif %}
+
     <section class="ic-card">
         <div class="ic-list-head">
             <div>
