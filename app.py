@@ -22897,71 +22897,65 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Decodifica QR em cartões digitalizados, inclusive com margem A4 vazia.
+    """Tenta QR somente em recortes pequenos, sem copiar a página inteira para NumPy.
 
-    O cartão pode ocupar apenas 55-70% da largura da página. Por isso,
-    coordenadas fixas no canto direito da página inteira são incorretas.
-    Não faz correspondência por nome ou ordem sem QR validado.
+    Os cartões digitalizados podem ocupar apenas a metade superior do papel;
+    o QR fica aproximadamente entre 55% e 75% da largura da página.
     """
     try:
-        from PIL import Image, ImageOps, ImageEnhance, ImageFilter
-        import numpy as np
         import zxingcpp
     except ImportError:
-        app.logger.exception("QR_CARTAO: dependência zxingcpp/Pillow/numpy ausente")
+        app.logger.exception("QR_CARTAO: zxingcpp indisponível")
         return None
 
-    def tentar(imagem, etapa):
+    def ler_recorte(imagem, etapa):
         try:
-            encontrados = zxingcpp.read_barcodes(np.asarray(imagem))
-            for codigo in encontrados or ():
-                texto = str(getattr(codigo, "text", "") or "").strip()
+            import numpy as np
+            resultados = zxingcpp.read_barcodes(np.asarray(imagem))
+            for resultado in resultados or ():
+                texto = str(getattr(resultado, "text", "") or "").strip()
                 if "APLICACAO:" in texto.upper() and "ALUNO:" in texto.upper():
                     app.logger.info("QR_CARTAO: reconhecido em %s", etapa)
                     return texto
         except Exception:
-            app.logger.exception("QR_CARTAO: erro no leitor, etapa=%s", etapa)
+            app.logger.exception("QR_CARTAO: falha na etapa %s", etapa)
         return None
 
     try:
-        with Image.open(caminho_imagem) as arquivo:
-            original = ImageOps.exif_transpose(arquivo).convert("RGB")
+        with Image.open(caminho_imagem) as original:
             largura, altura = original.size
-            # Em scans Epson A4 deste layout, o QR está em torno de
-            # x=0.56-0.66, y=0.03-0.11 da página, NÃO em x>0.78.
-            # Os recortes adicionais cobrem cartões com escala/deslocamento.
+            # Inclui tanto cartões escaneados quanto cartões que ocupam a página toda.
             regioes = (
-                (0.49, 0.015, 0.73, 0.16),
-                (0.40, 0.00, 0.83, 0.23),
-                (0.55, 0.00, 0.99, 0.28),
+                (0.52, 0.005, 0.77, 0.15),
+                (0.46, 0.00, 0.86, 0.22),
+                (0.65, 0.00, 0.99, 0.24),
             )
             for indice, (x1, y1, x2, y2) in enumerate(regioes, 1):
-                recorte = original.crop((int(largura*x1), int(altura*y1),
-                                         int(largura*x2), int(altura*y2)))
-                # Ampliação limitada para evitar pico de RAM no Render.
-                fator = min(3.0, 1100 / max(recorte.size))
-                if fator > 1.05:
-                    recorte = recorte.resize(
-                        (int(recorte.width*fator), int(recorte.height*fator)),
-                        Image.Resampling.LANCZOS)
-                texto = tentar(recorte, f"regiao{indice}_rgb")
-                if texto:
-                    return texto
-                cinza = ImageOps.grayscale(recorte)
-                texto = tentar(ImageEnhance.Contrast(cinza).enhance(1.65),
-                               f"regiao{indice}_contraste")
-                if texto:
-                    return texto
-                # Um leve filtro de nitidez pode ajudar nos scans desfocados.
-                if indice == 1:
-                    texto = tentar(cinza.filter(ImageFilter.UnsharpMask(
-                        radius=1, percent=140, threshold=2)), "nitidez")
+                regiao = original.crop((int(largura*x1), int(altura*y1),
+                                        int(largura*x2), int(altura*y2)))
+                # Limite rígido: recortes, nunca página inteira em alta resolução.
+                if max(regiao.size) > 1100:
+                    regiao.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+                cinza = ImageOps.grayscale(regiao)
+                candidatas = (('cinza', cinza),
+                              ('contraste', ImageEnhance.Contrast(cinza).enhance(2)),
+                              ('nitidez', cinza.filter(ImageFilter.SHARPEN)))
+                for nome, candidata in candidatas:
+                    texto = ler_recorte(candidata, f"regiao{indice}_{nome}")
                     if texto:
                         return texto
-            app.logger.warning("QR_CARTAO: QR não identificado; imagem=%sx%s",
-                               largura, altura)
+                # Ampliação somente quando o QR é pequeno; tamanho limitado.
+                if max(cinza.size) < 650:
+                    fator = min(2.0, 1000 / max(cinza.size))
+                    ampliada = cinza.resize((int(cinza.width*fator),
+                                             int(cinza.height*fator)), Image.Resampling.BICUBIC)
+                    texto = ler_recorte(ampliada, f"regiao{indice}_ampliada")
+                    if texto:
+                        return texto
+                del regiao, cinza
+            app.logger.warning("QR_CARTAO: não identificado em %sx%s", largura, altura)
     except Exception:
-        app.logger.exception("QR_CARTAO: falha ao abrir cartão")
+        app.logger.exception("QR_CARTAO: erro ao abrir/processar cartão")
     return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
@@ -22998,7 +22992,10 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
         numero_logico = 0
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            matriz = fitz.Matrix(2.0, 2.0)
+            # 1.5x mantém a página dentro de um orçamento de memória menor.
+            # Evita imagens gigantes em PDFs provenientes de scanners.
+            escala = min(1.5, 2200.0 / max(pagina.rect.width, pagina.rect.height))
+            matriz = fitz.Matrix(escala, escala)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
 
             # Renderiza primeiro em arquivo temporário e abre com OpenCV apenas
@@ -23006,6 +23003,7 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             nome_base = f"{uuid.uuid4().hex}_pagina_{indice + 1:03d}"
             caminho_base = os.path.join(pasta_destino, nome_base + ".png")
             pixmap.save(caminho_base)
+            del pixmap
 
             # Não carregar a imagem inteira com OpenCV quando não há divisão.
             # Isso evita uma cópia RGB adicional por página no Render (512 MB).
@@ -23023,7 +23021,6 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             if not dividir:
                 numero_logico += 1
                 caminhos.append((caminho_base, numero_logico))
-                del pixmap
                 continue
             imagem = cv2.imread(caminho_base)
             if imagem is None:
@@ -23035,10 +23032,10 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
             # Primeiro(s) segmento(s) têm a altura típica das demais páginas.
             while altura - inicio > altura_cartao_estimada * 1.18:
                 fim = min(altura, inicio + altura_cartao_estimada)
-                segmentos.append(imagem[inicio:fim].copy())
+                segmentos.append((inicio, fim))
                 inicio = fim
             if altura - inicio >= max(220, int(altura_cartao_estimada * 0.28)):
-                segmentos.append(imagem[inicio:altura].copy())
+                segmentos.append((inicio, altura))
 
             if len(segmentos) <= 1:
                 numero_logico += 1
@@ -23046,13 +23043,13 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
                 continue
 
             _remover_arquivo_silenciosamente(caminho_base)
-            for parte, segmento in enumerate(segmentos, 1):
+            for parte, (inicio_seg, fim_seg) in enumerate(segmentos, 1):
                 numero_logico += 1
                 nome_segmento = (
                     f"{nome_base}_parte_{parte:02d}.png"
                 )
                 caminho_segmento = os.path.join(pasta_destino, nome_segmento)
-                cv2.imwrite(caminho_segmento, segmento)
+                cv2.imwrite(caminho_segmento, imagem[inicio_seg:fim_seg])
                 caminhos.append((caminho_segmento, numero_logico))
 
             app.logger.info(
