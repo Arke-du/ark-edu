@@ -23,7 +23,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import qrcode
-from PIL import Image
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 from flask import Flask, flash, redirect, render_template, request, session, jsonify, url_for, send_file, send_from_directory, abort
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
