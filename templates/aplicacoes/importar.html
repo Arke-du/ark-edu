@@ -1048,6 +1048,17 @@
     background:#123b72;
 }
 
+
+/* Janela de carregamento para importações síncronas (sem progresso fictício). */
+.ic-processing-modal{position:fixed;inset:0;z-index:3000;background:rgba(12,26,48,.72);display:none;align-items:center;justify-content:center;padding:20px}
+.ic-processing-modal.is-visible{display:flex}
+.ic-processing-box{width:min(440px,100%);background:white;border-radius:18px;padding:32px 28px;text-align:center;box-shadow:0 22px 70px rgba(0,0,0,.24)}
+.ic-processing-spinner{width:52px;height:52px;border:5px solid #e5edf7;border-top-color:#123b72;border-radius:50%;animation:ic-spin .85s linear infinite;margin:0 auto 20px}
+@keyframes ic-spin{to{transform:rotate(360deg)}}
+.ic-processing-box h2{font-size:21px;margin:0 0 10px;color:#172033}
+.ic-processing-box p{font-size:14px;line-height:1.6;color:#526078;margin:0}
+.ic-processing-box small{display:block;margin-top:16px;color:#667085}
+@media(prefers-reduced-motion:reduce){.ic-processing-spinner{animation-duration:2s}}
 </style>
 {% endblock %}
 
@@ -1092,7 +1103,7 @@
             <p>Envie cartões objetivos e folhas discursivas em PDF, JPG, JPEG ou PNG. O QR Code identifica automaticamente o aluno, o modelo e o tipo de folha.</p>
             <div class="ic-upload-note">✓ O sistema processa página por página, salva cada correção imediatamente e preserva páginas que precisarem de nova leitura.</div>
         </div>
-        <form method="post" enctype="multipart/form-data" class="ic-upload-form">
+        <form method="post" enctype="multipart/form-data" class="ic-upload-form" data-processing-form="importar">
             <label class="ic-file">
                 <input id="arquivosInput" type="file" name="arquivos" multiple
                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
@@ -1116,7 +1127,7 @@
     <section class="ic-card" style="padding:20px 24px;margin-bottom:20px;">
         <h2 style="margin:0 0 8px;font-size:18px;">Recuperação de cartões com erro</h2>
         <p style="margin:0 0 12px;">{{ total_erros_reprocessaveis }} cartão(ões) com falha registrado(s). Tente novamente sem reenviar o PDF. São processados até 10 por tentativa; os resultados já corrigidos são mantidos.</p>
-        <form method="post">
+        <form method="post" data-processing-form="reprocessar">
             <input type="hidden" name="acao" value="reprocessar_erros">
             <button class="ic-btn ic-btn-primary" type="submit">Reprocessar cartões com erro</button>
         </form>
@@ -1417,11 +1428,48 @@
 </div>
 
 
+
+<div id="icProcessingModal" class="ic-processing-modal" role="dialog" aria-modal="true" aria-labelledby="icProcessingTitle" aria-describedby="icProcessingDescription" aria-hidden="true">
+  <div class="ic-processing-box" role="status" aria-live="polite">
+    <div class="ic-processing-spinner" aria-hidden="true"></div>
+    <h2 id="icProcessingTitle">Processando cartões-resposta</h2>
+    <p id="icProcessingDescription">Aguarde enquanto a ARK EDUS analisa os arquivos. O resultado aparecerá ao finalizar.</p>
+    <small>Não feche nem atualize esta página durante o processamento.</small>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 (() => {
+
+    // O processamento atual é síncrono: exibir atividade, sem inventar percentuais.
+    const processingModal = document.getElementById('icProcessingModal');
+    document.querySelectorAll('form[data-processing-form]').forEach(form => {
+        form.addEventListener('submit', event => {
+            if (event.defaultPrevented || !form.checkValidity()) return;
+            const tipo = form.dataset.processingForm;
+            const titulo = document.getElementById('icProcessingTitle');
+            const descricao = document.getElementById('icProcessingDescription');
+            if (tipo === 'reprocessar') {
+                titulo.textContent = 'Reprocessando cartões com erro';
+                descricao.textContent = 'Tentando recuperar os cartões pendentes. As correções anteriores serão mantidas.';
+            } else {
+                titulo.textContent = 'Importando cartões-resposta';
+                descricao.textContent = 'O arquivo foi enviado para processamento. Aguarde a análise e o resultado final.';
+            }
+            processingModal.classList.add('is-visible');
+            processingModal.setAttribute('aria-hidden', 'false');
+            form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = true; });
+        });
+    });
+    window.addEventListener('pageshow', () => {
+        processingModal.classList.remove('is-visible');
+        processingModal.setAttribute('aria-hidden', 'true');
+        document.querySelectorAll('form[data-processing-form] button[type="submit"]').forEach(button => { button.disabled = false; });
+    });
+
     const page = document.querySelector('.ic-page');
     const aplicacaoId = page.dataset.aplicacaoId;
     const drawer = document.getElementById('icDrawer');
