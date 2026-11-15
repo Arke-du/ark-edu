@@ -22897,66 +22897,71 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Lê QR do cartão com tentativas progressivas e memória limitada."""
+    """Decodifica QR em cartões digitalizados, inclusive com margem A4 vazia.
+
+    O cartão pode ocupar apenas 55-70% da largura da página. Por isso,
+    coordenadas fixas no canto direito da página inteira são incorretas.
+    Não faz correspondência por nome ou ordem sem QR validado.
+    """
     try:
         from PIL import Image, ImageOps, ImageEnhance, ImageFilter
         import numpy as np
         import zxingcpp
     except ImportError:
-        app.logger.exception("QR_CARTAO: biblioteca zxingcpp/Pillow/numpy indisponível")
+        app.logger.exception("QR_CARTAO: dependência zxingcpp/Pillow/numpy ausente")
         return None
 
-    def ler(imagem, etapa):
+    def tentar(imagem, etapa):
         try:
-            resultados = zxingcpp.read_barcodes(np.asarray(imagem))
+            encontrados = zxingcpp.read_barcodes(np.asarray(imagem))
+            for codigo in encontrados or ():
+                texto = str(getattr(codigo, "text", "") or "").strip()
+                if "APLICACAO:" in texto.upper() and "ALUNO:" in texto.upper():
+                    app.logger.info("QR_CARTAO: reconhecido em %s", etapa)
+                    return texto
         except Exception:
-            app.logger.exception("QR_CARTAO: falha no decodificador, etapa=%s", etapa)
-            return None
-        for resultado in resultados or ():
-            texto = str(getattr(resultado, "text", "") or "").strip()
-            if texto and "APLICACAO:" in texto.upper() and "ALUNO:" in texto.upper():
-                app.logger.info("QR_CARTAO: reconhecido na etapa=%s", etapa)
-                return texto
+            app.logger.exception("QR_CARTAO: erro no leitor, etapa=%s", etapa)
         return None
 
     try:
-        with Image.open(caminho_imagem) as original:
-            imagem = ImageOps.exif_transpose(original).convert("RGB")
-            largura, altura = imagem.size
-            # Região real do QR impresso no canto superior direito.
-            recortes = [
-                (0.78, 0.015, 0.99, 0.19),
-                (0.68, 0.00, 1.00, 0.26),
-                (0.60, 0.00, 1.00, 0.32),
-            ]
-            for indice, (x1, y1, x2, y2) in enumerate(recortes, 1):
-                regiao = imagem.crop((int(largura*x1), int(altura*y1),
-                                      int(largura*x2), int(altura*y2)))
-                # Evita arrays gigantes em PDFs de scanner.
-                limite = 1400
-                fator = min(4.0, limite/max(regiao.size))
-                ampliada = regiao.resize(
-                    (max(1,int(regiao.width*fator)), max(1,int(regiao.height*fator))),
-                    Image.Resampling.LANCZOS)
-                for nome, candidata in (
-                    ("rgb", ampliada),
-                    ("cinza", ImageOps.grayscale(ampliada)),
-                    ("contraste", ImageEnhance.Contrast(ImageOps.grayscale(ampliada)).enhance(2.0)),
-                    ("nitidez", ImageOps.grayscale(ampliada).filter(ImageFilter.SHARPEN)),
-                ):
-                    texto = ler(candidata, f"recorte{indice}_{nome}")
+        with Image.open(caminho_imagem) as arquivo:
+            original = ImageOps.exif_transpose(arquivo).convert("RGB")
+            largura, altura = original.size
+            # Em scans Epson A4 deste layout, o QR está em torno de
+            # x=0.56-0.66, y=0.03-0.11 da página, NÃO em x>0.78.
+            # Os recortes adicionais cobrem cartões com escala/deslocamento.
+            regioes = (
+                (0.49, 0.015, 0.73, 0.16),
+                (0.40, 0.00, 0.83, 0.23),
+                (0.55, 0.00, 0.99, 0.28),
+            )
+            for indice, (x1, y1, x2, y2) in enumerate(regioes, 1):
+                recorte = original.crop((int(largura*x1), int(altura*y1),
+                                         int(largura*x2), int(altura*y2)))
+                # Ampliação limitada para evitar pico de RAM no Render.
+                fator = min(3.0, 1100 / max(recorte.size))
+                if fator > 1.05:
+                    recorte = recorte.resize(
+                        (int(recorte.width*fator), int(recorte.height*fator)),
+                        Image.Resampling.LANCZOS)
+                texto = tentar(recorte, f"regiao{indice}_rgb")
+                if texto:
+                    return texto
+                cinza = ImageOps.grayscale(recorte)
+                texto = tentar(ImageEnhance.Contrast(cinza).enhance(1.65),
+                               f"regiao{indice}_contraste")
+                if texto:
+                    return texto
+                # Um leve filtro de nitidez pode ajudar nos scans desfocados.
+                if indice == 1:
+                    texto = tentar(cinza.filter(ImageFilter.UnsharpMask(
+                        radius=1, percent=140, threshold=2)), "nitidez")
                     if texto:
                         return texto
-                if indice == 2:
-                    for angulo in (90, 180, 270):
-                        texto = ler(ampliada.rotate(angulo, expand=True),
-                                    f"recorte{indice}_rot{angulo}")
-                        if texto:
-                            return texto
-            app.logger.warning("QR_CARTAO: não decodificado após recortes; imagem=%sx%s",
+            app.logger.warning("QR_CARTAO: QR não identificado; imagem=%sx%s",
                                largura, altura)
     except Exception:
-        app.logger.exception("QR_CARTAO: erro ao abrir/processar cartão")
+        app.logger.exception("QR_CARTAO: falha ao abrir cartão")
     return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
