@@ -3,7 +3,15 @@
 {% block conteudo %}
 <style>
 .ra-wrap{max-width:1250px;margin:25px auto;padding:20px;color:#0d315b}.ra-wrap h1{font-size:30px;font-weight:800}.ra-wrap h2{font-size:21px;margin:10px 0}.ra-card{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:20px;margin:18px 0;box-shadow:0 3px 14px #123b8210}.ra-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.ra-number{font-size:30px;font-weight:800;color:#103a72}.ra-muted{color:#61758e}.ra-wrap button,.ra-wrap input[type=search]{padding:10px;border:1px solid #c9d9e7;border-radius:8px;max-width:100%}.ra-wrap button{background:#103a72;color:white;cursor:pointer}.ra-wrap button.ra-secondary{background:white;color:#103a72}.ra-scroll{overflow-x:auto}.ra-wrap table{width:100%;border-collapse:collapse}.ra-wrap th,.ra-wrap td{text-align:left;padding:12px;border-bottom:1px solid #e5edf5}.ra-wrap th{background:#103a72;color:white}.ra-bar{background:#e7eef6;height:15px;border-radius:8px;overflow:hidden;min-width:100px}.ra-bar>div{background:#16a6bb;height:100%}.ra-choose{max-height:300px;overflow:auto;display:grid;gap:8px;margin:12px 0;padding:8px;border:1px solid #e5edf5;border-radius:8px}.ra-choose label{display:flex;gap:8px;align-items:center;padding:5px}.ra-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.ra-filter details{border:1px solid #c9d9e7;border-radius:8px;padding:10px;position:relative}.ra-filter summary{cursor:pointer;font-weight:600}.ra-options{max-height:170px;overflow:auto;display:grid;gap:8px;padding:12px 2px 2px}.ra-options label{display:flex;gap:7px;align-items:center;font-size:13px}.ra-link{color:#096d99;font-weight:700}.ra-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ra-status{font-size:12px;color:#a36513;font-weight:600}.ra-wrap input[type=checkbox]{accent-color:#103a72}
-@page{size:A4 portrait;margin:15mm 13mm 16mm}
+@page{size:A4 portrait;margin:14mm 12mm 16mm}
+.ra-print-identity{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px}
+.ra-print-ark-logo{width:148px;max-height:68px;object-fit:contain;object-position:left center}
+.ra-print-schools{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:65%}
+.ra-print-school{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:#103a72;max-width:240px}
+.ra-print-school img{width:52px;height:52px;object-fit:contain}
+.ra-school-placeholder{font-size:25px}
+.ra-print-subtitle{font-size:11px;color:#536477}
+
 .ra-print-head,.ra-print-meta,.ra-print-footer{display:none}
 .ra-print-head{border-bottom:3px solid #103a72;padding-bottom:12px;margin-bottom:16px}
 .ra-print-head .brand{font-size:19px;font-weight:900;color:#103a72;letter-spacing:.5px}
@@ -17,6 +25,12 @@
  .ra-wrap{position:absolute!important;left:0!important;top:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;color:#17283d!important}
  .sidebar,.sidebar-wrapper,aside,nav,header,.topbar,footer,.ra-no-print,#raFiltros,#raPanorama,.ra-link{display:none!important}
  .ra-print-head,.ra-print-meta,.ra-print-footer{display:block!important}
+ .ra-print-head{border-bottom:3px solid #109db7!important;break-inside:avoid!important}
+ .ra-print-identity{border-bottom:1px solid #d8e6ef!important}
+ .ra-print-ark-logo,.ra-print-school img{visibility:visible!important;display:block!important}
+ .ra-print-school{break-inside:avoid!important}
+ .ra-print-meta{background:#f1f6fb!important;padding:10px!important;border-left:3px solid #119eb7!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+
  .ra-wrap>h1,.ra-wrap>p.ra-muted{display:none!important}
  .ra-card{border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:15px 0!important;break-inside:auto!important}
  .ra-card .ra-card{border:1px solid #d6e2ed!important;border-radius:5px!important;padding:10px!important;margin:4px 0!important;break-inside:avoid!important}
@@ -39,7 +53,19 @@
 </style>
 <main class="ra-wrap">
 <div class="ra-actions ra-no-print" style="justify-content:flex-end"><button type="button" onclick="imprimirRelatorio()">🖨 Imprimir relatório organizado</button></div>
-<div class="ra-print-head"><div class="brand">ARK EDUS <small style="font-size:9px;font-weight:normal">PLATAFORMA EDUCACIONAL</small></div><div class="report-title">RELATÓRIO DE DESEMPENHO DAS AVALIAÇÕES</div><div style="font-size:11px;color:#536477">Panorama geral das avaliações aplicadas</div></div>
+<div class="ra-print-head">
+ <div class="ra-print-identity">
+  <img class="ra-print-ark-logo" src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt="ARK EDUS">
+  <div class="ra-print-schools">
+  {% for escola in escolas_relatorio %}<div class="ra-print-school">
+   {% if escola.logo %}<img src="{{ url_for('static', filename='uploads/' + escola.logo) }}" alt="Logo de {{ escola.nome }}">{% else %}<span class="ra-school-placeholder">🏫</span>{% endif %}
+   <span>{{ escola.nome }}</span>
+  </div>{% endfor %}
+  </div>
+ </div>
+ <div class="report-title">RELATÓRIO DE DESEMPENHO DAS AVALIAÇÕES</div>
+ <div class="ra-print-subtitle">Panorama geral das avaliações aplicadas · ARK EDUS</div>
+</div>
 <div class="ra-print-meta"><div><strong>Instituições:</strong> <span id="printEscolas">Todas autorizadas</span></div><div><strong>Turmas:</strong> <span id="printTurmas">Todas</span> &nbsp; <strong>Disciplinas:</strong> <span id="printDisciplinas">Todas</span></div><div><strong>Anos letivos:</strong> <span id="printAnos">Todos</span></div><div><strong>Emissão:</strong> <span id="printData"></span></div></div><h1>Relatórios das Avaliações</h1><p class="ra-muted">Compare provas aplicadas e resultados objetivos corrigidos. As correções existentes não são alteradas.</p>
 <form method="get" class="ra-card" id="raFiltros"><h2>Filtros — selecione uma ou várias opções</h2><div class="ra-filter">
 {% for campo,titulo,opcoes in [('escola_id','Instituições',escolas),('turma_id','Turmas',turmas),('disciplina','Disciplinas',disciplinas),('ano_letivo_id','Anos letivos',anos)] %}

@@ -5519,9 +5519,18 @@ def relatorios_avaliacoes():
         panorama = [d for d in dados if d["id"] in selecionadas]
         total = sum(d["avaliados"] for d in panorama)
         media = round(sum(d["soma"] for d in panorama)/total, 1) if total else None
+        # Identidade visual das instituições efetivamente presentes no relatório.
+        # A lista respeita as provas já autorizadas para este usuário.
+        escolas_relatorio_ids = {p["escola_id"] for p in dados if p.get("escola_id")}
+        escolas_relatorio = []
+        for escola_id in sorted(escolas_relatorio_ids):
+            escola = cur.execute("SELECT id, nome_instituicao, logo FROM escolas WHERE id=?", (escola_id,)).fetchone()
+            if escola:
+                escolas_relatorio.append({"id": escola["id"], "nome": escola["nome_instituicao"],
+                                          "logo": escola["logo"]})
         return render_template("relatorios_avaliacoes.html", dados=dados, panorama=panorama,
             selecionadas=selecionadas, total=total, media=media,
-            escolas=escolas, turmas=turmas, disciplinas=disciplinas, anos=anos,
+            escolas=escolas, escolas_relatorio=escolas_relatorio, turmas=turmas, disciplinas=disciplinas, anos=anos,
             filtros=filtros, somente_corrigidas=somente_corrigidas)
     finally:
         banco.close()
