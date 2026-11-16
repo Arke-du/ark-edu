@@ -22897,20 +22897,21 @@ def cartoes_aplicacao(aplicacao_id):
 
 
 def _decodificar_qr_cartao(caminho_imagem):
-    """Tenta QR somente em recortes pequenos, sem copiar a página inteira para NumPy.
+    """Lê o QR do cabeçalho com recortes limitados, inclusive scans A5.
 
-    Os cartões digitalizados podem ocupar apenas a metade superior do papel;
-    o QR fica aproximadamente entre 55% e 75% da largura da página.
+    Não tenta associar aluno pela ordem do PDF: só aceita QR com campos
+    APLICACAO e ALUNO. Recortes mantêm o pico de RAM baixo em Render 512 MB.
     """
     try:
         import zxingcpp
+        import numpy as np
     except ImportError:
-        app.logger.exception("QR_CARTAO: zxingcpp indisponível")
+        app.logger.exception("QR_CARTAO: dependência de leitura indisponível")
         return None
 
-    def ler_recorte(imagem, etapa):
+    def tentar(imagem, etapa):
         try:
-            import numpy as np
+            # Uma matriz pequena por tentativa; nunca copiar a página inteira.
             resultados = zxingcpp.read_barcodes(np.asarray(imagem))
             for resultado in resultados or ():
                 texto = str(getattr(resultado, "text", "") or "").strip()
@@ -22918,44 +22919,49 @@ def _decodificar_qr_cartao(caminho_imagem):
                     app.logger.info("QR_CARTAO: reconhecido em %s", etapa)
                     return texto
         except Exception:
-            app.logger.exception("QR_CARTAO: falha na etapa %s", etapa)
+            app.logger.exception("QR_CARTAO: falha em %s", etapa)
         return None
 
     try:
         with Image.open(caminho_imagem) as original:
             largura, altura = original.size
-            # Inclui tanto cartões escaneados quanto cartões que ocupam a página toda.
+            # QR de cartão escaneado pode estar em 65%-98% da largura.
+            # Algumas digitalizações deslocam o cabeçalho horizontalmente.
             regioes = (
-                (0.52, 0.005, 0.77, 0.15),
-                (0.46, 0.00, 0.86, 0.22),
-                (0.65, 0.00, 0.99, 0.24),
+                (0.68, 0.005, 0.995, 0.19),
+                (0.52, 0.005, 0.995, 0.25),
+                (0.43, 0.00, 0.83, 0.22),
             )
             for indice, (x1, y1, x2, y2) in enumerate(regioes, 1):
-                regiao = original.crop((int(largura*x1), int(altura*y1),
-                                        int(largura*x2), int(altura*y2)))
-                # Limite rígido: recortes, nunca página inteira em alta resolução.
-                if max(regiao.size) > 1100:
-                    regiao.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
-                cinza = ImageOps.grayscale(regiao)
-                candidatas = (('cinza', cinza),
-                              ('contraste', ImageEnhance.Contrast(cinza).enhance(2)),
-                              ('nitidez', cinza.filter(ImageFilter.SHARPEN)))
-                for nome, candidata in candidatas:
-                    texto = ler_recorte(candidata, f"regiao{indice}_{nome}")
-                    if texto:
-                        return texto
-                # Ampliação somente quando o QR é pequeno; tamanho limitado.
-                if max(cinza.size) < 650:
-                    fator = min(2.0, 1000 / max(cinza.size))
-                    ampliada = cinza.resize((int(cinza.width*fator),
-                                             int(cinza.height*fator)), Image.Resampling.BICUBIC)
-                    texto = ler_recorte(ampliada, f"regiao{indice}_ampliada")
-                    if texto:
-                        return texto
-                del regiao, cinza
+                with original.crop((int(largura*x1), int(altura*y1),
+                                    int(largura*x2), int(altura*y2))) as recorte:
+                    cinza = ImageOps.grayscale(recorte)
+                    # Evita que páginas enormes criem matrizes grandes.
+                    if max(cinza.size) > 1000:
+                        cinza.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
+                    variantes = (
+                        ("original", cinza),
+                        ("contraste", ImageEnhance.Contrast(cinza).enhance(1.8)),
+                        ("autocontraste", ImageOps.autocontrast(cinza)),
+                    )
+                    for nome, variante in variantes:
+                        texto = tentar(variante, f"regiao{indice}_{nome}")
+                        if texto:
+                            return texto
+                    # QR muito pequeno: ampliar APENAS o cabeçalho.
+                    if max(cinza.size) < 650:
+                        fator = min(2.5, 1000.0 / max(cinza.size))
+                        ampliada = cinza.resize(
+                            (max(1, int(cinza.width*fator)),
+                             max(1, int(cinza.height*fator))),
+                            Image.Resampling.NEAREST,
+                        )
+                        texto = tentar(ampliada, f"regiao{indice}_ampliada")
+                        if texto:
+                            return texto
             app.logger.warning("QR_CARTAO: não identificado em %sx%s", largura, altura)
     except Exception:
-        app.logger.exception("QR_CARTAO: erro ao abrir/processar cartão")
+        app.logger.exception("QR_CARTAO: erro ao processar cartão")
     return None
 
 def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
@@ -22992,9 +22998,10 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
         numero_logico = 0
         for indice in range(documento.page_count):
             pagina = documento.load_page(indice)
-            # 1.5x mantém a página dentro de um orçamento de memória menor.
-            # Evita imagens gigantes em PDFs provenientes de scanners.
-            escala = min(1.5, 2200.0 / max(pagina.rect.width, pagina.rect.height))
+            # 200 DPI aproximados em A5: QR fica mais nítido que em 630x893.
+            # Limita a 2.5 megapixels para não esgotar 512 MB de RAM.
+            area = max(1.0, pagina.rect.width * pagina.rect.height)
+            escala = min(2.2, (2_500_000.0 / area) ** 0.5)
             matriz = fitz.Matrix(escala, escala)
             pixmap = pagina.get_pixmap(matrix=matriz, alpha=False)
 
