@@ -22935,6 +22935,7 @@ def _decodificar_qr_cartao(caminho_imagem):
                     ("pdf_hires_auto", ImageOps.autocontrast(cinza_qr)),
                     ("pdf_hires_contraste", ImageEnhance.Contrast(cinza_qr).enhance(1.6)),
                     ("pdf_hires_nitidez", ImageFilter.UnsharpMask(radius=1, percent=130, threshold=2).filter(cinza_qr)),
+                    ("pdf_hires_binarizado", cinza_qr.point(lambda p: 255 if p > 145 else 0)),
                 ):
                     texto = tentar(variante, rotulo)
                     if texto:
@@ -23053,8 +23054,8 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
                 # Pico de memória pequeno: apenas o cabeçalho é renderizado a 4x.
                 try:
                     r = pagina.rect
-                    clip = fitz.Rect(r.x0 + r.width * 0.58, r.y0,
-                                     r.x1, r.y0 + r.height * 0.245)
+                    clip = fitz.Rect(r.x0 + r.width * 0.40, r.y0,
+                                     r.x0 + r.width * 0.82, r.y0 + r.height * 0.245)
                     pix_qr = pagina.get_pixmap(matrix=fitz.Matrix(4.0, 4.0),
                                                clip=clip, alpha=False)
                     pix_qr.save(caminho_base + ".qr-hires.png")
