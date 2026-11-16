@@ -5354,6 +5354,49 @@ def jogos():
                            total_partidas=total_partidas,total_participacoes=total_participacoes,total_turmas_jogos=total_turmas)
 
 
+@app.route("/relatorios")
+def relatorios_jogos():
+    """Relatórios consolidados do ARK PLAY, respeitando o escopo do usuário."""
+    if "usuario_id" not in session:
+        return redirect("/login")
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        garantir_tabelas_jogos(banco)
+        cur = banco.cursor()
+        uid = session.get("usuario_id")
+        cargo = session.get("usuario_cargo")
+        escola = session.get("escola_id")
+        condicao, parametros = "", []
+        if cargo != "Administrador Geral":
+            if escola:
+                condicao, parametros = " WHERE a.escola_id = ?", [escola]
+            else:
+                condicao, parametros = " WHERE a.criado_por = ?", [uid]
+        jogos_resumo = cur.execute(f"""
+            SELECT a.id, a.titulo, a.tipo, a.disciplina, a.criado_em,
+                   t.nome AS turma_nome,
+                   (SELECT COUNT(*) FROM jogos_participacoes jp WHERE jp.atividade_id=a.id) AS participacoes,
+                   (SELECT COUNT(*) FROM jogos_partidas p WHERE p.atividade_id=a.id) AS partidas,
+                   (SELECT COALESCE(SUM(jp.acertos),0) FROM jogos_participacoes jp WHERE jp.atividade_id=a.id) AS acertos,
+                   (SELECT COALESCE(SUM(jp.total),0) FROM jogos_participacoes jp WHERE jp.atividade_id=a.id) AS questoes,
+                   (SELECT COALESCE(ROUND(AVG(jp.pontos),1),0) FROM jogos_participacoes jp WHERE jp.atividade_id=a.id) AS media_pontos
+              FROM jogos_atividades a
+              LEFT JOIN turmas t ON t.id = a.turma_id
+              {condicao}
+             ORDER BY a.id DESC
+        """, parametros).fetchall()
+        # Os totais são somados por jogo; participações não são multiplicadas por partidas.
+        totais = {
+            "jogos": len(jogos_resumo),
+            "partidas": sum(r["partidas"] for r in jogos_resumo),
+            "participacoes": sum(r["participacoes"] for r in jogos_resumo),
+        }
+        return render_template("jogos_relatorios.html", jogos_resumo=jogos_resumo, totais=totais)
+    finally:
+        banco.close()
+
+
 @app.route("/jogos/criar", methods=["GET","POST"])
 def jogos_criar():
     if "usuario_id" not in session: return redirect("/login")
@@ -5446,6 +5489,15 @@ def jogos_projetar(atividade_id):
 def jogos_resultados_prof(atividade_id):
     if "usuario_id" not in session: return redirect("/login")
     banco=conectar_banco(); banco.row_factory=sqlite3.Row; garantir_tabelas_jogos(banco); cur=banco.cursor(); at=cur.execute("SELECT * FROM jogos_atividades WHERE id=?",(atividade_id,)).fetchone()
+    if not at:
+        banco.close()
+        abort(404)
+    if session.get("usuario_cargo") != "Administrador Geral":
+        escola = session.get("escola_id")
+        autorizado = (at["escola_id"] == escola) if escola else (at["criado_por"] == session.get("usuario_id"))
+        if not autorizado:
+            banco.close()
+            abort(403)
     rows=cur.execute("SELECT * FROM jogos_participacoes WHERE atividade_id=? ORDER BY pontos DESC,id ASC",(atividade_id,)).fetchall(); banco.close()
     return render_template("jogos_resultados_prof.html",atividade=at,resultados=rows)
 

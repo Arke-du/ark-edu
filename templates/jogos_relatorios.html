@@ -1,0 +1,29 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Relatórios | ARK PLAY{% endblock %}
+{% block conteudo %}
+<main style="max-width:1200px;margin:0 auto;padding:30px 22px 60px">
+  <a href="{{ url_for('jogos') }}" style="color:#0d2d62">← Voltar ao ARK PLAY</a>
+  <h1 style="color:#0d2d62;margin-bottom:5px">Relatórios do ARK PLAY</h1>
+  <p style="color:#60728c">Panorama das partidas e participações dos jogos autorizados para seu perfil.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px;margin:25px 0">
+    {% for rotulo,valor in [('Jogos',totais.jogos),('Partidas',totais.partidas),('Participações',totais.participacoes)] %}
+    <div style="background:#fff;border:1px solid #dce5f0;border-radius:14px;padding:20px">
+      <div style="color:#62738a">{{ rotulo }}</div><div style="font-size:30px;font-weight:800;color:#0d2d62">{{ valor }}</div>
+    </div>{% endfor %}
+  </div>
+  <div style="background:#fff;border:1px solid #dce5f0;border-radius:14px;overflow-x:auto">
+    <table style="border-collapse:collapse;width:100%;min-width:750px">
+      <thead><tr style="background:#eef5fa;color:#0d2d62;text-align:left">
+        <th style="padding:15px">Jogo</th><th>Turma</th><th>Partidas</th><th>Participações</th><th>Média de pontos</th><th>Acertos</th><th>Resultados</th>
+      </tr></thead>
+      <tbody>{% for j in jogos_resumo %}
+      <tr style="border-top:1px solid #e5eaf1">
+        <td style="padding:15px"><strong>{{ j.titulo }}</strong><div style="color:#708096;font-size:12px">{{ j.tipo }}{% if j.disciplina %} · {{ j.disciplina }}{% endif %}</div></td>
+        <td>{{ j.turma_nome or '—' }}</td><td>{{ j.partidas }}</td><td>{{ j.participacoes }}</td>
+        <td>{{ j.media_pontos }}</td><td>{% if j.questoes %}{{ j.acertos }}/{{ j.questoes }}{% else %}—{% endif %}</td>
+        <td><a href="{{ url_for('jogos_resultados_prof',atividade_id=j.id) }}" style="color:#0759aa;font-weight:700">Ver resultados</a></td>
+      </tr>{% else %}<tr><td colspan="7" style="padding:25px;text-align:center;color:#64748b">Nenhum jogo disponível para seu perfil.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}
