@@ -3,10 +3,44 @@
 {% block conteudo %}
 <style>
 .ra-wrap{max-width:1250px;margin:25px auto;padding:20px;color:#0d315b}.ra-wrap h1{font-size:30px;font-weight:800}.ra-wrap h2{font-size:21px;margin:10px 0}.ra-card{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:20px;margin:18px 0;box-shadow:0 3px 14px #123b8210}.ra-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.ra-number{font-size:30px;font-weight:800;color:#103a72}.ra-muted{color:#61758e}.ra-wrap button,.ra-wrap input[type=search]{padding:10px;border:1px solid #c9d9e7;border-radius:8px;max-width:100%}.ra-wrap button{background:#103a72;color:white;cursor:pointer}.ra-wrap button.ra-secondary{background:white;color:#103a72}.ra-scroll{overflow-x:auto}.ra-wrap table{width:100%;border-collapse:collapse}.ra-wrap th,.ra-wrap td{text-align:left;padding:12px;border-bottom:1px solid #e5edf5}.ra-wrap th{background:#103a72;color:white}.ra-bar{background:#e7eef6;height:15px;border-radius:8px;overflow:hidden;min-width:100px}.ra-bar>div{background:#16a6bb;height:100%}.ra-choose{max-height:300px;overflow:auto;display:grid;gap:8px;margin:12px 0;padding:8px;border:1px solid #e5edf5;border-radius:8px}.ra-choose label{display:flex;gap:8px;align-items:center;padding:5px}.ra-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.ra-filter details{border:1px solid #c9d9e7;border-radius:8px;padding:10px;position:relative}.ra-filter summary{cursor:pointer;font-weight:600}.ra-options{max-height:170px;overflow:auto;display:grid;gap:8px;padding:12px 2px 2px}.ra-options label{display:flex;gap:7px;align-items:center;font-size:13px}.ra-link{color:#096d99;font-weight:700}.ra-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ra-status{font-size:12px;color:#a36513;font-weight:600}.ra-wrap input[type=checkbox]{accent-color:#103a72}
-@media print{body{background:white!important}.sidebar,.sidebar-wrapper,aside,nav,header,.topbar,.ra-no-print,#raFiltros,#raPanorama,.ra-link{display:none!important}.ra-wrap{max-width:none;margin:0;padding:0;color:#111}.ra-card{box-shadow:none;border:1px solid #bbb;break-inside:avoid}.ra-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}.ra-wrap th{-webkit-print-color-adjust:exact;print-color-adjust:exact}.ra-wrap h1{font-size:24px}a[href]:after{content:none!important}}
+@page{size:A4 portrait;margin:15mm 13mm 16mm}
+.ra-print-head,.ra-print-meta,.ra-print-footer{display:none}
+.ra-print-head{border-bottom:3px solid #103a72;padding-bottom:12px;margin-bottom:16px}
+.ra-print-head .brand{font-size:19px;font-weight:900;color:#103a72;letter-spacing:.5px}
+.ra-print-head .report-title{font-size:17px;font-weight:800;margin-top:8px;color:#103a72}
+.ra-print-meta{font-size:11px;line-height:1.7;margin:12px 0 20px}
+.ra-print-footer{font-size:10px;color:#5c6e82;border-top:1px solid #d3deea;padding-top:7px;margin-top:15px}
+@media print{
+ html,body{background:#fff!important;color:#17283d!important;font-family:Arial,Helvetica,sans-serif!important;font-size:10pt!important}
+ body *{visibility:hidden}
+ .ra-wrap,.ra-wrap *{visibility:visible}
+ .ra-wrap{position:absolute!important;left:0!important;top:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;color:#17283d!important}
+ .sidebar,.sidebar-wrapper,aside,nav,header,.topbar,footer,.ra-no-print,#raFiltros,#raPanorama,.ra-link{display:none!important}
+ .ra-print-head,.ra-print-meta,.ra-print-footer{display:block!important}
+ .ra-wrap>h1,.ra-wrap>p.ra-muted{display:none!important}
+ .ra-card{border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:15px 0!important;break-inside:auto!important}
+ .ra-card .ra-card{border:1px solid #d6e2ed!important;border-radius:5px!important;padding:10px!important;margin:4px 0!important;break-inside:avoid!important}
+ .ra-grid{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important}
+ .ra-number{font-size:22px!important}
+ .ra-wrap h2{font-size:14px!important;color:#103a72!important;margin:18px 0 10px!important;break-after:avoid!important}
+ .ra-bar,.ra-bar>div,.ra-wrap th{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+ .ra-bar{background:#e4edf6!important;border:1px solid #d0dce8!important}
+ .ra-bar>div{background:#159eb6!important}
+ .ra-scroll{overflow:visible!important}
+ .ra-wrap table{font-size:8pt!important;table-layout:fixed!important;width:100%!important}
+ .ra-wrap th,.ra-wrap td{padding:6px 5px!important;overflow-wrap:anywhere!important;vertical-align:top!important}
+ .ra-wrap th{background:#103a72!important;color:white!important}
+ .ra-wrap thead{display:table-header-group}
+ .ra-wrap tr{break-inside:avoid!important;page-break-inside:avoid!important}
+ .ra-wrap td:last-child,.ra-wrap th:last-child{display:none!important}
+ .ra-wrap a[href]:after{content:none!important}
+ .ra-print-footer{break-inside:avoid!important}
+}
 </style>
 <main class="ra-wrap">
-<div class="ra-actions ra-no-print" style="justify-content:flex-end"><button type="button" onclick="window.print()">🖨 Imprimir relatório</button></div><h1>Relatórios das Avaliações</h1><p class="ra-muted">Compare provas aplicadas e resultados objetivos corrigidos. As correções existentes não são alteradas.</p>
+<div class="ra-actions ra-no-print" style="justify-content:flex-end"><button type="button" onclick="imprimirRelatorio()">🖨 Imprimir relatório organizado</button></div>
+<div class="ra-print-head"><div class="brand">ARK EDUS <small style="font-size:9px;font-weight:normal">PLATAFORMA EDUCACIONAL</small></div><div class="report-title">RELATÓRIO DE DESEMPENHO DAS AVALIAÇÕES</div><div style="font-size:11px;color:#536477">Panorama geral das avaliações aplicadas</div></div>
+<div class="ra-print-meta"><div><strong>Instituições:</strong> <span id="printEscolas">Todas autorizadas</span></div><div><strong>Turmas:</strong> <span id="printTurmas">Todas</span> &nbsp; <strong>Disciplinas:</strong> <span id="printDisciplinas">Todas</span></div><div><strong>Anos letivos:</strong> <span id="printAnos">Todos</span></div><div><strong>Emissão:</strong> <span id="printData"></span></div></div><h1>Relatórios das Avaliações</h1><p class="ra-muted">Compare provas aplicadas e resultados objetivos corrigidos. As correções existentes não são alteradas.</p>
 <form method="get" class="ra-card" id="raFiltros"><h2>Filtros — selecione uma ou várias opções</h2><div class="ra-filter">
 {% for campo,titulo,opcoes in [('escola_id','Instituições',escolas),('turma_id','Turmas',turmas),('disciplina','Disciplinas',disciplinas),('ano_letivo_id','Anos letivos',anos)] %}
 <details><summary>{{titulo}} <span class="ra-muted" data-counter="{{campo}}"></span></summary><div class="ra-actions" style="margin-top:9px"><button type="button" class="ra-secondary ra-filter-all" data-field="{{campo}}">Selecionar todos</button><button type="button" class="ra-secondary ra-filter-none" data-field="{{campo}}">Limpar</button></div><div class="ra-options">
@@ -22,8 +56,19 @@
 <div class="ra-grid" style="margin-top:18px"><div class="ra-card"><div class="ra-muted">Avaliações selecionadas</div><div class="ra-number">{{panorama|length}}</div></div><div class="ra-card"><div class="ra-muted">Resultados corrigidos</div><div class="ra-number">{{total}}</div></div><div class="ra-card"><div class="ra-muted">Média de acertos</div><div class="ra-number">{% if media is not none %}{{'%.1f'|format(media)}}%{% else %}—{% endif %}</div></div></div>
 <h2>Comparação de desempenho</h2>{% for p in panorama %}<div style="margin:13px 0"><div><strong>{{p.nome}}</strong> <span class="ra-muted">— {{p.turma_nome}} · {{p.avaliados}} corrigidos</span></div><div style="display:flex;gap:10px;align-items:center"><div class="ra-bar" style="flex:1"><div style="width:{{p.media or 0}}%"></div></div><strong>{% if p.media is not none %}{{p.media}}%{% else %}—{% endif %}</strong></div></div>{% else %}<p class="ra-muted">Selecione pelo menos uma avaliação com resultados para gerar o gráfico.</p>{% endfor %}</section>
 <section class="ra-card"><h2>Resultados por avaliação</h2><div class="ra-scroll"><table><thead><tr><th>Avaliação</th><th>Instituição</th><th>Turma</th><th>Disciplina</th><th>Corrigidos</th><th>Média objetiva</th><th>Resultados</th></tr></thead><tbody>{% for p in dados %}<tr><td>{{p.nome}}</td><td>{{p.escola_nome}}</td><td>{{p.turma_nome}}</td><td>{{p.disciplina or '—'}}</td><td>{{p.avaliados}}</td><td>{% if p.media is not none %}{{p.media}}%{% else %}<span class="ra-status">Sem registros corrigidos</span>{% endif %}</td><td><a class="ra-link" href="{{url_for('resultados',prova_id=p.id)}}">Ver resultados</a></td></tr>{% else %}<tr><td colspan="7">Nenhuma avaliação encontrada.</td></tr>{% endfor %}</tbody></table></div></section>
+<div class="ra-print-footer">ARK EDUS · Relatório gerado a partir dos resultados disponíveis no sistema. Avaliações sem correções objetivas identificadas são apresentadas sem média, e não como 0%.</div>
 </main>
 <script>
+function imprimirRelatorio(){
+ const campos=[['escola_id','printEscolas'],['turma_id','printTurmas'],['disciplina','printDisciplinas'],['ano_letivo_id','printAnos']];
+ for(const [campo,destino] of campos){
+  const selecionados=[...document.querySelectorAll('#raFiltros input[name="'+campo+'"]:checked')].map(x=>x.closest('label').textContent.trim());
+  document.getElementById(destino).textContent=selecionados.length?selecionados.join(', '):'Todos';
+ }
+ document.getElementById('printData').textContent=new Date().toLocaleString('pt-BR');
+ window.print();
+}
+
 (function(){
  const busca=document.getElementById('raBusca'), lista=document.getElementById('raLista'), contador=document.getElementById('raContagem');
  const itens=[...lista.querySelectorAll('.ra-prova')];
