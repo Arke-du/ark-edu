@@ -5439,20 +5439,23 @@ def relatorios_avaliacoes():
         provas = [p for p in autorizadas if all(
             not filtros[campo] or str(p[campo] or "") in filtros[campo] for campo in campos)]
         dados = []
+        cols_aa = {r[1] for r in cur.execute("PRAGMA table_info(aplicacao_alunos)").fetchall()}
+        nota_expr = "aa.nota_final" if "nota_final" in cols_aa else "NULL"
         for p in provas:
             pid = p["id"]
-            # Mesma regra de escolha da tela /resultados/<prova_id>:
-            # prioriza um lançamento concluído por aluno, sem duplicar aplicações.
-            cols_aa = {r[1] for r in cur.execute("PRAGMA table_info(aplicacao_alunos)").fetchall()}
-            nota_expr = "aa.nota_final" if "nota_final" in cols_aa else "NULL"
+            # A tela individual considera o resultado final, não apenas o flag
+            # objetiva_corrigida. A consulta abaixo segue o mesmo critério,
+            # sem recalcular ou alterar notas no banco de produção.
             registros = cur.execute(f"""
                 SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
                        aa.objetiva_corrigida, aa.discursiva_pendente, aa.status,
-                       {nota_expr} AS nota_final
+                       {nota_expr} AS nota_final, aa.nota_objetiva,
+                       ap.id AS aplicacao_id
                 FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
                 WHERE ap.prova_id=?
                 ORDER BY CASE WHEN {nota_expr} IS NOT NULL OR
-                         (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0)
+                         (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0
+                          AND aa.nota_objetiva IS NOT NULL)
                          THEN 1 ELSE 0 END DESC, ap.id DESC, aa.rowid DESC
             """, (pid,)).fetchall()
             oficiais = {}
@@ -5460,17 +5463,35 @@ def relatorios_avaliacoes():
                 aluno = r["aluno_id"]
                 if aluno is not None and aluno not in oficiais:
                     oficiais[aluno] = r
+            # Algumas avaliações antigas possuem respostas corrigidas, mas
+            # total_objetivas/acertos_objetivos ainda não foram sincronizados.
+            # Consultar as respostas gravadas é somente leitura.
+            respostas = cur.execute("""
+                SELECT aro.aplicacao_id, aro.aluno_id,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN COALESCE(aro.acertou,0)=1 THEN 1 ELSE 0 END) AS acertos
+                FROM aplicacao_respostas_objetivas aro
+                JOIN aplicacoes ap ON ap.id=aro.aplicacao_id
+                WHERE ap.prova_id=?
+                GROUP BY aro.aplicacao_id, aro.aluno_id
+            """, (pid,)).fetchall()
+            respostas_por_aluno = {(r["aplicacao_id"],r["aluno_id"]):r for r in respostas}
             corrigidos = {}
             for aluno, r in oficiais.items():
                 if str(r["status"] or "").strip().lower() in ("ausente", "faltou"):
                     continue
+                resp = respostas_por_aluno.get((r["aplicacao_id"], aluno))
                 total = int(r["total_objetivas"] or 0)
+                acertos = int(r["acertos_objetivos"] or 0)
+                if resp is not None and int(resp["total"] or 0) > 0:
+                    total = int(resp["total"])
+                    acertos = int(resp["acertos"] or 0)
                 concluido = (r["nota_final"] is not None or
                              (r["objetiva_corrigida"] == 1 and
-                              not int(r["discursiva_pendente"] or 0)))
+                              not int(r["discursiva_pendente"] or 0) and
+                              r["nota_objetiva"] is not None))
                 if concluido and total > 0:
-                    acertos = max(0, min(int(r["acertos_objetivos"] or 0), total))
-                    corrigidos[aluno] = 100.0 * acertos / total
+                    corrigidos[aluno] = 100.0 * max(0,min(acertos,total)) / total
             legados = cur.execute("""SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
                        JOIN (SELECT aluno_id, MAX(id) ultimo FROM resultados WHERE prova_id=? GROUP BY aluno_id) u
                        ON u.ultimo=r.id WHERE r.prova_id=?""", (pid, pid)).fetchall()
