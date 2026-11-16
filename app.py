@@ -5441,18 +5441,34 @@ def relatorios_avaliacoes():
         dados = []
         for p in provas:
             pid = p["id"]
-            registros = cur.execute("""SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
-                                      aa.objetiva_corrigida, aa.status
-                                      FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
-                                      WHERE ap.prova_id=? ORDER BY ap.id DESC, aa.rowid DESC""", (pid,)).fetchall()
-            # Uma tentativa posterior ainda pendente não deve ocultar uma correção já concluída.
-            corrigidos = {}
+            # Mesma regra de escolha da tela /resultados/<prova_id>:
+            # prioriza um lançamento concluído por aluno, sem duplicar aplicações.
+            cols_aa = {r[1] for r in cur.execute("PRAGMA table_info(aplicacao_alunos)").fetchall()}
+            nota_expr = "aa.nota_final" if "nota_final" in cols_aa else "NULL"
+            registros = cur.execute(f"""
+                SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
+                       aa.objetiva_corrigida, aa.discursiva_pendente, aa.status,
+                       {nota_expr} AS nota_final
+                FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+                WHERE ap.prova_id=?
+                ORDER BY CASE WHEN {nota_expr} IS NOT NULL OR
+                         (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0)
+                         THEN 1 ELSE 0 END DESC, ap.id DESC, aa.rowid DESC
+            """, (pid,)).fetchall()
+            oficiais = {}
             for r in registros:
                 aluno = r["aluno_id"]
+                if aluno is not None and aluno not in oficiais:
+                    oficiais[aluno] = r
+            corrigidos = {}
+            for aluno, r in oficiais.items():
+                if str(r["status"] or "").strip().lower() in ("ausente", "faltou"):
+                    continue
                 total = int(r["total_objetivas"] or 0)
-                if (aluno is not None and aluno not in corrigidos and
-                    r["objetiva_corrigida"] == 1 and total > 0 and
-                    str(r["status"] or "").lower() not in ("ausente", "faltou")):
+                concluido = (r["nota_final"] is not None or
+                             (r["objetiva_corrigida"] == 1 and
+                              not int(r["discursiva_pendente"] or 0)))
+                if concluido and total > 0:
                     acertos = max(0, min(int(r["acertos_objetivos"] or 0), total))
                     corrigidos[aluno] = 100.0 * acertos / total
             legados = cur.execute("""SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
@@ -5460,7 +5476,7 @@ def relatorios_avaliacoes():
                        ON u.ultimo=r.id WHERE r.prova_id=?""", (pid, pid)).fetchall()
             for r in legados:
                 total = int(r["acertos"] or 0) + int(r["erros"] or 0)
-                if r["aluno_id"] is not None and r["aluno_id"] not in corrigidos and total > 0:
+                if r["aluno_id"] is not None and r["aluno_id"] not in oficiais and total > 0:
                     corrigidos[r["aluno_id"]] = 100.0 * int(r["acertos"] or 0) / total
             percentuais = list(corrigidos.values())
             dados.append({**p, "avaliados": len(percentuais),
@@ -22473,6 +22489,7 @@ def _sincronizar_status_aplicacao(cursor, aplicacao_id):
             WHERE aa.aplicacao_id = ?
               AND (
                     COALESCE(aa.objetiva_corrigida, 0) = 1
+                 OR aa.nota_final IS NOT NULL
                  OR LOWER(TRIM(COALESCE(aa.status, ''))) IN (
                         'discursivas corrigidas',
                         'aguardando correção discursiva',
@@ -22498,8 +22515,10 @@ def _sincronizar_status_aplicacao(cursor, aplicacao_id):
             WHERE aa.aplicacao_id = ?
               AND LOWER(TRIM(COALESCE(aa.status, ''))) <> 'ausente'
               AND (
-                    (? = 1 AND COALESCE(aa.objetiva_corrigida, 0) = 0)
-                 OR (? = 1 AND COALESCE(aa.discursiva_pendente, 1) = 1)
+                    (? = 1 AND COALESCE(aa.objetiva_corrigida, 0) = 0
+                         AND aa.nota_final IS NULL)
+                 OR (? = 1 AND COALESCE(aa.discursiva_pendente, 1) = 1
+                         AND aa.nota_final IS NULL)
               )
         """, (
             aplicacao_id,
