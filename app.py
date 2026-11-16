@@ -5426,7 +5426,16 @@ def relatorios_avaliacoes():
         escolas = sorted({(p["escola_id"], p["escola_nome"]) for p in autorizadas if p["escola_id"]})
         turmas = sorted({(p["turma_id"], p["turma_nome"]) for p in autorizadas if p["turma_id"]})
         disciplinas = sorted({p["disciplina"] for p in autorizadas if p["disciplina"]})
-        anos = sorted({p["ano_letivo_id"] for p in autorizadas if p["ano_letivo_id"]})
+        # Mostrar o ano civil, mantendo o ID como valor interno do filtro.
+        anos_ids = sorted({p["ano_letivo_id"] for p in autorizadas if p["ano_letivo_id"]})
+        anos_nomes = {}
+        try:
+            cols_anos = {r[1] for r in cur.execute("PRAGMA table_info(anos_letivos)").fetchall()}
+            if {"id", "ano"}.issubset(cols_anos):
+                anos_nomes = {str(r[0]): str(r[1]) for r in cur.execute("SELECT id, ano FROM anos_letivos").fetchall()}
+        except Exception:
+            pass
+        anos = [(aid, anos_nomes.get(str(aid), f"Ano não identificado (ID {aid})")) for aid in anos_ids]
         provas = [p for p in autorizadas if all(
             not filtros[campo] or str(p[campo] or "") in filtros[campo] for campo in campos)]
         dados = []
