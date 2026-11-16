@@ -22922,6 +22922,28 @@ def _decodificar_qr_cartao(caminho_imagem):
             app.logger.exception("QR_CARTAO: falha em %s", etapa)
         return None
 
+    # Para PDFs digitalizados, a conversão reduzida pode destruir módulos
+    # pequenos do QR. O conversor guarda um recorte de alta resolução apenas
+    # do cabeçalho (arquivo temporário), sem ampliar a página inteira.
+    recorte_pdf = caminho_imagem + ".qr-hires.png"
+    if os.path.isfile(recorte_pdf):
+        try:
+            with Image.open(recorte_pdf) as qr_original:
+                cinza_qr = ImageOps.grayscale(qr_original)
+                for rotulo, variante in (
+                    ("pdf_hires", cinza_qr),
+                    ("pdf_hires_auto", ImageOps.autocontrast(cinza_qr)),
+                    ("pdf_hires_contraste", ImageEnhance.Contrast(cinza_qr).enhance(1.6)),
+                    ("pdf_hires_nitidez", ImageFilter.UnsharpMask(radius=1, percent=130, threshold=2).filter(cinza_qr)),
+                ):
+                    texto = tentar(variante, rotulo)
+                    if texto:
+                        return texto
+        except Exception:
+            app.logger.exception("QR_CARTAO: erro no recorte de alta resolução")
+        finally:
+            _remover_arquivo_silenciosamente(recorte_pdf)
+
     try:
         with Image.open(caminho_imagem) as original:
             largura, altura = original.size
@@ -23026,6 +23048,19 @@ def _converter_pdf_em_imagens(caminho_pdf, pasta_destino):
                 and altura_cartao_estimada >= 300
             )
             if not dividir:
+                # Recorta diretamente do PDF original a faixa superior direita,
+                # antes da rasterização de baixa resolução do cartão completo.
+                # Pico de memória pequeno: apenas o cabeçalho é renderizado a 4x.
+                try:
+                    r = pagina.rect
+                    clip = fitz.Rect(r.x0 + r.width * 0.58, r.y0,
+                                     r.x1, r.y0 + r.height * 0.245)
+                    pix_qr = pagina.get_pixmap(matrix=fitz.Matrix(4.0, 4.0),
+                                               clip=clip, alpha=False)
+                    pix_qr.save(caminho_base + ".qr-hires.png")
+                    del pix_qr
+                except Exception:
+                    app.logger.exception("PDF: falha ao criar recorte QR de alta resolução")
                 numero_logico += 1
                 caminhos.append((caminho_base, numero_logico))
                 continue
