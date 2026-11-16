@@ -1241,6 +1241,41 @@
     <div class="r-titulo"><div class="r-acoes"><a href="/provas" class="r-btn">← Voltar</a><button class="r-btn" onclick="abrirModalImpressao()">🖨 Imprimir</button><button class="r-btn ia-result-btn" id="btnAnaliseIA" type="button">✨ Analisar com IA</button></div><h1>Resultados da Prova</h1><p>Visão completa do desempenho, habilidades, descritores e resultados individuais.</p></div>
   </header>
 
+  <section class="r-card no-print" id="panorama-escola" aria-labelledby="panorama-titulo">
+    <div class="r-section">
+      <div class="r-section-head"><div><h3 id="panorama-titulo">📊 Panorama Geral da Escola</h3>
+        <p>Selecione as provas para comparar o percentual de acertos objetivos. Apenas avaliações autorizadas da mesma instituição.</p></div></div>
+      <form method="get" action="{{ url_for('resultados', prova_id=prova['id']) }}" class="panorama-form">
+        <input type="hidden" name="panorama_enviado" value="1">
+        <label for="panorama-provas"><strong>Avaliações</strong></label>
+        <select id="panorama-provas" name="panorama_provas" multiple size="{{ [panorama_provas|length, 7]|min }}" aria-describedby="panorama-ajuda" style="display:block;width:100%;min-height:100px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;margin:8px 0">
+          {% for p in panorama_provas %}
+          <option value="{{ p.id }}" {% if p.id in panorama_ids %}selected{% endif %}>{{ p.nome }} — {{ p.turma_nome }} — {{ p.disciplina }}</option>
+          {% endfor %}
+        </select>
+        <p id="panorama-ajuda" style="font-size:12px;color:#64748b;margin:0 0 12px">Use Ctrl + clique para selecionar várias provas (ou Command no Mac).</p>
+        <button type="submit" class="r-btn primary">Gerar panorama</button>
+      </form>
+      <div class="r-grid" style="margin:18px 0;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+        <div class="r-kpi"><small>Provas selecionadas</small><strong>{{ panorama_dados|length }}</strong></div>
+        <div class="r-kpi"><small>Média de acertos objetivos</small><strong>{{ ('%.1f%%'|format(panorama_media)) if panorama_media is not none else '—' }}</strong></div>
+        <div class="r-kpi"><small>Resultados avaliados</small><strong>{{ panorama_total }}</strong><span>Estudante por prova, sem duplicatas na mesma prova</span></div>
+      </div>
+      {% if panorama_dados %}
+      <div class="r-bars" role="img" aria-label="Comparativo de percentual médio de acertos por avaliação">
+        {% for item in panorama_dados %}
+        <div class="r-bar-row">
+          <label>{{ item.nome }} · {{ item.turma_nome }} <small>({{ item.avaliados }} corrigidos)</small></label>
+          <div class="r-bar"><i style="width:{{ item.media if item.media is not none else 0 }}%"></i></div>
+          <strong>{{ ('%.1f%%'|format(item.media)) if item.media is not none else '—' }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p>Selecione pelo menos uma prova e clique em Gerar panorama.</p>{% endif %}
+      <p style="margin-top:14px;font-size:12px;color:#64748b">A média consolidada é ponderada pelo número de resultados corrigidos em cada prova. Resultados pendentes e ausentes não entram no cálculo. Este gráfico mede apenas questões objetivas.</p>
+    </div>
+  </section>
+
   <section class="r-card">
     <div class="r-prova">
       <div class="r-logo">{% if prova['logo'] %}<img src="{{ url_for('static', filename='uploads/' ~ prova['logo']) }}">{% else %}<strong>ARK</strong>{% endif %}</div>

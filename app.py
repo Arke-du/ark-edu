@@ -14556,6 +14556,72 @@ def resultados(prova_id):
         if not _pode_gerenciar_prova(cursor, prova_id, exigir_edicao=False, permitir_finalizada=True):
             return redirect("/acesso_negado")
 
+        # Panorama geral: leitura somente de provas autorizadas da mesma instituição.
+        # A média utiliza percentual de acertos OBJETIVOS, evitando comparar escalas
+        # de notas diferentes ou tratar respostas pendentes como erros.
+        panorama_provas = []
+        panorama_dados = []
+        panorama_ids = []
+        cursor.execute("""
+            SELECT p.id, p.nome, p.disciplina, p.turma_id,
+                   COALESCE(t.nome, 'Sem turma') AS turma_nome
+            FROM provas p LEFT JOIN turmas t ON t.id = p.turma_id
+            WHERE p.escola_id = ?
+            ORDER BY p.id DESC LIMIT 300
+        """, (prova["escola_id"],))
+        for item in cursor.fetchall():
+            if _pode_gerenciar_prova(cursor, item["id"], exigir_edicao=False, permitir_finalizada=True):
+                panorama_provas.append(dict(item))
+        ids_validos = {int(p["id"]) for p in panorama_provas}
+        for bruto in request.args.getlist("panorama_provas")[:60]:
+            try:
+                pid = int(bruto)
+                if pid in ids_validos and pid not in panorama_ids:
+                    panorama_ids.append(pid)
+            except (TypeError, ValueError):
+                pass
+        if not request.args.get("panorama_enviado"):
+            panorama_ids = [prova_id]
+        for pid in panorama_ids:
+            meta = next(p for p in panorama_provas if p["id"] == pid)
+            cursor.execute("""
+                SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
+                       aa.objetiva_corrigida, aa.status, ap.id AS aplicacao_id,
+                       aa.rowid AS linha_id
+                FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id = ap.id
+                WHERE ap.prova_id = ?
+                ORDER BY ap.id DESC, aa.rowid DESC
+            """, (pid,))
+            recentes = {}
+            for registro in cursor.fetchall():
+                aluno = registro["aluno_id"]
+                if aluno not in recentes:
+                    recentes[aluno] = dict(registro)
+            percentuais = []
+            for registro in recentes.values():
+                if (registro["objetiva_corrigida"] == 1
+                        and int(registro["total_objetivas"] or 0) > 0
+                        and str(registro["status"] or "").strip().lower() not in ("ausente", "faltou")):
+                    percentuais.append(100.0 * max(0, min(int(registro["acertos_objetivos"] or 0),
+                        int(registro["total_objetivas"]))) / int(registro["total_objetivas"]))
+            # Registros legados só entram quando o estudante não consta nas aplicações.
+            cursor.execute("""
+                SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
+                INNER JOIN (SELECT aluno_id, MAX(id) AS ultimo FROM resultados
+                            WHERE prova_id=? GROUP BY aluno_id) ult ON ult.ultimo=r.id
+                WHERE r.prova_id=?
+            """, (pid, pid))
+            for registro in cursor.fetchall():
+                total = int(registro["acertos"] or 0) + int(registro["erros"] or 0)
+                if registro["aluno_id"] not in recentes and total > 0:
+                    percentuais.append(100.0 * int(registro["acertos"] or 0) / total)
+            panorama_dados.append({**meta, "avaliados": len(percentuais),
+                "media": round(sum(percentuais)/len(percentuais), 1) if percentuais else None,
+                "soma_percentuais": sum(percentuais)})
+        panorama_total = sum(d["avaliados"] for d in panorama_dados)
+        panorama_media = (round(sum(d["soma_percentuais"] for d in panorama_dados)/panorama_total, 1)
+                          if panorama_total else None)
+
         avaliacao_sem_nota = int(prova["tem_nota"] or 0) != 1
 
         # Antes de montar o relatório, confere novamente cada resposta objetiva
@@ -15207,6 +15273,8 @@ def resultados(prova_id):
 
         return render_template(
             "resultados.html", prova=prova, resultados=resultados_lista,
+            panorama_provas=panorama_provas, panorama_dados=panorama_dados,
+            panorama_ids=panorama_ids, panorama_total=panorama_total, panorama_media=panorama_media,
             todos_registros=todos_registros, total_alunos=total_alunos,
             total_turma=total_turma, presentes=presentes, ausentes=ausentes,
             pendentes=pendentes, media_turma=media_turma, maior_nota=maior_nota,
