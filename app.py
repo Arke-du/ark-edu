@@ -5354,7 +5354,7 @@ def jogos():
                            total_partidas=total_partidas,total_participacoes=total_participacoes,total_turmas_jogos=total_turmas)
 
 
-@app.route("/relatorios")
+@app.route("/jogos/relatorios")
 def relatorios_jogos():
     """Relatórios consolidados do ARK PLAY, respeitando o escopo do usuário."""
     if "usuario_id" not in session:
@@ -5393,6 +5393,90 @@ def relatorios_jogos():
             "participacoes": sum(r["participacoes"] for r in jogos_resumo),
         }
         return render_template("jogos_relatorios.html", jogos_resumo=jogos_resumo, totais=totais)
+    finally:
+        banco.close()
+
+
+@app.route("/relatorios")
+def relatorios_avaliacoes():
+    """Visão geral, somente leitura, das avaliações com resultados autorizados."""
+    if not cargo_permitido(["Administrador Geral", "Administrador da Instituição", "Coordenador", "Professor"]):
+        return redirect("/login")
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cur = banco.cursor()
+        escola_filtro = (request.args.get("escola_id") or "").strip()
+        turma_filtro = (request.args.get("turma_id") or "").strip()
+        disciplina_filtro = (request.args.get("disciplina") or "").strip()
+        ano_filtro = (request.args.get("ano_letivo_id") or "").strip()
+        sql = """SELECT p.id, p.nome, p.disciplina, p.escola_id, p.turma_id, p.ano_letivo_id,
+                        COALESCE(t.nome, 'Sem turma') AS turma_nome,
+                        COALESCE(e.nome_instituicao, 'Instituição') AS escola_nome
+                 FROM provas p
+                 LEFT JOIN turmas t ON t.id=p.turma_id
+                 LEFT JOIN escolas e ON e.id=p.escola_id
+                 ORDER BY p.id DESC LIMIT 1000"""
+        provas = []
+        for registro in cur.execute(sql).fetchall():
+            if not _pode_gerenciar_prova(cur, registro["id"], exigir_edicao=False, permitir_finalizada=True):
+                continue
+            item = dict(registro)
+            if escola_filtro and str(item["escola_id"]) != escola_filtro: continue
+            if turma_filtro and str(item["turma_id"]) != turma_filtro: continue
+            if ano_filtro and str(item["ano_letivo_id"]) != ano_filtro: continue
+            if disciplina_filtro and item["disciplina"] != disciplina_filtro: continue
+            provas.append(item)
+
+        ids_autorizados = {p["id"] for p in provas}
+        selecionadas = []
+        for bruto in request.args.getlist("provas")[:60]:
+            try:
+                pid = int(bruto)
+                if pid in ids_autorizados and pid not in selecionadas:
+                    selecionadas.append(pid)
+            except (ValueError, TypeError):
+                pass
+        # Sem seleção explícita, o panorama considera as avaliações filtradas.
+        if not request.args.get("selecionar"):
+            selecionadas = [p["id"] for p in provas[:60]]
+        dados = []
+        for p in provas:
+            pid = p["id"]
+            registros = cur.execute("""SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
+                                      aa.objetiva_corrigida, aa.status
+                                      FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
+                                      WHERE ap.prova_id=? ORDER BY ap.id DESC, aa.rowid DESC""", (pid,)).fetchall()
+            recentes = {}
+            for r in registros:
+                if r["aluno_id"] not in recentes: recentes[r["aluno_id"]] = r
+            percentuais = []
+            for r in recentes.values():
+                total = int(r["total_objetivas"] or 0)
+                if r["objetiva_corrigida"] == 1 and total > 0 and str(r["status"] or "").lower() not in ("ausente", "faltou"):
+                    acertos = max(0, min(int(r["acertos_objetivos"] or 0), total))
+                    percentuais.append(100.0 * acertos / total)
+            legados = cur.execute("""SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
+                       JOIN (SELECT aluno_id, MAX(id) ultimo FROM resultados WHERE prova_id=? GROUP BY aluno_id) u
+                       ON u.ultimo=r.id WHERE r.prova_id=?""", (pid, pid)).fetchall()
+            for r in legados:
+                total = int(r["acertos"] or 0) + int(r["erros"] or 0)
+                if r["aluno_id"] not in recentes and total > 0:
+                    percentuais.append(100.0 * int(r["acertos"] or 0) / total)
+            dados.append({**p, "avaliados":len(percentuais),
+                          "media":round(sum(percentuais)/len(percentuais), 1) if percentuais else None,
+                          "soma":sum(percentuais)})
+        panorama = [d for d in dados if d["id"] in selecionadas]
+        total = sum(d["avaliados"] for d in panorama)
+        media = round(sum(d["soma"] for d in panorama)/total,1) if total else None
+        return render_template("relatorios_avaliacoes.html", dados=dados, panorama=panorama,
+            selecionadas=selecionadas, total=total, media=media,
+            escolas=sorted({(p["escola_id"],p["escola_nome"]) for p in provas if p["escola_id"]}),
+            turmas=sorted({(p["turma_id"],p["turma_nome"]) for p in provas if p["turma_id"]}),
+            disciplinas=sorted({p["disciplina"] for p in provas if p["disciplina"]}),
+            anos=sorted({p["ano_letivo_id"] for p in provas if p["ano_letivo_id"]}),
+            filtros={"escola_id":escola_filtro,"turma_id":turma_filtro,"disciplina":disciplina_filtro,"ano_letivo_id":ano_filtro})
     finally:
         banco.close()
 
