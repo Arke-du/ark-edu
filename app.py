@@ -5439,70 +5439,105 @@ def relatorios_avaliacoes():
         provas = [p for p in autorizadas if all(
             not filtros[campo] or str(p[campo] or "") in filtros[campo] for campo in campos)]
         dados = []
+        # Mesma regra pedagógica de /resultados/<prova_id>: objetivas corretas
+        # + discursivas corretas + 50% das parciais, dividido pelas respostas
+        # avaliadas. Não altera o banco nem recalcula notas.
         cols_aa = {r[1] for r in cur.execute("PRAGMA table_info(aplicacao_alunos)").fetchall()}
+        cols_pq = {r[1] for r in cur.execute("PRAGMA table_info(prova_questoes)").fetchall()}
+        cols_rd = {r[1] for r in cur.execute("PRAGMA table_info(respostas_discursivas_aplicacao)").fetchall()}
+        cols_prova = {r[1] for r in cur.execute("PRAGMA table_info(provas)").fetchall()}
         nota_expr = "aa.nota_final" if "nota_final" in cols_aa else "NULL"
         for p in provas:
             pid = p["id"]
-            # A tela individual considera o resultado final, não apenas o flag
-            # objetiva_corrigida. A consulta abaixo segue o mesmo critério,
-            # sem recalcular ou alterar notas no banco de produção.
+            sem_nota = True
+            if "tem_nota" in cols_prova:
+                pr = cur.execute("SELECT tem_nota FROM provas WHERE id=?", (pid,)).fetchone()
+                sem_nota = int(pr[0] or 0) != 1 if pr else True
+            oficiais = {}
             registros = cur.execute(f"""
-                SELECT aa.aluno_id, aa.acertos_objetivos, aa.total_objetivas,
-                       aa.objetiva_corrigida, aa.discursiva_pendente, aa.status,
-                       {nota_expr} AS nota_final, aa.nota_objetiva,
-                       ap.id AS aplicacao_id
+                SELECT aa.aluno_id, aa.aplicacao_id, aa.status, aa.objetiva_corrigida,
+                       aa.discursiva_pendente, aa.nota_objetiva, {nota_expr} AS nota_final,
+                       aa.acertos_objetivos, aa.total_objetivas, ap.id AS ap_id
                 FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
                 WHERE ap.prova_id=?
                 ORDER BY CASE WHEN {nota_expr} IS NOT NULL OR
-                         (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0
-                          AND aa.nota_objetiva IS NOT NULL)
-                         THEN 1 ELSE 0 END DESC, ap.id DESC, aa.rowid DESC
+                    (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0
+                     AND aa.nota_objetiva IS NOT NULL) THEN 1 ELSE 0 END DESC,
+                    ap.id DESC, aa.rowid DESC
             """, (pid,)).fetchall()
-            oficiais = {}
             for r in registros:
-                aluno = r["aluno_id"]
-                if aluno is not None and aluno not in oficiais:
-                    oficiais[aluno] = r
-            # Algumas avaliações antigas possuem respostas corrigidas, mas
-            # total_objetivas/acertos_objetivos ainda não foram sincronizados.
-            # Consultar as respostas gravadas é somente leitura.
-            respostas = cur.execute("""
-                SELECT aro.aplicacao_id, aro.aluno_id,
-                       COUNT(*) AS total,
-                       SUM(CASE WHEN COALESCE(aro.acertou,0)=1 THEN 1 ELSE 0 END) AS acertos
-                FROM aplicacao_respostas_objetivas aro
-                JOIN aplicacoes ap ON ap.id=aro.aplicacao_id
-                WHERE ap.prova_id=?
-                GROUP BY aro.aplicacao_id, aro.aluno_id
+                if r["aluno_id"] is not None and r["aluno_id"] not in oficiais:
+                    oficiais[r["aluno_id"]] = dict(r)
+            questoes = cur.execute("""
+                SELECT pq.questao_id, q.tipo_questao,
+                       COALESCE(pq.anulada,0) AS anulada,
+                       COALESCE(pq.peso,0) AS peso
+                FROM prova_questoes pq JOIN questoes q ON q.id=pq.questao_id
+                WHERE pq.prova_id=? ORDER BY pq.id
             """, (pid,)).fetchall()
-            respostas_por_aluno = {(r["aplicacao_id"],r["aluno_id"]):r for r in respostas}
-            corrigidos = {}
-            for aluno, r in oficiais.items():
-                if str(r["status"] or "").strip().lower() in ("ausente", "faltou"):
-                    continue
-                resp = respostas_por_aluno.get((r["aplicacao_id"], aluno))
-                total = int(r["total_objetivas"] or 0)
-                acertos = int(r["acertos_objetivos"] or 0)
-                if resp is not None and int(resp["total"] or 0) > 0:
-                    total = int(resp["total"])
-                    acertos = int(resp["acertos"] or 0)
-                concluido = (r["nota_final"] is not None or
-                             (r["objetiva_corrigida"] == 1 and
-                              not int(r["discursiva_pendente"] or 0) and
-                              r["nota_objetiva"] is not None))
-                if concluido and total > 0:
-                    corrigidos[aluno] = 100.0 * max(0,min(acertos,total)) / total
+            qids = {int(q["questao_id"]):dict(q) for q in questoes}
+            ids_ap = sorted({int(r["aplicacao_id"]) for r in oficiais.values() if r["aplicacao_id"] is not None})
+            objetivas, discursivas = {}, {}
+            if ids_ap:
+                marks = ",".join("?" for _ in ids_ap)
+                for r in cur.execute(f"""SELECT aplicacao_id, aluno_id, questao_id,
+                    resposta, resposta_correta, situacao, anulada
+                    FROM aplicacao_respostas_objetivas WHERE aplicacao_id IN ({marks})""",ids_ap).fetchall():
+                    if r["aluno_id"] in oficiais and oficiais[r["aluno_id"]]["aplicacao_id"]==r["aplicacao_id"]:
+                        objetivas[(r["aluno_id"],r["questao_id"])]=dict(r)
+                for r in cur.execute(f"""SELECT aplicacao_id, aluno_id, questao_id,
+                    corrigida, nota, conceito FROM respostas_discursivas_aplicacao
+                    WHERE aplicacao_id IN ({marks})""",ids_ap).fetchall():
+                    if r["aluno_id"] in oficiais and oficiais[r["aluno_id"]]["aplicacao_id"]==r["aplicacao_id"]:
+                        discursivas[(r["aluno_id"],r["questao_id"])]=dict(r)
+            # Correções legadas sem registro na aplicação oficial.
             legados = cur.execute("""SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
-                       JOIN (SELECT aluno_id, MAX(id) ultimo FROM resultados WHERE prova_id=? GROUP BY aluno_id) u
-                       ON u.ultimo=r.id WHERE r.prova_id=?""", (pid, pid)).fetchall()
+                JOIN (SELECT aluno_id,MAX(id) AS ultimo FROM resultados WHERE prova_id=? GROUP BY aluno_id) u
+                ON u.ultimo=r.id WHERE r.prova_id=?""",(pid,pid)).fetchall()
+            pontos_total = 0.0
+            itens_total = 0
+            avaliados = 0
+            tipos_disc = {"discursiva","dissertativa","resposta_aberta","resposta aberta"}
+            for aluno,r in oficiais.items():
+                if str(r["status"] or "").strip().lower() in ("ausente","faltou"):
+                    continue
+                pontos, itens = 0.0, 0
+                for qid,q in qids.items():
+                    if q["anulada"]:
+                        continue
+                    if str(q["tipo_questao"] or "").strip().lower() in tipos_disc:
+                        rd=discursivas.get((aluno,qid))
+                        if not rd or int(rd["corrigida"] or 0)!=1:
+                            continue
+                        itens+=1
+                        conceito=str(rd["conceito"] or "").strip().lower()
+                        nota=float(rd["nota"] or 0)
+                        peso=float(q["peso"] or 0)
+                        if sem_nota:
+                            pontos+=1 if conceito=="correta" else 0.5 if conceito=="parcial" else 0
+                        else:
+                            pontos+=1 if peso>0 and nota>=peso-0.001 else 0.5 if nota>0 else 0
+                    else:
+                        ro=objetivas.get((aluno,qid))
+                        if not ro:
+                            continue
+                        itens+=1
+                        resposta=_normalizar_letra_gabarito(ro["resposta"])
+                        gabarito=_normalizar_letra_gabarito(ro["resposta_correta"])
+                        if int(ro["anulada"] or 0)==1 or (resposta and gabarito and resposta==gabarito and
+                            str(ro["situacao"] or "").lower() not in ("dupla_marcacao","em_branco")):
+                            pontos+=1
+                if itens:
+                    avaliados+=1; pontos_total+=pontos; itens_total+=itens
             for r in legados:
-                total = int(r["acertos"] or 0) + int(r["erros"] or 0)
-                if r["aluno_id"] is not None and r["aluno_id"] not in oficiais and total > 0:
-                    corrigidos[r["aluno_id"]] = 100.0 * int(r["acertos"] or 0) / total
-            percentuais = list(corrigidos.values())
-            dados.append({**p, "avaliados": len(percentuais),
-                          "media": round(sum(percentuais)/len(percentuais), 1) if percentuais else None,
-                          "soma": sum(percentuais)})
+                if r["aluno_id"] in oficiais:
+                    continue
+                itens=int(r["acertos"] or 0)+int(r["erros"] or 0)
+                if itens:
+                    avaliados+=1; pontos_total+=int(r["acertos"] or 0); itens_total+=itens
+            dados.append({**p, "avaliados":avaliados,
+                          "media":round(pontos_total/itens_total*100,1) if itens_total else None,
+                          "soma":pontos_total, "itens":itens_total})
         if somente_corrigidas:
             dados = [p for p in dados if p["avaliados"] > 0]
         ids_autorizados = {p["id"] for p in dados}
@@ -5518,7 +5553,8 @@ def relatorios_avaliacoes():
             selecionadas = [p["id"] for p in dados if p["avaliados"] > 0][:60]
         panorama = [d for d in dados if d["id"] in selecionadas]
         total = sum(d["avaliados"] for d in panorama)
-        media = round(sum(d["soma"] for d in panorama)/total, 1) if total else None
+        itens_gerais = sum(d["itens"] for d in panorama)
+        media = round(sum(d["soma"] for d in panorama)/itens_gerais*100, 1) if itens_gerais else None
         # Identidade visual das instituições efetivamente presentes no relatório.
         # A lista respeita as provas já autorizadas para este usuário.
         escolas_relatorio_ids = {p["escola_id"] for p in dados if p.get("escola_id")}
