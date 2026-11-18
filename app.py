@@ -23454,6 +23454,12 @@ def _remover_arquivo_silenciosamente(caminho):
         print(f"Não foi possível remover o arquivo {caminho}: {erro}")
 
 
+def _scanner_assinador_qr():
+    """Token temporário assinado: reutiliza o QR validado sem confiar no navegador."""
+    from itsdangerous import URLSafeTimedSerializer
+    return URLSafeTimedSerializer(app.secret_key, salt="arkedus-scanner-qr-v1")
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/scanner/identificar-qr", methods=["POST"])
 def scanner_identificar_qr(aplicacao_id):
     """Primeira etapa do scanner: identifica QR sem corrigir ou alterar dados."""
@@ -23541,8 +23547,13 @@ def scanner_identificar_qr(aplicacao_id):
                     pass
         if not vinculado:
             return jsonify(ok=False, mensagem="Aluno não pertence à turma desta aplicação."), 200
+        token_qr = _scanner_assinador_qr().dumps({
+            "aplicacao_id": aplicacao_id, "aluno_id": aluno_id,
+            "modelo": modelo, "qr_texto": texto,
+        })
         return jsonify(ok=True, aluno_id=aluno_id, modelo=modelo,
-                       aluno_nome=aluno["nome"], mensagem="QR identificado. Enquadre o cartão inteiro.")
+                       token_qr=token_qr, aluno_nome=aluno["nome"],
+                       mensagem="QR identificado. Enquadre o cartão inteiro.")
     except Exception:
         app.logger.exception("SCANNER_QR: erro na identificação")
         return jsonify(ok=False, mensagem="Falha na identificação do QR. Tente novamente."), 500
@@ -23630,6 +23641,32 @@ def importar_cartoes_aplicacao(aplicacao_id):
         if request.method == "POST":
             # Reutiliza imagens de falhas anteriores, sem exigir reenvio do PDF.
             # Somente registros Erro e arquivos dentro da pasta desta aplicação.
+            # No scanner em duas etapas, o QR já foi lido e validado.
+            # O token assinado e de curta duração evita decodificar novamente
+            # o QR minúsculo na foto distante usada para ler as alternativas.
+            scanner_qr_texto = None
+            if request.form.get("scanner_automatico") == "1":
+                token = request.form.get("scanner_token_qr", "")
+                if not token:
+                    return jsonify(ok=False, corrigidos=0, revisao=0, erros=1,
+                                   mensagem="QR não confirmado. Leia o QR antes das respostas."), 400
+                try:
+                    from itsdangerous import BadSignature, SignatureExpired
+                    dados_token = _scanner_assinador_qr().loads(token, max_age=300)
+                    if int(dados_token.get("aplicacao_id", -1)) != aplicacao_id:
+                        raise ValueError("Aplicação divergente")
+                    scanner_qr_texto = str(dados_token.get("qr_texto") or "")
+                    if not scanner_qr_texto:
+                        raise ValueError("QR vazio")
+                    campos_qr = dict(parte.split(":", 1) for parte in scanner_qr_texto.split("|") if ":" in parte)
+                    if (int(campos_qr.get("APLICACAO", -1)) != aplicacao_id or
+                        int(campos_qr.get("ALUNO", -1)) != int(dados_token.get("aluno_id", -2)) or
+                        int(campos_qr.get("MODELO", 1)) != int(dados_token.get("modelo", -2))):
+                        raise ValueError("Identificação divergente")
+                except (BadSignature, SignatureExpired, ValueError, TypeError) as exc:
+                    app.logger.warning("SCANNER: token QR inválido/expirado: %s", type(exc).__name__)
+                    return jsonify(ok=False, corrigidos=0, revisao=0, erros=1,
+                                   mensagem="Identificação QR expirada ou inválida. Leia o QR novamente."), 400
             reprocessar = request.form.get("acao") == "reprocessar_erros"
             arquivos = [
                 arquivo for arquivo in request.files.getlist("arquivos")
@@ -23801,7 +23838,9 @@ def importar_cartoes_aplicacao(aplicacao_id):
                     cursor.execute("SAVEPOINT importar_pagina")
 
                     try:
-                        if caminho in qr_precalculados:
+                        if scanner_qr_texto is not None:
+                            qr_texto = scanner_qr_texto
+                        elif caminho in qr_precalculados:
                             qr_texto = qr_precalculados[caminho]
                         else:
                             qr_texto = _decodificar_qr_cartao(caminho)

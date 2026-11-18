@@ -71,7 +71,7 @@ async function identifyQR(){
 async function capture(){busy=true;armed=false;stable=0;say('QR validado. Enviando respostas para correção…');
 try{canvas.width=Math.min(2400,video.videoWidth);canvas.height=Math.round(video.videoHeight*canvas.width/video.videoWidth);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
 const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.94));if(!blob)throw Error('Não foi possível capturar a imagem.');
-let fd=new FormData();fd.append('arquivos',blob,'scanner_'+Date.now()+'.jpg');fd.append('scanner_automatico','1');
+let fd=new FormData();fd.append('arquivos',blob,'scanner_'+Date.now()+'.jpg');fd.append('scanner_automatico','1');fd.append('scanner_token_qr',identified?.token_qr||'');
 const response=await fetch('{{ url_for('importar_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
 if(response.redirected)throw Error('Sessão expirada ou acesso não autorizado. Entre novamente na plataforma.');
 let data=await response.json();counts.ok+=data.corrigidos||0;counts.review+=data.revisao||0;counts.errors+=data.erros||0;
@@ -79,7 +79,7 @@ for(let key of Object.keys(counts))document.getElementById(key).textContent=coun
 let li=document.createElement('li');li.textContent=new Date().toLocaleTimeString('pt-BR')+' — '+data.mensagem;document.querySelector('#history').prepend(li);
 say(data.mensagem+' Retire o cartão para ler o próximo.');if((data.corrigidos||0)+(data.revisao||0)>0)beep();
 }catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha: '+e.message+' Retire o cartão e tente novamente.');}
-lastCapture=sample();emptyFrames=0;busy=false;identified=null;setPhase('qr');armed=false;say('Retire o cartão da câmera antes de apresentar o QR Code do próximo estudante.');}
+lastCapture=sample();emptyFrames=0;busy=false;identified=null;setPhase('qr');armed=false;}
 function tick(){if(!stream||busy||video.readyState<2)return;const now=sample();let diff=difference(now,previous);previous=now;
 if(phase==='qr'){if(!armed){let changed=difference(now,lastCapture);if(changed>18){emptyFrames++;if(emptyFrames>=3){armed=true;emptyFrames=0;lastCapture=null;say('Próximo cartão: aproxime o QR Code.');}}else emptyFrames=0;return;}if(Date.now()-qrLast>550){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
 // O vídeo no iPhone pode variar por autofocus/exposição mesmo com a folha parada.
