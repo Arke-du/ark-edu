@@ -14407,6 +14407,45 @@ def _ler_respostas_grade_sem_quatro_marcadores(caminho_imagem, quantidade):
     return resultado
 
 
+def _classificar_bolinhas_contraste_local(cinza_original, centros_x, centro_y):
+    """Classifica pelo miolo da bolinha, comparando alternativas da mesma linha.
+
+    Evita o limiar global após CLAHE, que tornava o papel cinza da impressão
+    jato de tinta quase tão escuro quanto uma bolinha realmente pintada.
+    """
+    h, w = cinza_original.shape[:2]
+    centros = []
+    for x in centros_x:
+        x, y = int(round(x)), int(round(centro_y))
+        # Miolo: ignora o aro impresso, letras e linhas da grade.
+        recorte = cinza_original[max(0,y-6):min(h,y+7), max(0,x-6):min(w,x+7)]
+        if recorte.size < 60:
+            return None
+        centros.append(float(np.median(recorte)))
+    minimo = min(centros)
+    ordenados = sorted(range(4), key=lambda i: centros[i])
+    segundo = centros[ordenados[1]]
+    # O fundo da mesma linha é a referência: tolera variação de tinta/luz.
+    referencia = float(np.median(sorted(centros)[2:]))
+    contraste = referencia - minimo
+    letras = 'ABCD'
+    if contraste < 24 or minimo > 145:
+        return {'resposta':'', 'situacao':'nao_reconhecida', 'marcadas':[],
+                'preenchimentos':[round(255-v,2) for v in centros], 'confianca':0.0}
+    limite = minimo + max(16.0, contraste * 0.32)
+    marcadas = [i for i,v in enumerate(centros) if v <= limite and v < referencia - 18]
+    if len(marcadas) > 1:
+        situacao, resposta = 'dupla_marcacao', ''
+    elif len(marcadas) == 1:
+        situacao, resposta = 'respondida', letras[marcadas[0]]
+    else:
+        situacao, resposta = 'nao_reconhecida', ''
+    return {'resposta':resposta,'situacao':situacao,
+            'marcadas':[letras[i] for i in marcadas],
+            'preenchimentos':[round(255-v,2) for v in centros],
+            'confianca':round(max(0., (segundo-minimo)/255.),4)}
+
+
 def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
     """Lê A/B/C/D com correção de perspectiva pelos quatro marcadores.
 
@@ -14454,62 +14493,14 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
                     for i in range(1, quantidade+1)}
 
     cinza = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
-    cinza = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8)).apply(cinza)
-
-    # Coordenadas relativas à área delimitada pelos quatro marcadores.
     centros_x = [516, 612, 708, 804]
-    letras = ["A", "B", "C", "D"]
     resultado = {}
-
     for indice in range(quantidade):
-        centro_y = float(linhas_y[indice])
-        preenchimentos = [
-            _taxa_escura_melhor_circulo(
-                cinza, x, centro_y, raio=11, busca=2
-            )
-            for x in centros_x
-        ]
-        ordem = np.argsort(preenchimentos)[::-1]
-        maior = float(preenchimentos[int(ordem[0])])
-        segundo = float(preenchimentos[int(ordem[1])])
-
-        # Bolha sólida em scans reais costuma ficar muito acima de 0.55; a
-        # bolha vazia, mesmo com o contorno, fica em torno de 0.10-0.25.
-        marcadas_solidas = [i for i, v in enumerate(preenchimentos) if v >= 0.96 and maior - v <= 0.045]
-
-        if len(marcadas_solidas) >= 2:
-            situacao, resposta = "dupla_marcacao", ""
-            marcadas = [letras[i] for i in marcadas_solidas]
-        elif len(marcadas_solidas) == 1:
-            indice_marcada = marcadas_solidas[0]
-            # Uma marca sólida prevalece sobre contornos/ruído das demais.
-            if maior - segundo >= 0.055 and maior >= 0.82 and segundo < 0.96:
-                situacao = "respondida"
-                resposta = letras[indice_marcada]
-                marcadas = [resposta]
-            else:
-                situacao, resposta = "dupla_marcacao", ""
-                marcadas = [
-                    letras[int(ordem[0])], letras[int(ordem[1])]
-                ]
-        elif maior < 0.28:
-            situacao, resposta, marcadas = "em_branco", "", []
-        else:
-            # X, preenchimento parcial ou rasura: revisão humana. O sistema não
-            # atribui automaticamente uma resposta que possa alterar a nota.
-            situacao, resposta = "dupla_marcacao", ""
-            marcadas = [letras[int(ordem[0])]]
-            if segundo >= 0.28:
-                marcadas.append(letras[int(ordem[1])])
-
-        resultado[indice + 1] = {
-            "resposta": resposta,
-            "situacao": situacao,
-            "marcadas": marcadas,
-            "preenchimentos": [round(float(v), 4) for v in preenchimentos],
-            "confianca": round(max(0.0, maior - segundo), 4),
-        }
-
+        dado = _classificar_bolinhas_contraste_local(
+            cinza, centros_x, float(linhas_y[indice]))
+        resultado[indice+1] = dado or {
+            'resposta':'', 'situacao':'nao_reconhecida', 'marcadas':[],
+            'preenchimentos':[], 'confianca':0.0}
     return resultado
 
 
