@@ -1070,6 +1070,7 @@
         <div class="ic-title">
             <a class="ic-back" href="/provas/{{ aplicacao.prova_id }}/aplicacoes">← Voltar para aplicações</a>
             <h1>Importação de Cartões</h1>
+            <a href="{{ url_for('scanner_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}" style="display:inline-block;background:#0d3769;color:#fff;padding:11px 15px;border-radius:10px;text-decoration:none;margin-top:12px;font-weight:700">📷 Scanner automático pelo celular</a>
             <p>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }} · {{ aplicacao.disciplina }}</p>
         </div>
     </header>

@@ -23441,6 +23441,31 @@ def _remover_arquivo_silenciosamente(caminho):
         print(f"Não foi possível remover o arquivo {caminho}: {erro}")
 
 
+@app.route("/aplicacoes/<int:aplicacao_id>/scanner")
+def scanner_cartoes_aplicacao(aplicacao_id):
+    """Câmera contínua; reutiliza o importador validado da aplicação."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cursor = banco.cursor()
+        cursor.execute("""SELECT a.id, a.prova_id, p.nome AS prova_nome,
+                                  t.nome AS turma_nome
+                           FROM aplicacoes a
+                           JOIN provas p ON p.id = a.prova_id
+                           JOIN turmas t ON t.id = a.turma_id
+                           WHERE a.id = ?""", (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao:
+            return redirect('/provas')
+        if not _pode_gerenciar_prova(cursor, aplicacao['prova_id'],
+                                    exigir_edicao=True, permitir_finalizada=True):
+            return _redirecionar_acesso_negado_prova()
+        return render_template('aplicacoes/scanner.html', aplicacao=aplicacao)
+    finally:
+        banco.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/importar", methods=["GET", "POST"])
 def importar_cartoes_aplicacao(aplicacao_id):
     """Importa cartões objetivos.
@@ -24233,6 +24258,14 @@ def importar_cartoes_aplicacao(aplicacao_id):
             )
             if erros_importacao:
                 mensagem_flash += " Motivo: " + " | ".join(erros_importacao[:3])
+            if request.form.get("scanner_automatico") == "1":
+                # A mesma rotina de importação executa a correção e o commit.
+                # O scanner recebe apenas um resumo, sem expor dados do aluno.
+                return jsonify({"ok": bool(importados or revisoes),
+                                "corrigidos": importados,
+                                "revisao": revisoes,
+                                "erros": descartados,
+                                "mensagem": mensagem_flash}), (200 if not descartados else 422)
             flash(
                 mensagem_flash,
                 "sucesso" if not descartados else "aviso"
