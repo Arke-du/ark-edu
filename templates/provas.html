@@ -687,6 +687,22 @@
         }
     }
 
+    /* Lista de avaliações: cartões acessíveis no celular, com ações sempre visíveis */
+    @media screen and (max-width: 900px) {
+      .provas-tabela-wrap { overflow:visible !important; width:100% !important; }
+      .provas-tabela, .provas-tabela tbody { display:block !important; width:100% !important; min-width:0 !important; }
+      .provas-tabela thead { display:none !important; }
+      .provas-tabela tbody tr[data-prova-linha] { display:flex !important; flex-direction:column !important; gap:8px; margin:0 0 14px; padding:16px; border:1px solid #dce6f2; border-radius:16px; background:#fff; box-shadow:0 3px 12px rgba(13,45,98,.05); }
+      .provas-tabela tbody tr[data-prova-linha][hidden] { display:none !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td { display:flex !important; align-items:flex-start; justify-content:space-between; gap:12px; width:100% !important; max-width:100% !important; box-sizing:border-box; padding:3px 0 !important; border:0 !important; white-space:normal !important; overflow-wrap:anywhere; font-size:13px; }
+      .provas-tabela tbody tr[data-prova-linha] > td:first-child { display:block !important; padding-bottom:10px !important; border-bottom:1px solid #e8edf5 !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td:not(:first-child):not(.provas-acoes)::before { content:attr(data-mobile-label); color:#5d7088; font-weight:700; min-width:88px; flex:0 0 88px; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes { display:block !important; padding-top:10px !important; border-top:1px solid #e8edf5 !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes > button[data-menu-prova] { display:flex !important; align-items:center; justify-content:center; width:100% !important; min-height:44px; border-radius:10px; background:#0c315e; color:#fff; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes > button[data-menu-prova]::after { content:' Ações da avaliação'; margin-left:8px; font-size:13px; font-weight:700; }
+      .provas-dropdown { max-width:calc(100vw - 24px) !important; max-height:calc(100dvh - 24px); overflow-y:auto !important; }
+    }
+
     /* =========================================================
        MODAL NOVA AVALIAÇÃO — VERSÃO COMPACTA ARK EDU
        ========================================================= */
@@ -2486,6 +2502,16 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         );
     }
+
+    // Etiquetas móveis derivadas dos cabeçalhos reais, sem duplicar ações/permissões.
+    document.querySelectorAll(".provas-tabela").forEach(function (tabela) {
+        const titulos = Array.from(tabela.querySelectorAll("thead th")).map(th => th.textContent.trim());
+        tabela.querySelectorAll("tbody tr[data-prova-linha]").forEach(function (linha) {
+            Array.from(linha.children).forEach(function (celula, indice) {
+                if (celula.tagName === "TD") celula.setAttribute("data-mobile-label", titulos[indice] || "");
+            });
+        });
+    });
 
     document.querySelectorAll("[data-menu-prova]").forEach(function (botao) {
         botao.addEventListener("click", function (evento) {

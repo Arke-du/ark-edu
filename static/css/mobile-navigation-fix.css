@@ -23,3 +23,12 @@
   .content .provas-btn-principal { white-space:normal; text-align:center; }
 }
 @media print { .ark-mobile-menu-toggle, .ark-mobile-menu-backdrop { display:none !important; } }
+/* Correção: navegação mobile sem sobreposição de rodapé e itens */
+@media screen and (max-width:900px) {
+  .app > .sidebar { display:flex !important; flex-direction:column !important; box-sizing:border-box !important; padding:70px 14px 18px !important; }
+  .app > .sidebar .sidebar-logo { flex:0 0 auto !important; position:static !important; }
+  .app > .sidebar nav.menu { display:flex !important; flex-direction:column !important; flex:0 0 auto !important; overflow:visible !important; height:auto !important; max-height:none !important; padding-bottom:16px !important; }
+  .app > .sidebar .sidebar-rodape { position:static !important; inset:auto !important; bottom:auto !important; top:auto !important; transform:none !important; flex:0 0 auto !important; margin-top:20px !important; width:100% !important; box-sizing:border-box !important; }
+  .app > .sidebar nav.menu a { flex-shrink:0 !important; }
+  body.ark-mobile-menu-open .ark-mobile-menu-toggle { left:min(calc(84vw - 56px),264px) !important; top:12px !important; }
+}
