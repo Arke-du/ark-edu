@@ -11,8 +11,8 @@
 (()=>{'use strict';
 const video=document.querySelector('#video'),status=document.querySelector('#status'),canvas=document.querySelector('#canvas');
 const start=document.querySelector('#start'),stop=document.querySelector('#stop');
-let qrDetector=null,zxingReader=null,zxingLoading=false,qrBusy=false,qrLast=0,stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,counts={ok:0,review:0,errors:0};
-const say=s=>status.textContent=s;const step=document.querySelector('#step');function setPhase(v){phase=v;document.querySelector('.camera').classList.toggle('qr-mode',v==='qr');document.querySelector('.camera').classList.toggle('answers-mode',v!=='qr');step.textContent=v==='qr'?'Etapa 1 de 2 — Aproxime o QR Code da câmera.':'Etapa 2 de 2 — QR confirmado: '+identified.aluno_nome+'. Enquadre o cartão inteiro.';}
+let qrDetector=null,zxingReader=null,zxingLoading=false,qrBusy=false,qrLast=0,stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,answerSince=0,answerFrames=0,counts={ok:0,review:0,errors:0};
+const say=s=>status.textContent=s;const step=document.querySelector('#step');function setPhase(v){phase=v;document.querySelector('.camera').classList.toggle('qr-mode',v==='qr');document.querySelector('.camera').classList.toggle('answers-mode',v!=='qr');step.textContent=v==='qr'?'Etapa 1 de 2 — Aproxime o QR Code da câmera.':'Etapa 2 de 2 — QR confirmado: '+identified.aluno_nome+'. Enquadre o cartão inteiro.';if(v==='answers'){answerSince=Date.now();answerFrames=0;armed=true;stable=0;previous=null;}}
 const small=document.createElement('canvas');small.width=48;small.height=64;const ctx=small.getContext('2d',{willReadFrequently:true});
 function sample(){ctx.drawImage(video,0,0,48,64);let d=ctx.getImageData(0,0,48,64).data,a=[];for(let i=0;i<d.length;i+=16)a.push((d[i]+d[i+1]+d[i+2])/3);return a;}
 function difference(a,b){if(!a||!b)return 999;let n=0;for(let i=0;i<a.length;i++)n+=Math.abs(a[i]-b[i]);return n/a.length;}
@@ -34,7 +34,7 @@ async function validateQrText(text){
   const fd=new FormData();fd.append('qr_texto',text);
   const response=await fetch('{{ url_for('scanner_identificar_qr', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
   const data=await response.json();
-  if(data.ok){identified=data;setPhase('answers');stable=0;previous=null;say('QR identificado: '+data.aluno_nome+'. Afaste o celular e enquadre o cartão inteiro.');beep();return true;}
+  if(data.ok){identified=data;setPhase('answers');say('QR identificado: '+data.aluno_nome+'. Afaste o celular e enquadre o cartão inteiro.');beep();return true;}
   say(data.mensagem||'QR não corresponde a esta aplicação.');
  }catch(e){say('Falha na validação do QR: '+e.message);}finally{qrBusy=false;}
  return false;
@@ -63,7 +63,7 @@ async function identifyQR(){
    const fd=new FormData();fd.append('imagem',blob,'qr.jpg');
    const response=await fetch('{{ url_for('scanner_identificar_qr', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
    const data=await response.json();
-   if(data.ok){identified=data;setPhase('answers');stable=0;previous=null;say('QR identificado: '+data.aluno_nome+'. Agora afaste o celular e enquadre o cartão inteiro.');beep();}
+   if(data.ok){identified=data;setPhase('answers');say('QR identificado: '+data.aluno_nome+'. Agora afaste o celular e enquadre o cartão inteiro.');beep();}
    else if(++qrAttempts%3===0)say(data.mensagem||'Aproxime mais a câmera do QR Code.');
  }catch(e){say('Erro ao identificar QR: '+e.message);}
  finally{busy=false;}
@@ -79,12 +79,16 @@ for(let key of Object.keys(counts))document.getElementById(key).textContent=coun
 let li=document.createElement('li');li.textContent=new Date().toLocaleTimeString('pt-BR')+' — '+data.mensagem;document.querySelector('#history').prepend(li);
 say(data.mensagem+' Retire o cartão para ler o próximo.');if((data.corrigidos||0)+(data.revisao||0)>0)beep();
 }catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha: '+e.message+' Retire o cartão e tente novamente.');}
-lastCapture=sample();emptyFrames=0;busy=false;identified=null;setPhase('qr');say('Retire o cartão e aproxime o QR Code do próximo estudante.');}
+lastCapture=sample();emptyFrames=0;busy=false;identified=null;setPhase('qr');armed=false;say('Retire o cartão da câmera antes de apresentar o QR Code do próximo estudante.');}
 function tick(){if(!stream||busy||video.readyState<2)return;const now=sample();let diff=difference(now,previous);previous=now;
-if(phase==='qr'){if(Date.now()-qrLast>550){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
-// Exige enquadramento visual estável; o importador valida QR e respostas no servidor.
-if(diff<3.2)stable++;else stable=0;
-if(stable>=7){stable=0;capture();}}
+if(phase==='qr'){if(!armed){let changed=difference(now,lastCapture);if(changed>18){emptyFrames++;if(emptyFrames>=3){armed=true;emptyFrames=0;lastCapture=null;say('Próximo cartão: aproxime o QR Code.');}}else emptyFrames=0;return;}if(Date.now()-qrLast>550){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
+// O vídeo no iPhone pode variar por autofocus/exposição mesmo com a folha parada.
+// Após validar o QR, dá tempo para afastar a câmera e então captura sem exigir
+// sete quadros praticamente idênticos (condição que bloqueava a etapa 2).
+answerFrames++;
+if(Date.now()-answerSince<1800)return;
+if(diff<12)stable++;else stable=Math.max(0,stable-1);
+if(stable>=3 || Date.now()-answerSince>4800){stable=0;capture();}}
 start.onclick=async()=>{if(!navigator.mediaDevices?.getUserMedia){say('Este navegador não permite acesso à câmera. Use HTTPS e um navegador atualizado.');return;}
 try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;identified=null;setPhase('qr');timer=setInterval(tick,170);say('Etapa 1: aproxime somente o QR Code. A leitura é automática.');prepareQrReader().then(()=>{if(phase==='qr'&&stream)say(qrDetector||zxingReader?'Leitor QR ativo. Aproxime o código e aguarde a identificação.':'Leitor local indisponível; tentando reconhecimento no servidor.');});}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
 stop.onclick=()=>{clearInterval(timer);timer=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;say('Scanner interrompido.');};window.addEventListener('pagehide',()=>stop.click());
