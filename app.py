@@ -23627,6 +23627,17 @@ def scanner_previsualizar_respostas(aplicacao_id):
         if os.path.getsize(caminho)>9*1024*1024:
             return jsonify(ok=False, mensagem="Fotografia acima de 9 MB."), 413
         leitura=ler_respostas_cartao_detalhado(caminho,len(objetivas))
+        # Uma falha de localização da grade NÃO significa que o aluno deixou
+        # todas as respostas em branco. Não apresentar 12 falsos brancos.
+        reconhecidas=sum(1 for d in leitura.values() if d.get('resposta') in ('A','B','C','D'))
+        com_medidas=sum(1 for d in leitura.values() if d.get('preenchimentos'))
+        if reconhecidas == 0:
+            motivo = ('A grade foi localizada, mas nenhuma alternativa pôde ser confirmada.'
+                      if com_medidas else
+                      'Não foi possível localizar a grade de alternativas nesta fotografia.')
+            return jsonify(ok=False, codigo='grade_nao_reconhecida',
+                           mensagem=motivo+' Reenquadre a folha inteira, evite sombras e tente novamente.',
+                           questoes_reconhecidas=0, total_questoes=len(objetivas)), 422
         itens=[]
         for indice,(numero,_) in enumerate(objetivas,1):
             dado=leitura.get(indice,{})

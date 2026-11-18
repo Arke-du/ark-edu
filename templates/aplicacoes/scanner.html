@@ -82,7 +82,7 @@ preview.questoes.forEach((q,i)=>{const box=document.createElement('div');box.cla
 document.querySelector('#reviewStudent').textContent='Estudante: '+identified.aluno_nome+' • '+preview.questoes.length+' questões';
 reviewPanel.classList.add('active');reviewing=true;reviewPanel.scrollIntoView({behavior:'smooth',block:'start'});
 say('Respostas identificadas. Confira as alternativas e confirme antes de salvar.');
-}catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha na pré-leitura: '+e.message+' Reenquadre o cartão e tente novamente.');identified=null;setPhase('qr');armed=false;lastCapture=sample();}
+}catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha na leitura das marcações: '+e.message+' O QR continua validado; tente outra foto do cartão inteiro.');setPhase('answers');armed=true;stable=0;answerSince=Date.now();lastCapture=sample();}
 busy=false;}
 async function confirmAnswers(){if(!reviewing||!reviewBlob||!identified||busy)return;busy=true;document.querySelector('#confirmReview').disabled=true;say('Salvando respostas conferidas…');try{
 const fd=new FormData();fd.append('arquivos',reviewBlob,'scanner_'+Date.now()+'.jpg');fd.append('scanner_automatico','1');fd.append('scanner_token_qr',identified.token_qr||'');fd.append('scanner_respostas_confirmadas',JSON.stringify(reviewAnswers));
