@@ -14071,7 +14071,7 @@ def _detectar_quatro_marcadores_cartao(imagem):
                                        cv2.CHAIN_APPROX_SIMPLE)
         for contorno in contornos:
             x, y, w, h = cv2.boundingRect(contorno)
-            if not w or not h or y < altura * .22:
+            if not w or not h or y < altura * .35:
                 continue
             if not (max(4, menor * .004) <= w <= menor * .055):
                 continue
@@ -14097,7 +14097,7 @@ def _detectar_quatro_marcadores_cartao(imagem):
     melhor_pontuacao = -1e9
     for i, es in enumerate(candidatos):
         for j, ei in enumerate(candidatos):
-            if i == j or ei[1]-es[1] < altura*.16:
+            if i == j or ei[1]-es[1] < altura*.25 or ei[1] < altura*.70:
                 continue
             if abs(ei[0]-es[0]) > largura*.13:
                 continue
@@ -14118,6 +14118,8 @@ def _detectar_quatro_marcadores_cartao(imagem):
                     if min(he,hd,ws,wi) <= 0:
                         continue
                     if not (.65 < he/hd < 1.45 and .65 < ws/wi < 1.45):
+                        continue
+                    if not (1.05 < ((ws+wi)/2)/((he+hd)/2) < 2.25):
                         continue
                     # Área grande e lados paralelos são sinais dos marcadores.
                     area_media=np.mean([es[2],ei[2],ds[2],di[2]])
@@ -14157,61 +14159,44 @@ def _normalizar_area_respostas_cartao(caminho_imagem):
 
 
 def _detectar_linhas_bolhas_retificadas(cinza, quantidade):
-    """Detecta os centros verticais das linhas da grade já retificada."""
-    _, binaria = cv2.threshold(cinza, 180, 255, cv2.THRESH_BINARY_INV)
-    contornos, _ = cv2.findContours(
-        binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
+    """Centros reais por círculos Hough, inclusive bolhas inteiramente pintadas.
 
-    centros_y = []
-    for contorno in contornos:
-        x, y, w, h = cv2.boundingRect(contorno)
-        if h <= 0:
-            continue
-        proporcao = w / float(h)
-        # A grade fica centralizada; esse filtro elimina textos, bordas e os
-        # próprios marcadores dos quatro cantos.
-        if not (420 <= x <= 850 and 18 <= w <= 48 and 18 <= h <= 48):
-            continue
-        if not (0.65 <= proporcao <= 1.35):
-            continue
-        centros_y.append(y + h / 2.0)
-
-    if not centros_y:
+    Não estima o passo a partir de linhas do cabeçalho nem de bordas da tabela.
+    """
+    suave = cv2.GaussianBlur(cinza, (5, 5), 0)
+    encontrados = cv2.HoughCircles(
+        suave, cv2.HOUGH_GRADIENT, dp=1, minDist=23,
+        param1=100, param2=19, minRadius=10, maxRadius=23)
+    if encontrados is None:
         return []
-
-    # Agrupa contornos interno/externo da mesma bolha e quatro bolhas da mesma linha.
-    centros_y.sort()
+    xs = (516, 612, 708, 804)
+    candidatos = []
+    for x, y, raio in encontrados[0]:
+        if 35 < y < 830 and min(abs(float(x)-cx) for cx in xs) < 23:
+            candidatos.append((float(y), float(x)))
+    candidatos.sort()
     grupos = []
-    for valor in centros_y:
-        if not grupos or abs(np.mean(grupos[-1]) - valor) > 8:
-            grupos.append([valor])
+    for y, x in candidatos:
+        if not grupos or y - float(np.median([p[0] for p in grupos[-1]])) > 11:
+            grupos.append([(y, x)])
         else:
-            grupos[-1].append(valor)
-
-    linhas = [float(np.mean(grupo)) for grupo in grupos if len(grupo) >= 3]
-    linhas = [y for y in linhas if 35 <= y <= 820]
-    linhas.sort()
-
-    # O cabeçalho da grade pode criar pequenos círculos espúrios em scans ruins.
-    # Seleciona a sequência com espaçamento aproximadamente regular.
-    if len(linhas) > quantidade and quantidade > 0:
-        melhor_seq = None
-        melhor_erro = None
-        for inicio in range(0, len(linhas) - quantidade + 1):
-            seq = linhas[inicio:inicio + quantidade]
-            if len(seq) <= 1:
-                erro = 0
-            else:
-                passos = np.diff(seq)
-                mediana = float(np.median(passos))
-                erro = float(np.mean(np.abs(passos - mediana)))
-            if melhor_erro is None or erro < melhor_erro:
-                melhor_erro = erro
-                melhor_seq = seq
-        linhas = melhor_seq or linhas[:quantidade]
-
-    return linhas[:quantidade]
+            grupos[-1].append((y, x))
+    linhas = [float(np.median([p[0] for p in g])) for g in grupos
+              if len({min(range(4), key=lambda i: abs(gx-xs[i])) for _,gx in g}) >= 3]
+    if len(linhas) < quantidade:
+        return []
+    # Escolhe uma sequência regular de N linhas, sem inventar questões.
+    melhor = None
+    menor_erro = float('inf')
+    for i in range(len(linhas)-quantidade+1):
+        seq = linhas[i:i+quantidade]
+        passos = np.diff(seq)
+        if len(passos) and not (30 <= float(np.median(passos)) <= 70):
+            continue
+        erro = float(np.mean(np.abs(passos-np.median(passos)))) if len(passos) else 0
+        if erro < menor_erro:
+            melhor, menor_erro = seq, erro
+    return melhor or []
 
 
 def _normalizar_letra_gabarito(valor):
@@ -14464,17 +14449,9 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
         cinza_tmp = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
         linhas_y = _detectar_linhas_bolhas_retificadas(cinza_tmp, quantidade)
         if len(linhas_y) < quantidade:
-            # A grade do ARK EDUS usa passo praticamente constante. Quando uma
-            # bolha preenchida perdeu o contorno, completa a sequência a partir
-            # das linhas detectadas em vez de abandonar a página.
-            if len(linhas_y) >= 2:
-                passo = float(np.median(np.diff(linhas_y)))
-                primeiro = linhas_y[0]
-                linhas_y = [primeiro + passo * i for i in range(quantidade)]
-            elif len(linhas_y) == 1:
-                linhas_y = [linhas_y[0] + 47 * i for i in range(quantidade)]
-            else:
-                linhas_y = [87 + 47 * i for i in range(quantidade)]
+            return {i: {"resposta": "", "situacao": "nao_reconhecida",
+                        "marcadas": [], "preenchimentos": [], "confianca": 0.0}
+                    for i in range(1, quantidade+1)}
 
     cinza = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY)
     cinza = cv2.createCLAHE(clipLimit=1.4, tileGridSize=(8, 8)).apply(cinza)
@@ -14488,7 +14465,7 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
         centro_y = float(linhas_y[indice])
         preenchimentos = [
             _taxa_escura_melhor_circulo(
-                cinza, x, centro_y, raio=15, busca=3
+                cinza, x, centro_y, raio=11, busca=2
             )
             for x in centros_x
         ]
@@ -14498,7 +14475,7 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
 
         # Bolha sólida em scans reais costuma ficar muito acima de 0.55; a
         # bolha vazia, mesmo com o contorno, fica em torno de 0.10-0.25.
-        marcadas_solidas = [i for i, v in enumerate(preenchimentos) if v >= 0.55]
+        marcadas_solidas = [i for i, v in enumerate(preenchimentos) if v >= 0.96 and maior - v <= 0.045]
 
         if len(marcadas_solidas) >= 2:
             situacao, resposta = "dupla_marcacao", ""
@@ -14506,7 +14483,7 @@ def ler_respostas_cartao_detalhado(caminho_imagem, quantidade):
         elif len(marcadas_solidas) == 1:
             indice_marcada = marcadas_solidas[0]
             # Uma marca sólida prevalece sobre contornos/ruído das demais.
-            if maior - segundo >= 0.18 or maior >= 0.78:
+            if maior - segundo >= 0.055 and maior >= 0.82 and segundo < 0.96:
                 situacao = "respondida"
                 resposta = letras[indice_marcada]
                 marcadas = [resposta]
