@@ -23469,36 +23469,39 @@ def scanner_identificar_qr(aplicacao_id):
             return jsonify(ok=False, mensagem="Aplicação não encontrada."), 404
         if not _pode_gerenciar_prova(cursor, aplicacao["prova_id"], exigir_edicao=True, permitir_finalizada=True):
             return jsonify(ok=False, mensagem="Acesso não autorizado."), 403
+        qr_texto = (request.form.get("qr_texto") or "").strip()
         arquivo = request.files.get("imagem")
-        if not arquivo:
-            return jsonify(ok=False, mensagem="Imagem do QR não recebida."), 400
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp:
-            caminho = temp.name
-            arquivo.save(temp)
-        if os.path.getsize(caminho) > 7 * 1024 * 1024:
-            return jsonify(ok=False, mensagem="Imagem acima do limite de 7 MB."), 413
-        # A função existente procura o QR no cabeçalho. Nesta etapa, o
-        # recorte recebido já contém o QR em destaque.
-        texto = _decodificar_qr_cartao(caminho)
+        if not qr_texto and not arquivo:
+            return jsonify(ok=False, mensagem="QR não recebido."), 400
+        texto = qr_texto
         if not texto:
-            # O recorte isolado nem sempre fica no canto superior direito:
-            # tenta a imagem completa de forma leve antes de informar falha.
-            try:
-                import zxingcpp
-                import numpy as np
-                with Image.open(caminho) as im:
-                    im.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
-                    encontrados = zxingcpp.read_barcodes(np.asarray(ImageOps.grayscale(im)))
-                    for item in encontrados or ():
-                        candidato = str(getattr(item, "text", "") or "")
-                        if "APLICACAO:" in candidato.upper() and "ALUNO:" in candidato.upper():
-                            texto = candidato
-                            break
-            except Exception:
-                app.logger.exception("SCANNER_QR: falha no reconhecimento complementar")
-        if not texto:
-            return jsonify(ok=False, mensagem="Aproxime a câmera do QR Code e mantenha o foco."), 200
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp:
+                caminho = temp.name
+                arquivo.save(temp)
+            if os.path.getsize(caminho) > 7 * 1024 * 1024:
+                return jsonify(ok=False, mensagem="Imagem acima do limite de 7 MB."), 413
+            # A função existente procura o QR no cabeçalho. Nesta etapa, o
+            # recorte recebido já contém o QR em destaque.
+            texto = _decodificar_qr_cartao(caminho)
+            if not texto:
+                # O recorte isolado nem sempre fica no canto superior direito:
+                # tenta a imagem completa de forma leve antes de informar falha.
+                try:
+                    import zxingcpp
+                    import numpy as np
+                    with Image.open(caminho) as im:
+                        im.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+                        encontrados = zxingcpp.read_barcodes(np.asarray(ImageOps.grayscale(im)))
+                        for item in encontrados or ():
+                            candidato = str(getattr(item, "text", "") or "")
+                            if "APLICACAO:" in candidato.upper() and "ALUNO:" in candidato.upper():
+                                texto = candidato
+                                break
+                except Exception:
+                    app.logger.exception("SCANNER_QR: falha no reconhecimento complementar")
+            if not texto:
+                return jsonify(ok=False, mensagem="Aproxime a câmera do QR Code e mantenha o foco."), 200
         dados = {}
         for parte in texto.split("|"):
             if ":" in parte:

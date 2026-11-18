@@ -1,7 +1,7 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Scanner automático | ARK EDUS</title>
-<style>:root{font-family:system-ui,Arial,sans-serif;color:#0b315c;background:#f2f6fb}*{box-sizing:border-box}body{margin:0}.top{background:linear-gradient(105deg,#102f61,#078fb0);color:white;padding:18px 16px}.top h1{font-size:21px;margin:4px 0}.top small{opacity:.9}main{max-width:680px;margin:auto;padding:14px}.camera{position:relative;background:#0b1829;border-radius:17px;overflow:hidden;aspect-ratio:3/4;max-height:65vh}video{width:100%;height:100%;object-fit:cover}.guide{position:absolute;inset:10%;border:3px solid #4de0b7;border-radius:14px;pointer-events:none;box-shadow:0 0 0 200px #07162544}.status{background:white;border-radius:12px;padding:14px;margin:12px 0;line-height:1.5}.counts{display:flex;gap:10px}.counts>div{flex:1;background:white;border-radius:12px;padding:12px}.counts strong{display:block;font-size:25px}button,a.action{border:0;border-radius:10px;padding:12px 16px;font-weight:700;background:#103d77;color:white;text-decoration:none;cursor:pointer}button:disabled{opacity:.5}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.note{font-size:13px;color:#54677d}#history{padding-left:20px;font-size:13px}li{margin:5px 0}</style></head>
+<style>:root{font-family:system-ui,Arial,sans-serif;color:#0b315c;background:#f2f6fb}*{box-sizing:border-box}body{margin:0}.top{background:linear-gradient(105deg,#102f61,#078fb0);color:white;padding:18px 16px}.top h1{font-size:21px;margin:4px 0}.top small{opacity:.9}main{max-width:680px;margin:auto;padding:14px}.camera{position:relative;background:#0b1829;border-radius:17px;overflow:hidden;aspect-ratio:3/4;max-height:65vh}video{width:100%;height:100%;object-fit:cover}.camera.qr-mode .guide{inset:28% 22%;border-color:#ffd166}.camera.answers-mode .guide{inset:10%;border-color:#4de0b7}.guide{position:absolute;inset:10%;border:3px solid #4de0b7;border-radius:14px;pointer-events:none;box-shadow:0 0 0 200px #07162544}.status{background:white;border-radius:12px;padding:14px;margin:12px 0;line-height:1.5}.counts{display:flex;gap:10px}.counts>div{flex:1;background:white;border-radius:12px;padding:12px}.counts strong{display:block;font-size:25px}button,a.action{border:0;border-radius:10px;padding:12px 16px;font-weight:700;background:#103d77;color:white;text-decoration:none;cursor:pointer}button:disabled{opacity:.5}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.note{font-size:13px;color:#54677d}#history{padding-left:20px;font-size:13px}li{margin:5px 0}</style></head>
 <body><header class="top"><small>ARK EDUS · Correção de cartões</small><h1>Scanner automático</h1><div>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</div></header><main>
-<div class="status" id="step" style="font-weight:750">Etapa 1 de 2 — Identifique o QR Code aproximando a câmera.</div><div class="camera"><video id="video" autoplay muted playsinline></video><div class="guide"></div></div>
+<div class="status" id="step" style="font-weight:750">Etapa 1 de 2 — Identifique o QR Code aproximando a câmera.</div><div class="camera"><video id="video" autoplay muted playsinline></video><div class="guide" id="guide"></div></div>
 <div class="status" role="status" aria-live="polite" id="status">Toque em Iniciar. A câmera fará as capturas automaticamente quando o cartão estiver estável.</div>
 <div class="counts"><div>Corrigidos<strong id="ok">0</strong></div><div>Para revisão<strong id="review">0</strong></div><div>Falhas<strong id="errors">0</strong></div></div>
 <div class="actions"><button id="start">Iniciar câmera</button><button id="stop" disabled>Parar</button><a class="action" href="{{ url_for('importar_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}">Ver importações</a></div>
@@ -11,12 +11,46 @@
 (()=>{'use strict';
 const video=document.querySelector('#video'),status=document.querySelector('#status'),canvas=document.querySelector('#canvas');
 const start=document.querySelector('#start'),stop=document.querySelector('#stop');
-let stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,counts={ok:0,review:0,errors:0};
-const say=s=>status.textContent=s;const step=document.querySelector('#step');function setPhase(v){phase=v;step.textContent=v==='qr'?'Etapa 1 de 2 — Aproxime o QR Code da câmera.':'Etapa 2 de 2 — QR confirmado: '+identified.aluno_nome+'. Enquadre o cartão inteiro.';}
+let qrDetector=null,zxingReader=null,zxingLoading=false,qrBusy=false,qrLast=0,stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,counts={ok:0,review:0,errors:0};
+const say=s=>status.textContent=s;const step=document.querySelector('#step');function setPhase(v){phase=v;document.querySelector('.camera').classList.toggle('qr-mode',v==='qr');document.querySelector('.camera').classList.toggle('answers-mode',v!=='qr');step.textContent=v==='qr'?'Etapa 1 de 2 — Aproxime o QR Code da câmera.':'Etapa 2 de 2 — QR confirmado: '+identified.aluno_nome+'. Enquadre o cartão inteiro.';}
 const small=document.createElement('canvas');small.width=48;small.height=64;const ctx=small.getContext('2d',{willReadFrequently:true});
 function sample(){ctx.drawImage(video,0,0,48,64);let d=ctx.getImageData(0,0,48,64).data,a=[];for(let i=0;i<d.length;i+=16)a.push((d[i]+d[i+1]+d[i+2])/3);return a;}
 function difference(a,b){if(!a||!b)return 999;let n=0;for(let i=0;i<a.length;i++)n+=Math.abs(a[i]-b[i]);return n/a.length;}
 function beep(){try{let c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=850;g.gain.value=.05;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.12);o.onended=()=>c.close()}catch(e){}}
+async function prepareQrReader(){
+ if('BarcodeDetector' in window){try{const formats=await BarcodeDetector.getSupportedFormats();if(formats.includes('qr_code'))qrDetector=new BarcodeDetector({formats:['qr_code']});}catch(e){console.warn('BarcodeDetector indisponível',e);}}
+ if(!qrDetector){
+  zxingLoading=true;
+  try{
+   if(!window.ZXingBrowser){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js';script.onload=resolve;script.onerror=()=>reject(Error('Biblioteca QR não carregou'));document.head.appendChild(script);});}
+   if(window.ZXingBrowser?.BrowserQRCodeReader)zxingReader=new window.ZXingBrowser.BrowserQRCodeReader();
+  }catch(e){console.warn('Leitor local indisponível, usando servidor',e);}finally{zxingLoading=false;}
+ }
+}
+async function validateQrText(text){
+ if(!text)return false;
+ qrBusy=true;
+ try{
+  const fd=new FormData();fd.append('qr_texto',text);
+  const response=await fetch('{{ url_for('scanner_identificar_qr', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
+  const data=await response.json();
+  if(data.ok){identified=data;setPhase('answers');stable=0;previous=null;say('QR identificado: '+data.aluno_nome+'. Afaste o celular e enquadre o cartão inteiro.');beep();return true;}
+  say(data.mensagem||'QR não corresponde a esta aplicação.');
+ }catch(e){say('Falha na validação do QR: '+e.message);}finally{qrBusy=false;}
+ return false;
+}
+async function scanQr(){
+ if(qrBusy||busy||phase!=='qr'||video.readyState<2)return;
+ qrBusy=true;
+ try{
+  let value='';
+  if(qrDetector){const codes=await qrDetector.detect(video);value=codes.find(x=>x.rawValue)?.rawValue||'';}
+  else if(zxingReader){try{const frame=document.createElement('canvas');frame.width=video.videoWidth;frame.height=video.videoHeight;frame.getContext('2d').drawImage(video,0,0);const result=zxingReader.decodeFromCanvas(frame);value=result?.getText?.()||'';}catch(e){/* Sem QR neste quadro */}}
+  if(value){qrBusy=false;await validateQrText(value);return;}
+  // Fallback no servidor quando o navegador não oferece leitor local.
+  if(!qrDetector&&!zxingReader){qrBusy=false;await identifyQR();return;}
+ }catch(e){console.warn('Falha de leitura QR local',e);}finally{qrBusy=false;}
+}
 async function identifyQR(){
  busy=true;
  try{
@@ -47,11 +81,11 @@ say(data.mensagem+' Retire o cartão para ler o próximo.');if((data.corrigidos|
 }catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha: '+e.message+' Retire o cartão e tente novamente.');}
 lastCapture=sample();emptyFrames=0;busy=false;identified=null;setPhase('qr');say('Retire o cartão e aproxime o QR Code do próximo estudante.');}
 function tick(){if(!stream||busy||video.readyState<2)return;const now=sample();let diff=difference(now,previous);previous=now;
-if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
+if(phase==='qr'){if(Date.now()-qrLast>550){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
 // Exige enquadramento visual estável; o importador valida QR e respostas no servidor.
 if(diff<3.2)stable++;else stable=0;
-if(stable>=7){stable=0;if(phase==='qr')identifyQR();else capture();}}
+if(stable>=7){stable=0;capture();}}
 start.onclick=async()=>{if(!navigator.mediaDevices?.getUserMedia){say('Este navegador não permite acesso à câmera. Use HTTPS e um navegador atualizado.');return;}
-try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;identified=null;setPhase('qr');timer=setInterval(tick,170);say('Câmera ativa. Posicione um cartão completo e mantenha-o estável.');}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
+try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;identified=null;setPhase('qr');timer=setInterval(tick,170);say('Etapa 1: aproxime somente o QR Code. A leitura é automática.');prepareQrReader().then(()=>{if(phase==='qr'&&stream)say(qrDetector||zxingReader?'Leitor QR ativo. Aproxime o código e aguarde a identificação.':'Leitor local indisponível; tentando reconhecimento no servidor.');});}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
 stop.onclick=()=>{clearInterval(timer);timer=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;say('Scanner interrompido.');};window.addEventListener('pagehide',()=>stop.click());
 })();</script></body></html>
