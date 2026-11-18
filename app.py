@@ -23280,38 +23280,19 @@ def _decodificar_qr_cartao(caminho_imagem):
                         texto = tentar(ampliada, f"regiao{indice}_ampliada")
                         if texto:
                             return texto
-            # Fotografias do celular incluem margem, perspectiva e QR pequeno.
-            # Busca adicional em recortes do topo, preservando pixels originais.
-            # A leitura só é aceita se contiver APLICACAO e ALUNO.
-            regioes_celular = (
-                (0.60, 0.00, 1.00, 0.30),
-                (0.68, 0.00, 1.00, 0.22),
-                (0.55, 0.00, 1.00, 0.38),
-                (0.00, 0.00, 1.00, 0.32),
-            )
-            for indice, (x1, y1, x2, y2) in enumerate(regioes_celular, 1):
-                with original.crop((int(largura*x1), int(altura*y1),
-                                    int(largura*x2), int(altura*y2))) as faixa:
-                    faixa = ImageOps.exif_transpose(faixa)
-                    cinza = ImageOps.grayscale(faixa)
-                    if max(cinza.size) > 1500:
-                        cinza.thumbnail((1500, 1500), Image.Resampling.LANCZOS)
-                    variantes = (
-                        ("normal", cinza),
-                        ("auto", ImageOps.autocontrast(cinza)),
-                        ("nitido", cinza.filter(ImageFilter.UnsharpMask(radius=1, percent=180, threshold=2))),
-                        ("limiar", cinza.point(lambda v: 255 if v > 160 else 0)),
-                    )
-                    for rotulo, variante in variantes:
-                        texto = tentar(variante, f"celular{indice}_{rotulo}")
-                        if texto:
-                            return texto
-                        # A inclinação do cartão pode afetar o leitor.
-                        for angulo in (-8, 8):
-                            texto = tentar(variante.rotate(angulo, expand=True, fillcolor=255),
-                                           f"celular{indice}_{rotulo}_{angulo}")
-                            if texto:
-                                return texto
+            # Fallback mobile limitado: evita dezenas de decodificações caras
+            # por requisição, que podem exceder o tempo/memória no Render.
+            with original.crop((int(largura * .62), 0, largura,
+                                int(altura * .27))) as faixa_mobile:
+                faixa_mobile.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+                cinza_mobile = ImageOps.grayscale(faixa_mobile)
+                for rotulo, variante in (
+                    ("mobile", cinza_mobile),
+                    ("mobile_auto", ImageOps.autocontrast(cinza_mobile)),
+                ):
+                    texto = tentar(variante, rotulo)
+                    if texto:
+                        return texto
             app.logger.warning("QR_CARTAO: não identificado em %sx%s", largura, altura)
     except Exception:
         app.logger.exception("QR_CARTAO: erro ao processar cartão")
@@ -23471,6 +23452,101 @@ def _remover_arquivo_silenciosamente(caminho):
             os.remove(caminho)
     except OSError as erro:
         print(f"Não foi possível remover o arquivo {caminho}: {erro}")
+
+
+@app.route("/aplicacoes/<int:aplicacao_id>/scanner/identificar-qr", methods=["POST"])
+def scanner_identificar_qr(aplicacao_id):
+    """Primeira etapa do scanner: identifica QR sem corrigir ou alterar dados."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    caminho = None
+    try:
+        cursor = banco.cursor()
+        cursor.execute("SELECT prova_id FROM aplicacoes WHERE id = ?", (aplicacao_id,))
+        aplicacao = cursor.fetchone()
+        if not aplicacao:
+            return jsonify(ok=False, mensagem="Aplicação não encontrada."), 404
+        if not _pode_gerenciar_prova(cursor, aplicacao["prova_id"], exigir_edicao=True, permitir_finalizada=True):
+            return jsonify(ok=False, mensagem="Acesso não autorizado."), 403
+        arquivo = request.files.get("imagem")
+        if not arquivo:
+            return jsonify(ok=False, mensagem="Imagem do QR não recebida."), 400
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp:
+            caminho = temp.name
+            arquivo.save(temp)
+        if os.path.getsize(caminho) > 7 * 1024 * 1024:
+            return jsonify(ok=False, mensagem="Imagem acima do limite de 7 MB."), 413
+        # A função existente procura o QR no cabeçalho. Nesta etapa, o
+        # recorte recebido já contém o QR em destaque.
+        texto = _decodificar_qr_cartao(caminho)
+        if not texto:
+            # O recorte isolado nem sempre fica no canto superior direito:
+            # tenta a imagem completa de forma leve antes de informar falha.
+            try:
+                import zxingcpp
+                import numpy as np
+                with Image.open(caminho) as im:
+                    im.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+                    encontrados = zxingcpp.read_barcodes(np.asarray(ImageOps.grayscale(im)))
+                    for item in encontrados or ():
+                        candidato = str(getattr(item, "text", "") or "")
+                        if "APLICACAO:" in candidato.upper() and "ALUNO:" in candidato.upper():
+                            texto = candidato
+                            break
+            except Exception:
+                app.logger.exception("SCANNER_QR: falha no reconhecimento complementar")
+        if not texto:
+            return jsonify(ok=False, mensagem="Aproxime a câmera do QR Code e mantenha o foco."), 200
+        dados = {}
+        for parte in texto.split("|"):
+            if ":" in parte:
+                chave, valor = parte.split(":", 1)
+                dados[chave.strip().upper()] = valor.strip()
+        try:
+            qr_aplicacao = int(dados.get("APLICACAO", 0))
+            aluno_id = int(dados.get("ALUNO", 0))
+            modelo = int(dados.get("MODELO", 1))
+        except (ValueError, TypeError):
+            return jsonify(ok=False, mensagem="QR Code inválido."), 200
+        if qr_aplicacao != aplicacao_id:
+            return jsonify(ok=False, mensagem="Este QR pertence a outra aplicação."), 200
+        cursor.execute("SELECT nome FROM alunos WHERE id = ?", (aluno_id,))
+        aluno = cursor.fetchone()
+        if not aluno:
+            return jsonify(ok=False, mensagem="Aluno não encontrado."), 200
+        cursor.execute("SELECT 1 FROM aplicacao_alunos WHERE aplicacao_id = ? AND aluno_id = ?", (aplicacao_id, aluno_id))
+        vinculado = cursor.fetchone() is not None
+        if not vinculado:
+            # Não cria vínculo na pré-leitura; a importação existente
+            # faz a validação definitiva, inclusive matrículas antigas.
+            cursor.execute("SELECT turma_id, ano_letivo_id, modo_alunos FROM aplicacoes WHERE id = ?", (aplicacao_id,))
+            dados_ap = cursor.fetchone()
+            if str(dados_ap["modo_alunos"] or "turma").lower() == "selecionados":
+                return jsonify(ok=False, mensagem="Aluno não selecionado para esta aplicação."), 200
+            try:
+                cursor.execute("SELECT 1 FROM aluno_matriculas WHERE aluno_id = ? AND turma_id = ? LIMIT 1", (aluno_id, dados_ap["turma_id"]))
+                vinculado = cursor.fetchone() is not None
+            except sqlite3.Error:
+                pass
+            if not vinculado:
+                try:
+                    cursor.execute("SELECT 1 FROM alunos WHERE id = ? AND turma_id = ?", (aluno_id, dados_ap["turma_id"]))
+                    vinculado = cursor.fetchone() is not None
+                except sqlite3.Error:
+                    pass
+        if not vinculado:
+            return jsonify(ok=False, mensagem="Aluno não pertence à turma desta aplicação."), 200
+        return jsonify(ok=True, aluno_id=aluno_id, modelo=modelo,
+                       aluno_nome=aluno["nome"], mensagem="QR identificado. Enquadre o cartão inteiro.")
+    except Exception:
+        app.logger.exception("SCANNER_QR: erro na identificação")
+        return jsonify(ok=False, mensagem="Falha na identificação do QR. Tente novamente."), 500
+    finally:
+        if caminho:
+            _remover_arquivo_silenciosamente(caminho)
+        banco.close()
 
 
 @app.route("/aplicacoes/<int:aplicacao_id>/scanner")
@@ -24309,6 +24385,18 @@ def importar_cartoes_aplicacao(aplicacao_id):
 
         # Exibe todos os alunos da aplicação, inclusive aqueles que ainda
         # não tiveram cartão importado.
+        # Compatibilidade com bases anteriores: garante a estrutura antes
+        # de montar o resumo de importações exibido no GET.
+        try:
+            cursor.execute("PRAGMA table_info(aplicacao_importacoes)")
+            colunas_importacoes = {linha[1] for linha in cursor.fetchall()}
+            if "tipo_folha" not in colunas_importacoes:
+                cursor.execute("ALTER TABLE aplicacao_importacoes ADD COLUMN tipo_folha TEXT")
+                banco.commit()
+        except sqlite3.Error:
+            app.logger.exception("IMPORTAR_CARTOES: erro ao verificar estrutura da tabela")
+            raise
+
         cursor.execute("""
             SELECT
                 aa.id AS aplicacao_aluno_id,
