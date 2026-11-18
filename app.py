@@ -23280,6 +23280,38 @@ def _decodificar_qr_cartao(caminho_imagem):
                         texto = tentar(ampliada, f"regiao{indice}_ampliada")
                         if texto:
                             return texto
+            # Fotografias do celular incluem margem, perspectiva e QR pequeno.
+            # Busca adicional em recortes do topo, preservando pixels originais.
+            # A leitura só é aceita se contiver APLICACAO e ALUNO.
+            regioes_celular = (
+                (0.60, 0.00, 1.00, 0.30),
+                (0.68, 0.00, 1.00, 0.22),
+                (0.55, 0.00, 1.00, 0.38),
+                (0.00, 0.00, 1.00, 0.32),
+            )
+            for indice, (x1, y1, x2, y2) in enumerate(regioes_celular, 1):
+                with original.crop((int(largura*x1), int(altura*y1),
+                                    int(largura*x2), int(altura*y2))) as faixa:
+                    faixa = ImageOps.exif_transpose(faixa)
+                    cinza = ImageOps.grayscale(faixa)
+                    if max(cinza.size) > 1500:
+                        cinza.thumbnail((1500, 1500), Image.Resampling.LANCZOS)
+                    variantes = (
+                        ("normal", cinza),
+                        ("auto", ImageOps.autocontrast(cinza)),
+                        ("nitido", cinza.filter(ImageFilter.UnsharpMask(radius=1, percent=180, threshold=2))),
+                        ("limiar", cinza.point(lambda v: 255 if v > 160 else 0)),
+                    )
+                    for rotulo, variante in variantes:
+                        texto = tentar(variante, f"celular{indice}_{rotulo}")
+                        if texto:
+                            return texto
+                        # A inclinação do cartão pode afetar o leitor.
+                        for angulo in (-8, 8):
+                            texto = tentar(variante.rotate(angulo, expand=True, fillcolor=255),
+                                           f"celular{indice}_{rotulo}_{angulo}")
+                            if texto:
+                                return texto
             app.logger.warning("QR_CARTAO: não identificado em %sx%s", largura, altura)
     except Exception:
         app.logger.exception("QR_CARTAO: erro ao processar cartão")
