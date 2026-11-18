@@ -337,17 +337,20 @@
             line-height: 1;
         }
 </style>
-<style>.plano-upgrade-mini{display:block;margin:12px;padding:10px 12px;border-radius:10px;background:#eef4ff;color:#174ea6;font-weight:800;text-decoration:none;font-size:12px;text-align:center}</style></head>
+<style>.plano-upgrade-mini{display:block;margin:12px;padding:10px 12px;border-radius:10px;background:#eef4ff;color:#174ea6;font-weight:800;text-decoration:none;font-size:12px;text-align:center}</style><link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-navigation-fix.css') }}">
+</head>
 
 <body>
 
+<button type="button" class="ark-mobile-menu-toggle" id="arkMobileMenuToggle" aria-label="Abrir menu de navegação" aria-controls="arkSidebar" aria-expanded="false" hidden>☰</button>
+<div class="ark-mobile-menu-backdrop" id="arkMobileMenuBackdrop" hidden></div>
 <div class="app">
 
     <!-- =====================================================
          MENU LATERAL
     ====================================================== -->
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="arkSidebar">
 
         <div class="sidebar-logo">
             <a href="/">
@@ -1039,6 +1042,30 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 
+<script>
+(function () {
+  const toggle=document.getElementById('arkMobileMenuToggle');
+  const backdrop=document.getElementById('arkMobileMenuBackdrop');
+  const sidebar=document.getElementById('arkSidebar');
+  if(!toggle||!backdrop||!sidebar)return;
+  const mobile=window.matchMedia('(max-width: 900px)');
+  function setOpen(open){
+    const active=Boolean(open&&mobile.matches);
+    document.body.classList.toggle('ark-mobile-menu-open',active);
+    toggle.setAttribute('aria-expanded',String(active));
+    toggle.setAttribute('aria-label',active?'Fechar menu de navegação':'Abrir menu de navegação');
+    toggle.textContent=active?'×':'☰';
+    backdrop.hidden=!active;
+  }
+  function sync(){toggle.hidden=!mobile.matches;if(!mobile.matches)setOpen(false);}
+  toggle.addEventListener('click',()=>setOpen(!document.body.classList.contains('ark-mobile-menu-open')));
+  backdrop.addEventListener('click',()=>setOpen(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false);});
+  sidebar.addEventListener('click',e=>{if(e.target.closest('a[href]'))setOpen(false);});
+  mobile.addEventListener('change',sync);
+  sync();
+})();
+</script>
 {% block scripts %}{% endblock %}
 
 </body>

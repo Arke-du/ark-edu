@@ -1,0 +1,25 @@
+/* ARK EDUS: navegação mobile em gaveta, sem afetar desktop ou impressão */
+@media screen and (max-width: 900px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden; }
+  body.ark-mobile-menu-open { overflow:hidden; }
+  .app { display:block !important; min-width:0; }
+  .app > .sidebar { position:fixed !important; top:0 !important; left:0 !important; bottom:0 !important; z-index:2100 !important; width:min(84vw,320px) !important; max-width:320px !important; height:100dvh !important; min-height:0 !important; padding:58px 14px 18px !important; overflow-y:auto !important; overscroll-behavior:contain; background:#fff; box-shadow:12px 0 32px rgba(9,32,67,.18); border-right:1px solid #dbe4f0; border-bottom:0 !important; transform:translateX(-110%) !important; visibility:hidden; transition:transform .24s ease, visibility .24s ease; }
+  body.ark-mobile-menu-open .app > .sidebar { transform:translateX(0) !important; visibility:visible; }
+  .app > .main { margin-left:0 !important; width:100% !important; max-width:100% !important; min-width:0 !important; overflow-x:clip; }
+  .app > .main > .topbar { padding-left:68px !important; min-height:66px; }
+  .app > .main > .content { width:100%; max-width:100%; min-width:0; padding:14px 12px 26px !important; }
+  .ark-mobile-menu-toggle { display:flex !important; position:fixed; top:12px; left:12px; z-index:2200; align-items:center; justify-content:center; width:44px; height:44px; border:1px solid #d7e3f1; border-radius:12px; background:#fff; color:#0d2d62; box-shadow:0 2px 12px rgba(13,45,98,.13); font-size:24px; cursor:pointer; }
+  .ark-mobile-menu-backdrop { display:none; position:fixed; inset:0; z-index:2050; background:rgba(9,24,46,.55); }
+  body.ark-mobile-menu-open .ark-mobile-menu-backdrop { display:block; }
+  .content .provas-topo-linha, .content .provas-topo-acoes { flex-wrap:wrap; min-width:0; }
+  .content .provas-topo-acoes { width:100%; justify-content:flex-start; }
+  .content .provas-pagina, .content .provas-topo-interno { min-width:0; }
+  .content .table-responsive, .content .tabela-responsiva, .content .table-wrapper, .content .tabela-container { max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .content table { max-width:none; }
+}
+@media screen and (max-width: 600px) {
+  .app > .main > .topbar { padding-right:10px !important; }
+  .content .provas-topo-acoes > * { max-width:100%; }
+  .content .provas-btn-principal { white-space:normal; text-align:center; }
+}
+@media print { .ark-mobile-menu-toggle, .ark-mobile-menu-backdrop { display:none !important; } }
