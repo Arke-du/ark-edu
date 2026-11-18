@@ -23524,6 +23524,51 @@ def scanner_identificar_qr(aplicacao_id):
         banco.close()
 
 
+@app.route("/aplicacoes/<int:aplicacao_id>/scanner/identificar-manual", methods=["POST"])
+def scanner_identificar_manual(aplicacao_id):
+    """Identifica cartão sem QR: código da prova e aluno vinculado à aplicação."""
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    try:
+        cur = banco.cursor()
+        cur.execute("SELECT prova_id FROM aplicacoes WHERE id=?", (aplicacao_id,))
+        aplicacao = cur.fetchone()
+        if not aplicacao:
+            return jsonify(ok=False, mensagem="Aplicação não encontrada."), 404
+        if not _pode_gerenciar_prova(cur, aplicacao["prova_id"], exigir_edicao=True, permitir_finalizada=True):
+            return jsonify(ok=False, mensagem="Acesso não autorizado."), 403
+        codigo = (request.form.get("codigo_prova") or "").strip()
+        if not codigo.isdigit() or int(codigo) != int(aplicacao["prova_id"]):
+            return jsonify(ok=False, mensagem="Código da prova não corresponde a esta aplicação."), 400
+        try:
+            aluno_id = int(request.form.get("aluno_id", ""))
+        except (ValueError, TypeError):
+            return jsonify(ok=False, mensagem="Selecione o estudante."), 400
+        cur.execute("""SELECT al.nome, aa.modelo FROM aplicacao_alunos aa
+                       JOIN alunos al ON al.id=aa.aluno_id
+                       WHERE aa.aplicacao_id=? AND aa.aluno_id=?""", (aplicacao_id, aluno_id))
+        aluno = cur.fetchone()
+        if not aluno:
+            return jsonify(ok=False, mensagem="Estudante não vinculado a esta aplicação."), 400
+        modelo = int(aluno["modelo"] or 1)
+        qr_texto = (f"CODIGO:{int(aplicacao['prova_id']):06d}|PROVA:{int(aplicacao['prova_id'])}|"
+                    f"ALUNO:{aluno_id}|APLICACAO:{aplicacao_id}|MODELO:{modelo}|"
+                    "FOLHA:OBJETIVAS|VERSAO:3")
+        token = _scanner_assinador_qr().dumps({
+            "aplicacao_id": aplicacao_id, "aluno_id": aluno_id,
+            "modelo": modelo, "qr_texto": qr_texto,
+        })
+        return jsonify(ok=True, aluno_id=aluno_id, aluno_nome=aluno["nome"],
+                       modelo=modelo, token_qr=token,
+                       mensagem="Estudante identificado. Enquadre o cartão inteiro.")
+    except Exception:
+        app.logger.exception("SCANNER: identificação manual")
+        return jsonify(ok=False, mensagem="Não foi possível identificar o estudante."), 500
+    finally:
+        banco.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/scanner")
 def scanner_cartoes_aplicacao(aplicacao_id):
     """Câmera contínua; reutiliza o importador validado da aplicação."""
@@ -23544,7 +23589,12 @@ def scanner_cartoes_aplicacao(aplicacao_id):
         if not _pode_gerenciar_prova(cursor, aplicacao['prova_id'],
                                     exigir_edicao=True, permitir_finalizada=True):
             return _redirecionar_acesso_negado_prova()
-        return render_template('aplicacoes/scanner.html', aplicacao=aplicacao)
+        cursor.execute("""SELECT al.id, al.nome, COALESCE(aa.modelo,1) AS modelo
+                          FROM aplicacao_alunos aa JOIN alunos al ON al.id=aa.aluno_id
+                          WHERE aa.aplicacao_id=? ORDER BY al.nome COLLATE NOCASE""", (aplicacao_id,))
+        alunos_scanner = [dict(linha) for linha in cursor.fetchall()]
+        return render_template('aplicacoes/scanner.html', aplicacao=aplicacao,
+                               alunos_scanner=alunos_scanner)
     finally:
         banco.close()
 
