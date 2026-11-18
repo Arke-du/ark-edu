@@ -1,5 +1,5 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Scanner automático | ARK EDUS</title>
-<style>:root{font-family:system-ui,Arial,sans-serif;color:#0b315c;background:#f2f6fb}*{box-sizing:border-box}body{margin:0}.top{background:linear-gradient(105deg,#102f61,#078fb0);color:white;padding:18px 16px}.top h1{font-size:21px;margin:4px 0}.top small{opacity:.9}main{max-width:680px;margin:auto;padding:14px}.camera{position:relative;background:#0b1829;border-radius:17px;overflow:hidden;aspect-ratio:3/4;max-height:65vh}video{width:100%;height:100%;object-fit:cover}.guide{position:absolute;inset:10%;border:3px solid #4de0b7;border-radius:14px;pointer-events:none;box-shadow:0 0 0 200px #07162544}.status{background:white;border-radius:12px;padding:14px;margin:12px 0;line-height:1.5}.counts{display:flex;gap:10px}.counts>div{flex:1;background:white;border-radius:12px;padding:12px}.counts strong{display:block;font-size:25px}button,a.action{border:0;border-radius:10px;padding:12px 16px;font-weight:700;background:#103d77;color:white;text-decoration:none;cursor:pointer}button:disabled{opacity:.5}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.note{font-size:13px;color:#54677d}#history{padding-left:20px;font-size:13px}li{margin:5px 0}</style></head>
+<style>:root{font-family:system-ui,Arial,sans-serif;color:#0b315c;background:#f2f6fb}*{box-sizing:border-box}body{margin:0}.top{background:linear-gradient(105deg,#102f61,#078fb0);color:white;padding:18px 16px}.top h1{font-size:21px;margin:4px 0}.top small{opacity:.9}main{max-width:680px;margin:auto;padding:14px}.camera{position:relative;background:#0b1829;border-radius:17px;overflow:hidden;aspect-ratio:3/4;max-height:65vh}video{width:100%;height:100%;object-fit:cover}.guide{position:absolute;inset:10%;border:3px solid #f3c55b;border-radius:14px;pointer-events:none;box-shadow:0 0 0 200px #07162544}.status{background:white;border-radius:12px;padding:14px;margin:12px 0;line-height:1.5}.counts{display:flex;gap:10px}.counts>div{flex:1;background:white;border-radius:12px;padding:12px}.counts strong{display:block;font-size:25px}button,a.action{border:0;border-radius:10px;padding:12px 16px;font-weight:700;background:#103d77;color:white;text-decoration:none;cursor:pointer}button:disabled{opacity:.5}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.note{font-size:13px;color:#54677d}#history{padding-left:20px;font-size:13px}li{margin:5px 0}</style></head>
 <body><header class="top"><small>ARK EDUS · Correção de cartões</small><h1>Scanner automático</h1><div>{{ aplicacao.prova_nome }} · {{ aplicacao.turma_nome }}</div></header><main>
 <div class="camera"><video id="video" autoplay muted playsinline></video><div class="guide"></div></div>
 <div class="status" role="status" aria-live="polite" id="status">Toque em Iniciar. A câmera fará as capturas automaticamente quando o cartão estiver estável.</div>
@@ -11,30 +11,51 @@
 (()=>{'use strict';
 const video=document.querySelector('#video'),status=document.querySelector('#status'),canvas=document.querySelector('#canvas');
 const start=document.querySelector('#start'),stop=document.querySelector('#stop');
-let stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,counts={ok:0,review:0,errors:0};
+let stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,startedAt=0,lastNotice=0,counts={ok:0,review:0,errors:0};
 const say=s=>status.textContent=s;
-const small=document.createElement('canvas');small.width=48;small.height=64;const ctx=small.getContext('2d',{willReadFrequently:true});
-function sample(){ctx.drawImage(video,0,0,48,64);let d=ctx.getImageData(0,0,48,64).data,a=[];for(let i=0;i<d.length;i+=16)a.push((d[i]+d[i+1]+d[i+2])/3);return a;}
+const small=document.createElement('canvas');small.width=40;small.height=56;const ctx=small.getContext('2d',{willReadFrequently:true});const guide=document.querySelector('.guide');
+function sample(){ctx.drawImage(video,0,0,40,56);let d=ctx.getImageData(0,0,40,56).data,a=[];for(let i=0;i<d.length;i+=4)a.push((d[i]*.299+d[i+1]*.587+d[i+2]*.114));return a;}
+function cardLike(a){if(!a)return false;let light=0,dark=0;for(let y=8;y<48;y+=2)for(let x=6;x<34;x+=2){let v=a[y*40+x];if(v>145)light++;if(v<105)dark++;}return light>110&&dark>4;}
+function guideState(ready){guide.style.borderColor=ready?'#4de0b7':'#f3c55b';}
 function difference(a,b){if(!a||!b)return 999;let n=0;for(let i=0;i<a.length;i++)n+=Math.abs(a[i]-b[i]);return n/a.length;}
 function beep(){try{let c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=850;g.gain.value=.05;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.12);o.onended=()=>c.close()}catch(e){}}
-async function capture(){busy=true;armed=false;stable=0;say('Cartão detectado. Enviando para correção…');
+async function capture(){busy=true;armed=false;stable=0;guideState(true);say('Imagem estável. Capturando e enviando para reconhecimento…');
 try{canvas.width=1280;canvas.height=Math.round(video.videoHeight*1280/video.videoWidth);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
 const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.86));if(!blob)throw Error('Não foi possível capturar a imagem.');
 let fd=new FormData();fd.append('arquivos',blob,'scanner_'+Date.now()+'.jpg');fd.append('scanner_automatico','1');
 const response=await fetch('{{ url_for('importar_cartoes_aplicacao', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
 if(response.redirected)throw Error('Sessão expirada ou acesso não autorizado. Entre novamente na plataforma.');
-let data=await response.json();counts.ok+=data.corrigidos||0;counts.review+=data.revisao||0;counts.errors+=data.erros||0;
+let data=await response.json();if(!response.ok && !data.mensagem)throw Error('Servidor retornou HTTP '+response.status);counts.ok+=data.corrigidos||0;counts.review+=data.revisao||0;counts.errors+=data.erros||0;
 for(let key of Object.keys(counts))document.getElementById(key).textContent=counts[key];
 let li=document.createElement('li');li.textContent=new Date().toLocaleTimeString('pt-BR')+' — '+data.mensagem;document.querySelector('#history').prepend(li);
-say(data.mensagem+' Retire o cartão para ler o próximo.');beep();
+say(data.mensagem+' Retire o cartão para ler o próximo.');if(data.corrigidos||data.revisao)beep();
 }catch(e){counts.errors++;document.getElementById('errors').textContent=counts.errors;say('Falha: '+e.message+' Retire o cartão e tente novamente.');}
-lastCapture=sample();emptyFrames=0;busy=false;}
-function tick(){if(!stream||busy||video.readyState<2)return;const now=sample();let diff=difference(now,previous);previous=now;
-if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
-// Exige enquadramento visual estável; o importador valida QR e respostas no servidor.
-if(diff<3.2)stable++;else stable=0;
-if(stable>=7)capture();}
+lastCapture=sample();emptyFrames=0;busy=false;guideState(false);}
+function tick(){
+ if(!stream||busy||video.readyState<2||!video.videoWidth)return;
+ let now;try{now=sample();}catch(e){say('Não foi possível analisar a imagem da câmera: '+e.message);return;}
+ const diff=difference(now,previous);previous=now;
+ if(!armed){
+   const changed=difference(now,lastCapture);
+   if(changed>17){emptyFrames++;if(emptyFrames>=3){armed=true;stable=0;startedAt=Date.now();say('Pronto para o próximo cartão. Posicione-o na moldura.');}}
+   else emptyFrames=0;
+   return;
+ }
+ if(!cardLike(now)){
+   stable=0;guideState(false);
+   if(Date.now()-lastNotice>4000){say('Aproxime o cartão branco e mantenha as quatro bordas visíveis.');lastNotice=Date.now();}
+   return;
+ }
+ // Variações de foco/exposição do iPhone não devem bloquear indefinidamente a leitura.
+ // Captura após 5 quadros consecutivos com variação moderada (aprox. 0,85 s).
+ if(diff<12)stable++;else stable=0;
+ if(stable>=5){capture();return;}
+ if(Date.now()-startedAt>10000 && Date.now()-lastNotice>4500){
+   say('Cartão visível, aguardando estabilização ('+Math.min(stable,5)+'/5). Apoie o celular ou melhore a iluminação.');
+   lastNotice=Date.now();
+ }
+}
 start.onclick=async()=>{if(!navigator.mediaDevices?.getUserMedia){say('Este navegador não permite acesso à câmera. Use HTTPS e um navegador atualizado.');return;}
-try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;timer=setInterval(tick,170);say('Câmera ativa. Posicione um cartão completo e mantenha-o estável.');}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
+try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;startedAt=Date.now();lastNotice=0;guideState(false);timer=setInterval(tick,170);say('Câmera ativa. Centralize o cartão; a moldura ficará verde somente na captura.');}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
 stop.onclick=()=>{clearInterval(timer);timer=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;say('Scanner interrompido.');};window.addEventListener('pagehide',()=>stop.click());
 })();</script></body></html>
