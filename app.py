@@ -14049,93 +14049,86 @@ def _taxa_escura_melhor_circulo(cinza, centro_x, centro_y, raio=14, busca=4):
 
 
 def _detectar_quatro_marcadores_cartao(imagem):
-    """Localiza os quatro quadrados pretos que delimitam a área de respostas.
+    """Detecta os quatro quadrados inclusive em fotos móveis inclinadas.
 
-    Não assume margens simétricas. Scanners alimentadores costumam alternar a
-    posição da folha e deslocar os marcadores direitos para dentro (ex.: ~75% da
-    largura em algumas páginas e ~80% em outras). A versão anterior exigia o
-    marcador direito a partir de 77% da largura; com isso várias páginas válidas
-    perdiam os dois marcadores da direita e caíam no fallback impreciso.
-
-    A estratégia atual separa candidatos por LADO da folha e escolhe o marcador
-    superior/inferior de cada lado pela geometria vertical. Isso tolera deslocamento,
-    pequena rotação, corte de margem e PDFs em que páginas consecutivas têm
-    enquadramentos diferentes.
+    Não depende de percentuais rígidos de X da fotografia: o cartão pode
+    ocupar somente parte do quadro da câmera.
     """
     if imagem is None or imagem.size == 0:
         return None
-
     cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
-    altura, largura = cinza.shape[:2]
-    _, binaria = cv2.threshold(cinza, 180, 255, cv2.THRESH_BINARY_INV)
-    contornos, _ = cv2.findContours(
-        binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
-
-    esquerda = []
-    direita = []
-    for contorno in contornos:
-        x, y, w, h = cv2.boundingRect(contorno)
-        area = cv2.contourArea(contorno)
-        if h <= 0 or w <= 0:
-            continue
-
-        proporcao = w / float(h)
-        preenchimento = area / float(w * h)
-
-        # Marcadores ficam no bloco inferior do cartão. Mantemos tolerância
-        # suficiente para scans recortados/esticados sem aceitar pequenos textos.
-        if y < altura * 0.30:
-            continue
-        if not (0.60 <= proporcao <= 1.40):
-            continue
-        if not (largura * 0.006 <= w <= largura * 0.070):
-            continue
-        if preenchimento < 0.60:
-            continue
-
-        cx = x + (w / 2.0)
-        cy = y + (h / 2.0)
-        item = (cx, cy, area)
-
-        # Nas digitalizações reais recebidas, o lado esquerdo varia por volta
-        # de 15%-21% e o direito por volta de 75%-81%. Não usamos 77% como corte.
-        if cx <= largura * 0.30:
-            esquerda.append(item)
-        elif cx >= largura * 0.68:
-            direita.append(item)
-
-    if len(esquerda) < 2 or len(direita) < 2:
+    altura, largura = cinza.shape
+    menor = min(altura, largura)
+    candidatos = []
+    # O limiar adaptativo resiste melhor à iluminação irregular do celular.
+    versoes = [cv2.threshold(cinza, t, 255, cv2.THRESH_BINARY_INV)[1]
+               for t in (90, 130, 175)]
+    versoes.append(cv2.adaptiveThreshold(cinza, 255,
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                    cv2.THRESH_BINARY_INV, 31, 9))
+    for mascara in versoes:
+        contornos, _ = cv2.findContours(mascara, cv2.RETR_LIST,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        for contorno in contornos:
+            x, y, w, h = cv2.boundingRect(contorno)
+            if not w or not h or y < altura * .22:
+                continue
+            if not (max(4, menor * .004) <= w <= menor * .055):
+                continue
+            if not (.60 <= w / float(h) <= 1.45):
+                continue
+            area = cv2.contourArea(contorno)
+            if area / float(w*h) < .55:
+                continue
+            # Rejeita letras e contornos vazios: o interior precisa ser escuro.
+            interior = cinza[y+max(1,h//4):y+max(2,3*h//4),
+                             x+max(1,w//4):x+max(2,3*w//4)]
+            if interior.size == 0 or float(np.mean(interior < 145)) < .62:
+                continue
+            cx, cy = x+w/2., y+h/2.
+            if any(abs(cx-v[0]) < max(3,w*.45) and
+                   abs(cy-v[1]) < max(3,h*.45) for v in candidatos):
+                continue
+            candidatos.append((cx,cy,float(w*h)))
+    if len(candidatos) < 4:
         return None
-
-    # O marcador superior é o candidato lateral mais alto; o inferior, o mais
-    # baixo. Isso evita confundir assinatura/texto escuro com marcador inferior.
-    sup_esq = min(esquerda, key=lambda item: item[1])
-    inf_esq = max(esquerda, key=lambda item: item[1])
-    sup_dir = min(direita, key=lambda item: item[1])
-    inf_dir = max(direita, key=lambda item: item[1])
-
-    # Precisa existir separação vertical real entre os pares superior/inferior.
-    # Se não existir, rejeita em vez de fabricar uma perspectiva incorreta.
-    if (inf_esq[1] - sup_esq[1] < altura * 0.25 or
-            inf_dir[1] - sup_dir[1] < altura * 0.25):
-        return None
-
-    ordenados = np.array([
-        [sup_esq[0], sup_esq[1]],
-        [sup_dir[0], sup_dir[1]],
-        [inf_dir[0], inf_dir[1]],
-        [inf_esq[0], inf_esq[1]],
-    ], dtype="float32")
-
-    largura_sup = np.linalg.norm(ordenados[1] - ordenados[0])
-    largura_inf = np.linalg.norm(ordenados[2] - ordenados[3])
-    altura_esq = np.linalg.norm(ordenados[3] - ordenados[0])
-    altura_dir = np.linalg.norm(ordenados[2] - ordenados[1])
-    if min(largura_sup, largura_inf, altura_esq, altura_dir) < max(70, largura * 0.08):
-        return None
-
-    return ordenados
+    # Avalia pares verticais de cada lado e a simetria do quadrilátero.
+    melhor = None
+    melhor_pontuacao = -1e9
+    for i, es in enumerate(candidatos):
+        for j, ei in enumerate(candidatos):
+            if i == j or ei[1]-es[1] < altura*.16:
+                continue
+            if abs(ei[0]-es[0]) > largura*.13:
+                continue
+            for k, ds in enumerate(candidatos):
+                if k in (i,j) or ds[0]-es[0] < largura*.25:
+                    continue
+                if abs(ds[1]-es[1]) > altura*.13:
+                    continue
+                for l, di in enumerate(candidatos):
+                    if l in (i,j,k) or di[0]-ei[0] < largura*.25:
+                        continue
+                    if abs(di[1]-ei[1]) > altura*.13:
+                        continue
+                    if abs(di[0]-ds[0]) > largura*.13:
+                        continue
+                    he=ei[1]-es[1]; hd=di[1]-ds[1]
+                    ws=ds[0]-es[0]; wi=di[0]-ei[0]
+                    if min(he,hd,ws,wi) <= 0:
+                        continue
+                    if not (.65 < he/hd < 1.45 and .65 < ws/wi < 1.45):
+                        continue
+                    # Área grande e lados paralelos são sinais dos marcadores.
+                    area_media=np.mean([es[2],ei[2],ds[2],di[2]])
+                    pontuacao=(ws+wi)*.5 + (he+hd)*.35 + area_media**.5*2
+                    pontuacao-=abs(he-hd)*2+abs(ws-wi)*2
+                    pontuacao-=abs(ds[1]-es[1])+abs(di[1]-ei[1])
+                    if pontuacao > melhor_pontuacao:
+                        melhor_pontuacao=pontuacao
+                        melhor=np.array([[es[0],es[1]],[ds[0],ds[1]],
+                                         [di[0],di[1]],[ei[0],ei[1]]],dtype='float32')
+    return melhor
 
 def _normalizar_area_respostas_cartao(caminho_imagem):
     """Retifica a área entre os quatro marcadores para coordenadas canônicas."""
