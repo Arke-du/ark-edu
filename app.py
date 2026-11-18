@@ -23588,6 +23588,62 @@ def scanner_cartoes_aplicacao(aplicacao_id):
         banco.close()
 
 
+@app.route("/aplicacoes/<int:aplicacao_id>/scanner/previsualizar", methods=["POST"])
+def scanner_previsualizar_respostas(aplicacao_id):
+    """Pré-leitura SEM persistir notas ou respostas; requer QR assinado."""
+    import tempfile
+    from itsdangerous import BadSignature, SignatureExpired
+    _garantir_tabelas_aplicacoes()
+    banco = conectar_banco()
+    banco.row_factory = sqlite3.Row
+    caminho = None
+    try:
+        cur = banco.cursor()
+        cur.execute("SELECT prova_id, quantidade_modelos FROM aplicacoes WHERE id=?", (aplicacao_id,))
+        aplicacao = cur.fetchone()
+        if not aplicacao or not _pode_gerenciar_prova(cur, aplicacao['prova_id'], exigir_edicao=True, permitir_finalizada=True):
+            return jsonify(ok=False, mensagem="Acesso não autorizado."), 403
+        try:
+            token = _scanner_assinador_qr().loads(request.form.get('scanner_token_qr',''), max_age=300)
+            if int(token.get('aplicacao_id',-1)) != aplicacao_id:
+                raise ValueError('Aplicação incorreta')
+            aluno_id = int(token['aluno_id'])
+            modelo = int(token['modelo'])
+        except (BadSignature, SignatureExpired, ValueError, KeyError, TypeError):
+            return jsonify(ok=False, mensagem="Identificação expirada. Leia o QR novamente."), 400
+        cur.execute("SELECT 1 FROM aplicacao_alunos WHERE aplicacao_id=? AND aluno_id=?", (aplicacao_id, aluno_id))
+        if not cur.fetchone():
+            return jsonify(ok=False, mensagem="Estudante não pertence à aplicação."), 400
+        questoes = _questoes_modelo_aplicacao(cur, aplicacao_id, modelo)
+        objetivas = [(i,q) for i,q in enumerate(questoes,1) if not _tipo_discursivo_aplicacao(q['tipo_questao'])]
+        if not objetivas:
+            return jsonify(ok=False, mensagem="Nenhuma questão objetiva encontrada."), 400
+        arquivo = request.files.get('imagem')
+        if not arquivo:
+            return jsonify(ok=False, mensagem="Fotografia não recebida."), 400
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+            caminho=tmp.name
+            arquivo.save(tmp)
+        if os.path.getsize(caminho)>9*1024*1024:
+            return jsonify(ok=False, mensagem="Fotografia acima de 9 MB."), 413
+        leitura=ler_respostas_cartao_detalhado(caminho,len(objetivas))
+        itens=[]
+        for indice,(numero,_) in enumerate(objetivas,1):
+            dado=leitura.get(indice,{})
+            resposta=str(dado.get('resposta') or '').upper()
+            situacao=str(dado.get('situacao') or 'em_branco')
+            if resposta not in ('A','B','C','D'): resposta=''
+            itens.append({'numero':numero,'indice':indice,'resposta':resposta,
+                          'situacao':situacao,'confianca':float(dado.get('confianca') or 0)})
+        return jsonify(ok=True,questoes=itens,aluno_id=aluno_id,modelo=modelo)
+    except Exception:
+        app.logger.exception('SCANNER: falha na pré-leitura de respostas')
+        return jsonify(ok=False,mensagem="Falha ao analisar a imagem. Tente novamente."), 500
+    finally:
+        if caminho: _remover_arquivo_silenciosamente(caminho)
+        banco.close()
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/importar", methods=["GET", "POST"])
 def importar_cartoes_aplicacao(aplicacao_id):
     """Importa cartões objetivos.
@@ -24058,6 +24114,22 @@ def importar_cartoes_aplicacao(aplicacao_id):
                         leitura = ler_respostas_cartao_detalhado(
                             caminho, len(objetivas)
                         )
+
+                        # Respostas confirmadas na revisão mobile substituem SOMENTE
+                        # as alternativas da fotografia desta importação.
+                        if scanner_qr_texto is not None and request.form.get('scanner_respostas_confirmadas'):
+                            try:
+                                import json
+                                confirmadas = json.loads(request.form['scanner_respostas_confirmadas'])
+                                if not isinstance(confirmadas, list) or len(confirmadas) != len(objetivas):
+                                    raise ValueError('Quantidade de respostas divergente')
+                                for indice, letra in enumerate(confirmadas, 1):
+                                    if letra not in ('A','B','C','D',''):
+                                        raise ValueError('Alternativa inválida')
+                                    leitura[indice] = {'resposta': letra,
+                                                       'situacao': 'respondida' if letra else 'em_branco'}
+                            except (ValueError, TypeError):
+                                raise ValueError('Revisão de respostas inválida; nenhuma alteração foi salva.')
 
                         # Fonte de verdade do gabarito: cartões novos carregam
                         # o gabarito exato do modelo dentro do QR. Para cartões
