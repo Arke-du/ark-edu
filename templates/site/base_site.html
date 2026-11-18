@@ -11,6 +11,7 @@
   <meta property="og:description" content="Avaliações, correção automática e relatórios completos em um só lugar.">
   <link rel="icon" href="{{ url_for('static', filename='img/logo-arkedus.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-mobile-experience.css') }}">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -28,10 +29,24 @@
       <a href="{{ url_for('site_instituicoes') }}">Instituições</a>
       <a href="{{ url_for('site_planos') }}">Planos</a>
       <a href="{{ url_for('site_contato') }}">Contato</a>
+      <div class="mobile-nav-actions">
+        {% if session.get('usuario_id') %}
+          <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Acessar painel</a>
+          <a class="btn btn-ghost" href="{{ url_for('logout') }}">Sair</a>
+        {% else %}
+          <a class="btn btn-primary" href="{{ url_for('login') }}">Entrar / Fazer login</a>
+          <a class="btn btn-ghost" href="{{ url_for('cadastro_professor_autonomo') }}">Criar conta</a>
+        {% endif %}
+      </div>
     </nav>
     <div class="nav-actions">
-      <a class="btn btn-ghost" href="{{ url_for('login') }}">Entrar</a>
-      <a class="btn btn-primary" href="{{ url_for('cadastro_professor_autonomo') }}">Começar grátis</a>
+      {% if session.get('usuario_id') %}
+        <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Acessar painel</a>
+        <a class="btn btn-primary" href="{{ url_for('logout') }}">Sair</a>
+      {% else %}
+        <a class="btn btn-ghost" href="{{ url_for('login') }}">Entrar</a>
+        <a class="btn btn-primary" href="{{ url_for('cadastro_professor_autonomo') }}">Começar grátis</a>
+      {% endif %}
     </div>
   </div>
 </header>

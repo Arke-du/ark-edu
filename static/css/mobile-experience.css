@@ -1,0 +1,26 @@
+/* ARK EDUS — refinamentos responsivos para telas pequenas.
+   Não altera regras de negócio nem o layout de impressão. */
+@media screen and (max-width: 700px) {
+  html, body { max-width: 100%; overflow-x: clip; }
+  .main, .content, .topbar, .topbar-conteudo { min-width: 0; max-width: 100%; }
+  .content { padding: 14px 12px 28px !important; }
+  .topbar { padding-inline: 12px !important; gap: 8px; }
+  .topbar-conteudo { gap: 8px; flex-wrap: wrap; }
+  .user-box { max-width: min(48vw, 185px); }
+  .content h1 { font-size: clamp(1.45rem, 6vw, 2rem); line-height: 1.2; overflow-wrap: anywhere; }
+  .content h2 { font-size: clamp(1.2rem, 4.8vw, 1.65rem); line-height: 1.25; }
+  .content p, .content label, .content small { overflow-wrap: anywhere; }
+  .content img, .content video, .content canvas, .content svg { max-width: 100%; height: auto; }
+  .content input:not([type="checkbox"]):not([type="radio"]),
+  .content select, .content textarea { max-width: 100%; font-size: 16px; }
+  .content button, .content .btn, .content input[type="submit"] { min-height: 40px; }
+  .content .card, .content .ark-card { max-width: 100%; min-width: 0; }
+  .content .row, .content .d-flex, .content .flex { min-width: 0; }
+  .content .table-responsive, .content .tabela-responsiva, .content .table-wrapper,
+  .content .tabela-container { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+  .ark-toast-area { top: 12px; right: 10px; left: 10px; width: auto; }
+}
+@media screen and (max-width: 390px) {
+  .content { padding-inline: 9px !important; }
+  .topbar { padding-inline: 9px !important; }
+}

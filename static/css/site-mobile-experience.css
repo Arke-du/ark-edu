@@ -1,0 +1,32 @@
+/* ARK EDUS — site público em celulares */
+@media screen and (max-width: 980px) {
+  .site-header { z-index: 200; }
+  .nav-wrap { min-height: 68px; height: auto; padding-block: 10px; }
+  .main-nav { top: calc(100% - 2px); left: 14px; right: 14px; gap: 0; padding: 10px; max-height: calc(100dvh - 92px); overflow-y: auto; }
+  .main-nav > a { display: flex; align-items: center; min-height: 46px; padding: 10px 13px; border-radius: 10px; }
+  .main-nav > a:focus-visible, .main-nav > a:hover { background: #eef5ff; }
+  .mobile-nav-actions { margin-top: 8px; padding: 12px 4px 4px; }
+  .mobile-nav-actions .btn { min-height: 48px; }
+  .nav-toggle { min-width: 44px; min-height: 44px; border-radius: 10px; color: #103b6a; cursor: pointer; }
+  .nav-toggle:focus-visible { outline: 3px solid #1f5bd7; outline-offset: 2px; }
+}
+@media screen and (max-width: 680px) {
+  html, body { max-width: 100%; overflow-x: clip; }
+  .site-container { width: calc(100% - 32px); }
+  .brand { min-width: 0; font-size: clamp(17px, 5vw, 23px); }
+  .brand img { flex: 0 0 auto; }
+  .hero, .page-hero, .section { padding-block: 42px; }
+  .hero h1, .page-hero h1 { font-size: clamp(31px, 9vw, 42px); line-height: 1.1; overflow-wrap: anywhere; }
+  .hero p, .page-hero p, .lead { font-size: 16px; line-height: 1.6; }
+  .hero-grid, .two-col, .feature-split, .contact-grid { gap: 28px; min-width: 0; }
+  .hero-panel { min-height: 245px; }
+  .mock-window { transform: none; }
+  .feature-card, .price-card, .content-card, .contact-form, .steps article { padding: 20px; }
+  .cta-box { padding: 26px 20px; border-radius: 20px; }
+  .hero-actions { gap: 10px; }
+  .hero-actions .btn { min-height: 48px; }
+  .site-footer { padding-top: 40px; }
+  .footer-grid { gap: 18px; }
+  img, video, canvas, svg { max-width: 100%; height: auto; }
+  input, select, textarea { max-width: 100%; font-size: 16px; }
+}
