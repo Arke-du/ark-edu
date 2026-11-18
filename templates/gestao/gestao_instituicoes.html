@@ -1,0 +1,676 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Instituições | ARK EDUS{% endblock %}
+
+{% block conteudo %}
+
+<style>
+
+.filtros-instituicoes{margin:0 0 22px;padding:18px;border:1px solid #dbe7f3;border-radius:16px;background:#f8fbff}.filtros-instituicoes-grid{display:grid;grid-template-columns:1.5fr 1fr 1.2fr 1fr 1fr auto;gap:12px;align-items:end}.filtros-instituicoes label{display:block;margin-bottom:6px;color:#334155;font-size:12px;font-weight:800}.filtros-instituicoes input,.filtros-instituicoes select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font:inherit}.filtros-instituicoes button{min-height:42px;padding:0 15px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#123b82;font-weight:800;cursor:pointer}.filtros-instituicoes-resultado{margin-top:10px;color:#64748b;font-size:13px}@media(max-width:1100px){.filtros-instituicoes-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.filtros-instituicoes-grid{grid-template-columns:1fr}}
+
+/* =====================================================
+   MODAL DE INSTITUIÇÃO — PADRÃO ARK EDU
+===================================================== */
+
+.modal-confirmacao {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.modal-confirmacao.aberto {
+    display: flex;
+}
+
+.modal-fundo {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .58);
+    backdrop-filter: blur(6px);
+}
+
+.modal-caixa {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .65);
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .28);
+    animation: modalInstituicaoEntrada .22s ease-out;
+}
+
+@keyframes modalInstituicaoEntrada {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-conteudo {
+    padding: 28px 28px 18px;
+    text-align: center;
+}
+
+.modal-icone {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 18px;
+    border-radius: 22px;
+}
+
+.modal-icone svg {
+    width: 36px;
+    height: 36px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icone-perigo {
+    border: 1px solid #fecaca;
+    background: linear-gradient(145deg, #fff7f7 0%, #fee2e2 100%);
+    color: #dc2626;
+    box-shadow: 0 10px 24px rgba(220, 38, 38, .12);
+}
+
+.icone-alerta {
+    border: 1px solid #fed7aa;
+    background: linear-gradient(145deg, #fffaf0 0%, #ffedd5 100%);
+    color: #ea580c;
+    box-shadow: 0 10px 24px rgba(234, 88, 12, .12);
+}
+
+.icone-sucesso {
+    border: 1px solid #bbf7d0;
+    background: linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%);
+    color: #16a34a;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, .12);
+}
+
+.modal-caixa h2 {
+    margin: 0 0 8px;
+    color: #123b82;
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.modal-subtitulo {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.modal-instituicao-destaque {
+    margin: 0 28px 18px;
+    padding: 16px 18px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: #f8fbff;
+    text-align: center;
+}
+
+.modal-instituicao-destaque strong {
+    display: block;
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.4;
+}
+
+.modal-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 28px 24px;
+    padding: 13px 14px;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #92400e;
+    font-size: 13px;
+    line-height: 1.55;
+    text-align: left;
+}
+
+.modal-aviso svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin-top: 1px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.modal-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 28px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.btn-modal-cancelar,
+.btn-modal-confirmar {
+    min-height: 42px;
+    padding: 0 17px;
+    border-radius: 11px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.btn-modal-cancelar {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+}
+
+.btn-modal-cancelar:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    transform: translateY(-1px);
+}
+
+.btn-modal-confirmar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid transparent;
+    color: #ffffff;
+}
+
+.confirmar-perigo {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 7px 16px rgba(220, 38, 38, .18);
+}
+
+.confirmar-perigo:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+}
+
+.confirmar-alerta {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    box-shadow: 0 7px 16px rgba(217, 119, 6, .18);
+}
+
+.confirmar-alerta:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-1px);
+}
+
+.confirmar-sucesso {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 7px 16px rgba(22, 163, 74, .18);
+}
+
+.confirmar-sucesso:hover {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    transform: translateY(-1px);
+}
+
+body.modal-aberto {
+    overflow: hidden;
+}
+
+@media (max-width: 560px) {
+    .modal-confirmacao {
+        padding: 14px;
+    }
+
+    .modal-conteudo,
+    .modal-acoes {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .modal-instituicao-destaque,
+    .modal-aviso {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    .modal-acoes {
+        flex-direction: column-reverse;
+    }
+
+    .btn-modal-cancelar,
+    .btn-modal-confirmar {
+        width: 100%;
+    }
+}
+</style>
+
+<div class="pagina-cabecalho">
+
+    <a href="/" class="voltar">
+        ← Voltar ao painel
+    </a>
+
+    <div class="pagina-titulo-linha">
+        <div>
+            <h1>Instituições Cadastradas</h1>
+            <p>Gerencie as escolas cadastradas na plataforma.</p>
+        </div>
+
+        <a href="/gestao/instituicoes/nova" class="btn-primario">
+            + Nova Instituição
+        </a>
+    </div>
+
+</div>
+
+<div class="card-listagem">
+
+    {% if escolas %}
+
+    <div class="filtros-instituicoes">
+      <div class="filtros-instituicoes-grid">
+        <div><label for="filtroInstNome">Instituição</label><input id="filtroInstNome" type="search" placeholder="Nome da instituição"></div>
+        <div><label for="filtroInstInep">Código INEP</label><input id="filtroInstInep" type="search" placeholder="Código INEP"></div>
+        <div><label for="filtroInstCidade">Cidade/UF</label><input id="filtroInstCidade" type="search" placeholder="Cidade ou UF"></div>
+        <div><label for="filtroInstAno">Ano letivo</label><select id="filtroInstAno"><option value="">Todos</option></select></div>
+        <div><label for="filtroInstStatus">Status</label><select id="filtroInstStatus"><option value="">Todos</option><option value="ativa">Ativa</option><option value="inativa">Inativa</option></select></div>
+        <button type="button" id="limparFiltrosInstituicoes">Limpar filtros</button>
+      </div><div id="resultadoFiltrosInstituicoes" class="filtros-instituicoes-resultado"></div>
+    </div>
+    <div class="tabela-container">
+        <table class="tabela">
+            <thead>
+                <tr>
+                    <th>Instituição</th>
+                    <th>Código INEP</th>
+                    <th>Cidade/UF</th>
+                    <th>Diretor</th>
+                    <th>Ano Letivo</th>
+                    <th>Status</th>
+                    <th class="coluna-acoes">Ações</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for escola in escolas %}
+                <tr class="linha-instituicao" data-nome="{{ (escola['nome_instituicao'] or '')|lower|e }}" data-inep="{{ (escola['codigo_inep'] or '')|string|lower|e }}" data-cidade="{{ ((escola['cidade'] or '') ~ ' ' ~ (escola['estado'] or ''))|lower|e }}" data-ano="{{ (escola['ano_letivo_ativo'] or escola['ano_letivo'] or '')|string|lower|e }}" data-status="{{ 'ativa' if escola['status'] == 1 else 'inativa' }}">
+                    <td>
+                        <strong>{{ escola["nome_instituicao"] }}</strong><br>
+                        <small>{{ escola["email"] or "" }}</small>
+                    </td>
+
+                    <td>{{ escola["codigo_inep"] or "-" }}</td>
+
+                    <td>
+                        {{ escola["cidade"] or "-" }}
+                        /
+                        {{ escola["estado"] or "-" }}
+                    </td>
+
+                    <td>{{ escola["diretor"] or "-" }}</td>
+
+                    <td>{{ escola["ano_letivo_ativo"] or escola["ano_letivo"] or "-" }}</td>
+
+                    <td>
+                        {% if escola["status"] == 1 %}
+                            <span class="status ativo">Ativa</span>
+                        {% else %}
+                            <span class="status inativo">Inativa</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="coluna-acoes">
+                        <div class="menu-acoes">
+
+                            <button
+                                type="button"
+                                class="btn-menu-acoes"
+                                aria-label="Abrir opções da instituição"
+                                onclick="alternarMenuAcoes(event, 'menu-escola-{{ escola['id'] }}')"
+                            >
+                                ⋮
+                            </button>
+
+                            <div
+                                class="dropdown-acoes"
+                                id="menu-escola-{{ escola['id'] }}"
+                            >
+                                <a href="/gestao/instituicoes/ver/{{ escola['id'] }}">
+                                    Ver
+                                </a>
+
+                                <a href="/gestao/instituicoes/editar/{{ escola['id'] }}">
+                                    Editar
+                                </a>
+
+                                {% if escola["status"] == 1 %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacao(
+                                            'inativar',
+                                            {{ escola['id'] }},
+                                            '{{ escola['nome_instituicao']|e }}'
+                                        )"
+                                    >
+                                        Inativar
+                                    </button>
+
+                                {% else %}
+
+                                    <button
+                                        type="button"
+                                        class="acao-dropdown"
+                                        onclick="abrirConfirmacao(
+                                            'ativar',
+                                            {{ escola['id'] }},
+                                            '{{ escola['nome_instituicao']|e }}'
+                                        )"
+                                    >
+                                        Ativar
+                                    </button>
+
+                                {% endif %}
+
+                                <button
+                                    type="button"
+                                    class="acao-dropdown acao-excluir"
+                                    onclick="abrirConfirmacao(
+                                        'excluir',
+                                        {{ escola['id'] }},
+                                        '{{ escola['nome_instituicao']|e }}'
+                                    )"
+                                >
+                                    Excluir
+                                </button>
+                            </div>
+
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+
+    <div class="estado-vazio">
+        <h2>Nenhuma instituição cadastrada</h2>
+        <p>Clique em <strong>Nova Instituição</strong> para começar.</p>
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+<div
+    class="modal-confirmacao"
+    id="modalConfirmacao"
+    aria-hidden="true"
+>
+    <div class="modal-fundo" onclick="fecharConfirmacao()"></div>
+
+    <div
+        class="modal-caixa"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tituloConfirmacao"
+        aria-describedby="mensagemConfirmacao"
+    >
+        <div class="modal-conteudo">
+
+            <div class="modal-icone" id="iconeConfirmacao">
+                <svg
+                    id="svgConfirmacao"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 14H6L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                </svg>
+            </div>
+
+            <h2 id="tituloConfirmacao">
+                Confirmar ação
+            </h2>
+
+            <p
+                class="modal-subtitulo"
+                id="mensagemConfirmacao"
+            >
+                Deseja continuar?
+            </p>
+
+        </div>
+
+        <div class="modal-instituicao-destaque">
+            <strong id="nomeInstituicaoConfirmacao">
+                Instituição
+            </strong>
+        </div>
+
+        <div class="modal-aviso">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+            </svg>
+
+            <div id="textoAvisoConfirmacao">
+                Esta ação poderá alterar o acesso da instituição à plataforma.
+            </div>
+        </div>
+
+        <div class="modal-acoes">
+
+            <button
+                type="button"
+                class="btn-modal-cancelar"
+                onclick="fecharConfirmacao()"
+            >
+                Cancelar
+            </button>
+
+            <a
+                href="#"
+                class="btn-modal-confirmar"
+                id="botaoConfirmar"
+            >
+                Confirmar
+            </a>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function fecharMenusAbertos(menuIgnorado = null) {
+    document
+        .querySelectorAll(".dropdown-acoes.aberto")
+        .forEach(function(menu) {
+            if (menu !== menuIgnorado) {
+                menu.classList.remove("aberto");
+            }
+        });
+}
+
+function alternarMenuAcoes(event, menuId) {
+    event.stopPropagation();
+
+    const menu = document.getElementById(menuId);
+    const estavaAberto = menu.classList.contains("aberto");
+
+    fecharMenusAbertos(menu);
+
+    if (estavaAberto) {
+        menu.classList.remove("aberto");
+    } else {
+        menu.classList.add("aberto");
+    }
+}
+
+function abrirConfirmacao(acao, id, nomeInstituicao) {
+    fecharMenusAbertos();
+
+    const modal = document.getElementById("modalConfirmacao");
+    const titulo = document.getElementById("tituloConfirmacao");
+    const mensagem = document.getElementById("mensagemConfirmacao");
+    const botaoConfirmar = document.getElementById("botaoConfirmar");
+    const icone = document.getElementById("iconeConfirmacao");
+    const svg = document.getElementById("svgConfirmacao");
+    const nomeDestaque = document.getElementById(
+        "nomeInstituicaoConfirmacao"
+    );
+    const textoAviso = document.getElementById(
+        "textoAvisoConfirmacao"
+    );
+
+    modal.classList.add("aberto");
+    modal.setAttribute("aria-hidden", "false");
+
+    document.body.classList.add("modal-aberto");
+
+    botaoConfirmar.className = "btn-modal-confirmar";
+    icone.className = "modal-icone";
+
+    nomeDestaque.textContent = nomeInstituicao;
+
+    if (acao === "inativar") {
+        titulo.textContent = "Inativar instituição";
+
+        mensagem.textContent =
+            "Você está prestes a suspender temporariamente o acesso desta instituição.";
+
+        botaoConfirmar.textContent = "Inativar instituição";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/inativar/" + id;
+
+        botaoConfirmar.classList.add("confirmar-alerta");
+        icone.classList.add("icone-alerta");
+
+        svg.innerHTML = `
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M8 12h8"></path>
+        `;
+
+        textoAviso.textContent =
+            "A instituição e seus usuários ficarão sem acesso até que ela seja reativada.";
+    }
+
+    if (acao === "ativar") {
+        titulo.textContent = "Ativar instituição";
+
+        mensagem.textContent =
+            "Você está prestes a restaurar o acesso desta instituição.";
+
+        botaoConfirmar.textContent = "Ativar instituição";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/ativar/" + id;
+
+        botaoConfirmar.classList.add("confirmar-sucesso");
+        icone.classList.add("icone-sucesso");
+
+        svg.innerHTML = `
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M8 12l2.5 2.5L16 9"></path>
+        `;
+
+        textoAviso.textContent =
+            "A instituição e seus usuários poderão voltar a acessar normalmente a plataforma.";
+    }
+
+    if (acao === "excluir") {
+        titulo.textContent = "Excluir instituição";
+
+        mensagem.textContent =
+            "Você está prestes a excluir permanentemente esta instituição.";
+
+        botaoConfirmar.textContent = "Excluir instituição";
+        botaoConfirmar.href =
+            "/gestao/instituicoes/excluir/" + id;
+
+        botaoConfirmar.classList.add("confirmar-perigo");
+        icone.classList.add("icone-perigo");
+
+        svg.innerHTML = `
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4h8v2"></path>
+            <path d="M19 6l-1 14H6L5 6"></path>
+            <path d="M10 11v6"></path>
+            <path d="M14 11v6"></path>
+        `;
+
+        textoAviso.textContent =
+            "Esta ação não poderá ser desfeita e poderá remover usuários, turmas, alunos e outros dados vinculados.";
+    }
+}
+
+function fecharConfirmacao() {
+    const modal = document.getElementById("modalConfirmacao");
+
+    modal.classList.remove("aberto");
+    modal.setAttribute("aria-hidden", "true");
+
+    document.body.classList.remove("modal-aberto");
+}
+
+document.addEventListener("click", function() {
+    fecharMenusAbertos();
+});
+
+document
+    .querySelectorAll(".dropdown-acoes")
+    .forEach(function(menu) {
+        menu.addEventListener("click", function(event) {
+            event.stopPropagation();
+        });
+    });
+
+document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape") {
+        fecharMenusAbertos();
+        fecharConfirmacao();
+    }
+});
+
+
+function configurarFiltrosInstituicoes(){const linhas=[...document.querySelectorAll('.linha-instituicao')];if(!linhas.length)return;const nome=document.getElementById('filtroInstNome'),inep=document.getElementById('filtroInstInep'),cidade=document.getElementById('filtroInstCidade'),ano=document.getElementById('filtroInstAno'),status=document.getElementById('filtroInstStatus'),res=document.getElementById('resultadoFiltrosInstituicoes');[...new Set(linhas.map(l=>l.dataset.ano).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;ano.appendChild(o)});const aplicar=()=>{let n=0;linhas.forEach(l=>{const ok=(!nome.value.trim()||l.dataset.nome.includes(nome.value.trim().toLowerCase()))&&(!inep.value.trim()||l.dataset.inep.includes(inep.value.trim().toLowerCase()))&&(!cidade.value.trim()||l.dataset.cidade.includes(cidade.value.trim().toLowerCase()))&&(!ano.value||l.dataset.ano===ano.value)&&(!status.value||l.dataset.status===status.value);l.style.display=ok?'':'none';if(ok)n++});res.textContent=`${n} instituição${n===1?'':'ões'} encontrada${n===1?'':'s'}.`};[nome,inep,cidade].forEach(e=>e.addEventListener('input',aplicar));[ano,status].forEach(e=>e.addEventListener('change',aplicar));document.getElementById('limparFiltrosInstituicoes').addEventListener('click',()=>{[nome,inep,cidade,ano,status].forEach(e=>e.value='');aplicar()});aplicar()}
+
+document.addEventListener("DOMContentLoaded", function() {
+    configurarFiltrosInstituicoes();
+    const modal = document.getElementById("modalConfirmacao");
+
+    modal.classList.remove("aberto");
+    modal.setAttribute("aria-hidden", "true");
+});
+</script>
+
+{% endblock %}

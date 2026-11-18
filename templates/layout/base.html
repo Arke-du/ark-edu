@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>{% block titulo %}ARK EDUS{% endblock %}</title>
+
+    {# Mesmo favicon usado nas páginas públicas da ARK EDUS. #}
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-arkedus.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/logo-arkedus.png') }}">
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/base.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/menu.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/botoes.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/cards.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/tabelas.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/formularios.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/dashboard.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/ano-letivo-topbar.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/responsivo.css') }}"
+    >
+
+    {% block estilos %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-experience.css') }}">
+
+    <!-- Design System global: deve permanecer após os estilos específicos das páginas -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/ark-design-system.css') }}"
+    >
+
+    <style>
+        /* =====================================================
+           NOTIFICAÇÕES GLOBAIS — ARK EDU
+        ===================================================== */
+
+        .ark-toast-area {
+            position: fixed;
+            top: 88px;
+            right: 24px;
+            z-index: 9999;
+            display: grid;
+            gap: 12px;
+            width: min(420px, calc(100vw - 32px));
+            pointer-events: none;
+        }
+
+        .ark-toast {
+            --ark-toast-cor: #2563eb;
+            --ark-toast-fundo-icone: #eff6ff;
+            --ark-toast-cor-icone: #1d4ed8;
+            position: relative;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) 34px;
+            align-items: center;
+            gap: 12px;
+            min-height: 70px;
+            overflow: hidden;
+            padding: 13px 13px 13px 15px;
+            border: 1px solid #dbe4f0;
+            border-left: 5px solid var(--ark-toast-cor);
+            border-radius: 15px;
+            background: #ffffff;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, .16);
+            pointer-events: auto;
+            animation: arkToastEntrada .28s ease-out both;
+        }
+
+        .ark-toast::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: var(--ark-toast-cor);
+            transform-origin: left center;
+            animation: arkToastTempo 5s linear forwards;
+        }
+
+        .ark-toast-success,
+        .ark-toast-sucesso {
+            --ark-toast-cor: #16a34a;
+            --ark-toast-fundo-icone: #ecfdf3;
+            --ark-toast-cor-icone: #15803d;
+        }
+
+        .ark-toast-error,
+        .ark-toast-erro,
+        .ark-toast-danger {
+            --ark-toast-cor: #dc2626;
+            --ark-toast-fundo-icone: #fef2f2;
+            --ark-toast-cor-icone: #b91c1c;
+        }
+
+        .ark-toast-warning,
+        .ark-toast-aviso {
+            --ark-toast-cor: #d97706;
+            --ark-toast-fundo-icone: #fffbeb;
+            --ark-toast-cor-icone: #b45309;
+        }
+
+        .ark-toast-info,
+        .ark-toast-informacao,
+        .ark-toast-message {
+            --ark-toast-cor: #2563eb;
+            --ark-toast-fundo-icone: #eff6ff;
+            --ark-toast-cor-icone: #1d4ed8;
+        }
+
+        .ark-toast-icone {
+            display: grid;
+            place-items: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--ark-toast-fundo-icone);
+            color: var(--ark-toast-cor-icone);
+        }
+
+        .ark-toast-icone svg,
+        .ark-toast-fechar svg {
+            width: 21px;
+            height: 21px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .ark-toast-conteudo {
+            min-width: 0;
+        }
+
+        .ark-toast-titulo {
+            display: block;
+            margin-bottom: 3px;
+            color: #123b82;
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+
+        .ark-toast-mensagem {
+            margin: 0;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .ark-toast-fechar {
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            transition: .2s ease;
+        }
+
+        .ark-toast-fechar:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .ark-toast-saindo {
+            animation: arkToastSaida .24s ease-in forwards;
+        }
+
+        .ark-toast-saindo::after {
+            animation-play-state: paused;
+        }
+
+        @keyframes arkToastEntrada {
+            from {
+                opacity: 0;
+                transform: translateX(28px) scale(.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes arkToastSaida {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(28px);
+            }
+        }
+
+        @keyframes arkToastTempo {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+
+        @media (max-width: 680px) {
+            .ark-toast-area {
+                top: 76px;
+                right: 16px;
+                left: 16px;
+                width: auto;
+            }
+
+            .ark-toast {
+                grid-template-columns: 38px minmax(0, 1fr) 32px;
+                gap: 10px;
+                min-height: 66px;
+                padding: 12px;
+            }
+
+            .ark-toast-icone {
+                width: 38px;
+                height: 38px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ark-toast,
+            .ark-toast::after,
+            .ark-toast-saindo {
+                animation: none;
+            }
+        }
+    
+
+        /* =====================================================
+           ACESSO AO PERFIL NO RODAPÉ DO MENU
+        ===================================================== */
+        .sidebar-usuario-link {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr) 18px;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 10px;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: inherit;
+            text-decoration: none;
+            transition: .2s ease;
+        }
+
+        .sidebar-usuario-link:hover,
+        .sidebar-usuario-ativo {
+            border-color: #b8e8ef;
+            background: #eefbfd;
+            transform: translateY(-1px);
+        }
+
+        .sidebar-usuario-icone {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            background: #e2f7fa;
+            color: #079bb6;
+        }
+
+        .sidebar-usuario-icone svg {
+            width: 21px;
+            height: 21px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .sidebar-usuario-textos {
+            min-width: 0;
+        }
+
+        .sidebar-usuario-textos strong,
+        .sidebar-usuario-textos > span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sidebar-usuario-seta {
+            color: #079bb6;
+            font-size: 25px;
+            font-weight: 700;
+            line-height: 1;
+        }
+</style>
+<style>.plano-upgrade-mini{display:block;margin:12px;padding:10px 12px;border-radius:10px;background:#eef4ff;color:#174ea6;font-weight:800;text-decoration:none;font-size:12px;text-align:center}</style><link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-navigation-fix.css') }}">
+</head>
+
+<body>
+
+<button type="button" class="ark-mobile-menu-toggle" id="arkMobileMenuToggle" aria-label="Abrir menu de navegação" aria-controls="arkSidebar" aria-expanded="false" hidden>☰</button>
+<div class="ark-mobile-menu-backdrop" id="arkMobileMenuBackdrop" hidden></div>
+<div class="app">
+
+    <!-- =====================================================
+         MENU LATERAL
+    ====================================================== -->
+
+    <aside class="sidebar" id="arkSidebar">
+
+        <div class="sidebar-logo">
+            <a href="/">
+                <img
+                    src="{{ url_for('static', filename='img/logo.png') }}"
+                    alt="ARK EDU"
+                >
+            </a>
+        </div>
+
+        <nav class="menu">
+
+            <!-- Dashboard -->
+
+            <a
+                href="/"
+                class="{% if request.path == '/' %}ativo-menu{% endif %}"
+            >
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 11L12 3L21 11"></path>
+                    <path d="M5 10V21H19V10"></path>
+                    <path d="M9 21V15H15V21"></path>
+                </svg>
+
+                <span>Dashboard</span>
+            </a>
+
+
+            <!-- Instituições -->
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+
+                <a
+                    href="/gestao/instituicoes"
+                    class="{% if request.path.startswith('/gestao/instituicoes') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 21H21"></path>
+                        <path d="M5 21V8L12 3L19 8V21"></path>
+                        <path d="M9 12H9.01"></path>
+                        <path d="M15 12H15.01"></path>
+                        <path d="M9 16H9.01"></path>
+                        <path d="M15 16H15.01"></path>
+                    </svg>
+
+                    <span>Instituições</span>
+                </a>
+
+            {% endif %}
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                <a href="{{ url_for('gestao_assinaturas') }}" class="{% if request.path.startswith('/gestao/assinaturas') %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10H21"></path><path d="M7 15H11"></path><path d="M16 14V18"></path><path d="M14 16H18"></path></svg>
+                    <span>Assinaturas</span>
+                </a>
+            {% endif %}
+
+            {% if session.get("usuario_cargo") == "Administrador Geral" %}
+                <a href="{{ url_for('gestao_cortesias') }}" class="{% if request.path.startswith('/gestao/cortesias') %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><path d="M20 12V22H4V12"></path><path d="M2 7H22V12H2Z"></path><path d="M12 22V7"></path><path d="M12 7H7.5A2.5 2.5 0 1 1 10 4.5C10 6 12 7 12 7Z"></path><path d="M12 7H16.5A2.5 2.5 0 1 0 14 4.5C14 6 12 7 12 7Z"></path></svg>
+                    <span>Cortesias</span>
+                </a>
+            {% endif %}
+
+            {% if session.get("usuario_cargo") in ["Professor Autônomo", "Administrador da Instituição"] %}
+                <a href="{{ url_for('minha_assinatura') }}" class="{% if request.path == '/minha-assinatura' %}ativo-menu{% endif %}">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10H21"></path><path d="M7 15H11"></path></svg>
+                    <span>Minha assinatura</span>
+                </a>
+            {% endif %}
+
+
+            <!-- Usuários -->
+
+            {% if session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ] %}
+
+                <a
+                    href="/usuarios"
+                    class="{% if request.path.startswith('/usuarios') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
+                    </svg>
+
+                    <span>Usuários</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Anos Letivos -->
+
+            {% if session.get("usuario_cargo") in [
+                "Administrador Geral",
+                "Administrador da Instituição"
+            ] %}
+
+                <a
+                    href="/anos-letivos"
+                    class="{% if request.path.startswith('/anos-letivos') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <path d="M16 3V7"></path>
+                        <path d="M8 3V7"></path>
+                        <path d="M3 10H21"></path>
+                        <path d="M8 14H8.01"></path>
+                        <path d="M12 14H12.01"></path>
+                        <path d="M16 14H16.01"></path>
+                        <path d="M8 18H8.01"></path>
+                        <path d="M12 18H12.01"></path>
+                    </svg>
+
+                    <span>Anos Letivos</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Turmas -->
+
+            {% if permissao_modulo("Turmas") %}
+
+                <a
+                    href="/turmas"
+                    class="{% if request.path.startswith('/turmas') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 21H21"></path>
+                        <path d="M5 21V8L12 3L19 8V21"></path>
+                        <path d="M9 21V15H15V21"></path>
+                    </svg>
+
+                    <span>Turmas</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Alunos: gestão cadastral; não aparece para Professor institucional -->
+
+            {% if permissao_modulo("Alunos") and session.get("usuario_cargo") != "Professor" %}
+
+                <a
+                    href="/alunos"
+                    class="{% if request.path.startswith('/alunos') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="9" cy="8" r="4"></circle>
+                        <path d="M2 21C2 16.5 5.5 14 9 14"></path>
+                        <circle cx="18" cy="9" r="3"></circle>
+                    </svg>
+
+                    <span>Alunos</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Banco de Questões -->
+
+            {% if permissao_modulo("Questões") %}
+
+                <a
+                    href="/questoes"
+                    class="{% if request.path.startswith('/questoes') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                        <path d="M14 2V8H20"></path>
+                    </svg>
+
+                    <span>Banco de Questões</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Provas -->
+
+            {% if permissao_modulo("Provas") %}
+
+                <a
+                    href="/provas"
+                    class="{% if request.path.startswith('/provas') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                        <path d="M8 8H16"></path>
+                        <path d="M8 12H16"></path>
+                        <path d="M8 16H13"></path>
+                    </svg>
+
+                    <span>Provas</span>
+                </a>
+
+            {% endif %}
+
+
+            <!-- Horários -->
+            {% if session.get('usuario_cargo') in ['Administrador Geral', 'Administrador da Instituição', 'Coordenador', 'Professor Autônomo', 'Professor'] %}
+            <a href="{{ url_for('horarios_novo.index') }}" class="{% if request.path.startswith('/horarios') %}ativo-menu{% endif %}">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M8 2V6M16 2V6M3 10H21M8 14H10M14 14H16M8 18H10"></path></svg>
+                <span>Horários</span>
+            </a>
+            {% endif %}
+
+            <!-- ARK PLAY / Jogos -->
+
+            <a
+                href="{{ url_for('jogos') }}"
+                class="{% if request.path.startswith('/jogos') %}ativo-menu{% endif %}"
+            >
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 8H18A4 4 0 0 1 22 12V16A3 3 0 0 1 17 18L15 16H9L7 18A3 3 0 0 1 2 16V12A4 4 0 0 1 6 8Z"></path>
+                    <path d="M7 12H11"></path>
+                    <path d="M9 10V14"></path>
+                    <circle cx="16" cy="11" r="1"></circle>
+                    <circle cx="18" cy="14" r="1"></circle>
+                </svg>
+
+                <span>ARK PLAY</span>
+            </a>
+
+
+            <!-- Relatórios -->
+
+            {% if permissao_modulo("Relatórios") %}
+
+                <a
+                    href="/relatorios"
+                    class="{% if request.path.startswith('/relatorios') %}ativo-menu{% endif %}"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 20V10"></path>
+                        <path d="M10 20V4"></path>
+                        <path d="M16 20V14"></path>
+                        <path d="M22 20V8"></path>
+                    </svg>
+
+                    <span>Relatórios</span>
+                </a>
+
+            {% endif %}
+
+
+        </nav>
+
+
+        <!-- =====================================================
+             RODAPÉ DO MENU
+        ====================================================== -->
+
+        <div class="sidebar-rodape">
+
+            <a
+                href="{{ url_for('meu_perfil') }}"
+                class="sidebar-usuario sidebar-usuario-link {% if request.path == '/meu-perfil' %}sidebar-usuario-ativo{% endif %}"
+                title="Editar meu perfil"
+                aria-label="Abrir meu perfil"
+            >
+                <span class="sidebar-usuario-icone" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4 21C4 16.5 8 14 12 14C16 14 20 16.5 20 21"></path>
+                    </svg>
+                </span>
+
+                <span class="sidebar-usuario-textos">
+                    <strong>
+                        {{ (usuario_logado["nome"] if usuario_logado else session.get("usuario_nome", "Usuário")) }}
+                    </strong>
+
+                    <span>
+                        {{ session.get("usuario_cargo", "") }}
+                    </span>
+                </span>
+
+                <span class="sidebar-usuario-seta" aria-hidden="true">›</span>
+            </a>
+
+            {% if conta_saas and conta_saas['tipo_conta'] == 'autonomo' %}
+                {% if conta_em_teste %}
+                    <a class="plano-upgrade-mini" href="{{ url_for('minha_assinatura') }}">Teste gratuito · {{ dias_teste_restantes }} dia{% if dias_teste_restantes != 1 %}s{% endif %} restante{% if dias_teste_restantes != 1 %}s{% endif %}</a>
+                {% elif conta_saas['plano_codigo'] == 'gratuito' %}
+                    <a class="plano-upgrade-mini" href="{{ url_for('site_planos') }}">Plano Gratuito · Fazer upgrade</a>
+                {% endif %}
+            {% endif %}
+
+
+            <!-- Segurança, LGPD e Backups ficam organizados dentro de Meu Perfil. -->
+            <a href="{{ url_for('logout') }}" class="menu-sair" id="botao-sair" rel="nofollow">
+                <svg viewBox="0 0 24 24">
+                    <path d="M10 17L15 12L10 7"></path>
+                    <path d="M15 12H3"></path>
+                    <path d="M21 19V5A2 2 0 0 0 19 3H13"></path>
+                </svg>
+                <span>Sair</span>
+            </a>
+
+        </div>
+</aside>
+
+
+    <!-- =====================================================
+         CONTEÚDO PRINCIPAL
+    ====================================================== -->
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <div class="topbar-conteudo">
+                {% block cabecalho %}{% endblock %}
+            </div>
+
+            <div class="topbar-acoes">
+
+                {% if session.get("usuario_id") and ano_contexto %}
+
+                    <div
+                        class="ano-topo"
+                        id="anoTopo"
+                    >
+
+                        <button
+                            type="button"
+                            class="ano-topo-botao {% if consultando_ano_antigo %}ano-topo-botao-consulta{% endif %}"
+                            id="anoTopoBotao"
+                            aria-expanded="false"
+                            aria-controls="anoTopoMenu"
+                        >
+
+                            <span class="ano-topo-icone">
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                                    <path d="M16 3V7"></path>
+                                    <path d="M8 3V7"></path>
+                                    <path d="M3 10H21"></path>
+                                </svg>
+                            </span>
+
+                            <span class="ano-topo-textos">
+
+                                <small>
+                                    {% if consultando_ano_antigo %}
+                                        Visualizando
+                                    {% else %}
+                                        Ano letivo
+                                    {% endif %}
+                                </small>
+
+                                <strong>
+                                    {{ ano_contexto }}
+                                </strong>
+
+                            </span>
+
+                            <span class="ano-topo-seta">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M6 9L12 15L18 9"></path>
+                                </svg>
+                            </span>
+
+                        </button>
+
+
+                        <div
+                            class="ano-topo-menu"
+                            id="anoTopoMenu"
+                            hidden
+                        >
+
+                            <div class="ano-topo-menu-cabecalho">
+                                <strong>Selecionar ano letivo</strong>
+
+                                <span>
+                                    A plataforma exibirá os dados do ano escolhido.
+                                </span>
+                            </div>
+
+                            <div class="ano-topo-lista">
+
+                                {% for item in anos_disponiveis %}
+
+                                    {% set numero_ano = item["ano"] if item["ano"] is defined else item %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('trocar_ano_letivo', ano=numero_ano) }}"
+                                    >
+
+                                        <button
+                                            type="submit"
+                                            class="ano-topo-opcao {% if numero_ano|int == ano_contexto|int %}ano-topo-opcao-ativa{% endif %}"
+                                        >
+
+                                            <span class="ano-topo-opcao-check">
+
+                                                {% if numero_ano|int == ano_contexto|int %}
+                                                    <svg viewBox="0 0 24 24">
+                                                        <path d="M5 12L10 17L19 8"></path>
+                                                    </svg>
+                                                {% endif %}
+
+                                            </span>
+
+                                            <span class="ano-topo-opcao-texto">
+                                                <strong>{{ numero_ano }}</strong>
+
+                                                {% if item["ativo"] is defined and item["ativo"] == 1 and item["encerrado"] == 0 %}
+                                                    <small>Ativo</small>
+                                                {% elif numero_ano|int == ano_contexto|int and consultando_ano_antigo %}
+                                                    <small>Em consulta</small>
+                                                {% endif %}
+                                            </span>
+
+                                        </button>
+
+                                    </form>
+
+                                {% endfor %}
+
+                            </div>
+
+                            {% if consultando_ano_antigo %}
+
+                                <div class="ano-topo-aviso">
+                                    Você está consultando um ano diferente do ano ativo.
+                                </div>
+
+                            {% endif %}
+
+                            {% if session.get("usuario_cargo") in [
+                                "Administrador Geral",
+                                "Administrador da Instituição"
+                            ] %}
+
+                                <a
+                                    href="/anos-letivos"
+                                    class="ano-topo-gerenciar"
+                                >
+                                    Gerenciar anos letivos
+                                </a>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                {% endif %}
+
+
+                <div class="user-box">
+
+                    <strong>
+                        {{ (usuario_logado["nome"] if usuario_logado else session.get("usuario_nome", "Usuário")) }}
+                    </strong>
+
+                    <span>
+                        {{ session.get("usuario_cargo", "") }}
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+        {% if consultando_ano_antigo %}
+
+            <div class="aviso-ano-consulta">
+
+                <span>
+                    Você está visualizando o ano letivo
+                    <strong>{{ ano_contexto }}</strong>.
+                </span>
+
+                <span>
+                    Novos cadastros devem ser feitos no ano ativo.
+                </span>
+
+            </div>
+
+        {% endif %}
+
+
+        <!-- =====================================================
+             NOTIFICAÇÕES GLOBAIS — ARK EDU
+        ====================================================== -->
+        {% with notificacoes = get_flashed_messages(with_categories=true) %}
+            {% if notificacoes %}
+                <div
+                    class="ark-toast-area"
+                    id="arkToastArea"
+                    aria-live="polite"
+                    aria-atomic="true"
+                >
+                    {% for categoria, mensagem in notificacoes %}
+                        {% set tipo = categoria|default("info", true)|lower %}
+                        {% set tipo_normalizado =
+                            "success" if tipo in ["success", "sucesso"] else
+                            "error" if tipo in ["error", "erro", "danger"] else
+                            "warning" if tipo in ["warning", "aviso", "alerta"] else
+                            "info"
+                        %}
+
+                        <div
+                            class="ark-toast ark-toast-{{ tipo_normalizado }}"
+                            role="{% if tipo_normalizado == 'error' %}alert{% else %}status{% endif %}"
+                            data-ark-toast
+                        >
+                            <div class="ark-toast-icone" aria-hidden="true">
+                                {% if tipo_normalizado == "success" %}
+                                    <svg viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="9"></circle>
+                                        <path d="M8 12L11 15L16 9"></path>
+                                    </svg>
+                                {% elif tipo_normalizado == "error" %}
+                                    <svg viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="9"></circle>
+                                        <path d="M9 9L15 15"></path>
+                                        <path d="M15 9L9 15"></path>
+                                    </svg>
+                                {% elif tipo_normalizado == "warning" %}
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M10.3 4.2L2.5 18A2 2 0 0 0 4.2 21H19.8A2 2 0 0 0 21.5 18L13.7 4.2A2 2 0 0 0 10.3 4.2Z"></path>
+                                        <path d="M12 9V13"></path>
+                                        <path d="M12 17H12.01"></path>
+                                    </svg>
+                                {% else %}
+                                    <svg viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="9"></circle>
+                                        <path d="M12 11V16"></path>
+                                        <path d="M12 8H12.01"></path>
+                                    </svg>
+                                {% endif %}
+                            </div>
+
+                            <div class="ark-toast-conteudo">
+                                <strong class="ark-toast-titulo">
+                                    {% if tipo_normalizado == "success" %}
+                                        Operação realizada
+                                    {% elif tipo_normalizado == "error" %}
+                                        Não foi possível concluir
+                                    {% elif tipo_normalizado == "warning" %}
+                                        Atenção
+                                    {% else %}
+                                        Informação
+                                    {% endif %}
+                                </strong>
+
+                                <p class="ark-toast-mensagem">{{ mensagem }}</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="ark-toast-fechar"
+                                aria-label="Fechar notificação"
+                                data-fechar-toast
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6L18 18"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <section class="content">
+            {% block conteudo %}{% endblock %}
+        </section>
+        <footer style="padding:18px 24px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #e5edf5;margin-top:24px">
+            © 2026 ARK EDUS · <a href="{{ url_for('site_termos') }}" target="_blank">Termos de Uso</a> · <a href="{{ url_for('site_privacidade') }}" target="_blank">Política de Privacidade</a> · <a href="{{ url_for('seguranca_privacidade') }}">LGPD</a>
+        </footer>
+    </main>
+
+</div>
+
+<script>
+(function () {
+    const seletor = document.getElementById("anoTopo");
+    const botao = document.getElementById("anoTopoBotao");
+    const menu = document.getElementById("anoTopoMenu");
+
+    if (!seletor || !botao || !menu) {
+        return;
+    }
+
+    function abrirMenu() {
+        menu.hidden = false;
+        seletor.classList.add("ano-topo-aberto");
+        botao.setAttribute("aria-expanded", "true");
+    }
+
+    function fecharMenu() {
+        menu.hidden = true;
+        seletor.classList.remove("ano-topo-aberto");
+        botao.setAttribute("aria-expanded", "false");
+    }
+
+    botao.addEventListener("click", function (event) {
+        event.stopPropagation();
+
+        if (menu.hidden) {
+            abrirMenu();
+        } else {
+            fecharMenu();
+        }
+    });
+
+    menu.addEventListener("click", function (event) {
+        event.stopPropagation();
+    });
+
+    document.addEventListener("click", function () {
+        fecharMenu();
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+            fecharMenu();
+            botao.focus();
+        }
+    });
+})();
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function removerToast(toast) {
+        if (!toast || toast.classList.contains("ark-toast-saindo")) {
+            return;
+        }
+
+        toast.classList.add("ark-toast-saindo");
+
+        window.setTimeout(function () {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 260);
+    }
+
+    document.querySelectorAll("[data-ark-toast]").forEach(function (toast) {
+        const botaoFechar = toast.querySelector("[data-fechar-toast]");
+
+        if (botaoFechar) {
+            botaoFechar.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                removerToast(toast);
+            });
+        }
+
+        const temporizador = window.setTimeout(function () {
+            removerToast(toast);
+        }, 5000);
+
+        toast.addEventListener("mouseenter", function () {
+            window.clearTimeout(temporizador);
+        }, { once: true });
+    });
+});
+</script>
+
+
+<script>
+(function () {
+    const sair = document.getElementById("botao-sair");
+    if (!sair) return;
+
+    sair.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        // A navegação direta evita que formulários, overlays ou scripts da
+        // página atual capturem o clique e apenas recarreguem o dashboard.
+        window.location.assign(sair.href + (sair.href.includes("?") ? "&" : "?") + "t=" + Date.now());
+    }, true);
+})();
+</script>
+
+<script>
+(function () {
+  const toggle=document.getElementById('arkMobileMenuToggle');
+  const backdrop=document.getElementById('arkMobileMenuBackdrop');
+  const sidebar=document.getElementById('arkSidebar');
+  if(!toggle||!backdrop||!sidebar)return;
+  const mobile=window.matchMedia('(max-width: 900px)');
+  function setOpen(open){
+    const active=Boolean(open&&mobile.matches);
+    document.body.classList.toggle('ark-mobile-menu-open',active);
+    toggle.setAttribute('aria-expanded',String(active));
+    toggle.setAttribute('aria-label',active?'Fechar menu de navegação':'Abrir menu de navegação');
+    toggle.textContent=active?'×':'☰';
+    backdrop.hidden=!active;
+  }
+  function sync(){toggle.hidden=!mobile.matches;if(!mobile.matches)setOpen(false);}
+  toggle.addEventListener('click',()=>setOpen(!document.body.classList.contains('ark-mobile-menu-open')));
+  backdrop.addEventListener('click',()=>setOpen(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false);});
+  sidebar.addEventListener('click',e=>{if(e.target.closest('a[href]'))setOpen(false);});
+  mobile.addEventListener('change',sync);
+  sync();
+})();
+</script>
+{% block scripts %}{% endblock %}
+
+</body>
+
+</html>

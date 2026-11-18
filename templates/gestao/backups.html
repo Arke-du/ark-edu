@@ -1,0 +1,30 @@
+{% extends 'layout/base.html' %}
+{% block titulo %}Backups do Sistema{% endblock %}
+{% block conteudo %}
+<style>
+.backup-page{max-width:1180px;margin:0 auto;padding:28px}.backup-hero,.backup-card{background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 10px 30px rgba(15,23,42,.05)}.backup-hero{padding:26px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:20px}.backup-hero h1{margin:5px 0 6px;color:#123b82}.backup-hero p{margin:0;color:#64748b}.backup-kicker{font-weight:800;color:#06a6b7;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.backup-btn{border:0;border-radius:12px;padding:12px 18px;background:#123b82;color:#fff;font-weight:800;cursor:pointer}.backup-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}.backup-stat{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px}.backup-stat span{display:block;color:#64748b;font-size:12px}.backup-stat strong{display:block;color:#0f172a;margin-top:6px}.backup-card{padding:22px}.backup-table{width:100%;border-collapse:collapse}.backup-table th,.backup-table td{text-align:left;padding:12px;border-bottom:1px solid #e2e8f0;font-size:13px}.backup-table th{color:#475569}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.badge-concluido{background:#dcfce7;color:#166534}.badge-falhou{background:#fee2e2;color:#991b1b}.badge-iniciado{background:#fef3c7;color:#92400e}.badge-expirado{background:#e2e8f0;color:#475569}.backup-link{color:#123b82;font-weight:800;text-decoration:none}.backup-note{margin-top:18px;padding:14px;border-radius:12px;background:#f8fafc;color:#475569;font-size:13px}@media(max-width:900px){.backup-grid{grid-template-columns:1fr 1fr}.backup-hero{align-items:flex-start;flex-direction:column}.backup-table-wrap{overflow:auto}}@media(max-width:520px){.backup-grid{grid-template-columns:1fr}}
+</style>
+<div class="backup-page">
+  <header class="backup-hero">
+    <div><span class="backup-kicker">Segurança de dados</span><h1>Backups do Sistema</h1><p>Cópias consistentes do banco e dos arquivos enviados, com validação e retenção automática.</p></div>
+    <form method="post" action="{{ url_for('criar_backup_manual') }}"><button class="backup-btn" type="submit">Criar backup agora</button></form>
+  </header>
+  <div class="backup-grid">
+    <div class="backup-stat"><span>Backup automático</span><strong>{{ 'Ativado' if automatico_ativo else 'Desativado' }}</strong></div>
+    <div class="backup-stat"><span>Periodicidade</span><strong>A cada {{ intervalo_horas }} hora{% if intervalo_horas != 1 %}s{% endif %}</strong></div>
+    <div class="backup-stat"><span>Retenção</span><strong>{{ retencao_dias }} dias</strong></div>
+    <div class="backup-stat"><span>Conteúdo</span><strong>Banco{% if inclui_uploads %} + uploads{% endif %}{% if criptografia_ativa %} · criptografado{% endif %}</strong></div>
+  </div>
+  <section class="backup-card">
+    <div class="backup-table-wrap"><table class="backup-table"><thead><tr><th>Data</th><th>Tipo</th><th>Arquivo</th><th>Tamanho</th><th>Status</th><th>Mensagem</th><th></th></tr></thead><tbody>
+    {% for b in backups %}<tr>
+      <td>{{ b['criado_em']|formatar_data_hora_local }}</td><td>{{ b['tipo']|capitalize }}</td><td>{{ b['nome_arquivo'] or '—' }}</td>
+      <td>{% if b['tamanho_bytes'] %}{{ '%.2f'|format(b['tamanho_bytes']/1024/1024) }} MB{% else %}—{% endif %}</td>
+      <td><span class="badge badge-{{ b['status'] }}">{{ b['status']|capitalize }}</span></td><td>{{ b['mensagem'] or '—' }}</td>
+      <td>{% if b['status']=='concluido' %}<a class="backup-link" href="{{ url_for('baixar_backup',backup_id=b['id']) }}">Baixar</a>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="7">Nenhum backup registrado.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="backup-note"><strong>Importante:</strong> em hospedagens com disco efêmero, configure <code>BACKUP_DIR</code> em um disco persistente. Sem isso, os backups podem desaparecer quando o serviço reiniciar.</div>
+  </section>
+</div>
+{% endblock %}

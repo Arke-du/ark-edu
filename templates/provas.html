@@ -1,0 +1,3012 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Avaliações | ARK EDUS{% endblock %}
+
+
+{% block estilos %}
+<style>
+    .provas-pagina {
+        --provas-azul: #123b82;
+        --provas-azul-claro: #2563eb;
+        --provas-borda: #dbe4f0;
+        --provas-texto: #0f172a;
+        --provas-texto-suave: #64748b;
+        display: grid;
+        gap: 16px;
+    }
+
+    .provas-topo-interno {
+        display: grid;
+        gap: 26px;
+        margin-bottom: 8px;
+    }
+
+    .provas-voltar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        color: #123b82;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: .2s ease;
+    }
+
+    .provas-voltar:hover {
+        color: #2563eb;
+        transform: translateX(-2px);
+    }
+
+    .provas-topo-linha {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+    .provas-titulo-pagina h1 {
+        margin: 0;
+        color: #17468f;
+        font-size: clamp(28px, 3vw, 36px);
+        font-weight: 900;
+        line-height: 1.12;
+        letter-spacing: -.02em;
+    }
+
+    .provas-titulo-pagina p {
+        margin: 9px 0 0;
+        color: #64748b;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.5;
+    }
+
+    .provas-topo-acoes {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 0 0 auto;
+    }
+
+    .provas-svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .provas-btn-principal,
+    .provas-btn-secundario,
+    .provas-btn-icone {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 44px;
+        border-radius: 12px;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .provas-btn-principal {
+        padding: 0 19px;
+        border: 1px solid var(--provas-azul);
+        background: linear-gradient(135deg, var(--provas-azul), var(--provas-azul-claro));
+        color: #ffffff;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, .2);
+    }
+
+    .provas-btn-principal:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px rgba(37, 99, 235, .27);
+    }
+
+    .provas-btn-secundario {
+        padding: 0 16px;
+        border: 1px solid var(--provas-borda);
+        background: #ffffff;
+        color: var(--provas-azul);
+    }
+
+    .provas-btn-secundario:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+    }
+
+    .provas-indicadores {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .provas-indicador {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        align-items: center;
+        gap: 14px;
+        min-height: 86px;
+        padding: 14px 16px;
+        border: 1px solid var(--provas-borda);
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .045);
+    }
+
+    .provas-indicador-icone {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .provas-indicador.finalizadas .provas-indicador-icone {
+        background: #ecfdf3;
+        color: #16a34a;
+    }
+
+    .provas-indicador.em-correcao .provas-indicador-icone {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .provas-indicador.agendadas .provas-indicador-icone {
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+
+    .provas-indicador.rascunhos .provas-indicador-icone {
+        background: #fffbeb;
+        color: #d97706;
+    }
+
+    .provas-indicador small {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--provas-texto-suave);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .provas-indicador strong {
+        display: block;
+        color: var(--provas-texto);
+        font-size: 24px;
+        line-height: 1;
+    }
+
+    .provas-card {
+        border: 1px solid var(--provas-borda);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, .055);
+    }
+
+    .provas-filtros {
+        display: grid;
+        grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(150px, 1fr)) auto;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .provas-campo {
+        position: relative;
+    }
+
+    .provas-campo svg {
+        position: absolute;
+        top: 50%;
+        left: 14px;
+        width: 19px;
+        height: 19px;
+        transform: translateY(-50%);
+        fill: none;
+        stroke: #64748b;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        pointer-events: none;
+    }
+
+    .provas-input,
+    .provas-select {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--provas-borda);
+        border-radius: 11px;
+        background: #ffffff;
+        color: var(--provas-texto);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        outline: none;
+        transition: .2s ease;
+    }
+
+    .provas-input {
+        padding: 0 14px 0 43px;
+    }
+
+    .provas-select {
+        padding: 0 36px 0 13px;
+    }
+
+    .provas-input:focus,
+    .provas-select:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, .1);
+    }
+
+    .provas-tabela-cabecalho {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--provas-borda);
+    }
+
+    .provas-tabela-cabecalho h2 {
+        margin: 0;
+        color: var(--provas-texto);
+        font-size: 20px;
+    }
+
+    .provas-tabela-cabecalho p {
+        margin: 5px 0 0;
+        color: var(--provas-texto-suave);
+        font-size: 13px;
+    }
+
+    .provas-tabela-wrap {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: visible;
+        border-radius: 0 0 18px 18px;
+    }
+
+    .provas-tabela {
+        width: 100%;
+        min-width: 1050px;
+        border-collapse: collapse;
+    }
+
+    .provas-tabela th {
+        padding: 14px 16px;
+        background: var(--provas-azul);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 850;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .provas-tabela td {
+        padding: 15px 16px;
+        border-bottom: 1px solid #e9eef5;
+        color: #334155;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .provas-tabela tbody tr {
+        transition: .18s ease;
+    }
+
+    .provas-tabela tbody tr:hover {
+        background: #f8fbff;
+    }
+
+    .provas-tabela tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .provas-nome {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 220px;
+    }
+
+    .provas-nome-icone {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 11px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .provas-nome strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--provas-texto);
+        font-size: 13px;
+    }
+
+    .provas-nome small {
+        color: var(--provas-texto-suave);
+        font-size: 11px;
+    }
+
+    .provas-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 29px;
+        padding: 0 11px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 850;
+        white-space: nowrap;
+    }
+
+    .provas-badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .provas-badge-finalizada {
+        background: #ecfdf3;
+        color: #15803d;
+    }
+
+    .provas-badge-em-correcao {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .provas-badge-agendada {
+        background: #eef2ff;
+        color: #4338ca;
+    }
+
+    .provas-badge-rascunho {
+        background: #fffbeb;
+        color: #b45309;
+    }
+
+    .provas-acoes {
+        position: relative;
+        width: 70px;
+        text-align: center;
+    }
+
+    .provas-btn-icone {
+        width: 38px;
+        min-height: 38px;
+        padding: 0;
+        border: 1px solid var(--provas-borda);
+        background: #ffffff;
+        color: var(--provas-azul);
+    }
+
+    .provas-btn-icone:hover,
+    .provas-btn-icone.ativo {
+        border-color: #93c5fd;
+        background: #eff6ff;
+    }
+
+    .provas-dropdown {
+        position: fixed;
+        z-index: 10050;
+        display: none;
+        width: 230px;
+        overflow: hidden;
+        border: 1px solid var(--provas-borda);
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, .18);
+    }
+
+    .provas-dropdown.ativo {
+        display: block;
+    }
+
+    .provas-dropdown a,
+    .provas-dropdown button {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: 100%;
+        min-height: 43px;
+        padding: 0 14px;
+        border: 0;
+        border-bottom: 1px solid #edf2f7;
+        background: #ffffff;
+        color: #334155;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 750;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .provas-dropdown a:last-child,
+    .provas-dropdown button:last-child {
+        border-bottom: 0;
+    }
+
+    .provas-dropdown a:hover,
+    .provas-dropdown button:hover {
+        background: #f8fafc;
+        color: var(--provas-azul);
+    }
+
+    .provas-dropdown .provas-excluir {
+        color: #b91c1c;
+    }
+
+    .provas-dropdown .provas-excluir:hover {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .provas-vazio {
+        display: grid;
+        place-items: center;
+        min-height: 235px;
+        padding: 42px 20px;
+        text-align: center;
+    }
+
+    .provas-vazio[hidden] {
+        display: none;
+    }
+
+    .provas-vazio-icone {
+        display: grid;
+        place-items: center;
+        width: 78px;
+        height: 78px;
+        margin-bottom: 17px;
+        border-radius: 22px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .provas-vazio-icone svg {
+        width: 37px;
+        height: 37px;
+    }
+
+    .provas-vazio h3 {
+        margin: 0;
+        color: var(--provas-texto);
+        font-size: 19px;
+    }
+
+    .provas-vazio p {
+        max-width: 430px;
+        margin: 8px auto 18px;
+        color: var(--provas-texto-suave);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .provas-modal-fundo {
+        position: fixed;
+        inset: 0;
+        z-index: 11000;
+        display: none;
+        place-items: center;
+        padding: 20px;
+        background: rgba(15, 23, 42, .55);
+        backdrop-filter: blur(4px);
+    }
+
+    .provas-modal-fundo.ativo {
+        display: grid;
+    }
+
+    .provas-modal {
+        width: min(700px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        border: 1px solid var(--provas-borda);
+        border-radius: 20px;
+        background: #ffffff;
+        box-shadow: 0 30px 70px rgba(15, 23, 42, .25);
+        animation: provasModalEntrada .2s ease-out both;
+    }
+
+    .provas-modal.pequeno {
+        width: min(470px, 100%);
+    }
+
+    .provas-modal-cabecalho {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--provas-borda);
+    }
+
+    .provas-modal-cabecalho h2 {
+        margin: 0;
+        color: var(--provas-texto);
+        font-size: 20px;
+    }
+
+    .provas-modal-cabecalho p {
+        margin: 5px 0 0;
+        color: var(--provas-texto-suave);
+        font-size: 12px;
+    }
+
+    .provas-modal-corpo {
+        padding: 22px;
+    }
+
+    .provas-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .provas-form-grupo {
+        display: grid;
+        gap: 7px;
+    }
+
+    .provas-form-grupo.largo {
+        grid-column: 1 / -1;
+    }
+
+    .provas-form-grupo label {
+        color: #334155;
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    .provas-form-grupo input,
+    .provas-form-grupo select {
+        width: 100%;
+        min-height: 45px;
+        padding: 0 13px;
+        border: 1px solid var(--provas-borda);
+        border-radius: 11px;
+        background: #ffffff;
+        color: var(--provas-texto);
+        font: inherit;
+        font-size: 13px;
+        outline: none;
+    }
+
+    .provas-form-grupo input:focus,
+    .provas-form-grupo select:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, .1);
+    }
+
+    .provas-modal-rodape {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 16px 22px 22px;
+    }
+
+    .provas-alerta-exclusao {
+        display: flex;
+        gap: 14px;
+        color: #475569;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .provas-alerta-exclusao .provas-vazio-icone {
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        margin: 0;
+        border-radius: 14px;
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    .provas-sem-resultados {
+        display: none;
+    }
+
+    @keyframes provasModalEntrada {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(.985);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    @media (max-width: 1100px) {
+        .provas-indicadores {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .provas-filtros {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .provas-filtros .provas-campo:first-child {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .provas-topo-interno {
+            gap: 20px;
+        }
+
+        .provas-topo-linha {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .provas-topo-acoes,
+        .provas-topo-acoes .provas-btn-principal {
+            width: 100%;
+        }
+
+        .provas-btn-principal {
+            width: 100%;
+        }
+
+        .provas-indicadores,
+        .provas-filtros,
+        .provas-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .provas-filtros .provas-campo:first-child,
+        .provas-form-grupo.largo {
+            grid-column: auto;
+        }
+
+        .provas-tabela-cabecalho {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+
+    /* Lista de avaliações: cartões acessíveis no celular, com ações sempre visíveis */
+    @media screen and (max-width: 900px) {
+      .provas-tabela-wrap { overflow:visible !important; width:100% !important; }
+      .provas-tabela, .provas-tabela tbody { display:block !important; width:100% !important; min-width:0 !important; }
+      .provas-tabela thead { display:none !important; }
+      .provas-tabela tbody tr[data-prova-linha] { display:flex !important; flex-direction:column !important; gap:8px; margin:0 0 14px; padding:16px; border:1px solid #dce6f2; border-radius:16px; background:#fff; box-shadow:0 3px 12px rgba(13,45,98,.05); }
+      .provas-tabela tbody tr[data-prova-linha][hidden] { display:none !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td { display:flex !important; align-items:flex-start; justify-content:space-between; gap:12px; width:100% !important; max-width:100% !important; box-sizing:border-box; padding:3px 0 !important; border:0 !important; white-space:normal !important; overflow-wrap:anywhere; font-size:13px; }
+      .provas-tabela tbody tr[data-prova-linha] > td:first-child { display:block !important; padding-bottom:10px !important; border-bottom:1px solid #e8edf5 !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td:not(:first-child):not(.provas-acoes)::before { content:attr(data-mobile-label); color:#5d7088; font-weight:700; min-width:88px; flex:0 0 88px; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes { display:block !important; padding-top:10px !important; border-top:1px solid #e8edf5 !important; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes > button[data-menu-prova] { display:flex !important; align-items:center; justify-content:center; width:100% !important; min-height:44px; border-radius:10px; background:#0c315e; color:#fff; }
+      .provas-tabela tbody tr[data-prova-linha] > td.provas-acoes > button[data-menu-prova]::after { content:' Ações da avaliação'; margin-left:8px; font-size:13px; font-weight:700; }
+      .provas-dropdown { max-width:calc(100vw - 24px) !important; max-height:calc(100dvh - 24px); overflow-y:auto !important; }
+    }
+
+    /* =========================================================
+       MODAL NOVA AVALIAÇÃO — VERSÃO COMPACTA ARK EDU
+       ========================================================= */
+    #modalNovaProva {
+        padding: 24px;
+    }
+
+    #modalNovaProva .provas-modal {
+        width: min(620px, calc(100vw - 32px));
+        max-height: calc(100vh - 48px);
+        overflow: hidden;
+        border-radius: 22px;
+        background: #ffffff;
+    }
+
+    #modalNovaProva .provas-modal-cabecalho {
+        padding: 20px 22px 16px;
+        border-bottom: 1px solid #e7edf5;
+        background: #ffffff;
+    }
+
+    #modalNovaProva .provas-modal-cabecalho h2 {
+        color: #17468f;
+        font-size: 22px;
+        font-weight: 900;
+    }
+
+    #modalNovaProva .provas-modal-cabecalho p {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    #modalNovaProva form {
+        display: grid;
+        max-height: calc(100vh - 145px);
+        overflow-y: auto;
+    }
+
+    #modalNovaProva .provas-modal-corpo {
+        padding: 20px 22px 12px;
+    }
+
+    #modalNovaProva .provas-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    #modalNovaProva .provas-form-grupo {
+        gap: 6px;
+    }
+
+    #modalNovaProva .provas-form-grupo label {
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    #modalNovaProva .provas-form-grupo input,
+    #modalNovaProva .provas-form-grupo select {
+        min-height: 43px !important;
+        height: 43px !important;
+        padding: 0 13px !important;
+        border: 1px solid #dbe4f0 !important;
+        border-radius: 11px !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 13px !important;
+        box-shadow: none !important;
+    }
+
+    #modalNovaProva .provas-form-grupo input::placeholder {
+        color: #94a3b8;
+    }
+
+    #modalNovaProva .provas-etapa-aviso {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        padding: 12px 13px;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        background: #eff6ff;
+    }
+
+    #modalNovaProva .provas-etapa-aviso strong {
+        display: block;
+        margin-bottom: 2px;
+        color: #1e3a8a;
+        font-size: 12px;
+    }
+
+    #modalNovaProva .provas-etapa-aviso span {
+        display: block;
+        color: #475569;
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+
+    #modalNovaProva .provas-media-card {
+        grid-column: 1 / -1;
+        padding: 14px;
+        border: 1px solid #dbe4f0;
+        border-radius: 13px;
+        background: #f8fbff;
+    }
+
+    #modalNovaProva .provas-media-linha {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    #modalNovaProva .provas-media-texto strong {
+        display: block;
+        color: #1e293b;
+        font-size: 12px;
+    }
+
+    #modalNovaProva .provas-media-texto span {
+        display: block;
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 11px;
+    }
+
+    #modalNovaProva .provas-switch {
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex: 0 0 46px;
+    }
+
+    #modalNovaProva .provas-switch input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #modalNovaProva .provas-switch span {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: #cbd5e1;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    #modalNovaProva .provas-switch span::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 5px rgba(15, 23, 42, .2);
+        transition: .2s ease;
+    }
+
+    #modalNovaProva .provas-switch input:checked + span { background: #2563eb; }
+    #modalNovaProva .provas-switch input:checked + span::after { transform: translateX(20px); }
+
+    #modalNovaProva .provas-media-campo {
+        display: none;
+        margin-top: 13px;
+    }
+
+    #modalNovaProva .provas-media-campo.ativo { display: grid; }
+
+    #modalNovaProva .provas-modal-rodape {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        padding: 14px 22px 18px;
+        border-top: 1px solid #e7edf5;
+        background: #ffffff;
+    }
+
+    #modalNovaProva .provas-btn-cancelar {
+        min-width: 110px;
+    }
+
+    #modalNovaProva .provas-btn-criar {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        min-width: 165px !important;
+        min-height: 44px !important;
+        padding: 0 18px !important;
+        border: 1px solid #123b82 !important;
+        border-radius: 12px !important;
+        background: linear-gradient(135deg, #123b82, #2563eb) !important;
+        color: #ffffff !important;
+        font: inherit !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        text-indent: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        cursor: pointer !important;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, .22) !important;
+    }
+
+    #modalNovaProva .provas-btn-criar span {
+        display: inline !important;
+        color: #ffffff !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    #modalNovaProva .provas-btn-criar svg {
+        width: 19px;
+        height: 19px;
+        flex: 0 0 19px;
+        color: #ffffff !important;
+    }
+
+    @media (max-width: 640px) {
+        #modalNovaProva {
+            padding: 12px;
+        }
+
+        #modalNovaProva .provas-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        #modalNovaProva .provas-form-grupo.largo {
+            grid-column: auto;
+        }
+
+        #modalNovaProva .provas-modal-rodape {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        #modalNovaProva .provas-btn-cancelar,
+        #modalNovaProva .provas-btn-criar {
+            width: 100% !important;
+        }
+    }
+
+
+    /* =========================================================
+       MODAL EXCLUIR AVALIAÇÃO — PADRÃO ARK EDU
+       ========================================================= */
+    #modalExcluirProva {
+        padding: 20px;
+        background: rgba(15, 23, 42, .62);
+        backdrop-filter: blur(5px);
+    }
+
+    #modalExcluirProva .provas-modal {
+        width: min(510px, calc(100vw - 32px));
+        overflow: hidden;
+        border: 1px solid #dbe4f0;
+        border-radius: 22px;
+        background: #ffffff;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, .30);
+    }
+
+    #modalExcluirProva .provas-modal-cabecalho {
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid #e7edf5;
+        background: #ffffff;
+    }
+
+    #modalExcluirProva .provas-modal-cabecalho h2 {
+        color: #17468f;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -.015em;
+    }
+
+    #modalExcluirProva .provas-modal-cabecalho p {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    #modalExcluirProva .provas-btn-fechar-exclusao {
+        width: 38px;
+        min-height: 38px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 11px;
+        background: transparent;
+        color: #17468f;
+        box-shadow: none;
+    }
+
+    #modalExcluirProva .provas-btn-fechar-exclusao:hover {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: #123b82;
+    }
+
+    #modalExcluirProva .provas-modal-corpo {
+        padding: 22px 24px 8px;
+    }
+
+    #modalExcluirProva .provas-alerta-exclusao {
+        display: grid;
+        grid-template-columns: 50px minmax(0, 1fr);
+        align-items: flex-start;
+        gap: 15px;
+        padding: 17px;
+        border: 1px solid #fee2e2;
+        border-radius: 16px;
+        background: #fffafa;
+        color: #475569;
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    #modalExcluirProva .provas-alerta-exclusao .provas-vazio-icone {
+        display: grid;
+        place-items: center;
+        width: 50px;
+        height: 50px;
+        margin: 0;
+        border-radius: 14px;
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    #modalExcluirProva .provas-alerta-exclusao .provas-vazio-icone svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    #modalExcluirProva .provas-alerta-conteudo p {
+        margin: 0;
+        color: #475569;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    #modalExcluirProva .provas-alerta-conteudo strong {
+        color: #0f172a;
+        font-weight: 900;
+    }
+
+    #modalExcluirProva .provas-alerta-conteudo span {
+        display: block;
+        margin-top: 4px;
+        color: #64748b;
+    }
+
+    #modalExcluirProva .provas-modal-rodape {
+        align-items: center;
+        padding: 18px 24px 24px;
+        border-top: 0;
+        background: #ffffff;
+    }
+
+    #modalExcluirProva .provas-btn-cancelar-exclusao,
+    #modalExcluirProva .provas-btn-confirmar-exclusao {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        min-height: 44px !important;
+        padding: 0 18px !important;
+        border-radius: 12px !important;
+        font: inherit !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        cursor: pointer !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: .2s ease !important;
+    }
+
+    #modalExcluirProva .provas-btn-cancelar-exclusao {
+        min-width: 112px;
+        border: 1px solid #dbe4f0 !important;
+        background: #ffffff !important;
+        color: #123b82 !important;
+        box-shadow: none !important;
+    }
+
+    #modalExcluirProva .provas-btn-cancelar-exclusao:hover {
+        border-color: #93c5fd !important;
+        background: #eff6ff !important;
+        color: #123b82 !important;
+    }
+
+    #modalExcluirProva .provas-btn-confirmar-exclusao {
+        min-width: 178px;
+        border: 1px solid #c81e1e !important;
+        background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+        color: #ffffff !important;
+        box-shadow: 0 9px 22px rgba(220, 38, 38, .24) !important;
+    }
+
+    #modalExcluirProva .provas-btn-confirmar-exclusao span,
+    #modalExcluirProva .provas-btn-confirmar-exclusao svg {
+        color: #ffffff !important;
+        stroke: currentColor !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    #modalExcluirProva .provas-btn-confirmar-exclusao svg {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+    }
+
+    #modalExcluirProva .provas-btn-confirmar-exclusao:hover {
+        transform: translateY(-1px);
+        border-color: #991b1b !important;
+        background: linear-gradient(135deg, #991b1b, #b91c1c) !important;
+        color: #ffffff !important;
+        box-shadow: 0 13px 28px rgba(185, 28, 28, .31) !important;
+    }
+
+    #modalExcluirProva .provas-btn-confirmar-exclusao:focus-visible {
+        outline: none;
+        box-shadow:
+            0 0 0 4px rgba(220, 38, 38, .16),
+            0 9px 22px rgba(220, 38, 38, .24) !important;
+    }
+
+    @media (max-width: 560px) {
+        #modalExcluirProva {
+            padding: 12px;
+        }
+
+        #modalExcluirProva .provas-modal-rodape {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        #modalExcluirProva .provas-btn-cancelar-exclusao,
+        #modalExcluirProva .provas-btn-confirmar-exclusao {
+            width: 100% !important;
+        }
+    }
+
+
+
+    /* =========================================================
+       MODAL DUPLICAR AVALIAÇÃO
+       ========================================================= */
+    #modalDuplicarProva {
+        padding: 24px;
+    }
+
+    #modalDuplicarProva .provas-modal {
+        width: min(920px, calc(100vw - 32px));
+        max-height: calc(100vh - 48px);
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid #dbe4f0;
+        background: #ffffff;
+    }
+
+    #modalDuplicarProva form {
+        display: grid;
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+    }
+
+    #modalDuplicarProva .provas-modal-cabecalho {
+        padding: 22px 26px 18px;
+        border-bottom: 1px solid #e6edf6;
+        background: #ffffff;
+    }
+
+    .duplicar-cabecalho-info {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .duplicar-cabecalho-icone {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        border-radius: 14px;
+        background: #eaf2ff;
+        color: #17468f;
+    }
+
+    #modalDuplicarProva .provas-modal-cabecalho h2 {
+        margin: 0;
+        color: #17468f;
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: -.02em;
+    }
+
+    #modalDuplicarProva .provas-modal-cabecalho p {
+        margin: 5px 0 0;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    #modalDuplicarProva .provas-modal-corpo {
+        padding: 22px 26px 18px;
+    }
+
+    #modalDuplicarProva .provas-form-grid {
+        gap: 17px 18px;
+    }
+
+    #modalDuplicarProva .provas-form-grupo {
+        gap: 7px;
+    }
+
+    #modalDuplicarProva .provas-form-grupo label {
+        color: #26364f;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    #modalDuplicarProva .provas-form-grupo input,
+    #modalDuplicarProva .provas-form-grupo select {
+        min-height: 48px;
+        height: 48px;
+        border: 1px solid #d7e1ee;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 400;
+    }
+
+    #modalDuplicarProva .provas-form-grupo select option {
+        font-weight: 400;
+    }
+
+    #modalDuplicarProva .provas-form-grupo input:disabled,
+    #modalDuplicarProva .provas-form-grupo select:disabled {
+        background: #f8fafc;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    .duplicar-media {
+        grid-column: 1 / -1;
+        margin-top: 2px;
+    }
+
+    .duplicar-media-titulo {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 9px;
+        color: #26364f;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .duplicar-media-opcoes {
+        display: grid;
+        grid-template-columns: 1fr 1fr minmax(150px, .8fr);
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .duplicar-media-opcao {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-height: 76px;
+        padding: 13px 14px;
+        border: 1px solid #d7e1ee;
+        border-radius: 13px;
+        background: #ffffff;
+        cursor: pointer;
+        transition: .2s ease;
+    }
+
+    .duplicar-media-opcao input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .duplicar-media-radio {
+        display: grid;
+        place-items: center;
+        width: 21px;
+        height: 21px;
+        flex: 0 0 21px;
+        border: 2px solid #cbd5e1;
+        border-radius: 50%;
+        background: #ffffff;
+    }
+
+    .duplicar-media-opcao input:checked + .duplicar-media-radio {
+        border-color: #2563eb;
+        box-shadow: inset 0 0 0 5px #2563eb;
+    }
+
+    .duplicar-media-opcao:has(input:checked) {
+        border-color: #60a5fa;
+        background: #f5f9ff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .08);
+    }
+
+    .duplicar-media-opcao strong,
+    .duplicar-media-opcao small {
+        display: block;
+    }
+
+    .duplicar-media-opcao strong {
+        color: #173b78;
+        font-size: 13px;
+    }
+
+    .duplicar-media-opcao small {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 11px;
+    }
+
+    .duplicar-nova-media {
+        display: grid;
+        align-content: center;
+        gap: 7px;
+    }
+
+    .duplicar-nova-media label {
+        color: #26364f;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .duplicar-nova-media input {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 13px;
+        border: 1px solid #d7e1ee;
+        border-radius: 12px;
+        font: inherit;
+        outline: none;
+    }
+
+    .duplicar-aviso {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 15px;
+        border: 1px solid #bbebcf;
+        border-radius: 14px;
+        background: #f2fcf6;
+        color: #166534;
+    }
+
+    .duplicar-aviso svg {
+        flex: 0 0 21px;
+    }
+
+    .duplicar-aviso strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 13px;
+    }
+
+    .duplicar-aviso span {
+        color: #3f6650;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .duplicar-resumo {
+        grid-column: 1 / -1;
+        padding: 15px;
+        border: 1px solid #dbe4f0;
+        border-radius: 14px;
+        background: #fbfdff;
+    }
+
+    .duplicar-resumo h3 {
+        margin: 0 0 12px;
+        color: #173b78;
+        font-size: 13px;
+    }
+
+    .duplicar-resumo-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .duplicar-resumo-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        color: #334155;
+        font-size: 11px;
+        line-height: 1.35;
+    }
+
+    .duplicar-resumo-check {
+        display: grid;
+        place-items: center;
+        width: 19px;
+        height: 19px;
+        flex: 0 0 19px;
+        border-radius: 6px;
+        background: #dcfce7;
+        color: #16a34a;
+        font-weight: 900;
+    }
+
+    .duplicar-resumo-item strong {
+        display: block;
+        color: #1e293b;
+        font-size: 12px;
+    }
+
+    #modalDuplicarProva .provas-modal-rodape {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        padding: 15px 26px 20px;
+        border-top: 1px solid #e6edf6;
+        background: #ffffff;
+    }
+
+    #modalDuplicarProva .provas-btn-secundario {
+        min-width: 115px;
+    }
+
+    #modalDuplicarProva .provas-btn-principal {
+        min-width: 190px;
+        min-height: 46px;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    @media (max-width: 760px) {
+        #modalDuplicarProva {
+            padding: 10px;
+        }
+
+        #modalDuplicarProva .provas-modal {
+            width: 100%;
+            max-height: calc(100vh - 20px);
+        }
+
+        .duplicar-media-opcoes,
+        .duplicar-resumo-grid {
+            grid-template-columns: 1fr;
+        }
+
+        #modalDuplicarProva .provas-modal-corpo {
+            padding: 18px;
+        }
+
+        #modalDuplicarProva .provas-modal-rodape {
+            display: grid;
+            padding: 14px 18px 18px;
+        }
+
+        #modalDuplicarProva .provas-btn-secundario,
+        #modalDuplicarProva .provas-btn-principal {
+            width: 100%;
+        }
+    }
+
+
+    /* Correção visual do botão principal do modal de duplicação */
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        min-width: 210px !important;
+        min-height: 46px !important;
+        padding: 0 20px !important;
+        border: 1px solid #17468f !important;
+        border-radius: 12px !important;
+        background: linear-gradient(135deg, #17468f, #2563eb) !important;
+        color: #ffffff !important;
+        font: inherit !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        text-decoration: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        cursor: pointer !important;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, .24) !important;
+        transition: .2s ease !important;
+    }
+
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal:hover {
+        transform: translateY(-1px) !important;
+        background: linear-gradient(135deg, #123b82, #1d4ed8) !important;
+        box-shadow: 0 14px 28px rgba(37, 99, 235, .30) !important;
+    }
+
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal,
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal span,
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal svg {
+        color: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-principal svg {
+        width: 19px !important;
+        height: 19px !important;
+        flex: 0 0 19px !important;
+    }
+
+    #modalDuplicarProva .provas-modal-rodape .provas-btn-secundario {
+        min-width: 118px !important;
+        min-height: 46px !important;
+        border: 1px solid #dbe4f0 !important;
+        border-radius: 12px !important;
+        background: #ffffff !important;
+        color: #17468f !important;
+        font-weight: 850 !important;
+    }
+
+</style>
+{% endblock %}
+
+{% block conteudo %}
+{# Valores padrão evitam erro caso alguma rota renderize a página sem indicadores. #}
+{% set indicadores = indicadores|default({
+    "total": 0,
+    "finalizadas": 0,
+    "em_correcao": 0,
+    "agendadas": 0,
+    "rascunhos": 0
+}, true) %}
+{% set provas = provas|default([], true) %}
+{% set turmas = turmas|default([], true) %}
+{% set professores = professores|default([], true) %}
+{% set escolas = escolas|default([], true) %}
+{% set disciplinas = disciplinas|default([], true) %}
+{% set pode_criar = pode_criar|default(false, true) %}
+{% set pode_editar = pode_editar|default(false, true) %}
+{% set pode_excluir = pode_excluir|default(false, true) %}
+{% set exibir_instituicao = exibir_instituicao|default(false, true) %}
+<div class="provas-pagina">
+
+    <header class="provas-topo-interno">
+        <a href="/" class="provas-voltar">
+            <span aria-hidden="true">←</span>
+            Voltar ao painel
+        </a>
+
+        <div class="provas-topo-linha">
+            <div class="provas-titulo-pagina">
+                <h1>Montagem de Provas</h1>
+                <p>Crie, organize e acompanhe todas as avaliações.</p>
+            </div>
+
+            {% if pode_criar %}
+            <div class="provas-topo-acoes">
+                <button
+                    type="button"
+                    class="provas-btn-principal"
+                    data-abrir-modal="modalNovaProva"
+                >
+                    <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 5V19"></path>
+                        <path d="M5 12H19"></path>
+                    </svg>
+                    Nova avaliação
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="provas-indicadores">
+        <article class="provas-indicador">
+            <div class="provas-indicador-icone">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                    <path d="M14 2V8H20"></path>
+                </svg>
+            </div>
+            <div>
+                <small>Total de provas</small>
+                <strong>{{ indicadores.total }}</strong>
+            </div>
+        </article>
+
+        <article class="provas-indicador finalizadas">
+            <div class="provas-indicador-icone">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M8 12L11 15L16 9"></path>
+                </svg>
+            </div>
+            <div>
+                <small>Finalizadas</small>
+                <strong>{{ indicadores.finalizadas }}</strong>
+            </div>
+        </article>
+
+        <article class="provas-indicador em-correcao">
+            <div class="provas-indicador-icone">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <path d="M12 3V12L17 15"></path>
+                    <circle cx="12" cy="12" r="9"></circle>
+                </svg>
+            </div>
+            <div>
+                <small>Em correção</small>
+                <strong>{{ indicadores.em_correcao }}</strong>
+            </div>
+        </article>
+
+        <article class="provas-indicador agendadas">
+            <div class="provas-indicador-icone">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                    <path d="M16 3V7"></path>
+                    <path d="M8 3V7"></path>
+                    <path d="M3 10H21"></path>
+                    <path d="M12 14V17L14 18"></path>
+                </svg>
+            </div>
+            <div>
+                <small>Agendadas</small>
+                <strong>{{ indicadores.agendadas }}</strong>
+            </div>
+        </article>
+
+        <article class="provas-indicador rascunhos">
+            <div class="provas-indicador-icone">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <path d="M12 20H21"></path>
+                    <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L4 19L5 15Z"></path>
+                </svg>
+            </div>
+            <div>
+                <small>Rascunhos</small>
+                <strong>{{ indicadores.rascunhos }}</strong>
+            </div>
+        </article>
+    </section>
+
+    <section class="provas-card">
+        <div class="provas-filtros">
+            <div class="provas-campo">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="M20 20L16.5 16.5"></path>
+                </svg>
+                <input
+                    type="search"
+                    class="provas-input"
+                    id="filtroBusca"
+                    placeholder="Buscar por avaliação, professor ou disciplina..."
+                    autocomplete="off"
+                >
+            </div>
+
+
+            {% if exibir_instituicao %}
+            <select class="provas-select" id="filtroInstituicao">
+                <option value="">Todas as instituições</option>
+                {% for escola in escolas %}
+                    <option value="{{ escola['id'] }}">{{ escola['nome_instituicao'] }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <select class="provas-select" id="filtroTurma">
+                <option value="">Todas as turmas</option>
+                {% for turma in turmas %}
+                    <option value="{{ turma['nome']|lower }}">{{ turma["nome"] }}</option>
+                {% endfor %}
+            </select>
+
+            <select class="provas-select" id="filtroDisciplina">
+                <option value="">Todas as disciplinas</option>
+                {% for disciplina in disciplinas %}
+                    <option value="{{ disciplina|lower }}">{{ disciplina }}</option>
+                {% endfor %}
+            </select>
+
+            <select class="provas-select" id="filtroStatus">
+                <option value="">Todos os status</option>
+                <option value="rascunho">Rascunho</option>
+                <option value="agendada">Agendada</option>
+                <option value="em-correcao">Em correção</option>
+                <option value="finalizada">Finalizada</option>
+            </select>
+
+            <button type="button" class="provas-btn-secundario" id="limparFiltros">
+                <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6H21"></path>
+                    <path d="M8 6V4H16V6"></path>
+                    <path d="M19 6L18 20H6L5 6"></path>
+                </svg>
+                Limpar
+            </button>
+        </div>
+    </section>
+
+    <section class="provas-card">
+        <div class="provas-tabela-cabecalho">
+            <div>
+                <h2>Avaliações geradas</h2>
+                <p>Visualize, edite, imprima ou acompanhe os resultados.</p>
+            </div>
+</div>
+
+        {% if provas %}
+            <div class="provas-tabela-wrap" id="tabelaProvasWrap">
+                <table class="provas-tabela">
+                    <thead>
+                        <tr>
+                            <th>Avaliação</th>
+                            {% if exibir_instituicao %}<th>Instituição</th>{% endif %}
+                            <th>Turma</th>
+                            <th>Professor</th>
+                            <th>Disciplina</th>
+                            <th>Questões</th>
+                            <th>Aplicação</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="corpoTabelaProvas">
+                        {% for prova in provas %}
+                            <tr
+                                data-prova-linha
+                                data-busca="{{ (prova.nome ~ ' ' ~ prova.professor ~ ' ' ~ prova.disciplina)|lower }}"
+                                data-turma="{{ prova.turma|lower }}"
+                                data-disciplina="{{ prova.disciplina|lower }}"
+                                data-status="{{ prova.status_slug }}"
+                                data-instituicao="{{ prova.escola_id }}"
+                            >
+                                <td>
+                                    <div class="provas-nome">
+                                        <span class="provas-nome-icone">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                                                <path d="M14 2V8H20"></path>
+                                            </svg>
+                                        </span>
+
+                                        <span>
+                                            <strong>{{ prova.nome }}</strong>
+                                            <small>Gerada em {{ prova.data_geracao }}</small>
+                                        </span>
+                                    </div>
+                                </td>
+
+                                {% if exibir_instituicao %}<td>{{ prova.instituicao }}</td>{% endif %}
+                                <td>{{ prova.turma }}</td>
+                                <td>{{ prova.professor }}</td>
+                                <td>{{ prova.disciplina }}</td>
+                                <td>{{ prova.quantidade }}</td>
+                                <td>{{ prova.data_aplicacao }}</td>
+
+                                <td>
+                                    <span class="provas-badge provas-badge-{{ prova.status_slug }}">
+                                        {{ prova.status }}
+                                    </span>
+                                </td>
+
+                                <td class="provas-acoes">
+                                    <button
+                                        type="button"
+                                        class="provas-btn-icone"
+                                        aria-label="Abrir ações da avaliação {{ prova.nome }}"
+                                        data-menu-prova
+                                    >
+                                        <svg class="provas-svg" viewBox="0 0 24 24">
+                                            <circle cx="5" cy="12" r="1"></circle>
+                                            <circle cx="12" cy="12" r="1"></circle>
+                                            <circle cx="19" cy="12" r="1"></circle>
+                                        </svg>
+                                    </button>
+
+                                    <div class="provas-dropdown">
+                                        <a href="/prova/{{ prova.id }}">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M2 12S5.5 5 12 5S22 12 22 12S18.5 19 12 19S2 12 2 12Z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                            Visualizar prova
+                                        </a>
+
+                                        {% if pode_criar %}
+                                        <button
+                                            type="button"
+                                            data-duplicar-prova
+                                            data-prova-id="{{ prova.id }}"
+                                            data-prova-nome="{{ prova.nome }}"
+                                            data-prova-escola="{{ prova.escola_id }}"
+                                            data-prova-professor="{{ prova.professor }}"
+                                            data-prova-disciplina="{{ prova.disciplina }}"
+                                            data-prova-turma="{{ prova.turma }}"
+                                            data-prova-media-ativa="{{ prova.media_ativa }}"
+                                            data-prova-media="{{ prova.media_aprovacao if prova.media_aprovacao is not none else '' }}"
+                                        >
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+                                                <path d="M5 16H4A2 2 0 0 1 2 14V4A2 2 0 0 1 4 2H14A2 2 0 0 1 16 4V5"></path>
+                                            </svg>
+                                            Duplicar prova
+                                        </button>
+                                        {% endif %}
+
+                                        <a href="/provas/{{ prova.id }}/aplicacoes">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <rect x="3" y="4" width="18" height="17" rx="2"></rect>
+                                                <path d="M8 2V6"></path>
+                                                <path d="M16 2V6"></path>
+                                                <path d="M3 10H21"></path>
+                                                <path d="M8 15H8.01"></path>
+                                                <path d="M12 15H12.01"></path>
+                                                <path d="M16 15H16.01"></path>
+                                            </svg>
+                                            Aplicações
+                                        </a>
+
+                                        <a href="/resultados/{{ prova.id }}">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M4 20V10"></path>
+                                                <path d="M10 20V4"></path>
+                                                <path d="M16 20V14"></path>
+                                                <path d="M22 20V8"></path>
+                                            </svg>
+                                            Ver resultados
+                                        </a>
+
+                                        {% if pode_editar %}
+                                        <a href="/editar_prova/{{ prova.id }}">
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M12 20H21"></path>
+                                                <path d="M16.5 3.5A2.1 2.1 0 0 1 19.5 6.5L8 18L4 19L5 15Z"></path>
+                                            </svg>
+                                            Editar prova
+                                        </a>
+                                        {% endif %}
+
+                                        {% if pode_excluir %}
+                                        <button
+                                            type="button"
+                                            class="provas-excluir"
+                                            data-excluir-url="/excluir_prova/{{ prova.id }}"
+                                            data-excluir-nome="{{ prova.nome }}"
+                                        >
+                                            <svg class="provas-svg" viewBox="0 0 24 24">
+                                                <path d="M3 6H21"></path>
+                                                <path d="M8 6V4H16V6"></path>
+                                                <path d="M19 6L18 20H6L5 6"></path>
+                                            </svg>
+                                            Excluir prova
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="provas-vazio" id="semResultados" hidden>
+                <div class="provas-vazio-icone">
+                    <svg class="provas-svg" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="M20 20L16.5 16.5"></path>
+                    </svg>
+                </div>
+                <h3>Nenhuma avaliação encontrada</h3>
+                <p>Altere ou limpe os filtros para voltar a visualizar as avaliações.</p>
+                <button type="button" class="provas-btn-secundario" id="limparFiltrosVazio">
+                    Limpar filtros
+                </button>
+            </div>
+        {% else %}
+            <div class="provas-vazio">
+                <div class="provas-vazio-icone">
+                    <svg class="provas-svg" viewBox="0 0 24 24">
+                        <path d="M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8Z"></path>
+                        <path d="M14 2V8H20"></path>
+                        <path d="M12 12V18"></path>
+                        <path d="M9 15H15"></path>
+                    </svg>
+                </div>
+                <h3>Nenhuma avaliação cadastrada</h3>
+                <p>Crie sua primeira avaliação para começar a gerar provas, cartões-resposta e resultados.</p>
+                {% if pode_criar %}
+                <button type="button" class="provas-btn-principal" data-abrir-modal="modalNovaProva">
+                    Nova avaliação
+                </button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+{% if pode_criar %}
+<div class="provas-modal-fundo" id="modalNovaProva" aria-hidden="true">
+    <div class="provas-modal" role="dialog" aria-modal="true" aria-labelledby="tituloModalNovaProva">
+        <div class="provas-modal-cabecalho">
+            <div>
+                <h2 id="tituloModalNovaProva">Criar avaliação</h2>
+                <p>Cadastre os dados básicos. Na próxima tela você escolherá e organizará as questões.</p>
+            </div>
+
+            <button type="button" class="provas-btn-icone" data-fechar-modal aria-label="Fechar">
+                <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 6L6 18"></path>
+                    <path d="M6 6L18 18"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form method="POST" action="/gerar_prova">
+            <div class="provas-modal-corpo">
+                <div class="provas-form-grid">
+
+                    {% if exibir_instituicao %}
+                    <div class="provas-form-grupo largo">
+                        <label for="escolaProva">Instituição</label>
+                        <select id="escolaProva" name="escola_id" required>
+                            <option value="">Selecione a instituição</option>
+                            {% for escola in escolas %}
+                            <option value="{{ escola['id'] }}">
+                                {{ escola['nome_instituicao'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div class="provas-form-grupo largo">
+                        <label for="nomeProva">Nome da avaliação</label>
+                        <input
+                            id="nomeProva"
+                            name="nome"
+                            type="text"
+                            placeholder="Ex.: Avaliação de História — 2º Bimestre"
+                            maxlength="150"
+                            required
+                        >
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="turmaProva">Turma</label>
+                        <select id="turmaProva" name="turma_id" required>
+                            <option value="">Selecione a turma</option>
+                            {% for turma in turmas %}
+                            <option
+                                value="{{ turma['id'] }}"
+                                data-escola="{{ turma['escola_id'] }}"
+                            >
+                                {{ turma["nome"] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="professorProva">Professor</label>
+
+                        {% if cargo == "Professor" %}
+                        <input
+                            type="hidden"
+                            name="professor_id"
+                            value="{{ professor_logado_id or '' }}"
+                        >
+                        <input
+                            type="text"
+                            value="Professor logado"
+                            disabled
+                        >
+                        {% else %}
+                        <select id="professorProva" name="professor_id" required>
+                            <option value="">Selecione o professor</option>
+                            {% for professor in professores %}
+                            <option
+                                value="{{ professor['id'] }}"
+                                data-escola="{{ professor['escola_id'] }}"
+                            >
+                                {{ professor["nome"] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="disciplinaProva">Componente curricular</label>
+                        <input
+                            id="disciplinaProva"
+                            name="disciplina"
+                            type="text"
+                            list="listaDisciplinas"
+                            placeholder="Ex.: História"
+                            required
+                        >
+                        <datalist id="listaDisciplinas">
+                            {% for disciplina in disciplinas %}
+                            <option value="{{ disciplina }}"></option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="dataAplicacaoProva">Data de aplicação</label>
+                        <input
+                            id="dataAplicacaoProva"
+                            name="data_aplicacao"
+                            type="date"
+                        >
+                    </div>
+
+                    <div class="provas-media-card">
+                        <div class="provas-media-linha">
+                            <div class="provas-media-texto">
+                                <strong>A avaliação terá nota?</strong>
+                                <span>Desative quando a atividade não tiver valor. Nesse caso, o campo de nota não aparecerá na impressão.</span>
+                            </div>
+
+                            <label class="provas-switch" aria-label="A avaliação terá nota">
+                                <input type="checkbox" id="temNotaProva" name="tem_nota" value="1">
+                                <span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="provas-form-grupo provas-media-campo" id="campoPesoTotalProva">
+                        <label for="pesoTotalProva">Valor total da avaliação</label>
+                        <input id="pesoTotalProva" name="peso_total" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal" value="10.00" disabled>
+                        <span style="color:#64748b;font-size:11px;line-height:1.45;">Informe a pontuação máxima que o estudante poderá obter nesta avaliação.</span>
+                    </div>
+
+                    <div class="provas-media-card">
+                        <div class="provas-media-linha">
+                            <div class="provas-media-texto">
+                                <strong>Definir média para aprovação</strong>
+                                <span>Ative para classificar os alunos nos resultados.</span>
+                            </div>
+
+                            <label class="provas-switch" aria-label="Definir média para aprovação">
+                                <input type="checkbox" id="mediaAtivaProva" name="media_ativa" value="1">
+                                <span></span>
+                            </label>
+                        </div>
+
+                        <div class="provas-form-grupo provas-media-campo" id="campoMediaProva">
+                            <label for="mediaAprovacaoProva">Média para aprovação</label>
+                            <input id="mediaAprovacaoProva" name="media_aprovacao" type="number" min="0" max="10" step="0.1" value="6.0" disabled>
+                        </div>
+                    </div>
+
+                    <div class="provas-form-grupo largo">
+                        <div class="provas-etapa-aviso">
+                            <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M12 8V12"></path>
+                                <path d="M12 16H12.01"></path>
+                            </svg>
+
+                            <div>
+                                <strong>Próxima etapa: montagem da avaliação</strong>
+                                <span>Depois de criar, você será levado ao banco de questões para selecionar, revisar e finalizar a prova.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provas-modal-rodape">
+                <button
+                    type="button"
+                    class="provas-btn-secundario provas-btn-cancelar"
+                    data-fechar-modal
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="submit"
+                    class="provas-btn-criar"
+                    aria-label="Criar avaliação e continuar"
+                >
+                    <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12L10 17L19 8"></path>
+                    </svg>
+                    <span>Criar avaliação</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+
+{% if pode_criar %}
+<div class="provas-modal-fundo" id="modalDuplicarProva" aria-hidden="true">
+    <div class="provas-modal" role="dialog" aria-modal="true" aria-labelledby="tituloDuplicarProva">
+        <div class="provas-modal-cabecalho">
+            <div class="duplicar-cabecalho-info">
+                <span class="duplicar-cabecalho-icone">
+                    <svg class="provas-svg" viewBox="0 0 24 24">
+                        <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+                        <path d="M5 16H4A2 2 0 0 1 2 14V4A2 2 0 0 1 4 2H14A2 2 0 0 1 16 4V5"></path>
+                    </svg>
+                </span>
+                <div>
+                    <h2 id="tituloDuplicarProva">Duplicar avaliação</h2>
+                    <p>Informe os novos dados. As questões, pesos e configurações serão copiados.</p>
+                </div>
+            </div>
+
+            <button type="button" class="provas-btn-icone" data-fechar-modal aria-label="Fechar">
+                <svg class="provas-svg" viewBox="0 0 24 24">
+                    <path d="M18 6L6 18"></path>
+                    <path d="M6 6L18 18"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form method="POST" id="formDuplicarProva">
+            <div class="provas-modal-corpo">
+                <div class="provas-form-grid">
+                    {% if exibir_instituicao %}
+                    <div class="provas-form-grupo">
+                        <label for="escolaDuplicar">Instituição *</label>
+                        <select id="escolaDuplicar" name="escola_id" required>
+                            <option value="">Selecione a instituição</option>
+                            {% for escola in escolas %}
+                            <option value="{{ escola['id'] }}">{{ escola['nome_instituicao'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div class="provas-form-grupo {% if not exibir_instituicao %}largo{% endif %}">
+                        <label for="nomeDuplicar">Nome da nova avaliação *</label>
+                        <input id="nomeDuplicar" name="nome" type="text" maxlength="150" required>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="turmaDuplicar">Turma *</label>
+                        <select id="turmaDuplicar" name="turma_id" required>
+                            <option value="">Selecione a turma</option>
+                            {% for turma in turmas %}
+                            <option value="{{ turma['id'] }}" data-escola="{{ turma['escola_id'] }}">
+                                {{ turma['nome'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="professorDuplicar">Professor *</label>
+                        <select id="professorDuplicar" name="professor_id" required>
+                            <option value="">Selecione o professor</option>
+                            {% for professor in professores %}
+                            <option value="{{ professor['id'] }}" data-escola="{{ professor['escola_id'] }}">
+                                {{ professor['nome'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="disciplinaDuplicar">Componente curricular *</label>
+                        <select id="disciplinaDuplicar" name="disciplina" required disabled>
+                            <option value="">Selecione turma e professor</option>
+                        </select>
+                    </div>
+
+                    <div class="provas-form-grupo">
+                        <label for="dataAplicacaoDuplicar">Data de aplicação</label>
+                        <input id="dataAplicacaoDuplicar" name="data_aplicacao" type="date">
+                    </div>
+
+                    <section class="duplicar-media">
+                        <div class="duplicar-media-titulo">
+                            Média de aprovação
+                            <span title="Você pode manter a configuração da avaliação original ou definir uma nova média.">ⓘ</span>
+                        </div>
+
+                        <div class="duplicar-media-opcoes">
+                            <label class="duplicar-media-opcao">
+                                <input type="radio" name="modo_media" value="manter" id="mediaManterDuplicar" checked>
+                                <span class="duplicar-media-radio"></span>
+                                <span>
+                                    <strong>Manter média original</strong>
+                                    <small id="textoMediaOriginal">Carregando configuração...</small>
+                                </span>
+                            </label>
+
+                            <label class="duplicar-media-opcao">
+                                <input type="radio" name="modo_media" value="nova" id="mediaNovaDuplicar">
+                                <span class="duplicar-media-radio"></span>
+                                <span>
+                                    <strong>Definir nova média</strong>
+                                    <small>Informe uma média entre 0 e 10.</small>
+                                </span>
+                            </label>
+
+                            <div class="duplicar-nova-media">
+                                <label for="novaMediaDuplicar">Nova média</label>
+                                <input
+                                    id="novaMediaDuplicar"
+                                    name="nova_media"
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    step="0.1"
+                                    placeholder="Ex.: 6,0"
+                                    disabled
+                                >
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="duplicar-aviso">
+                        <svg class="provas-svg" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 8V12"></path>
+                            <path d="M12 16H12.01"></path>
+                        </svg>
+                        <div>
+                            <strong>A nova avaliação será criada como rascunho.</strong>
+                            <span>Você poderá revisar e editar a cópia antes de finalizá-la.</span>
+                        </div>
+                    </div>
+
+                    <section class="duplicar-resumo">
+                        <h3>O que será copiado</h3>
+                        <div class="duplicar-resumo-grid">
+                            <div class="duplicar-resumo-item">
+                                <span class="duplicar-resumo-check">✓</span>
+                                <span><strong>Questões</strong>e alternativas</span>
+                            </div>
+                            <div class="duplicar-resumo-item">
+                                <span class="duplicar-resumo-check">✓</span>
+                                <span><strong>Ordem</strong>das questões</span>
+                            </div>
+                            <div class="duplicar-resumo-item">
+                                <span class="duplicar-resumo-check">✓</span>
+                                <span><strong>Pesos</strong>e pontuações</span>
+                            </div>
+                            <div class="duplicar-resumo-item">
+                                <span class="duplicar-resumo-check">✓</span>
+                                <span><strong>Configurações</strong>e média escolhida</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="provas-modal-rodape">
+                <button type="button" class="provas-btn-secundario" data-fechar-modal>
+                    Cancelar
+                </button>
+                <button type="submit" class="provas-btn-principal">
+                    <svg class="provas-svg" viewBox="0 0 24 24">
+                        <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+                        <path d="M5 16H4A2 2 0 0 1 2 14V4A2 2 0 0 1 4 2H14A2 2 0 0 1 16 4V5"></path>
+                    </svg>
+                    Duplicar avaliação
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="provas-modal-fundo" id="modalExcluirProva" aria-hidden="true">
+    <div
+        class="provas-modal pequeno"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tituloExcluirProva"
+        aria-describedby="descricaoExcluirProva"
+    >
+        <div class="provas-modal-cabecalho">
+            <div>
+                <h2 id="tituloExcluirProva">Excluir avaliação</h2>
+                <p>Esta operação não poderá ser desfeita.</p>
+            </div>
+
+            <button
+                type="button"
+                class="provas-btn-icone provas-btn-fechar-exclusao"
+                data-fechar-modal
+                aria-label="Fechar"
+            >
+                <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 6L6 18"></path>
+                    <path d="M6 6L18 18"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="provas-modal-corpo">
+            <div class="provas-alerta-exclusao">
+                <div class="provas-vazio-icone" aria-hidden="true">
+                    <svg class="provas-svg" viewBox="0 0 24 24">
+                        <path d="M3 6H21"></path>
+                        <path d="M8 6V4H16V6"></path>
+                        <path d="M19 6L18 20H6L5 6"></path>
+                    </svg>
+                </div>
+
+                <div class="provas-alerta-conteudo" id="descricaoExcluirProva">
+                    <p>
+                        Tem certeza de que deseja excluir
+                        <strong id="nomeProvaExcluir"></strong>?
+                        <span>
+                            Os cartões-resposta e resultados relacionados também poderão ser afetados.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="provas-modal-rodape">
+            <button
+                type="button"
+                class="provas-btn-cancelar-exclusao"
+                data-fechar-modal
+            >
+                Cancelar
+            </button>
+
+            <a
+                href="#"
+                class="provas-btn-confirmar-exclusao"
+                id="confirmarExclusaoProva"
+            >
+                <svg class="provas-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6H21"></path>
+                    <path d="M8 6V4H16V6"></path>
+                    <path d="M19 6L18 20H6L5 6"></path>
+                </svg>
+                <span>Excluir avaliação</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="dadosVinculosDuplicacao" type="application/json">
+{{ vinculos_duplicacao|tojson }}
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const normalizar = function (valor) {
+        return (valor || "")
+            .toString()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+    };
+
+    const linhas = Array.from(
+        document.querySelectorAll("[data-prova-linha]")
+    );
+
+    const busca = document.getElementById("filtroBusca");
+    const instituicao = document.getElementById("filtroInstituicao");
+    const turma = document.getElementById("filtroTurma");
+    const disciplina = document.getElementById("filtroDisciplina");
+    const status = document.getElementById("filtroStatus");
+    const contador = document.getElementById("contadorResultados");
+    const tabelaWrap = document.getElementById("tabelaProvasWrap");
+    const semResultados = document.getElementById("semResultados");
+
+    function filtrarProvas() {
+        const termoBusca = normalizar(busca ? busca.value : "");
+        const instituicaoSelecionada = normalizar(instituicao ? instituicao.value : "");
+        const turmaSelecionada = normalizar(turma ? turma.value : "");
+        const disciplinaSelecionada = normalizar(
+            disciplina ? disciplina.value : ""
+        );
+        const statusSelecionado = normalizar(status ? status.value : "");
+
+        let visiveis = 0;
+
+        linhas.forEach(function (linha) {
+            const correspondeBusca =
+                !termoBusca ||
+                normalizar(linha.dataset.busca).includes(termoBusca);
+
+            const correspondeInstituicao =
+                !instituicaoSelecionada ||
+                normalizar(linha.dataset.instituicao) === instituicaoSelecionada;
+
+            const correspondeTurma =
+                !turmaSelecionada ||
+                normalizar(linha.dataset.turma) === turmaSelecionada;
+
+            const correspondeDisciplina =
+                !disciplinaSelecionada ||
+                normalizar(linha.dataset.disciplina) ===
+                    disciplinaSelecionada;
+
+            const correspondeStatus =
+                !statusSelecionado ||
+                normalizar(linha.dataset.status) === statusSelecionado;
+
+            const exibir =
+                correspondeBusca &&
+                correspondeInstituicao &&
+                correspondeTurma &&
+                correspondeDisciplina &&
+                correspondeStatus;
+
+            linha.hidden = !exibir;
+
+            if (exibir) {
+                visiveis += 1;
+            }
+        });
+
+        if (contador) {
+            contador.textContent =
+                visiveis + (visiveis === 1 ? " avaliação" : " avaliações");
+        }
+
+        if (tabelaWrap && semResultados) {
+            tabelaWrap.hidden = visiveis === 0;
+            semResultados.hidden = visiveis !== 0;
+        }
+    }
+
+    function limparFiltros() {
+        if (busca) busca.value = "";
+        if (instituicao) instituicao.value = "";
+        if (turma) turma.value = "";
+        if (disciplina) disciplina.value = "";
+        if (status) status.value = "";
+
+        filtrarProvas();
+
+        if (busca) {
+            busca.focus();
+        }
+    }
+
+    [busca, instituicao, turma, disciplina, status].forEach(function (campo) {
+        if (!campo) return;
+
+        campo.addEventListener(
+            campo.tagName === "INPUT" ? "input" : "change",
+            filtrarProvas
+        );
+    });
+
+    const botaoLimpar = document.getElementById("limparFiltros");
+    const botaoLimparVazio = document.getElementById("limparFiltrosVazio");
+
+    if (botaoLimpar) {
+        botaoLimpar.addEventListener("click", limparFiltros);
+    }
+
+    if (botaoLimparVazio) {
+        botaoLimparVazio.addEventListener("click", limparFiltros);
+    }
+
+    function fecharMenus() {
+        document.querySelectorAll(".provas-dropdown.ativo").forEach(
+            function (menu) {
+                menu.classList.remove("ativo");
+            }
+        );
+
+        document.querySelectorAll("[data-menu-prova].ativo").forEach(
+            function (botao) {
+                botao.classList.remove("ativo");
+            }
+        );
+    }
+
+    // Etiquetas móveis derivadas dos cabeçalhos reais, sem duplicar ações/permissões.
+    document.querySelectorAll(".provas-tabela").forEach(function (tabela) {
+        const titulos = Array.from(tabela.querySelectorAll("thead th")).map(th => th.textContent.trim());
+        tabela.querySelectorAll("tbody tr[data-prova-linha]").forEach(function (linha) {
+            Array.from(linha.children).forEach(function (celula, indice) {
+                if (celula.tagName === "TD") celula.setAttribute("data-mobile-label", titulos[indice] || "");
+            });
+        });
+    });
+
+    document.querySelectorAll("[data-menu-prova]").forEach(function (botao) {
+        botao.addEventListener("click", function (evento) {
+            evento.preventDefault();
+            evento.stopPropagation();
+
+            const menu = botao.nextElementSibling;
+            const estavaAberto = menu.classList.contains("ativo");
+
+            fecharMenus();
+
+            if (estavaAberto) {
+                return;
+            }
+
+            const posicao = botao.getBoundingClientRect();
+            const larguraMenu = 230;
+            const alturaEstimada = 310;
+
+            let esquerda = posicao.right - larguraMenu;
+            let topo = posicao.bottom + 8;
+
+            if (esquerda < 12) {
+                esquerda = 12;
+            }
+
+            if (topo + alturaEstimada > window.innerHeight - 12) {
+                topo = Math.max(12, posicao.top - alturaEstimada - 8);
+            }
+
+            menu.style.left = esquerda + "px";
+            menu.style.top = topo + "px";
+            menu.classList.add("ativo");
+            botao.classList.add("ativo");
+        });
+    });
+
+    document.addEventListener("click", fecharMenus);
+    window.addEventListener("resize", fecharMenus);
+    window.addEventListener("scroll", fecharMenus, true);
+
+    function abrirModal(modal) {
+        if (!modal) return;
+
+        fecharMenus();
+        modal.classList.add("ativo");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+
+        const primeiroCampo = modal.querySelector(
+            "input:not([type='hidden']), select, button"
+        );
+
+        if (primeiroCampo) {
+            window.setTimeout(function () {
+                primeiroCampo.focus();
+            }, 50);
+        }
+    }
+
+    function fecharModal(modal) {
+        if (!modal) return;
+
+        modal.classList.remove("ativo");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    document.querySelectorAll("[data-abrir-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            abrirModal(
+                document.getElementById(botao.dataset.abrirModal)
+            );
+        });
+    });
+
+    document.querySelectorAll("[data-fechar-modal]").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            fecharModal(botao.closest(".provas-modal-fundo"));
+        });
+    });
+
+    document.querySelectorAll(".provas-modal-fundo").forEach(function (fundo) {
+        fundo.addEventListener("click", function (evento) {
+            if (evento.target === fundo) {
+                fecharModal(fundo);
+            }
+        });
+    });
+
+    const modalExcluir = document.getElementById("modalExcluirProva");
+    const nomeExcluir = document.getElementById("nomeProvaExcluir");
+    const confirmarExcluir = document.getElementById(
+        "confirmarExclusaoProva"
+    );
+
+    document.querySelectorAll("[data-excluir-url]").forEach(function (botao) {
+        botao.addEventListener("click", function (evento) {
+            evento.preventDefault();
+            evento.stopPropagation();
+
+            if (nomeExcluir) {
+                nomeExcluir.textContent =
+                    '“' + botao.dataset.excluirNome + '”';
+            }
+
+            if (confirmarExcluir) {
+                confirmarExcluir.href = botao.dataset.excluirUrl;
+            }
+
+            abrirModal(modalExcluir);
+        });
+    });
+
+
+    const modalDuplicar = document.getElementById("modalDuplicarProva");
+    const formDuplicar = document.getElementById("formDuplicarProva");
+    const escolaDuplicar = document.getElementById("escolaDuplicar");
+    const turmaDuplicar = document.getElementById("turmaDuplicar");
+    const professorDuplicar = document.getElementById("professorDuplicar");
+    const disciplinaDuplicar = document.getElementById("disciplinaDuplicar");
+    const nomeDuplicar = document.getElementById("nomeDuplicar");
+    const dataAplicacaoDuplicar = document.getElementById("dataAplicacaoDuplicar");
+    const mediaManterDuplicar = document.getElementById("mediaManterDuplicar");
+    const mediaNovaDuplicar = document.getElementById("mediaNovaDuplicar");
+    const novaMediaDuplicar = document.getElementById("novaMediaDuplicar");
+    const textoMediaOriginal = document.getElementById("textoMediaOriginal");
+
+    let vinculosDuplicacao = [];
+    const dadosVinculos = document.getElementById("dadosVinculosDuplicacao");
+
+    if (dadosVinculos) {
+        try {
+            vinculosDuplicacao = JSON.parse(dadosVinculos.textContent || "[]");
+        } catch (erro) {
+            vinculosDuplicacao = [];
+        }
+    }
+
+    function escolaAtualDuplicacao() {
+        if (escolaDuplicar) {
+            return escolaDuplicar.value;
+        }
+
+        const opcaoTurma = turmaDuplicar && turmaDuplicar.selectedOptions[0];
+        return opcaoTurma ? (opcaoTurma.dataset.escola || "") : "";
+    }
+
+    function filtrarDestinoDuplicacao() {
+        const escola = escolaAtualDuplicacao();
+
+        [turmaDuplicar, professorDuplicar].forEach(function (select) {
+            if (!select) return;
+
+            Array.from(select.options).forEach(function (opcao, indice) {
+                if (indice === 0) return;
+                opcao.hidden = Boolean(escola) && opcao.dataset.escola !== escola;
+            });
+
+            const selecionada = select.selectedOptions[0];
+            if (selecionada && selecionada.hidden) {
+                select.value = "";
+            }
+        });
+
+        atualizarComponentesDuplicacao();
+    }
+
+    function atualizarComponentesDuplicacao(componentePreferido) {
+        if (!disciplinaDuplicar) return;
+
+        const escola = escolaAtualDuplicacao();
+        const turmaId = turmaDuplicar ? turmaDuplicar.value : "";
+        const professorId = professorDuplicar ? professorDuplicar.value : "";
+
+        disciplinaDuplicar.innerHTML =
+            '<option value="">Selecione turma e professor</option>';
+        disciplinaDuplicar.disabled = true;
+
+        if (!turmaId || !professorId) {
+            return;
+        }
+
+        const componentes = [];
+        const vistos = new Set();
+
+        vinculosDuplicacao.forEach(function (vinculo) {
+            if (
+                String(vinculo.escola_id) === String(escola) &&
+                String(vinculo.turma_id) === String(turmaId) &&
+                String(vinculo.professor_id) === String(professorId)
+            ) {
+                const nome = (vinculo.componente_nome || "").trim();
+                const chave = normalizar(nome);
+
+                if (nome && !vistos.has(chave)) {
+                    vistos.add(chave);
+                    componentes.push(nome);
+                }
+            }
+        });
+
+        componentes.sort(function (a, b) {
+            return a.localeCompare(b, "pt-BR");
+        });
+
+        if (!componentes.length) {
+            const componenteOriginal = (componentePreferido || "").trim();
+
+            if (componenteOriginal) {
+                const opcao = document.createElement("option");
+                opcao.value = componenteOriginal;
+                opcao.textContent = componenteOriginal;
+                disciplinaDuplicar.innerHTML = "";
+                disciplinaDuplicar.appendChild(opcao);
+                disciplinaDuplicar.disabled = false;
+                disciplinaDuplicar.value = componenteOriginal;
+                return;
+            }
+
+            disciplinaDuplicar.innerHTML =
+                '<option value="">Nenhum vínculo encontrado</option>';
+            return;
+        }
+
+        disciplinaDuplicar.innerHTML =
+            '<option value="">Selecione o componente</option>';
+
+        componentes.forEach(function (nome) {
+            const opcao = document.createElement("option");
+            opcao.value = nome;
+            opcao.textContent = nome;
+            disciplinaDuplicar.appendChild(opcao);
+        });
+
+        disciplinaDuplicar.disabled = false;
+
+        if (componentePreferido) {
+            const encontrada = Array.from(disciplinaDuplicar.options).find(
+                function (opcao) {
+                    return normalizar(opcao.value) ===
+                        normalizar(componentePreferido);
+                }
+            );
+
+            if (encontrada) {
+                disciplinaDuplicar.value = encontrada.value;
+            }
+        }
+    }
+
+    function atualizarModoMediaDuplicacao() {
+        if (!novaMediaDuplicar) return;
+
+        const usarNova = Boolean(
+            mediaNovaDuplicar && mediaNovaDuplicar.checked
+        );
+
+        novaMediaDuplicar.disabled = !usarNova;
+        novaMediaDuplicar.required = usarNova;
+
+        if (!usarNova) {
+            novaMediaDuplicar.value = "";
+        }
+    }
+
+    if (mediaManterDuplicar) {
+        mediaManterDuplicar.addEventListener(
+            "change",
+            atualizarModoMediaDuplicacao
+        );
+    }
+
+    if (mediaNovaDuplicar) {
+        mediaNovaDuplicar.addEventListener(
+            "change",
+            atualizarModoMediaDuplicacao
+        );
+    }
+
+    if (escolaDuplicar) {
+        escolaDuplicar.addEventListener("change", filtrarDestinoDuplicacao);
+    }
+
+    if (turmaDuplicar) {
+        turmaDuplicar.addEventListener("change", function () {
+            if (!escolaDuplicar) {
+                filtrarDestinoDuplicacao();
+            } else {
+                atualizarComponentesDuplicacao();
+            }
+        });
+    }
+
+    if (professorDuplicar) {
+        professorDuplicar.addEventListener(
+            "change",
+            function () {
+                atualizarComponentesDuplicacao();
+            }
+        );
+    }
+
+    document.querySelectorAll("[data-duplicar-prova]").forEach(
+        function (botao) {
+            botao.addEventListener("click", function (evento) {
+                evento.preventDefault();
+                evento.stopPropagation();
+
+                if (!formDuplicar) return;
+
+                formDuplicar.action =
+                    "/provas/" + botao.dataset.provaId + "/duplicar";
+
+                if (nomeDuplicar) {
+                    nomeDuplicar.value =
+                        "Cópia de " + (botao.dataset.provaNome || "avaliação");
+                }
+
+                if (dataAplicacaoDuplicar) {
+                    dataAplicacaoDuplicar.value = "";
+                }
+
+                const mediaAtivaOriginal =
+                    String(botao.dataset.provaMediaAtiva || "0") === "1";
+                const mediaOriginal = botao.dataset.provaMedia || "";
+
+                if (mediaManterDuplicar) {
+                    mediaManterDuplicar.checked = true;
+                }
+
+                if (mediaNovaDuplicar) {
+                    mediaNovaDuplicar.checked = false;
+                }
+
+                if (textoMediaOriginal) {
+                    textoMediaOriginal.textContent = mediaAtivaOriginal
+                        ? "Atual: " + String(mediaOriginal).replace(".", ",")
+                        : "A avaliação original não possui média definida.";
+                }
+
+                atualizarModoMediaDuplicacao();
+
+                if (escolaDuplicar) {
+                    escolaDuplicar.value = botao.dataset.provaEscola || "";
+                }
+
+                filtrarDestinoDuplicacao();
+
+                const turmaOriginal = normalizar(botao.dataset.provaTurma);
+                const professorOriginal = normalizar(
+                    botao.dataset.provaProfessor
+                );
+
+                if (turmaDuplicar) {
+                    const turmaEncontrada = Array.from(
+                        turmaDuplicar.options
+                    ).find(function (opcao) {
+                        return !opcao.hidden &&
+                            normalizar(opcao.textContent) === turmaOriginal;
+                    });
+
+                    turmaDuplicar.value = turmaEncontrada
+                        ? turmaEncontrada.value
+                        : "";
+                }
+
+                if (professorDuplicar) {
+                    const professorEncontrado = Array.from(
+                        professorDuplicar.options
+                    ).find(function (opcao) {
+                        return !opcao.hidden &&
+                            normalizar(opcao.textContent) === professorOriginal;
+                    });
+
+                    professorDuplicar.value = professorEncontrado
+                        ? professorEncontrado.value
+                        : "";
+                }
+
+                atualizarComponentesDuplicacao(
+                    botao.dataset.provaDisciplina || ""
+                );
+
+                abrirModal(modalDuplicar);
+            });
+        }
+    );
+
+    if (formDuplicar) {
+        formDuplicar.addEventListener("submit", function (evento) {
+            if (
+                mediaNovaDuplicar &&
+                mediaNovaDuplicar.checked &&
+                novaMediaDuplicar
+            ) {
+                const valor = Number(
+                    String(novaMediaDuplicar.value || "").replace(",", ".")
+                );
+
+                if (
+                    novaMediaDuplicar.value === "" ||
+                    Number.isNaN(valor) ||
+                    valor < 0 ||
+                    valor > 10
+                ) {
+                    evento.preventDefault();
+                    novaMediaDuplicar.focus();
+                    novaMediaDuplicar.setCustomValidity(
+                        "Informe uma média entre 0 e 10."
+                    );
+                    novaMediaDuplicar.reportValidity();
+                    return;
+                }
+
+                novaMediaDuplicar.setCustomValidity("");
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function (evento) {
+        if (evento.key !== "Escape") {
+            return;
+        }
+
+        fecharMenus();
+
+        document.querySelectorAll(".provas-modal-fundo.ativo").forEach(
+            function (modal) {
+                fecharModal(modal);
+            }
+        );
+    });
+
+
+    const temNota = document.getElementById("temNotaProva");
+    const campoPesoTotal = document.getElementById("campoPesoTotalProva");
+    const pesoTotalInput = document.getElementById("pesoTotalProva");
+
+    function atualizarCampoPesoTotal() {
+        if (!temNota || !campoPesoTotal || !pesoTotalInput) return;
+        const ativo = temNota.checked;
+        campoPesoTotal.classList.toggle("ativo", ativo);
+        pesoTotalInput.disabled = !ativo;
+        pesoTotalInput.required = ativo;
+    }
+
+    if (temNota) {
+        temNota.addEventListener("change", atualizarCampoPesoTotal);
+        atualizarCampoPesoTotal();
+    }
+
+    const mediaAtiva = document.getElementById("mediaAtivaProva");
+    const campoMedia = document.getElementById("campoMediaProva");
+    const mediaInput = document.getElementById("mediaAprovacaoProva");
+
+        function atualizarCampoMedia() {
+            if (!mediaAtiva || !campoMedia || !mediaInput) return;
+            const ativo = mediaAtiva.checked;
+            campoMedia.classList.toggle("ativo", ativo);
+            mediaInput.disabled = !ativo;
+            mediaInput.required = ativo;
+        }
+
+        if (mediaAtiva) {
+            mediaAtiva.addEventListener("change", atualizarCampoMedia);
+            atualizarCampoMedia();
+        }
+
+    const escolaProva = document.getElementById("escolaProva");
+
+    const turmaProva = document.getElementById("turmaProva");
+    const professorProva = document.getElementById("professorProva");
+
+    function filtrarCamposPorEscola() {
+        if (!escolaProva) return;
+        const escola = escolaProva.value;
+        [turmaProva, professorProva].forEach(function (select) {
+            if (!select) return;
+            Array.from(select.options).forEach(function (opcao, indice) {
+                if (indice === 0) return;
+                opcao.hidden = Boolean(escola) && opcao.dataset.escola !== escola;
+            });
+            if (select.selectedOptions[0] && select.selectedOptions[0].hidden) {
+                select.value = "";
+            }
+        });
+    }
+
+    if (escolaProva) {
+        escolaProva.addEventListener("change", filtrarCamposPorEscola);
+        filtrarCamposPorEscola();
+    }
+
+    filtrarProvas();
+});
+</script>
+{% endblock %}

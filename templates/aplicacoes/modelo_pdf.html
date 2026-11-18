@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><style>
+@page{size:A4;margin:12mm}body{font:12pt Arial,sans-serif;color:#111;line-height:1.15}
+header{border:1px solid #111;padding:8px;margin-bottom:12px;text-align:center}
+header h1{font-size:13pt;margin:3px 0}header p{font-size:10pt;margin:4px 0}
+.meta{display:flex;justify-content:space-between;border-top:1px solid #111;padding-top:5px}
+.questions{column-count:{{ colunas }};column-gap:8mm}
+.question{margin:0 0 6mm;break-inside:auto}.question-title{font-size:12pt;margin:0 0 2mm;break-after:avoid}
+.statement p{margin:0 0 2mm}.question-image,.alt-image,.statement img{max-width:100%;height:auto}
+.alternative{display:flex;gap:5px;margin:2mm 0;break-inside:avoid}.alt-letter{font-weight:bold}
+.discursive-line{height:8mm;border-bottom:1px solid #999}
+</style></head><body>
+<header><h1>{{ aplicacao.nome_instituicao or 'ARK EDUS' }}</h1><h1>{{ aplicacao.prova_nome }} — Modelo {{ modelo }}</h1>
+<div class="meta"><span>Turma: {{ aplicacao.turma_nome }}</span><span>Disciplina: {{ aplicacao.disciplina }}</span><span>Professor: {{ aplicacao.professor_nome }}</span></div>
+<p style="text-align:left">Aluno(a): _____________________________________________________</p></header>
+<main class="questions">{% for q in questoes %}
+{% set tipo = (q.tipo_questao or '')|lower %}{% set discursiva = ('discurs' in tipo or 'dissert' in tipo or 'resposta' in tipo or 'numer' in tipo) %}
+<section class="question"><h2 class="question-title">Questão {{ '%02d'|format(loop.index) }}</h2>
+<div class="statement">{% if q.enunciado_html %}{{ q.enunciado_html|embutir_imagens_html|safe }}{% else %}{{ q.enunciado }}{% endif %}</div>
+{% if q.imagem %}<img class="question-image" src="{{ q.imagem|imagem_data_uri }}">{% endif %}
+{% if not discursiva %}{% for alt in q.alternativas %}<div class="alternative"><span class="alt-letter">{{ alt.letra }})</span><span>{{ alt.texto or '' }}{% if alt.imagem %}<img class="alt-image" src="{{ alt.imagem|imagem_data_uri }}">{% endif %}</span></div>{% endfor %}
+{% else %}{% for i in range([1,[(q.linhas_resposta or 5)|int,30]|min]|max) %}<div class="discursive-line"></div>{% endfor %}{% endif %}
+</section>{% endfor %}</main></body></html>

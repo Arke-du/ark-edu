@@ -1,0 +1,110 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Relatórios das Avaliações | ARK EDUS{% endblock %}
+{% block conteudo %}
+<style>
+.ra-wrap{max-width:1250px;margin:25px auto;padding:20px;color:#0d315b}.ra-wrap h1{font-size:30px;font-weight:800}.ra-wrap h2{font-size:21px;margin:10px 0}.ra-card{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:20px;margin:18px 0;box-shadow:0 3px 14px #123b8210}.ra-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.ra-number{font-size:30px;font-weight:800;color:#103a72}.ra-muted{color:#61758e}.ra-wrap button,.ra-wrap input[type=search]{padding:10px;border:1px solid #c9d9e7;border-radius:8px;max-width:100%}.ra-wrap button{background:#103a72;color:white;cursor:pointer}.ra-wrap button.ra-secondary{background:white;color:#103a72}.ra-scroll{overflow-x:auto}.ra-wrap table{width:100%;border-collapse:collapse}.ra-wrap th,.ra-wrap td{text-align:left;padding:12px;border-bottom:1px solid #e5edf5}.ra-wrap th{background:#103a72;color:white}.ra-bar{background:#e7eef6;height:15px;border-radius:8px;overflow:hidden;min-width:100px}.ra-bar>div{background:#16a6bb;height:100%}.ra-choose{max-height:300px;overflow:auto;display:grid;gap:8px;margin:12px 0;padding:8px;border:1px solid #e5edf5;border-radius:8px}.ra-choose label{display:flex;gap:8px;align-items:center;padding:5px}.ra-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.ra-filter details{border:1px solid #c9d9e7;border-radius:8px;padding:10px;position:relative}.ra-filter summary{cursor:pointer;font-weight:600}.ra-options{max-height:170px;overflow:auto;display:grid;gap:8px;padding:12px 2px 2px}.ra-options label{display:flex;gap:7px;align-items:center;font-size:13px}.ra-link{color:#096d99;font-weight:700}.ra-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ra-status{font-size:12px;color:#a36513;font-weight:600}.ra-wrap input[type=checkbox]{accent-color:#103a72}
+@page{size:A4 portrait;margin:14mm 12mm 16mm}
+.ra-print-identity{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px}
+.ra-print-ark-logo{width:148px;max-height:68px;object-fit:contain;object-position:left center}
+.ra-print-schools{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:65%}
+.ra-print-school{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:#103a72;max-width:240px}
+.ra-print-school img{width:52px;height:52px;object-fit:contain}
+.ra-school-placeholder{font-size:25px}
+.ra-print-subtitle{font-size:11px;color:#536477}
+
+.ra-print-head,.ra-print-meta,.ra-print-footer{display:none}
+.ra-print-head{border-bottom:3px solid #103a72;padding-bottom:12px;margin-bottom:16px}
+.ra-print-head .brand{font-size:19px;font-weight:900;color:#103a72;letter-spacing:.5px}
+.ra-print-head .report-title{font-size:17px;font-weight:800;margin-top:8px;color:#103a72}
+.ra-print-meta{font-size:11px;line-height:1.7;margin:12px 0 20px}
+.ra-print-footer{font-size:10px;color:#5c6e82;border-top:1px solid #d3deea;padding-top:7px;margin-top:15px}
+@media print{
+ html,body{background:#fff!important;color:#17283d!important;font-family:Arial,Helvetica,sans-serif!important;font-size:10pt!important}
+ body *{visibility:hidden}
+ .ra-wrap,.ra-wrap *{visibility:visible}
+ .ra-wrap{position:absolute!important;left:0!important;top:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;color:#17283d!important}
+ .sidebar,.sidebar-wrapper,aside,nav,header,.topbar,footer,.ra-no-print,#raFiltros,#raPanorama,.ra-link{display:none!important}
+ .ra-print-head,.ra-print-meta,.ra-print-footer{display:block!important}
+ .ra-print-head{border-bottom:3px solid #109db7!important;break-inside:avoid!important}
+ .ra-print-identity{border-bottom:1px solid #d8e6ef!important}
+ .ra-print-ark-logo,.ra-print-school img{visibility:visible!important;display:block!important}
+ .ra-print-school{break-inside:avoid!important}
+ .ra-print-meta{background:#f1f6fb!important;padding:10px!important;border-left:3px solid #119eb7!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+
+ .ra-wrap>h1,.ra-wrap>p.ra-muted{display:none!important}
+ .ra-card{border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:15px 0!important;break-inside:auto!important}
+ .ra-card .ra-card{border:1px solid #d6e2ed!important;border-radius:5px!important;padding:10px!important;margin:4px 0!important;break-inside:avoid!important}
+ .ra-grid{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important}
+ .ra-number{font-size:22px!important}
+ .ra-wrap h2{font-size:14px!important;color:#103a72!important;margin:18px 0 10px!important;break-after:avoid!important}
+ .ra-bar,.ra-bar>div,.ra-wrap th{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+ .ra-bar{background:#e4edf6!important;border:1px solid #d0dce8!important}
+ .ra-bar>div{background:#159eb6!important}
+ .ra-scroll{overflow:visible!important}
+ .ra-wrap table{font-size:8pt!important;table-layout:fixed!important;width:100%!important}
+ .ra-wrap th,.ra-wrap td{padding:6px 5px!important;overflow-wrap:anywhere!important;vertical-align:top!important}
+ .ra-wrap th{background:#103a72!important;color:white!important}
+ .ra-wrap thead{display:table-header-group}
+ .ra-wrap tr{break-inside:avoid!important;page-break-inside:avoid!important}
+ .ra-wrap td:last-child,.ra-wrap th:last-child{display:none!important}
+ .ra-wrap a[href]:after{content:none!important}
+ .ra-print-footer{break-inside:avoid!important}
+}
+</style>
+<main class="ra-wrap">
+<div class="ra-actions ra-no-print" style="justify-content:flex-end"><button type="button" onclick="imprimirRelatorio()">🖨 Imprimir relatório organizado</button></div>
+<div class="ra-print-head">
+ <div class="ra-print-identity">
+  <img class="ra-print-ark-logo" src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt="ARK EDUS">
+  <div class="ra-print-schools">
+  {% for escola in escolas_relatorio %}<div class="ra-print-school">
+   {% if escola.logo %}<img src="{{ url_for('static', filename='uploads/' + escola.logo) }}" alt="Logo de {{ escola.nome }}">{% else %}<span class="ra-school-placeholder">🏫</span>{% endif %}
+   <span>{{ escola.nome }}</span>
+  </div>{% endfor %}
+  </div>
+ </div>
+ <div class="report-title">RELATÓRIO DE DESEMPENHO DAS AVALIAÇÕES</div>
+ <div class="ra-print-subtitle">Panorama geral das avaliações aplicadas · ARK EDUS</div>
+</div>
+<div class="ra-print-meta"><div><strong>Instituições:</strong> <span id="printEscolas">Todas autorizadas</span></div><div><strong>Turmas:</strong> <span id="printTurmas">Todas</span> &nbsp; <strong>Disciplinas:</strong> <span id="printDisciplinas">Todas</span></div><div><strong>Anos letivos:</strong> <span id="printAnos">Todos</span></div><div><strong>Emissão:</strong> <span id="printData"></span></div></div><h1>Relatórios das Avaliações</h1><p class="ra-muted">Compare provas aplicadas e resultados objetivos corrigidos. As correções existentes não são alteradas.</p>
+<form method="get" class="ra-card" id="raFiltros"><h2>Filtros — selecione uma ou várias opções</h2><div class="ra-filter">
+{% for campo,titulo,opcoes in [('escola_id','Instituições',escolas),('turma_id','Turmas',turmas),('disciplina','Disciplinas',disciplinas),('ano_letivo_id','Anos letivos',anos)] %}
+<details><summary>{{titulo}} <span class="ra-muted" data-counter="{{campo}}"></span></summary><div class="ra-actions" style="margin-top:9px"><button type="button" class="ra-secondary ra-filter-all" data-field="{{campo}}">Selecionar todos</button><button type="button" class="ra-secondary ra-filter-none" data-field="{{campo}}">Limpar</button></div><div class="ra-options">
+{% for opcao in opcoes %}{% if campo in ['escola_id','turma_id','ano_letivo_id'] %}{% set valor=opcao[0] %}{% set nome=opcao[1] %}{% else %}{% set valor=opcao %}{% set nome=opcao %}{% endif %}
+<label><input type="checkbox" name="{{campo}}" value="{{valor}}" {% if valor|string in filtros[campo] %}checked{% endif %}>{{nome}}</label>
+{% else %}<span class="ra-muted">Sem opções</span>{% endfor %}</div></details>
+{% endfor %}</div><div class="ra-actions" style="margin-top:14px"><label><input type="checkbox" name="somente_corrigidas" value="1" {% if somente_corrigidas %}checked{% endif %}> Somente avaliações com resultados corrigidos</label><button type="submit">Aplicar filtros</button><button class="ra-secondary" type="button" onclick="location.href=location.pathname">Limpar filtros</button></div></form>
+<section class="ra-card"><h2>Panorama Geral da Escola</h2><p class="ra-muted">Pesquise pelo nome e selecione as avaliações para comparar. A média é ponderada pelo número de resultados corrigidos.</p>
+<form method="get" id="raPanorama">{% for campo,valores in filtros.items() %}{% for valor in valores %}<input type="hidden" name="{{campo}}" value="{{valor}}">{% endfor %}{% endfor %}{% if somente_corrigidas %}<input type="hidden" name="somente_corrigidas" value="1">{% endif %}<input type="hidden" name="selecionar" value="1">
+<input type="search" id="raBusca" placeholder="Pesquisar avaliação, turma ou disciplina..." aria-label="Pesquisar avaliações" style="width:100%;margin:10px 0">
+<div class="ra-actions"><button type="button" class="ra-secondary" id="raTodas">Selecionar todas as visíveis</button><button type="button" class="ra-secondary" id="raNenhuma">Limpar seleção</button><span class="ra-muted" id="raContagem"></span></div>
+<div class="ra-choose" id="raLista">{% for prova in dados %}<label class="ra-prova"><input type="checkbox" name="provas" value="{{prova.id}}" {% if prova.id in selecionadas %}checked{% endif %}><span>{{prova.nome}} — {{prova.turma_nome}} ({{prova.disciplina or 'Sem disciplina'}}) · <strong>{{prova.avaliados}} corrigidos</strong> {% if prova.avaliados == 0 %}<span class="ra-status">Sem resultados objetivos localizados</span>{% endif %}</span></label>{% else %}<p>Não há avaliações disponíveis para estes filtros.</p>{% endfor %}</div><button type="submit">Gerar panorama</button></form>
+<div class="ra-grid" style="margin-top:18px"><div class="ra-card"><div class="ra-muted">Avaliações selecionadas</div><div class="ra-number">{{panorama|length}}</div></div><div class="ra-card"><div class="ra-muted">Resultados corrigidos</div><div class="ra-number">{{total}}</div></div><div class="ra-card"><div class="ra-muted">Desempenho geral das avaliações selecionadas</div><div class="ra-number">{% if media is not none %}{{'%.1f'|format(media)}}%{% else %}—{% endif %}</div></div></div>
+<h2>Comparação de desempenho</h2>{% for p in panorama %}<div style="margin:13px 0"><div><strong>{{p.nome}}</strong> <span class="ra-muted">— {{p.turma_nome}} · {{p.avaliados}} corrigidos</span></div><div style="display:flex;gap:10px;align-items:center"><div class="ra-bar" style="flex:1"><div style="width:{{p.media or 0}}%"></div></div><strong>{% if p.media is not none %}{{p.media}}%{% else %}—{% endif %}</strong></div></div>{% else %}<p class="ra-muted">Selecione pelo menos uma avaliação com resultados para gerar o gráfico.</p>{% endfor %}</section>
+<section class="ra-card"><h2>Resultados por avaliação</h2><div class="ra-scroll"><table><thead><tr><th>Avaliação</th><th>Instituição</th><th>Turma</th><th>Disciplina</th><th>Corrigidos</th><th>Acerto médio geral (objetivas e discursivas)</th><th>Resultados</th></tr></thead><tbody>{% for p in dados %}<tr><td>{{p.nome}}</td><td>{{p.escola_nome}}</td><td>{{p.turma_nome}}</td><td>{{p.disciplina or '—'}}</td><td>{{p.avaliados}}</td><td>{% if p.media is not none %}{{p.media}}%{% else %}<span class="ra-status">Sem registros corrigidos</span>{% endif %}</td><td><a class="ra-link" href="{{url_for('resultados',prova_id=p.id)}}">Ver resultados</a></td></tr>{% else %}<tr><td colspan="7">Nenhuma avaliação encontrada.</td></tr>{% endfor %}</tbody></table></div></section>
+<div class="ra-print-footer">ARK EDUS · Relatório gerado a partir dos resultados disponíveis no sistema. Avaliações sem correções objetivas identificadas são apresentadas sem média, e não como 0%.</div>
+</main>
+<script>
+function imprimirRelatorio(){
+ const campos=[['escola_id','printEscolas'],['turma_id','printTurmas'],['disciplina','printDisciplinas'],['ano_letivo_id','printAnos']];
+ for(const [campo,destino] of campos){
+  const selecionados=[...document.querySelectorAll('#raFiltros input[name="'+campo+'"]:checked')].map(x=>x.closest('label').textContent.trim());
+  document.getElementById(destino).textContent=selecionados.length?selecionados.join(', '):'Todos';
+ }
+ document.getElementById('printData').textContent=new Date().toLocaleString('pt-BR');
+ window.print();
+}
+
+(function(){
+ const busca=document.getElementById('raBusca'), lista=document.getElementById('raLista'), contador=document.getElementById('raContagem');
+ const itens=[...lista.querySelectorAll('.ra-prova')];
+ function atualizar(){const termo=busca.value.trim().toLocaleLowerCase('pt-BR');let visiveis=0;for(const item of itens){const mostrar=item.textContent.toLocaleLowerCase('pt-BR').includes(termo);item.hidden=!mostrar;item.style.display=mostrar?'flex':'none';if(mostrar)visiveis++;}contador.textContent=`${lista.querySelectorAll('input[name=provas]:checked').length} selecionadas · ${visiveis} visíveis`;}
+ busca.addEventListener('input',atualizar);lista.addEventListener('change',atualizar);
+ document.getElementById('raTodas').addEventListener('click',()=>{for(const item of itens)if(!item.hidden)item.querySelector('input').checked=true;atualizar();});
+ document.getElementById('raNenhuma').addEventListener('click',()=>{for(const item of itens)item.querySelector('input').checked=false;atualizar();});
+ document.querySelectorAll('.ra-filter-all,.ra-filter-none').forEach(botao=>botao.addEventListener('click',()=>{const area=botao.closest('details');const marcar=botao.classList.contains('ra-filter-all');area.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=marcar);area.dispatchEvent(new Event('change'));}));
+ document.querySelectorAll('[data-counter]').forEach(el=>{const campo=el.dataset.counter;const detalhes=el.closest('details');const marcar=()=>{const n=detalhes.querySelectorAll('input:checked').length;el.textContent=n?`(${n})`:'(Todas)';};detalhes.addEventListener('change',marcar);marcar();});
+ atualizar();
+})();
+</script>
+{% endblock %}

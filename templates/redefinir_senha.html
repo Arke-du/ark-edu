@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Redefinir Senha</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fb;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 40px 55px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+}
+
+.container {
+    padding: 32px;
+}
+
+.card {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    max-width: 600px;
+    margin: auto;
+    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+}
+
+label {
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0 25px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+a {
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.voltar {
+    display: inline-block;
+    margin-bottom: 22px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Redefinir Senha</h1>
+    <p>Defina uma nova senha para o usuário.</p>
+</header>
+
+<div class="container">
+
+    <a href="/solicitacoes_senha" class="voltar">
+        ← Voltar para solicitações
+    </a>
+
+    <div class="card">
+
+        <form action="/salvar_nova_senha" method="POST">
+
+            <input type="hidden" name="solicitacao_id" value="{{ solicitacao_id }}">
+            <input type="hidden" name="usuario_id" value="{{ usuario_id }}">
+
+            <label>Nova senha:</label>
+            <input type="text" name="nova_senha" placeholder="Digite a nova senha" required>
+
+            <button type="submit">
+                Salvar nova senha
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>

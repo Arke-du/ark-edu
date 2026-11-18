@@ -1,0 +1,1135 @@
+{% extends "layout/base.html" %}
+
+{% block titulo %}Anos Letivos | ARK EDUS{% endblock %}
+
+{% block estilos %}
+<style>
+/* =====================================================
+   ANOS LETIVOS — ARK EDU
+===================================================== */
+
+.anos-pagina {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.anos-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+}
+
+.anos-cabecalho h1 {
+    margin: 8px 0 8px;
+    color: #123b82;
+    font-size: 30px;
+    font-weight: 900;
+}
+
+.anos-cabecalho p {
+    max-width: 760px;
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.anos-card {
+    margin-bottom: 26px;
+    padding: 28px;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
+}
+
+.anos-card-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.anos-card-topo h2 {
+    margin: 0 0 7px;
+    color: #123b82;
+    font-size: 21px;
+    font-weight: 900;
+}
+
+.anos-card-topo p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.anos-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border: 1px solid #fde68a;
+    border-radius: 13px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.anos-aviso svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 19px;
+    margin-top: 1px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.anos-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.anos-campo {
+    min-width: 0;
+}
+
+.anos-campo label {
+    display: block;
+    margin-bottom: 7px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.anos-campo input,
+.anos-campo select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition:
+        border-color .18s ease,
+        box-shadow .18s ease;
+}
+
+.anos-campo input:focus,
+.anos-campo select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .14);
+}
+
+.anos-opcoes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.anos-opcao {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 15px;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    background: #f8fbff;
+    cursor: pointer;
+    transition:
+        border-color .18s ease,
+        background .18s ease,
+        transform .18s ease;
+}
+
+.anos-opcao:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    transform: translateY(-1px);
+}
+
+.anos-opcao input {
+    width: 18px;
+    height: 18px;
+    margin: 1px 0 0;
+    accent-color: #2563eb;
+}
+
+.anos-opcao strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #123b82;
+    font-size: 13px;
+}
+
+.anos-opcao span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.anos-form-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.anos-btn-abrir,
+.anos-btn-secundario,
+.anos-btn-consultar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border-radius: 11px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        background .18s ease,
+        border-color .18s ease;
+}
+
+.anos-btn-abrir {
+    border: 1px solid #1d4ed8;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+    box-shadow: 0 7px 18px rgba(37, 99, 235, .22);
+}
+
+.anos-btn-abrir:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(37, 99, 235, .28);
+}
+
+.anos-btn-secundario,
+.anos-btn-consultar {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+}
+
+.anos-btn-secundario:hover,
+.anos-btn-consultar:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #123b82;
+    transform: translateY(-1px);
+}
+
+.anos-btn-abrir svg,
+.anos-btn-secundario svg,
+.anos-btn-consultar svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* =====================================================
+   RESUMO
+===================================================== */
+
+.anos-resumo {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 26px;
+}
+
+.anos-resumo-card {
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.anos-resumo-card span {
+    display: block;
+    margin-bottom: 7px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.anos-resumo-card strong {
+    color: #123b82;
+    font-size: 25px;
+    font-weight: 900;
+}
+
+/* =====================================================
+   TABELA
+===================================================== */
+
+.anos-listagem {
+    overflow: visible;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
+}
+
+.anos-listagem-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 24px 26px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.anos-listagem-topo h2 {
+    margin: 0 0 6px;
+    color: #123b82;
+    font-size: 21px;
+    font-weight: 900;
+}
+
+.anos-listagem-topo p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.anos-tabela-container {
+    overflow-x: auto;
+}
+
+.anos-tabela {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+}
+
+.anos-tabela th {
+    padding: 14px 18px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+}
+
+.anos-tabela td {
+    padding: 16px 18px;
+    border-top: 1px solid #e2e8f0;
+    color: #334155;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.anos-tabela tbody tr:hover {
+    background: #fbfdff;
+}
+
+.anos-numero {
+    color: #123b82;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.anos-instituicao {
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.anos-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.anos-status::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.anos-status-ativo {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.anos-status-encerrado {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.anos-status-planejado {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.anos-acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.anos-selecionado {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #166534;
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.anos-selecionado::before {
+    content: "✓";
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #dcfce7;
+}
+
+.anos-vazio {
+    padding: 36px !important;
+    color: #64748b !important;
+    text-align: center;
+}
+
+
+/* CONFIGURAÇÕES E AUDITORIA */
+.anos-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:26px}
+.anos-config-card{padding:24px;border:1px solid #e2e8f0;border-radius:20px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.anos-config-card h2{margin:0 0 6px;color:#123b82;font-size:19px;font-weight:900}
+.anos-config-card>p{margin:0 0 18px;color:#64748b;font-size:13px;line-height:1.55}
+.anos-config-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.anos-config-opcoes{display:grid;gap:9px;margin-top:14px}
+.anos-check{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px;font-weight:700}
+.anos-check input{width:17px;height:17px;accent-color:#2563eb}
+.anos-acoes{flex-wrap:wrap}
+.anos-btn-reabrir{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border:1px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#92400e;font:800 12px inherit;cursor:pointer}
+.anos-reabrir-form{display:flex;align-items:center;gap:7px}
+.anos-reabrir-form select{min-height:38px;padding:0 9px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:12px}
+.anos-auditoria{margin-top:26px;padding:24px;border:1px solid #e2e8f0;border-radius:22px;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.06)}
+.anos-auditoria h2{margin:0 0 6px;color:#123b82;font-size:21px;font-weight:900}
+.anos-auditoria p{margin:0 0 18px;color:#64748b;font-size:13px}
+.anos-auditoria-lista{display:grid;gap:10px}
+.anos-auditoria-item{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid #e2e8f0;border-radius:13px;background:#f8fafc;font-size:12px;color:#475569}
+.anos-auditoria-item strong{color:#1e293b}
+@media(max-width:900px){.anos-config-grid{grid-template-columns:1fr}.anos-auditoria-item{grid-template-columns:1fr}}
+
+/* =====================================================
+   RESPONSIVO
+===================================================== */
+
+@media (max-width: 1080px) {
+    .anos-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .anos-opcoes {
+        grid-template-columns: 1fr;
+    }
+
+    .anos-resumo {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .anos-cabecalho,
+    .anos-card-topo,
+    .anos-listagem-topo {
+        flex-direction: column;
+    }
+
+    .anos-card {
+        padding: 20px;
+    }
+
+    .anos-form-grid,
+    .anos-resumo {
+        grid-template-columns: 1fr;
+    }
+
+    .anos-form-acoes {
+        flex-direction: column-reverse;
+    }
+
+    .anos-btn-abrir,
+    .anos-btn-secundario {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+
+<div class="anos-pagina">
+
+    <div class="anos-cabecalho">
+
+        <div>
+            <a href="/" class="voltar">
+                ← Voltar para o início
+            </a>
+
+            <h1>Anos Letivos</h1>
+
+            <p>
+                Abra novos períodos acadêmicos, consulte anos anteriores
+                e mantenha turmas, alunos e provas organizados sem misturar
+                os dados de cada ano.
+            </p>
+        </div>
+
+        {% if session.get("ano_letivo") %}
+            <div class="anos-status anos-status-ativo">
+                Ano em uso: {{ session.get("ano_letivo") }}
+            </div>
+        {% endif %}
+
+    </div>
+
+
+    <!-- CONFIGURAÇÕES DE ABERTURA AUTOMÁTICA -->
+    <div class="anos-config-grid">
+        {% if cargo == "Administrador Geral" %}
+        <form class="anos-config-card" action="{{ url_for('salvar_agendamento_global') }}" method="POST">
+            <h2>Agendamento global</h2>
+            <p>Define a abertura automática para todas as instituições que seguem a configuração da plataforma.</p>
+            <div class="anos-config-campos">
+                <div class="anos-campo"><label>Ano</label><input type="number" name="ano" min="2000" max="2100" value="{{ configuracao_global['ano'] or '' if configuracao_global else '' }}" required></div>
+                <div class="anos-campo"><label>Data de execução</label><input type="date" name="data_execucao" value="{{ configuracao_global['data_execucao'] or '' if configuracao_global else '' }}" required></div>
+                <div class="anos-campo"><label>Início do ano</label><input type="date" name="data_inicio" value="{{ configuracao_global['data_inicio'] or '' if configuracao_global else '' }}"></div>
+                <div class="anos-campo"><label>Fim previsto</label><input type="date" name="data_fim" value="{{ configuracao_global['data_fim'] or '' if configuracao_global else '' }}"></div>
+            </div>
+            <div class="anos-config-opcoes">
+                <label class="anos-check"><input type="checkbox" name="ativo" value="1" {% if configuracao_global and configuracao_global['ativo'] %}checked{% endif %}> Ativar agendamento global</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_turmas" value="1" {% if not configuracao_global or configuracao_global['copiar_turmas'] %}checked{% endif %}> Copiar turmas</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_vinculos" value="1" {% if not configuracao_global or configuracao_global['copiar_vinculos'] %}checked{% endif %}> Copiar vínculos dos professores</label>
+                <label class="anos-check"><input type="checkbox" name="encerrar_anterior" value="1" {% if not configuracao_global or configuracao_global['encerrar_anterior'] %}checked{% endif %}> Encerrar o ano anterior</label>
+            </div>
+            <div class="anos-form-acoes"><button class="anos-btn-abrir" type="submit">Salvar agendamento global</button></div>
+        </form>
+        {% endif %}
+
+        <form class="anos-config-card" action="{{ url_for('salvar_agendamento_instituicao') }}" method="POST">
+            <h2>Configuração da instituição</h2>
+            <p>A instituição pode seguir a plataforma, trabalhar manualmente ou usar um agendamento próprio.</p>
+            {% if cargo == "Administrador Geral" %}
+            <div class="anos-campo"><label>Instituição</label><select name="escola_id" required><option value="">Selecione</option>{% for escola in escolas %}<option value="{{ escola['id'] }}">{{ escola['nome_instituicao'] }}</option>{% endfor %}</select></div>
+            {% endif %}
+            {% set ci = configuracao_instituicao %}
+            <div class="anos-config-campos" style="margin-top:13px">
+                <div class="anos-campo"><label>Modo</label><select name="modo"><option value="global" {% if not ci or ci['modo']=='global' %}selected{% endif %}>Seguir configuração global</option><option value="proprio" {% if ci and ci['modo']=='proprio' %}selected{% endif %}>Agendamento próprio</option><option value="manual" {% if ci and ci['modo']=='manual' %}selected{% endif %}>Manual</option></select></div>
+                <div class="anos-campo"><label>Ano</label><input type="number" name="ano" min="2000" max="2100" value="{{ ci['ano'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Data de execução</label><input type="date" name="data_execucao" value="{{ ci['data_execucao'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Início do ano</label><input type="date" name="data_inicio" value="{{ ci['data_inicio'] or '' if ci else '' }}"></div>
+                <div class="anos-campo"><label>Fim previsto</label><input type="date" name="data_fim" value="{{ ci['data_fim'] or '' if ci else '' }}"></div>
+            </div>
+            <div class="anos-config-opcoes">
+                <label class="anos-check"><input type="checkbox" name="ativo" value="1" {% if ci and ci['ativo'] %}checked{% endif %}> Ativar agendamento próprio</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_turmas" value="1" {% if not ci or ci['copiar_turmas'] %}checked{% endif %}> Copiar turmas</label>
+                <label class="anos-check"><input type="checkbox" name="copiar_vinculos" value="1" {% if not ci or ci['copiar_vinculos'] %}checked{% endif %}> Copiar vínculos</label>
+                <label class="anos-check"><input type="checkbox" name="encerrar_anterior" value="1" {% if not ci or ci['encerrar_anterior'] %}checked{% endif %}> Encerrar o ano anterior</label>
+            </div>
+            <div class="anos-form-acoes"><button class="anos-btn-abrir" type="submit">Salvar configuração</button></div>
+        </form>
+    </div>
+
+    <!-- =====================================================
+         ABRIR NOVO ANO
+    ====================================================== -->
+
+    <div class="anos-card">
+
+        <div class="anos-card-topo">
+
+            <div>
+                <h2>Abrir novo ano letivo</h2>
+
+                <p>
+                    O ano ativo atual será encerrado e o novo ano
+                    passará a ser utilizado automaticamente.
+                </p>
+            </div>
+
+        </div>
+
+        <div class="anos-aviso">
+
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+            </svg>
+
+            <div>
+                <strong>Atenção:</strong>
+                antes de abrir o próximo ano, confira a instituição e o número
+                informado. Os dados do ano anterior não serão apagados.
+            </div>
+
+        </div>
+
+        <form
+            action="{{ url_for('abrir_ano_letivo') }}"
+            method="POST"
+            id="formAbrirAnoLetivo"
+        >
+
+            <div class="anos-form-grid">
+
+                {% if cargo == "Administrador Geral" %}
+
+                    <div class="anos-campo">
+                        <label for="escola_id">
+                            Instituição
+                        </label>
+
+                        <select
+                            id="escola_id"
+                            name="escola_id"
+                            required
+                        >
+                            <option value="">
+                                Selecione a instituição
+                            </option>
+
+                            {% for escola in escolas %}
+                                <option value="{{ escola['id'] }}" data-proximo-ano="{{ (proximos_anos|default({})).get(escola['id']|string, '') }}">
+                                    {{ escola['nome_instituicao'] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                {% endif %}
+
+                <div class="anos-campo">
+                    <label for="ano">
+                        Novo ano letivo
+                    </label>
+
+                    <input
+                        type="number"
+                        id="ano"
+                        name="ano"
+                        min="2000"
+                        max="2100"
+                        placeholder="Ex.: 2027"
+                        value="{{ ano_sugerido if cargo != 'Administrador Geral' else '' }}"
+                        required
+                    >
+                </div>
+
+                <div class="anos-campo">
+                    <label for="data_inicio">
+                        Data de início
+                    </label>
+
+                    <input
+                        type="date"
+                        id="data_inicio"
+                        name="data_inicio"
+                    >
+                </div>
+
+                <div class="anos-campo">
+                    <label for="data_fim">
+                        Data final prevista
+                    </label>
+
+                    <input
+                        type="date"
+                        id="data_fim"
+                        name="data_fim"
+                    >
+                </div>
+
+            </div>
+
+            <div class="anos-opcoes">
+
+                <label class="anos-opcao">
+
+                    <input
+                        type="checkbox"
+                        name="copiar_turmas"
+                        value="1"
+                        checked
+                    >
+
+                    <span>
+                        <strong>Copiar turmas</strong>
+                        <span>
+                            Recria no novo ano as turmas cadastradas
+                            no ano ativo atual.
+                        </span>
+                    </span>
+
+                </label>
+
+                <div class="anos-opcao" style="cursor: default; opacity: .65;">
+
+                    <input type="checkbox" disabled>
+
+                    <span>
+                        <strong>Promover alunos</strong>
+                        <span>
+                            Os alunos não são copiados automaticamente. A matrícula
+                            do novo período será feita com segurança depois.
+                        </span>
+                    </span>
+
+                </div>
+
+                <label class="anos-opcao">
+
+                    <input
+                        type="checkbox"
+                        id="copiar_vinculos"
+                        name="copiar_vinculos"
+                        value="1"
+                        checked
+                    >
+
+                    <span>
+                        <strong>Copiar vínculos dos professores</strong>
+                        <span>
+                            Mantém os professores e componentes vinculados às
+                            turmas que forem copiadas.
+                        </span>
+                    </span>
+
+                </label>
+
+            </div>
+
+            <div class="anos-form-acoes">
+
+                <button
+                    type="button"
+                    class="anos-btn-secundario"
+                    id="btnLimparAno"
+                >
+                    Limpar
+                </button>
+
+                <button
+                    type="submit"
+                    class="anos-btn-abrir"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                    </svg>
+
+                    Abrir Ano Letivo
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+    <!-- =====================================================
+         RESUMO
+    ====================================================== -->
+
+    {% set total_anos = anos_letivos|length %}
+    {% set ativos = anos_letivos|selectattr('ativo', 'equalto', 1)|list %}
+    {% set encerrados = anos_letivos|selectattr('encerrado', 'equalto', 1)|list %}
+
+    <div class="anos-resumo">
+
+        <div class="anos-resumo-card">
+            <span>Anos cadastrados</span>
+            <strong>{{ total_anos }}</strong>
+        </div>
+
+        <div class="anos-resumo-card">
+            <span>Anos ativos</span>
+            <strong>{{ ativos|length }}</strong>
+        </div>
+
+        <div class="anos-resumo-card">
+            <span>Anos encerrados</span>
+            <strong>{{ encerrados|length }}</strong>
+        </div>
+
+        {% set resumo = namespace(total_professores=0) %}
+        {% for item in anos_letivos %}
+            {% if 'total_professores' in item.keys() %}
+                {% set resumo.total_professores = resumo.total_professores + (item['total_professores'] or 0) %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="anos-resumo-card">
+            <span>Professores no histórico</span>
+            <strong>{{ resumo.total_professores }}</strong>
+        </div>
+
+        <div class="anos-resumo-card">
+            <span>Ano em consulta</span>
+            <strong>{{ session.get("ano_letivo", "—") }}</strong>
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         HISTÓRICO
+    ====================================================== -->
+
+    <div class="anos-listagem">
+
+        <div class="anos-listagem-topo">
+
+            <div>
+                <h2>Histórico de anos letivos</h2>
+
+                <p>
+                    Selecione um ano antigo para consultar os dados
+                    preservados daquele período.
+                </p>
+            </div>
+
+            {% if session.get("ano_letivo_selecionado_id") %}
+
+                <form
+                    action="{{ url_for('usar_ano_letivo_ativo') }}"
+                    method="POST"
+                >
+                    <button
+                        type="submit"
+                        class="anos-btn-secundario"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                            <path d="M3 4v6h6"></path>
+                        </svg>
+
+                        Voltar ao ano ativo
+                    </button>
+                </form>
+
+            {% endif %}
+
+        </div>
+
+        <div class="anos-tabela-container">
+
+            <table class="anos-tabela">
+
+                <thead>
+                    <tr>
+
+                        {% if cargo == "Administrador Geral" %}
+                            <th>Instituição</th>
+                        {% endif %}
+
+                        <th>Ano</th>
+                        <th>Status</th>
+                        <th>Início</th>
+                        <th>Fim</th>
+                        <th>Turmas</th>
+                        <th>Alunos</th>
+                        <th>Professores</th>
+                        <th>Provas</th>
+                        <th>Ação</th>
+
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for item in anos_letivos %}
+
+                        <tr>
+
+                            {% if cargo == "Administrador Geral" %}
+                                <td>
+                                    <span class="anos-instituicao">
+                                        {{ item["nome_instituicao"] }}
+                                    </span>
+                                </td>
+                            {% endif %}
+
+                            <td>
+                                <span class="anos-numero">
+                                    {{ item["ano"] }}
+                                </span>
+                            </td>
+
+                            <td>
+
+                                {% if item["ativo"] == 1 and item["encerrado"] == 0 %}
+
+                                    <span class="anos-status anos-status-ativo">
+                                        Ativo
+                                    </span>
+
+                                {% elif item["encerrado"] == 1 %}
+
+                                    <span class="anos-status anos-status-encerrado">
+                                        Encerrado
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="anos-status anos-status-planejado">
+                                        Planejado
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+                                {{ item["data_inicio"] or "Não informada" }}
+                            </td>
+
+                            <td>
+                                {{ item["data_fim"] or "Não informada" }}
+                            </td>
+
+                            <td>
+                                {{ item["total_turmas"] or 0 }}
+                            </td>
+
+                            <td>
+                                {{ item["total_alunos"] or 0 }}
+                            </td>
+
+                            <td>
+                                {{ (item['total_professores'] or 0) if 'total_professores' in item.keys() else 0 }}
+                            </td>
+
+                            <td>
+                                {{ item["total_provas"] or 0 }}
+                            </td>
+
+                            <td>
+
+                                <div class="anos-acoes">
+
+                                    {% if (cargo == "Administrador Geral" and session.get("ano_letivo") == item["ano"]) or (cargo != "Administrador Geral" and session.get("ano_letivo_id") == item["id"]) %}
+
+                                        <span class="anos-selecionado">
+                                            Em uso
+                                        </span>
+
+                                    {% else %}
+
+                                        <form
+                                            action="{{ url_for('selecionar_ano_letivo', ano_letivo_id=item['id']) }}"
+                                            method="POST"
+                                        >
+                                            <button
+                                                type="submit"
+                                                class="anos-btn-consultar"
+                                            >
+                                                Consultar
+                                            </button>
+                                        </form>
+
+                                    {% endif %}
+
+                                    {% if item["encerrado"] == 1 %}
+                                    <form class="anos-reabrir-form" action="{{ url_for('reabrir_ano_letivo', ano_letivo_id=item['id']) }}" method="POST" onsubmit="return confirm('Deseja realmente reabrir o ano letivo {{ item['ano'] }}?');">
+                                        <select name="modo" aria-label="Modo de reabertura">
+                                            <option value="edicao">Reabrir para edição</option>
+                                            <option value="ativo">Reabrir e tornar ativo</option>
+                                        </select>
+                                        <button type="submit" class="anos-btn-reabrir">Reabrir</button>
+                                    </form>
+                                    {% endif %}
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    {% else %}
+
+                        <tr>
+                            <td
+                                colspan="{% if cargo == 'Administrador Geral' %}10{% else %}9{% endif %}"
+                                class="anos-vazio"
+                            >
+                                Nenhum ano letivo cadastrado.
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <section class="anos-auditoria">
+        <h2>Histórico de alterações</h2>
+        <p>Últimas ações realizadas no gerenciamento dos anos letivos.</p>
+        <div class="anos-auditoria-lista">
+            {% for registro in auditoria|default([]) %}
+            <div class="anos-auditoria-item">
+                <span>{{ registro['criado_em'] }}</span>
+                <div><strong>{{ registro['acao']|replace('_', ' ')|title }}</strong><br>{{ registro['nome_instituicao'] }}{% if registro['ano'] %} — {{ registro['ano'] }}{% endif %}{% if registro['detalhes'] %}<br>{{ registro['detalhes'] }}{% endif %}</div>
+                <span>{{ registro['usuario_nome'] or 'Sistema' }}</span>
+            </div>
+            {% else %}
+            <div class="anos-vazio">Nenhuma alteração registrada.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const formulario =
+        document.getElementById("formAbrirAnoLetivo");
+
+    const btnLimpar =
+        document.getElementById("btnLimparAno");
+
+    if (btnLimpar && formulario) {
+
+        btnLimpar.addEventListener("click", function () {
+            formulario.reset();
+        });
+    }
+
+
+    const campoInstituicaoInicial = document.getElementById("escola_id");
+    const campoAnoInicial = document.getElementById("ano");
+    const copiarTurmas = document.querySelector('input[name="copiar_turmas"]');
+    const copiarVinculos = document.getElementById("copiar_vinculos");
+
+    if (campoInstituicaoInicial && campoAnoInicial) {
+        campoInstituicaoInicial.addEventListener("change", function () {
+            const opcao = this.options[this.selectedIndex];
+            const proximoAno = opcao ? opcao.dataset.proximoAno : "";
+            if (proximoAno) campoAnoInicial.value = proximoAno;
+        });
+    }
+
+    function sincronizarVinculos() {
+        if (!copiarTurmas || !copiarVinculos) return;
+        copiarVinculos.disabled = !copiarTurmas.checked;
+        if (!copiarTurmas.checked) copiarVinculos.checked = false;
+    }
+
+    if (copiarTurmas) copiarTurmas.addEventListener("change", sincronizarVinculos);
+    sincronizarVinculos();
+
+    if (formulario) {
+
+        formulario.addEventListener("submit", function (evento) {
+
+            const campoAno =
+                document.getElementById("ano");
+
+            const campoInstituicao =
+                document.getElementById("escola_id");
+
+            const dataInicio = document.getElementById("data_inicio");
+            const dataFim = document.getElementById("data_fim");
+
+            if (dataInicio && dataFim && dataInicio.value && dataFim.value && dataFim.value < dataInicio.value) {
+                evento.preventDefault();
+                window.alert("A data final não pode ser anterior à data de início.");
+                dataFim.focus();
+                return;
+            }
+
+            const ano =
+                campoAno ? campoAno.value.trim() : "";
+
+            if (!ano) {
+                return;
+            }
+
+            let mensagem =
+                "Deseja realmente abrir o ano letivo " +
+                ano +
+                "? O ano ativo atual será encerrado.";
+
+            if (
+                campoInstituicao &&
+                campoInstituicao.options[
+                    campoInstituicao.selectedIndex
+                ]
+            ) {
+                const nomeInstituicao =
+                    campoInstituicao.options[
+                        campoInstituicao.selectedIndex
+                    ].textContent.trim();
+
+                mensagem =
+                    "Deseja realmente abrir o ano letivo " +
+                    ano +
+                    " para " +
+                    nomeInstituicao +
+                    "? O ano ativo atual será encerrado.";
+            }
+
+            if (!window.confirm(mensagem)) {
+                evento.preventDefault();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
