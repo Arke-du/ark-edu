@@ -527,6 +527,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   // O PDF é gerado no servidor e entregue como anexo: não depende de popup,
   // iframe invisível ou window.print() fora do gesto do usuário.
   const modelPdfPrefix={{ url_for('baixar_modelo_pdf',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
+  const arkPdfPrintOnClient={{ (not _ark_pdf_chromium_seguro())|tojson }};
   function drawModels(){
     modelChoices.replaceChildren();
     const total=Number(modelCount.value);
@@ -558,6 +559,15 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
     try{
       if(registeredModels<Number(modelCount.value))await saveModels(true);
       const colunas=Number(document.getElementById('qr2Columns').value)===2?2:1;
+      // Em servidores de 512 MB, o PDF deve ser criado pelo navegador.
+      // NÃO fazer fetch do HTML de impressão e salvá-lo com extensão .pdf:
+      // isso produz arquivos inválidos (visualizador mostra 0 páginas).
+      if(arkPdfPrintOnClient){
+        modelMessage.textContent='Abrindo avaliação para imprimir ou salvar como PDF…';
+        const printUrl=modelPrintPrefix+modelo+'?colunas='+colunas+'&imprimir=1';
+        window.location.assign(printUrl);
+        return;
+      }
       const url=modelPdfPrefix+modelo+'?colunas='+colunas;
       // Download via fetch para exibir erro real, sem navegar para página JSON.
       const response=await fetch(url,{credentials:'same-origin'});
@@ -565,8 +575,13 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
         const detail=await response.json().catch(()=>({}));
         throw Error(detail.erro||'Erro HTTP '+response.status+' ao gerar o PDF.');
       }
+      const contentType=(response.headers.get('Content-Type')||'').toLowerCase();
+      if(!contentType.includes('application/pdf')){
+        throw Error('O servidor não retornou um PDF válido. Atualize a página e tente novamente.');
+      }
       const blob=await response.blob();
-      if(!blob.size)throw Error('O servidor retornou um PDF vazio.');
+      if(blob.size<100 || (await blob.slice(0,5).text())!=='%PDF-')
+        throw Error('O servidor retornou um arquivo inválido, não um PDF.');
       const disposition=response.headers.get('Content-Disposition')||'';
       let filename='Modelo '+modelo+' - Prova.pdf';
       const encoded=disposition.match(/filename\*=UTF-8''([^;]+)/i);
