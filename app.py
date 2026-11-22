@@ -23034,6 +23034,7 @@ def imprimir_modelo_aplicacao(aplicacao_id, modelo):
             layout_colunas=layout_colunas,
             auto_imprimir=auto_imprimir,
             impressao_incorporada=request.args.get("incorporado") == "1",
+            ark_pdf_print_on_client=not _ark_pdf_chromium_seguro(),
             server_settings=_ark_configuracao_salva(cursor, aplicacao_id)
         )
     finally:

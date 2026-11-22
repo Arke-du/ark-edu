@@ -527,7 +527,7 @@ body{color:#000;font-family:Arial,Helvetica,sans-serif}
   // O PDF é gerado no servidor e entregue como anexo: não depende de popup,
   // iframe invisível ou window.print() fora do gesto do usuário.
   const modelPdfPrefix={{ url_for('baixar_modelo_pdf',aplicacao_id=aplicacao.id,modelo=999)|tojson }}.replace(/999$/, '');
-  const arkPdfPrintOnClient={{ (not _ark_pdf_chromium_seguro())|tojson }};
+  const arkPdfPrintOnClient={{ ark_pdf_print_on_client|tojson }};
   function drawModels(){
     modelChoices.replaceChildren();
     const total=Number(modelCount.value);
