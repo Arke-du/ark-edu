@@ -22845,6 +22845,26 @@ def _ark_configuracao_salva(cursor, aplicacao_id):
         return None
 
 
+def _ark_limite_memoria_bytes():
+    """Lê o limite do contêiner Linux, sem depender de bibliotecas externas."""
+    for caminho in ('/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes'):
+        try:
+            valor = open(caminho, encoding='ascii').read().strip()
+            if valor.isdigit():
+                numero = int(valor)
+                if 0 < numero < (1 << 50):
+                    return numero
+        except (OSError, ValueError):
+            pass
+    return None
+
+
+def _ark_pdf_chromium_seguro():
+    """Chromium e Gunicorn no mesmo contêiner de 512 MB podem causar OOM/502."""
+    limite = _ark_limite_memoria_bytes()
+    return limite is None or limite >= 1024 * 1024 * 1024
+
+
 def _ark_pdf_previsualizacao(html, base_url, session_cookie=None):
     """Imprime o DOM final da pré-visualização, não um template simplificado."""
     from playwright.sync_api import sync_playwright
@@ -22921,6 +22941,26 @@ def baixar_modelos_zip(aplicacao_id, modelo=None):
         titulo_limpo = ''.join(c for c in titulo_limpo if not unicodedata.combining(c))
         titulo_limpo = re.sub(r'[^A-Za-z0-9._ -]+', '', titulo_limpo)
         titulo_limpo = re.sub(r'\s+', ' ', titulo_limpo).strip(' ._-')[:110] or f'Avaliacao_{aplicacao_id}'
+        # Evita iniciar Chromium dentro de um contêiner com menos de 1 GB:
+        # a renderização pode exceder 512 MB e derrubar o serviço inteiro.
+        # No modelo individual, a impressão é feita pelo navegador do usuário
+        # ("Salvar como PDF"), preservando o editor e a paginação existentes.
+        if not _ark_pdf_chromium_seguro():
+            if modelo is not None:
+                app.logger.warning('PDF: exportação no navegador por limite de memória do contêiner')
+                return redirect(url_for('imprimir_modelo_aplicacao',
+                                        aplicacao_id=aplicacao_id, modelo=modelo,
+                                        colunas=colunas, imprimir=1), code=303)
+            links = ''.join(
+                '<li><a href="' + url_for('imprimir_modelo_aplicacao',
+                    aplicacao_id=aplicacao_id, modelo=n, colunas=colunas, imprimir=1) +
+                '">Modelo ' + str(n) + ' — imprimir/salvar PDF</a></li>'
+                for n in modelos
+            )
+            return ("<h2>Exportação segura de avaliações</h2>"
+                    "<p>Para evitar a queda do servidor por falta de memória, "
+                    "salve cada modelo como PDF pelo navegador (Destino: Salvar como PDF).</p>"
+                    "<ul>" + links + "</ul>", 503, {'Content-Type':'text/html; charset=utf-8'})
         arquivo = BytesIO()
         with zipfile.ZipFile(arquivo,'w',zipfile.ZIP_DEFLATED) as z:
             for n in modelos:
