@@ -94,15 +94,15 @@ async function identifyQR(){
  try{
    // Na etapa QR, o professor aproxima o código da câmera: a imagem inteira
    // é enviada ao leitor dedicado, sem iniciar a correção das respostas.
-   const w=Math.min(1600,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
+   const w=Math.min(2560,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
    canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(video,0,0,w,h);
-   const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.91));
+   const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
    if(!blob)throw Error('Falha ao capturar o QR.');
-   const fd=new FormData();fd.append('imagem',blob,'qr.jpg');
+   const fd=new FormData();fd.append('imagem',blob,'qr.png');
    const response=await fetch('{{ url_for('scanner_identificar_qr', aplicacao_id=aplicacao.id) }}',{method:'POST',body:fd,credentials:'same-origin'});
    const data=await response.json();
    if(data.ok){identified=data;document.querySelector('#manualIdentification').style.display='none';setPhase('answers');say('QR identificado: '+data.aluno_nome+'. Agora afaste o celular e enquadre o cartão inteiro.');beep();}
-   else if(++qrAttempts%3===0)say(data.mensagem||'Aproxime mais a câmera do QR Code.');
+   else {qrAttempts++;if(qrAttempts%2===0)say((data.mensagem||'QR ainda não decodificado.')+' Tentativa '+qrAttempts+'. Mantenha o código nítido e bem iluminado.');}
  }catch(e){say('Erro ao identificar QR: '+e.message);}
  finally{busy=false;}
 }

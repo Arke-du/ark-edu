@@ -23478,7 +23478,7 @@ def _scanner_decodificar_qr_camera(caminho):
         from PIL import Image, ImageOps, ImageEnhance
         with Image.open(caminho) as origem:
             origem = ImageOps.exif_transpose(origem)
-            origem.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            origem.thumbnail((2560, 2560), Image.Resampling.LANCZOS)
             w, h = origem.size
             # Priorizar a moldura central e testar também o quadro inteiro.
             regioes = [(.16, .17, .84, .83), (.05, .05, .95, .95), (0, 0, 1, 1)]
@@ -23489,6 +23489,18 @@ def _scanner_decodificar_qr_camera(caminho):
                 if indice == 0:
                     variantes.append(ImageEnhance.Contrast(cinza).enhance(1.6))
                 for variante in variantes:
+                    for codigo in zxingcpp.read_barcodes(np.asarray(variante)) or ():
+                        texto = str(getattr(codigo, 'text', '') or '').strip()
+                        if 'APLICACAO:' in texto.upper() and 'ALUNO:' in texto.upper():
+                            return texto
+            # A câmera envia quadros com QR denso (GAB incluído): tentar
+            # recorte central ampliado sem reduzir os módulos do código.
+            from PIL import ImageFilter
+            for x1,y1,x2,y2 in ((.22,.23,.78,.77),(.10,.10,.90,.90)):
+                recorte = ImageOps.grayscale(origem.crop((int(w*x1),int(h*y1),int(w*x2),int(h*y2))))
+                if max(recorte.size) < 1300:
+                    recorte = recorte.resize((recorte.width*2, recorte.height*2), Image.Resampling.NEAREST)
+                for variante in (recorte, ImageOps.autocontrast(recorte), ImageFilter.UnsharpMask(radius=1.3,percent=180,threshold=2).filter(recorte)):
                     for codigo in zxingcpp.read_barcodes(np.asarray(variante)) or ():
                         texto = str(getattr(codigo, 'text', '') or '').strip()
                         if 'APLICACAO:' in texto.upper() and 'ALUNO:' in texto.upper():
