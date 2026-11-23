@@ -40,7 +40,7 @@
 </div></div></section>
 
 <section class="pf-card" id="identidade"><div class="pf-head"><h2>Identidade visual</h2><p>Personalize os materiais gerados no seu espaço.</p></div><div class="pf-form"><div class="pf-grid">
-<div class="pf-field pf-wide"><label>Logo</label>{% if usuario['logo'] %}<img class="pf-logo" src="{{ url_for('static', filename='uploads/' ~ usuario['logo']) }}" onerror="this.style.display='none'">{% endif %}<input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp"></div>
+<div class="pf-field pf-wide"><label>Logo</label>{% if usuario['logo'] %}<img class="pf-logo" src="{{ upload_url(usuario['logo']) }}" onerror="this.style.display='none'">{% endif %}<input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp"></div>
 <div class="pf-field"><label>Cor principal</label><div class="pf-color"><input type="color" name="cor_primaria" value="{{ usuario['cor_primaria'] or '#123b72' }}"><span>Usada em títulos e destaques</span></div></div><div class="pf-field"><label>Cor secundária</label><div class="pf-color"><input type="color" name="cor_secundaria" value="{{ usuario['cor_secundaria'] or '#0aa1bc' }}"><span>Usada em elementos auxiliares</span></div></div>
 <div class="pf-field pf-wide"><label>Texto do cabeçalho</label><textarea name="cabecalho_documentos">{{ usuario['cabecalho_documentos'] or '' }}</textarea></div><div class="pf-field pf-wide"><label>Texto do rodapé</label><textarea name="rodape_documentos">{{ usuario['rodape_documentos'] or '' }}</textarea></div>
 </div><div class="pf-actions"><button class="pf-btn">Salvar espaço profissional</button></div></div></section></form>

@@ -1219,7 +1219,7 @@
   <div class="print-header">
     <div>
       {% if prova['logo'] %}
-        <img src="{{ url_for('static', filename='uploads/' ~ prova['logo']) }}" alt="Logo da instituição">
+        <img src="{{ upload_url(prova['logo']) }}" alt="Logo da instituição">
       {% endif %}
     </div>
     <div>
@@ -1278,7 +1278,7 @@
 
   <section class="r-card">
     <div class="r-prova">
-      <div class="r-logo">{% if prova['logo'] %}<img src="{{ url_for('static', filename='uploads/' ~ prova['logo']) }}">{% else %}<strong>ARK</strong>{% endif %}</div>
+      <div class="r-logo">{% if prova['logo'] %}<img src="{{ upload_url(prova['logo']) }}">{% else %}<strong>ARK</strong>{% endif %}</div>
       <div><small style="color:#98a2b3;font-weight:900">AVALIAÇÃO SELECIONADA</small><h2>{{ prova['nome'] }}</h2><div class="r-prova-meta"><span><b>Instituição:</b> {{ prova['nome_instituicao'] or '—' }}</span><span><b>Turma:</b> {{ prova['turma_nome'] or '—' }}</span><span><b>Componente:</b> {{ prova['disciplina'] or '—' }}</span><span><b>Professor:</b> {{ prova['professor_nome'] or '—' }}</span><span><b>Direção:</b> {{ prova['diretor'] or '—' }}</span><span><b>Coordenação:</b> {{ [prova['coordenador1'], prova['coordenador2'], prova['coordenador3']]|select|join(', ') or '—' }}</span><span><b>Aplicação:</b> {{ prova['data_aplicacao']|formatar_data_br }}</span><span><b>Ano letivo:</b> {{ prova['ano_letivo'] or '—' }}</span></div></div>
       <span class="r-status">Resultados disponíveis</span>
     </div>

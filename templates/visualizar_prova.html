@@ -2179,7 +2179,7 @@ img {
             <div class="print-ark-brand">
                 {% if instituicao and instituicao.get('logo') %}
                     <img
-                        src="{{ url_for('static', filename='uploads/' ~ instituicao.get('logo')) }}"
+                        src="{{ upload_url(instituicao.get('logo')) }}"
                         alt="{{ instituicao.get('nome', 'Logo da instituição') }}"
                     >
                 {% endif %}

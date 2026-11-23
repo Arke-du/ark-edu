@@ -58,7 +58,7 @@
   <img class="ra-print-ark-logo" src="{{ url_for('static', filename='img/logo-arkedus.png') }}" alt="ARK EDUS">
   <div class="ra-print-schools">
   {% for escola in escolas_relatorio %}<div class="ra-print-school">
-   {% if escola.logo %}<img src="{{ url_for('static', filename='uploads/' + escola.logo) }}" alt="Logo de {{ escola.nome }}">{% else %}<span class="ra-school-placeholder">🏫</span>{% endif %}
+   {% if escola.logo %}<img src="{{ upload_url(escola.logo) }}" alt="Logo de {{ escola.nome }}">{% else %}<span class="ra-school-placeholder">🏫</span>{% endif %}
    <span>{{ escola.nome }}</span>
   </div>{% endfor %}
   </div>
