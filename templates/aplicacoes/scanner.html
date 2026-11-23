@@ -118,7 +118,62 @@ answerFrames++;
 if(Date.now()-answerSince<1800)return;
 if(diff<12)stable++;else stable=Math.max(0,stable-1);
 if(stable>=3 || Date.now()-answerSince>4800){stable=0;capture();}}
-start.onclick=async()=>{if(!navigator.mediaDevices?.getUserMedia){say('Este navegador não permite acesso à câmera. Use HTTPS e um navegador atualizado.');return;}
-try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;armed=true;stable=0;previous=null;identified=null;document.querySelector('#manualIdentification').style.display='block';setPhase('qr');timer=setInterval(tick,170);say('Etapa 1: aproxime somente o QR Code. A leitura é automática.');prepareQrReader().then(()=>{if(phase==='qr'&&stream)say(qrDetector||zxingReader?'Leitor QR ativo. Aproxime o código e aguarde a identificação.':'Leitor local indisponível; tentando reconhecimento no servidor.');});}catch(e){say('Não foi possível abrir a câmera: '+e.message)}};
-stop.onclick=()=>{clearInterval(timer);timer=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;say('Scanner interrompido.');};window.addEventListener('pagehide',()=>stop.click());
+// Acesso à câmera em Android/iOS: solicitar somente após gesto do usuário,
+// começar com restrições leves e não confundir recusa com câmera incompatível.
+function cameraErrorMessage(error){
+ const name=error?.name||'';
+ if(name==='NotAllowedError'||name==='PermissionDeniedError'||name==='SecurityError'){
+  return 'Acesso à câmera negado pelo navegador (Permission denied). No Chrome Android, abra o site diretamente em https://arkedus.com.br, toque no ícone ao lado do endereço > Permissões > Câmera > Permitir. Confira também Configurações do Android > Apps > Chrome > Permissões > Câmera. Se já estiver permitido, feche outras abas e redefina as permissões deste site. Código: '+name+'.';
+ }
+ if(name==='NotFoundError'||name==='DevicesNotFoundError')return 'Nenhuma câmera disponível foi encontrada neste aparelho ('+name+').';
+ if(name==='NotReadableError'||name==='TrackStartError')return 'A câmera está ocupada ou indisponível. Feche outros aplicativos que utilizam a câmera e tente novamente ('+name+').';
+ if(name==='OverconstrainedError'||name==='ConstraintNotSatisfiedError')return 'A câmera não aceita a configuração solicitada ('+name+').';
+ if(name==='AbortError')return 'A abertura da câmera foi interrompida. Tente novamente.';
+ return 'Não foi possível abrir a câmera ('+(name||'erro desconhecido')+'): '+(error?.message||'verifique as permissões do Chrome e tente novamente.');
+}
+async function requestCompatibleCamera(){
+ // A primeira tentativa ocorre diretamente no clique, antes de outras operações assíncronas.
+ const candidates=[
+  {video:{facingMode:{ideal:'environment'}},audio:false},
+  {video:true,audio:false}
+ ];
+ let lastError;
+ for(const constraints of candidates){
+  try{return await navigator.mediaDevices.getUserMedia(constraints)}catch(error){
+   lastError=error;
+   // Recusa de acesso, política de segurança e ausência de câmera não se resolvem
+   // tentando novamente com outras restrições; evita prompts e mensagens confusas.
+   if(['NotAllowedError','PermissionDeniedError','SecurityError','NotFoundError','DevicesNotFoundError'].includes(error?.name))throw error;
+  }
+ }
+ throw lastError;
+}
+start.onclick=async()=>{
+ if(!window.isSecureContext){say('A câmera exige uma conexão segura HTTPS. Abra https://arkedus.com.br diretamente no Chrome.');return;}
+ if(!navigator.mediaDevices?.getUserMedia){say('Este navegador não disponibiliza acesso à câmera. Abra a ARK EDUS diretamente no Chrome atualizado, fora de outros aplicativos.');return;}
+ if(document.permissionsPolicy?.allowsFeature && !document.permissionsPolicy.allowsFeature('camera')){say('A política de segurança desta página bloqueia a câmera. Abra a ARK EDUS diretamente em uma aba do Chrome.');return;}
+ start.disabled=true;say('Solicitando acesso à câmera…');
+ try{
+  stream=await requestCompatibleCamera();
+  video.srcObject=stream;
+  try{await video.play()}catch(playError){
+   // A permissão pode ter sido concedida, mas a reprodução pode falhar.
+   stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;
+   throw playError;
+  }
+  stop.disabled=false;armed=true;stable=0;previous=null;identified=null;
+  document.querySelector('#manualIdentification').style.display='block';setPhase('qr');
+  clearInterval(timer);timer=setInterval(tick,170);
+  say('Etapa 1: aproxime somente o QR Code. A leitura é automática.');
+  prepareQrReader().then(()=>{if(phase==='qr'&&stream)say(qrDetector||zxingReader?'Leitor QR ativo. Aproxime o código e aguarde a identificação.':'Leitor local indisponível; tentando reconhecimento no servidor.');});
+ }catch(error){
+  console.error('ARK EDUS: falha ao iniciar câmera',error?.name,error?.message);
+  if(stream){stream.getTracks().forEach(track=>track.stop());stream=null;}
+  video.srcObject=null;start.disabled=false;stop.disabled=true;
+  say(cameraErrorMessage(error));
+ }
+};
+function stopCamera(){clearInterval(timer);timer=null;stream?.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;}
+stop.onclick=()=>{stopCamera();say('Scanner interrompido.');};
+window.addEventListener('pagehide',stopCamera);
 })();</script></body></html>
