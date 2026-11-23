@@ -19122,7 +19122,12 @@ def aplicar_cabecalhos_seguranca(resposta):
     resposta.headers["X-Content-Type-Options"] = "nosniff"
     resposta.headers["X-Frame-Options"] = "SAMEORIGIN"
     resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    resposta.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # O scanner precisa da câmera: camera=() bloquearia getUserMedia mesmo com permissão do Chrome.
+    # Limitar a exceção à rota autenticada do scanner; demais páginas continuam bloqueadas.
+    if request.endpoint == "scanner_cartoes_aplicacao":
+        resposta.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
+    else:
+        resposta.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     resposta.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data: blob:; "
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
