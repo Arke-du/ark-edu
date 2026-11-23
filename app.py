@@ -14996,59 +14996,50 @@ def resultados(prova_id):
         # =========================================================
         # FONTE ÚNICA DE VERDADE DO RELATÓRIO
         # =========================================================
-        # Consolida objetivas e discursivas usando apenas a aplicação oficial
-        # escolhida para cada aluno. As estatísticas são vinculadas por
-        # questao_id (e não pela posição das objetivas), preservando a ordem
-        # real da avaliação quando objetivas e discursivas estão intercaladas.
+        # Consolida por (aluno, questao) em TODAS as aplicacoes desta prova.
+        # Uma aplicacao pode conter apenas objetivas e outra apenas discursivas.
+        # Em duplicidades, prefere a discursiva corrigida; entre registros com
+        # mesma situacao, a aplicacao mais recente tem prioridade.
         tipos_discursivos = {
             "discursiva", "dissertativa", "resposta_aberta", "resposta aberta"
         }
         ordem_por_questao_id = {int(q["questao_id"]): numero for numero, q in enumerate(questoes, 1)}
         questao_por_numero = {numero: q for numero, q in enumerate(questoes, 1)}
-
-        aplicacoes_oficiais = {
-            int(r["aluno_id"]): int(r["aplicacao_id"])
-            for r in todos_registros
-            if r.get("aplicacao_id") is not None
-        }
-        ids_aplicacoes_oficiais = sorted(set(aplicacoes_oficiais.values()))
-
+        ids_alunos_relatorio = {int(r["aluno_id"]) for r in todos_registros}
+        ids_questoes_relatorio = set(ordem_por_questao_id)
         respostas_obj_por_aluno = {}
         respostas_disc_por_aluno = {}
 
-        if ids_aplicacoes_oficiais:
-            placeholders = ",".join("?" for _ in ids_aplicacoes_oficiais)
-            cursor.execute(f"""
-                SELECT aro.aplicacao_id, aro.aluno_id, aro.questao_id,
-                       aro.numero_questao, aro.acertou, aro.situacao, aro.resposta,
-                       aro.resposta_correta,
-                       COALESCE(aro.anulada, 0) AS anulada
-                FROM aplicacao_respostas_objetivas aro
-                WHERE aro.aplicacao_id IN ({placeholders})
-                ORDER BY aro.aluno_id, aro.numero_questao
-            """, tuple(ids_aplicacoes_oficiais))
-            for reg in cursor.fetchall():
-                aluno_id = int(reg["aluno_id"])
-                if aplicacoes_oficiais.get(aluno_id) != int(reg["aplicacao_id"]):
-                    continue
-                respostas_obj_por_aluno[(aluno_id, int(reg["questao_id"]))] = dict(reg)
+        cursor.execute("""
+            SELECT aro.aplicacao_id, aro.aluno_id, aro.questao_id,
+                   aro.numero_questao, aro.acertou, aro.situacao, aro.resposta,
+                   aro.resposta_correta, COALESCE(aro.anulada, 0) AS anulada
+            FROM aplicacao_respostas_objetivas aro
+            JOIN aplicacoes ap ON ap.id = aro.aplicacao_id
+            WHERE ap.prova_id = ?
+            ORDER BY aro.aplicacao_id DESC, aro.rowid DESC
+        """, (prova_id,))
+        for linha in cursor.fetchall():
+            aid, qid = int(linha["aluno_id"]), int(linha["questao_id"])
+            if aid in ids_alunos_relatorio and qid in ids_questoes_relatorio:
+                respostas_obj_por_aluno.setdefault((aid, qid), dict(linha))
 
-            cursor.execute(f"""
-                SELECT rd.aplicacao_id, rd.aluno_id, rd.questao_id, rd.numero_exibicao,
-                       rd.nota, rd.conceito, rd.corrigida,
-                       COALESCE(pq.peso, 0) AS peso, COALESCE(pq.anulada, 0) AS anulada
-                FROM respostas_discursivas_aplicacao rd
-                INNER JOIN aplicacoes ap ON ap.id = rd.aplicacao_id
-                LEFT JOIN prova_questoes pq
-                  ON pq.prova_id = ap.prova_id AND pq.questao_id = rd.questao_id
-                WHERE rd.aplicacao_id IN ({placeholders})
-                ORDER BY rd.aluno_id, rd.numero_exibicao
-            """, tuple(ids_aplicacoes_oficiais))
-            for reg in cursor.fetchall():
-                aluno_id = int(reg["aluno_id"])
-                if aplicacoes_oficiais.get(aluno_id) != int(reg["aplicacao_id"]):
-                    continue
-                respostas_disc_por_aluno[(aluno_id, int(reg["questao_id"]))] = dict(reg)
+        cursor.execute("""
+            SELECT rd.aplicacao_id, rd.aluno_id, rd.questao_id, rd.numero_exibicao,
+                   rd.nota, rd.conceito, rd.corrigida,
+                   COALESCE(pq.peso, 0) AS peso, COALESCE(pq.anulada, 0) AS anulada
+            FROM respostas_discursivas_aplicacao rd
+            JOIN aplicacoes ap ON ap.id = rd.aplicacao_id
+            LEFT JOIN prova_questoes pq
+              ON pq.prova_id = ap.prova_id AND pq.questao_id = rd.questao_id
+            WHERE ap.prova_id = ?
+            ORDER BY COALESCE(rd.corrigida, 0) DESC,
+                     rd.aplicacao_id DESC, rd.rowid DESC
+        """, (prova_id,))
+        for linha in cursor.fetchall():
+            aid, qid = int(linha["aluno_id"]), int(linha["questao_id"])
+            if aid in ids_alunos_relatorio and qid in ids_questoes_relatorio:
+                respostas_disc_por_aluno.setdefault((aid, qid), dict(linha))
 
         # Compatibilidade com correções antigas: só usa respostas_alunos quando
         # não existe uma resposta objetiva da aplicação oficial.
@@ -22480,44 +22471,99 @@ def _tipo_discursivo_aplicacao(tipo):
 
 
 def _sincronizar_status_prova(cursor, prova_id):
-    """Consolida o estado real das aplicações, sem rebaixar provas corrigidas.
+    """Atualiza o status pela cobertura consolidada por aluno e questão.
 
-    Uma prova só está finalizada quando TODAS as suas aplicações foram
-    corrigidas. Aplicações agendadas não podem esconder outras em correção.
+    Aplicações da mesma prova são fontes complementares. Uma aplicação vazia
+    ou parcialmente corrigida não impede a finalização se todas as respostas
+    necessárias estiverem corrigidas em outra aplicação da mesma prova.
     """
     cursor.execute("SELECT id FROM provas WHERE id = ?", (prova_id,))
     if cursor.fetchone() is None:
         return None
 
     cursor.execute("""
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) IN
-                ('corrigida', 'corrigido', 'finalizada') THEN 1 ELSE 0 END)
-                AS concluidas,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) IN
-                ('agendada', 'aguardando aplicação', 'aguardando aplicacao')
-                THEN 1 ELSE 0 END) AS agendadas
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN LOWER(TRIM(COALESCE(status,''))) IN
+                   ('agendada','aguardando aplicação','aguardando aplicacao')
+                   THEN 1 ELSE 0 END) AS agendadas
         FROM aplicacoes WHERE prova_id = ?
     """, (prova_id,))
     resumo = cursor.fetchone()
-    total = int(resumo["total"] or 0)
-    concluidas = int(resumo["concluidas"] or 0)
-    agendadas = int(resumo["agendadas"] or 0)
+    total = int(resumo['total'] or 0)
+    agendadas = int(resumo['agendadas'] or 0)
 
     if total == 0:
-        novo_status = "rascunho"
-    elif concluidas == total:
-        novo_status = "finalizada"
-    elif agendadas == total:
-        novo_status = "agendada"
+        novo_status = 'rascunho'
     else:
-        novo_status = "em_correcao"
+        # Cada estudante aparece uma única vez, independentemente de quantas
+        # aplicações tenham sido criadas para a mesma avaliação.
+        cursor.execute("""
+            SELECT aa.aluno_id,
+                   MAX(CASE WHEN LOWER(TRIM(COALESCE(aa.status,'')))
+                       NOT IN ('ausente','faltou') THEN 1 ELSE 0 END) AS presente
+            FROM aplicacao_alunos aa
+            JOIN aplicacoes ap ON ap.id = aa.aplicacao_id
+            WHERE ap.prova_id = ?
+            GROUP BY aa.aluno_id
+        """, (prova_id,))
+        alunos = {int(r['aluno_id']) for r in cursor.fetchall()
+                  if int(r['presente'] or 0) == 1}
+
+        cursor.execute("""
+            SELECT pq.questao_id, q.tipo_questao
+            FROM prova_questoes pq
+            JOIN questoes q ON q.id = pq.questao_id
+            WHERE pq.prova_id = ?
+        """, (prova_id,))
+        questoes = cursor.fetchall()
+        objetivas = {int(r['questao_id']) for r in questoes
+                     if not _tipo_questao_discursiva(r['tipo_questao'])}
+        discursivas = {int(r['questao_id']) for r in questoes
+                       if _tipo_questao_discursiva(r['tipo_questao'])}
+
+        # A mesma questão pode ter sido importada mais de uma vez; a existência
+        # de um resultado válido basta para cumprir a pendência.
+        cursor.execute("""
+            SELECT DISTINCT ro.aluno_id, ro.questao_id
+            FROM aplicacao_respostas_objetivas ro
+            JOIN aplicacoes ap ON ap.id = ro.aplicacao_id
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id = ro.aplicacao_id
+                AND aa.aluno_id = ro.aluno_id
+            WHERE ap.prova_id = ?
+              AND LOWER(TRIM(COALESCE(aa.status,''))) NOT IN ('ausente','faltou')
+        """, (prova_id,))
+        feitas_obj = {(int(r['aluno_id']), int(r['questao_id']))
+                      for r in cursor.fetchall()}
+
+        cursor.execute("""
+            SELECT DISTINCT rd.aluno_id, rd.questao_id
+            FROM respostas_discursivas_aplicacao rd
+            JOIN aplicacoes ap ON ap.id = rd.aplicacao_id
+            JOIN aplicacao_alunos aa ON aa.aplicacao_id = rd.aplicacao_id
+                AND aa.aluno_id = rd.aluno_id
+            WHERE ap.prova_id = ? AND COALESCE(rd.corrigida,0) = 1
+              AND LOWER(TRIM(COALESCE(aa.status,''))) NOT IN ('ausente','faltou')
+        """, (prova_id,))
+        feitas_disc = {(int(r['aluno_id']), int(r['questao_id']))
+                       for r in cursor.fetchall()}
+
+        completo = bool(alunos and questoes) and all(
+            all((aluno, qid) in feitas_obj for qid in objetivas)
+            and all((aluno, qid) in feitas_disc for qid in discursivas)
+            for aluno in alunos
+        )
+        if completo:
+            novo_status = 'finalizada'
+        elif agendadas == total and not feitas_obj and not feitas_disc:
+            novo_status = 'agendada'
+        else:
+            novo_status = 'em_correcao'
 
     cursor.execute("""
         UPDATE provas SET status = ?, atualizado_em = ?
-        WHERE id = ? AND LOWER(TRIM(COALESCE(status, ''))) <> ?
-    """, (novo_status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), prova_id, novo_status))
+        WHERE id = ? AND LOWER(TRIM(COALESCE(status,''))) <> ?
+    """, (novo_status, datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+          prova_id, novo_status))
     return novo_status
 
 
