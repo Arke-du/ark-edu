@@ -5453,18 +5453,15 @@ def relatorios_avaliacoes():
             if "tem_nota" in cols_prova:
                 pr = cur.execute("SELECT tem_nota FROM provas WHERE id=?", (pid,)).fetchone()
                 sem_nota = int(pr[0] or 0) != 1 if pr else True
-            oficiais = {}
-            registros = cur.execute(f"""
-                SELECT aa.aluno_id, aa.aplicacao_id, aa.status, aa.objetiva_corrigida,
-                       aa.discursiva_pendente, aa.nota_objetiva, {nota_expr} AS nota_final,
-                       aa.acertos_objetivos, aa.total_objetivas, ap.id AS ap_id
+            # Todas as aplicações da mesma prova participam da consolidação.
+            # A chave (aluno, questão) impede contagem dupla; a correção mais
+            # recente prevalece quando a mesma questão foi corrigida novamente.
+            registros = cur.execute("""
+                SELECT aa.aluno_id, aa.aplicacao_id, aa.status, ap.id AS ap_id
                 FROM aplicacoes ap JOIN aplicacao_alunos aa ON aa.aplicacao_id=ap.id
-                WHERE ap.prova_id=?
-                ORDER BY CASE WHEN {nota_expr} IS NOT NULL OR
-                    (aa.objetiva_corrigida=1 AND COALESCE(aa.discursiva_pendente,0)=0
-                     AND aa.nota_objetiva IS NOT NULL) THEN 1 ELSE 0 END DESC,
-                    ap.id DESC, aa.rowid DESC
+                WHERE ap.prova_id=? ORDER BY ap.id DESC, aa.rowid DESC
             """, (pid,)).fetchall()
+            oficiais = {}
             for r in registros:
                 if r["aluno_id"] is not None and r["aluno_id"] not in oficiais:
                     oficiais[r["aluno_id"]] = dict(r)
@@ -5476,20 +5473,24 @@ def relatorios_avaliacoes():
                 WHERE pq.prova_id=? ORDER BY pq.id
             """, (pid,)).fetchall()
             qids = {int(q["questao_id"]):dict(q) for q in questoes}
-            ids_ap = sorted({int(r["aplicacao_id"]) for r in oficiais.values() if r["aplicacao_id"] is not None})
+            ids_ap = sorted({int(r["aplicacao_id"]) for r in registros if r["aplicacao_id"] is not None})
             objetivas, discursivas = {}, {}
             if ids_ap:
                 marks = ",".join("?" for _ in ids_ap)
                 for r in cur.execute(f"""SELECT aplicacao_id, aluno_id, questao_id,
                     resposta, resposta_correta, situacao, anulada
-                    FROM aplicacao_respostas_objetivas WHERE aplicacao_id IN ({marks})""",ids_ap).fetchall():
-                    if r["aluno_id"] in oficiais and oficiais[r["aluno_id"]]["aplicacao_id"]==r["aplicacao_id"]:
-                        objetivas[(r["aluno_id"],r["questao_id"])]=dict(r)
+                    FROM aplicacao_respostas_objetivas WHERE aplicacao_id IN ({marks})
+                    ORDER BY aplicacao_id DESC, rowid DESC""",ids_ap).fetchall():
+                    key=(r["aluno_id"],r["questao_id"])
+                    if key not in objetivas:
+                        objetivas[key]=dict(r)
                 for r in cur.execute(f"""SELECT aplicacao_id, aluno_id, questao_id,
                     corrigida, nota, conceito FROM respostas_discursivas_aplicacao
-                    WHERE aplicacao_id IN ({marks})""",ids_ap).fetchall():
-                    if r["aluno_id"] in oficiais and oficiais[r["aluno_id"]]["aplicacao_id"]==r["aplicacao_id"]:
-                        discursivas[(r["aluno_id"],r["questao_id"])]=dict(r)
+                    WHERE aplicacao_id IN ({marks}) AND corrigida=1
+                    ORDER BY aplicacao_id DESC, rowid DESC""",ids_ap).fetchall():
+                    key=(r["aluno_id"],r["questao_id"])
+                    if key not in discursivas:
+                        discursivas[key]=dict(r)
             # Correções legadas sem registro na aplicação oficial.
             legados = cur.execute("""SELECT r.aluno_id, r.acertos, r.erros FROM resultados r
                 JOIN (SELECT aluno_id,MAX(id) AS ultimo FROM resultados WHERE prova_id=? GROUP BY aluno_id) u
@@ -14889,6 +14890,58 @@ def resultados(prova_id):
             ORDER BY CASE WHEN c.nota IS NULL THEN 1 ELSE 0 END, c.nota DESC, a.nome COLLATE NOCASE
         """, (prova_id, prova_id))
         todos_registros = [dict(r) for r in cursor.fetchall()]
+
+        # Consolidação transversal: objetivas e discursivas podem ter sido
+        # importadas em aplicações diferentes da MESMA avaliação. Mantém-se
+        # um único estudante, selecionando a última correção por questão.
+        # Não altera notas armazenadas nem mistura provas diferentes.
+        questoes_peso = cursor.execute("""
+            SELECT pq.questao_id, COALESCE(pq.peso,0) peso, q.tipo_questao
+            FROM prova_questoes pq JOIN questoes q ON q.id=pq.questao_id
+            WHERE pq.prova_id=? AND COALESCE(pq.anulada,0)=0
+        """, (prova_id,)).fetchall()
+        pesos = {int(q['questao_id']):float(q['peso'] or 0) for q in questoes_peso}
+        disc_ids = {int(q['questao_id']) for q in questoes_peso
+                    if str(q['tipo_questao'] or '').strip().lower() in
+                    ('discursiva','dissertativa','resposta_aberta','resposta aberta')}
+        consolidado_obj, consolidado_disc = {}, {}
+        for rr in cursor.execute("""
+            SELECT ro.aluno_id, ro.questao_id, ro.acertou, ro.aplicacao_id
+            FROM aplicacao_respostas_objetivas ro JOIN aplicacoes ap ON ap.id=ro.aplicacao_id
+            WHERE ap.prova_id=? ORDER BY ro.aplicacao_id DESC, ro.rowid DESC
+        """,(prova_id,)).fetchall():
+            key=(rr['aluno_id'],rr['questao_id'])
+            if rr['questao_id'] in pesos and rr['questao_id'] not in disc_ids:
+                consolidado_obj.setdefault(key,dict(rr))
+        for rr in cursor.execute("""
+            SELECT rd.aluno_id, rd.questao_id, rd.nota, rd.aplicacao_id
+            FROM respostas_discursivas_aplicacao rd JOIN aplicacoes ap ON ap.id=rd.aplicacao_id
+            WHERE ap.prova_id=? AND rd.corrigida=1
+            ORDER BY rd.aplicacao_id DESC, rd.rowid DESC
+        """,(prova_id,)).fetchall():
+            key=(rr['aluno_id'],rr['questao_id'])
+            if rr['questao_id'] in disc_ids:
+                consolidado_disc.setdefault(key,dict(rr))
+        for reg in todos_registros:
+            aid=reg['aluno_id']
+            objs=[(qid,v) for (aluno,qid),v in consolidado_obj.items() if aluno==aid]
+            discs=[(qid,v) for (aluno,qid),v in consolidado_disc.items() if aluno==aid]
+            if not objs and not discs:
+                continue
+            reg['acertos']=sum(int(v['acertou'] or 0) for _,v in objs)
+            reg['total_objetivas']=len(objs)
+            reg['erros']=len(objs)-reg['acertos']
+            reg['nota_objetiva']=round(sum(pesos[qid]*int(v['acertou'] or 0) for qid,v in objs),2) if objs else None
+            reg['nota_discursiva']=round(sum(float(v['nota'] or 0) for _,v in discs),2) if discs else None
+            if int(prova['tem_nota'] or 0)==1:
+                reg['nota']=round((reg['nota_objetiva'] or 0)+(reg['nota_discursiva'] or 0),2)
+            else:
+                # Avaliações sem nota preservam a nota original, quando houver.
+                # O relatório percentual utiliza as respostas por questão.
+                pass
+            if str(reg.get('status') or '').strip().lower() in ('ausente','faltou'):
+                reg['status']='Corrigido'
+        todos_registros.sort(key=lambda r:(r.get('nota') is None,-float(r.get('nota') or 0),r.get('nome') or ''))
 
         ausentes = [r for r in todos_registros if (r.get("status") or "").strip().lower() in {"ausente", "faltou"}]
         resultados_lista = [r for r in todos_registros if r.get("nota") is not None and r not in ausentes]
