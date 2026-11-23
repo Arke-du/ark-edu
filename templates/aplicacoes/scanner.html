@@ -94,7 +94,7 @@ async function identifyQR(){
  try{
    // Na etapa QR, o professor aproxima o código da câmera: a imagem inteira
    // é enviada ao leitor dedicado, sem iniciar a correção das respostas.
-   const w=Math.min(1700,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
+   const w=Math.min(1600,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
    canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(video,0,0,w,h);
    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.91));
    if(!blob)throw Error('Falha ao capturar o QR.');

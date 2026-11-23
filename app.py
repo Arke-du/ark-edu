@@ -23467,6 +23467,49 @@ def _scanner_assinador_qr():
     return URLSafeTimedSerializer(app.secret_key, salt="arkedus-scanner-qr-v1")
 
 
+def _scanner_decodificar_qr_camera(caminho):
+    """Leitura de quadros de câmera: QR pode estar no CENTRO, não no cabeçalho.
+
+    Mantém recortes e matrizes pequenos para o Render de 512 MB.
+    """
+    try:
+        import zxingcpp
+        import numpy as np
+        from PIL import Image, ImageOps, ImageEnhance
+        with Image.open(caminho) as origem:
+            origem = ImageOps.exif_transpose(origem)
+            origem.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            w, h = origem.size
+            # Priorizar a moldura central e testar também o quadro inteiro.
+            regioes = [(.16, .17, .84, .83), (.05, .05, .95, .95), (0, 0, 1, 1)]
+            for indice, (x1,y1,x2,y2) in enumerate(regioes):
+                recorte = origem.crop((int(w*x1),int(h*y1),int(w*x2),int(h*y2)))
+                cinza = ImageOps.grayscale(recorte)
+                variantes = [cinza, ImageOps.autocontrast(cinza)]
+                if indice == 0:
+                    variantes.append(ImageEnhance.Contrast(cinza).enhance(1.6))
+                for variante in variantes:
+                    for codigo in zxingcpp.read_barcodes(np.asarray(variante)) or ():
+                        texto = str(getattr(codigo, 'text', '') or '').strip()
+                        if 'APLICACAO:' in texto.upper() and 'ALUNO:' in texto.upper():
+                            return texto
+            # OpenCV oferece um segundo decodificador independente do ZXing.
+            try:
+                import cv2
+                detector = cv2.QRCodeDetector()
+                for x1,y1,x2,y2 in regioes[:2]:
+                    recorte = origem.crop((int(w*x1),int(h*y1),int(w*x2),int(h*y2)))
+                    array = np.asarray(ImageOps.grayscale(recorte))
+                    texto, _, _ = detector.detectAndDecode(array)
+                    if texto and 'APLICACAO:' in texto.upper() and 'ALUNO:' in texto.upper():
+                        return texto.strip()
+            except Exception:
+                app.logger.debug('SCANNER_QR: fallback OpenCV indisponível', exc_info=True)
+    except Exception:
+        app.logger.exception('SCANNER_QR: falha na leitura de quadro de câmera')
+    return None
+
+
 @app.route("/aplicacoes/<int:aplicacao_id>/scanner/identificar-qr", methods=["POST"])
 def scanner_identificar_qr(aplicacao_id):
     """Primeira etapa do scanner: identifica QR sem corrigir ou alterar dados."""
@@ -23496,7 +23539,9 @@ def scanner_identificar_qr(aplicacao_id):
                 return jsonify(ok=False, mensagem="Imagem acima do limite de 7 MB."), 413
             # A função existente procura o QR no cabeçalho. Nesta etapa, o
             # recorte recebido já contém o QR em destaque.
-            texto = _decodificar_qr_cartao(caminho)
+            texto = _scanner_decodificar_qr_camera(caminho)
+            if not texto:
+                texto = _decodificar_qr_cartao(caminho)
             if not texto:
                 # O recorte isolado nem sempre fica no canto superior direito:
                 # tenta a imagem completa de forma leve antes de informar falha.
