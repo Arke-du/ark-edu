@@ -17,7 +17,7 @@
 const video=document.querySelector('#video'),status=document.querySelector('#status'),canvas=document.querySelector('#canvas');
 const start=document.querySelector('#start'),stop=document.querySelector('#stop');
 let reviewBlob=null,reviewAnswers=null,reviewing=false;const reviewPanel=document.querySelector("#reviewPanel"),reviewGrid=document.querySelector("#reviewGrid");
-let qrDetector=null,zxingReader=null,zxingLoading=false,qrBusy=false,qrLast=0,stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,answerSince=0,answerFrames=0,counts={ok:0,review:0,errors:0};
+let qrDetector=null,zxingReader=null,zxingLoading=false,qrBusy=false,qrLast=0,qrServerLast=0,stream=null,timer=null,busy=false,armed=true,stable=0,previous=null,lastCapture=null,emptyFrames=0,phase="qr",identified=null,qrAttempts=0,answerSince=0,answerFrames=0,counts={ok:0,review:0,errors:0};
 const say=s=>status.textContent=s;const step=document.querySelector('#step');function setPhase(v){phase=v;document.querySelector('.camera').classList.toggle('qr-mode',v==='qr');document.querySelector('.camera').classList.toggle('answers-mode',v!=='qr');step.textContent=v==='qr'?'Etapa 1 de 2 — Aproxime o QR Code da câmera.':'Etapa 2 de 2 — QR confirmado: '+identified.aluno_nome+'. Enquadre o cartão inteiro.';if(v==='answers'){answerSince=Date.now();answerFrames=0;armed=true;stable=0;previous=null;}}
 const small=document.createElement('canvas');small.width=48;small.height=64;const ctx=small.getContext('2d',{willReadFrequently:true});
 function sample(){ctx.drawImage(video,0,0,48,64);let d=ctx.getImageData(0,0,48,64).data,a=[];for(let i=0;i<d.length;i+=16)a.push((d[i]+d[i+1]+d[i+2])/3);return a;}
@@ -62,11 +62,31 @@ async function scanQr(){
  qrBusy=true;
  try{
   let value='';
-  if(qrDetector){const codes=await qrDetector.detect(video);value=codes.find(x=>x.rawValue)?.rawValue||'';}
-  else if(zxingReader){try{const frame=document.createElement('canvas');frame.width=video.videoWidth;frame.height=video.videoHeight;frame.getContext('2d').drawImage(video,0,0);const result=zxingReader.decodeFromCanvas(frame);value=result?.getText?.()||'';}catch(e){/* Sem QR neste quadro */}}
+  if(qrDetector){
+   try{const codes=await qrDetector.detect(video);value=codes.find(x=>x.rawValue)?.rawValue||'';}
+   catch(e){console.warn('Detector nativo falhou; tentando leitor alternativo',e);qrDetector=null;}
+  }
+  if(!value&&zxingReader){
+   try{
+    const frame=document.createElement('canvas');frame.width=video.videoWidth;frame.height=video.videoHeight;
+    frame.getContext('2d').drawImage(video,0,0);
+    // ZXing Browser pode expor decodeFromCanvas ou decodeFromImageElement,
+    // dependendo da versão. Falha local nunca impede a tentativa no servidor.
+    let result;
+    if(typeof zxingReader.decodeFromCanvas==='function')result=await zxingReader.decodeFromCanvas(frame);
+    else if(typeof zxingReader.decodeFromImageElement==='function'){
+     const img=new Image();img.src=frame.toDataURL('image/jpeg',.93);
+     await img.decode();result=await zxingReader.decodeFromImageElement(img);
+    }
+    value=result?.getText?.()||result?.text||'';
+   }catch(e){/* Quadro sem QR ou método indisponível: servidor fará a leitura */}
+  }
   if(value){qrBusy=false;await validateQrText(value);return;}
-  // Fallback no servidor quando o navegador não oferece leitor local.
-  if(!qrDetector&&!zxingReader){qrBusy=false;await identifyQR();return;}
+  // Não depender exclusivamente do BarcodeDetector ou de biblioteca externa:
+  // alguns Androids/iPhones disponibilizam o leitor mas não decodificam o cartão.
+  if(Date.now()-qrServerLast>=1200){
+   qrServerLast=Date.now();qrBusy=false;await identifyQR();return;
+  }
  }catch(e){console.warn('Falha de leitura QR local',e);}finally{qrBusy=false;}
 }
 async function identifyQR(){
@@ -74,7 +94,7 @@ async function identifyQR(){
  try{
    // Na etapa QR, o professor aproxima o código da câmera: a imagem inteira
    // é enviada ao leitor dedicado, sem iniciar a correção das respostas.
-   const w=Math.min(1500,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
+   const w=Math.min(1700,video.videoWidth),h=Math.round(video.videoHeight*w/video.videoWidth);
    canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(video,0,0,w,h);
    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.91));
    if(!blob)throw Error('Falha ao capturar o QR.');
@@ -110,7 +130,7 @@ document.querySelector('#confirmReview').onclick=confirmAnswers;
 document.querySelector('#retryReview').onclick=()=>{reviewing=false;reviewBlob=null;reviewAnswers=null;reviewPanel.classList.remove('active');if(identified){setPhase('answers');say('Enquadre novamente o cartão para refazer a leitura.')}else{setPhase('qr');say('Aproxime o QR Code novamente.')}};
 
 function tick(){if(!stream||busy||reviewing||video.readyState<2)return;const now=sample();let diff=difference(now,previous);previous=now;
-if(phase==='qr'){if(!armed){let changed=difference(now,lastCapture);if(changed>18){emptyFrames++;if(emptyFrames>=3){armed=true;emptyFrames=0;lastCapture=null;say('Próximo cartão: aproxime o QR Code.');}}else emptyFrames=0;return;}if(Date.now()-qrLast>550){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
+if(phase==='qr'){if(!armed){let changed=difference(now,lastCapture);if(changed>18){emptyFrames++;if(emptyFrames>=3){armed=true;emptyFrames=0;lastCapture=null;say('Próximo cartão: aproxime o QR Code.');}}else emptyFrames=0;return;}if(Date.now()-qrLast>650){qrLast=Date.now();scanQr();}return;}if(!armed){let changed=difference(now,lastCapture);if(changed>27){emptyFrames++;if(emptyFrames>=4){armed=true;stable=0;say('Pronto para o próximo cartão. Mantenha-o parado dentro da moldura.')}}else emptyFrames=0;return;}
 // O vídeo no iPhone pode variar por autofocus/exposição mesmo com a folha parada.
 // Após validar o QR, dá tempo para afastar a câmera e então captura sem exigir
 // sete quadros praticamente idênticos (condição que bloqueava a etapa 2).
@@ -161,7 +181,16 @@ start.onclick=async()=>{
    stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;
    throw playError;
   }
-  stop.disabled=false;armed=true;stable=0;previous=null;identified=null;
+  // Solicita foco contínuo somente se a câmera anunciar suporte.
+  // applyConstraints pode falhar no Safari/Android; não interrompe o scanner.
+  try{
+   const track=stream.getVideoTracks()[0];
+   const caps=track?.getCapabilities?.()||{};
+   const advanced=[];
+   if(Array.isArray(caps.focusMode)&&caps.focusMode.includes('continuous'))advanced.push({focusMode:'continuous'});
+   if(advanced.length)await track.applyConstraints({advanced});
+  }catch(e){console.debug('Foco contínuo não disponível neste aparelho',e);}
+  stop.disabled=false;armed=true;stable=0;previous=null;identified=null;qrServerLast=0;
   document.querySelector('#manualIdentification').style.display='block';setPhase('qr');
   clearInterval(timer);timer=setInterval(tick,170);
   say('Etapa 1: aproxime somente o QR Code. A leitura é automática.');
