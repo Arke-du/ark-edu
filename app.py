@@ -22517,9 +22517,9 @@ def _sincronizar_status_prova(cursor, prova_id):
         """, (prova_id,))
         questoes = cursor.fetchall()
         objetivas = {int(r['questao_id']) for r in questoes
-                     if not _tipo_questao_discursiva(r['tipo_questao'])}
+                     if not _tipo_discursivo_aplicacao(r['tipo_questao'])}
         discursivas = {int(r['questao_id']) for r in questoes
-                       if _tipo_questao_discursiva(r['tipo_questao'])}
+                       if _tipo_discursivo_aplicacao(r['tipo_questao'])}
 
         # A mesma questão pode ter sido importada mais de uma vez; a existência
         # de um resultado válido basta para cumprir a pendência.
