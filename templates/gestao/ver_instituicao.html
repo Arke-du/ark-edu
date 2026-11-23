@@ -17,7 +17,7 @@
             {% if escola["logo"] %}
                 <div class="instituicao-logo-miniatura">
                     <img
-                        src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                        src="{{ upload_url(escola['logo']) }}"
                         alt="Logo de {{ escola['nome_instituicao'] }}"
                     >
                 </div>
@@ -634,7 +634,7 @@
 
             <div class="logo-visualizacao-imagem">
                 <img
-                    src="{{ url_for('static', filename='uploads/' + escola['logo']) }}"
+                    src="{{ upload_url(escola['logo']) }}"
                     alt="Logo da instituição {{ escola['nome_instituicao'] }}"
                 >
             </div>

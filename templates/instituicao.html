@@ -259,7 +259,7 @@ input[type="file"]:focus {
 
                     <div class="logo-box">
                         {% if instituicao and instituicao[7] %}
-                            <img class="logo-preview" src="/static/uploads/{{ instituicao[7] }}">
+                            <img class="logo-preview" src="{{ upload_url(instituicao[7]) }}">
                             <p class="logo-vazio">Logo atual cadastrada.</p>
                         {% else %}
                             <p class="logo-vazio">Nenhuma logo cadastrada ainda.</p>
